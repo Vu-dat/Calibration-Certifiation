@@ -11,17 +11,19 @@
         <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
     </div>
     <nav class="navbar">
-        <a href="index.html">Home</a>
-        <a href="project.html" class="active">Project</a>
-        <a href="customer.html">Customer</a>
-        <a href="standard-equipment.html">Standard Equipment</a>
+        <nav class="navbar">
+    <a href="index.html">Home</a>
+    <a href="project.html" class="active">Project</a> 
+    <a href="customer.html">Customer</a> 
+    <a href="equipment.html">Standard Equipment</a>
+</nav>
     </nav>
 </header>
 
 <main class="container">
     <section id="project-list-view" class="detail-section">
         <h1 class="text-center-aligned">Project List</h1>
-        <table class="project-table" style="width:100%; border-collapse:collapse;">
+        <table class="project-table">
             <thead>
                 <tr>
                     <th>Code</th><th>Name</th><th>Status</th><th>Action</th>
@@ -29,47 +31,114 @@
             </thead>
             <tbody id="project-table-body">
                 <tr id="row-PJ001">
-                    <td onclick="viewDetail('PJ001')">#PJ001</td>
-                    <td onclick="viewDetail('PJ001')">Hiệu chuẩn thước cặp</td>
+                    <td onclick="viewProjectDetail('PJ001')">#PJ001</td>
+                    <td onclick="viewProjectDetail('PJ001')">Hiệu chuẩn thước cặp</td>
                     <td><span class="status-tag">Finished</span></td>
-                    <td><button class="btn-delete" onclick="deleteP('PJ001')">❌</button></td>
+                    <td><button class="btn-delete" onclick="deleteProject('PJ001')">❌</button></td>
                 </tr>
             </tbody>
         </table>
-        <button class="btn-shiny" style="margin-top:20px;" onclick="document.getElementById('project-create-view').style.display='block'; document.getElementById('project-list-view').style.display='none';">+ Create New</button>
+        <button class="btn-shiny" style="margin-top:20px;" onclick="showAddProjectForm()">+ Create New Project</button>
     </section>
 
     <section id="project-create-view" class="detail-section" style="display:none;">
         <div class="create-project-form">
-            <h2>Create New Project</h2>
+            <h2 style="text-align: center;">Create New Project</h2>
             <div class="form-grid">
                 <input type="text" id="new-pj-name" placeholder="Project Name">
-                <input type="text" id="new-pj-id" placeholder="ID (ex: PJ003)">
-                <button class="btn-save" onclick="saveNew()">Save Project</button>
-                <button class="btn-cancel" onclick="location.reload()">Cancel</button>
+                <input type="text" id="new-pj-id" placeholder="ID (ví dụ: PJ003)">
+                <div class="card-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn-cancel" onclick="showProjectList()">Cancel</button>
+                    <button class="btn-save" onclick="saveNewProject()">Save Project</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="project-item-detail" class="detail-section" style="display: none;">
+        <button class="btn-back" onclick="showProjectList()" style="margin-bottom: 20px;">← Back to List</button>
+        <div class="info-card">
+            <h2 id="pj-detail-title" class="text-center-aligned" style="color: var(--primary-teal); margin-bottom: 20px;"></h2>
+            <div class="detail-grid">
+                <p><strong>Project Code:</strong> <span id="pj-display-id"></span></p>
+                <p><strong>Status:</strong> <span id="pj-display-status" class="status-tag"></span></p>
+                <p><strong>Description:</strong> <br>
+                    <span id="pj-display-desc">Dữ liệu chi tiết cho dự án này đang được cập nhật...</span>
+                </p>
             </div>
         </div>
     </section>
 </main>
 
 <script>
-    const projectData = { 'PJ001': { title: 'Hiệu chuẩn thước cặp', status: 'Hoàn thành' } };
+    // Dữ liệu mẫu (giống bản gốc của bạn)
+    const projectData = { 
+        'PJ001': { id: 'PJ001', title: 'Hiệu chuẩn thước cặp', status: 'Finished' } 
+    };
 
-    function saveNew() {
-        const name = document.getElementById('new-pj-name').value;
-        const id = document.getElementById('new-pj-id').value;
-        if(name && id) {
-            alert("Project saved!");
-            location.reload(); 
+    // Hàm xem chi tiết dự án
+    function viewProjectDetail(id) {
+        const pj = projectData[id];
+        if (pj) {
+            document.getElementById('project-list-view').style.display = 'none';
+            document.getElementById('project-create-view').style.display = 'none';
+            document.getElementById('project-item-detail').style.display = 'block';
+
+            document.getElementById('pj-detail-title').textContent = pj.title;
+            document.getElementById('pj-display-id').textContent = '#' + pj.id;
+            document.getElementById('pj-display-status').textContent = pj.status;
         }
     }
 
-    function deleteP(id) {
-        if(confirm("Xóa dự án này?")) document.getElementById(`row-${id}`).remove();
+    // Hàm hiển thị lại danh sách
+    function showProjectList() {
+        document.getElementById('project-list-view').style.display = 'block';
+        document.getElementById('project-create-view').style.display = 'none';
+        document.getElementById('project-item-detail').style.display = 'none';
     }
 
-    function viewDetail(id) {
-        
+    // Hàm hiện form thêm mới
+    function showAddProjectForm() {
+        document.getElementById('project-list-view').style.display = 'none';
+        document.getElementById('project-create-view').style.display = 'block';
+    }
+
+    // Hàm lưu dự án mới
+    function saveNewProject() {
+        const name = document.getElementById('new-pj-name').value;
+        const id = document.getElementById('new-pj-id').value;
+
+        if (!name || !id) {
+            alert("Vui lòng nhập đầy đủ tên và mã dự án!");
+            return;
+        }
+
+        // Lưu vào bộ nhớ tạm
+        projectData[id] = { id: id, title: name, status: 'In Progress' };
+
+        // Thêm vào bảng
+        const tableBody = document.getElementById('project-table-body');
+        const newRow = document.createElement('tr');
+        newRow.id = `row-${id}`;
+        newRow.innerHTML = `
+            <td onclick="viewProjectDetail('${id}')">#${id}</td>
+            <td onclick="viewProjectDetail('${id}')">${name}</td>
+            <td><span class="status-tag">In Progress</span></td>
+            <td><button class="btn-delete" onclick="deleteProject('${id}')">❌</button></td>
+        `;
+        tableBody.appendChild(newRow);
+
+        alert("Tạo dự án thành công!");
+        showProjectList();
+    }
+
+    // Hàm xóa dự án
+    function deleteProject(id) {
+        if (confirm("Bạn có chắc chắn muốn xóa dự án này?")) {
+            const row = document.getElementById(`row-${id}`);
+            if (row) row.remove();
+            delete projectData[id];
+        }
     }
 </script>
 </body>

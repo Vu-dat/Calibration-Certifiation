@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Standard Equipment - LabMaster</title>
+    <link rel="stylesheet" href="index.css">
+    
+</head>
+<body>
+
+<header class="header">
+    <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer;">
+        <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
+    </div>
+    <nav class="navbar">
+        <a href="index.html">Home</a>
+        <a href="project.html">Project</a>
+        <a href="customer.html">Customer</a>
+        <a href="standard-equipment.html" class="active">Standard Equipment</a>
+    </nav>
+</header>
+
+<main class="container">
+    <section id="list-view">
+        <h1 class="text-center-aligned">Standard Equipment List</h1>
+        <table class="customer-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Equipment Name</th>
+                    <th>Manufacturer</th>
+                    <th>Model / SN</th>
+                    <th>Next Due</th>
+                </tr>
+            </thead>
+            <tbody id="eq-body">
+                <tr onclick="editEq('EQ001')">
+                    <td>#EQ001</td>
+                    <td class="name-cell">Máy hiệu chuẩn đa năng</td>
+                    <td id="m-EQ001">Fluke</td>
+                    <td id="mo-EQ001">5522A</td>
+                    <td id="d-EQ001">2026-12-01</td>
+                </tr>
+                <tr onclick="editEq('EQ002')">
+                    <td>#EQ002</td>
+                    <td class="name-cell">Thước vằn chuẩn (Gauge Block)</td>
+                    <td id="m-EQ002">Mitutoyo</td>
+                    <td id="mo-EQ002">516-938-10</td>
+                    <td id="d-EQ002">2026-10-15</td>
+                </tr>
+                <tr onclick="editEq('EQ003')">
+                    <td>#EQ003</td>
+                    <td class="name-cell">Máy đo độ ẩm nhiệt độ</td>
+                    <td id="m-EQ003">Rotronic</td>
+                    <td id="mo-EQ003">HP23-A</td>
+                    <td id="d-EQ003">2027-01-20</td>
+                </tr>
+                <tr onclick="editEq('EQ004')">
+                    <td>#EQ004</td>
+                    <td class="name-cell">Cân phân tích chuẩn</td>
+                    <td id="m-EQ004">Mettler Toledo</td>
+                    <td id="mo-EQ004">XPR205</td>
+                    <td id="d-EQ004">2026-08-05</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section id="edit-view" style="display:none;">
+        <button class="btn-back" onclick="showView('list-view')" style="margin-bottom: 15px;">← Back to List</button>
+        
+        <div class="equipment-card">
+            <div class="detail-header">
+                <div>
+                    <h2 id="display-name" style="margin:0; color: var(--primary-teal);">Equipment Detail</h2>
+                    <small id="display-id" style="color: #666;"></small>
+                </div>
+                <span class="status-badge">Available</span>
+            </div>
+
+            <div class="equipment-grid">
+                <div class="info-item">
+                    <label>Manufacturer</label>
+                    <input type="text" id="in-manu" class="input-detail" placeholder="Nhập hãng sản xuất">
+                </div>
+                <div class="info-item">
+                    <label>Model / Serial Number</label>
+                    <input type="text" id="in-model" class="input-detail" placeholder="Nhập Model/SN">
+                </div>
+                <div class="info-item">
+                    <label>Calibration Date</label>
+                    <input type="date" id="in-date" class="input-detail">
+                </div>
+                <div class="info-item">
+                    <label>Next Due Date</label>
+                    <input type="date" id="in-due" class="input-detail">
+                </div>
+                <div class="info-item full-width">
+                    <label>Technical Specifications (Range, Accuracy, etc.)</label>
+                    <textarea id="in-spec" class="input-detail" style="height:120px;" placeholder="Nhập các thông số kỹ thuật chi tiết theo ảnh mẫu..."></textarea>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-cancel" onclick="showView('list-view')">Hủy</button>
+                <button class="btn-save" onclick="saveEq()">Cập nhật dữ liệu</button>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script>
+    let currentId = '';
+    // Giả lập dữ liệu lưu trữ
+    const db = {
+        'EQ001': { spec: 'Dải đo áp suất: 0-700 bar; Độ chính xác: 0.01% FS' },
+        'EQ002': { spec: 'Cấp chính xác: Grade 0; Số lượng: 87 miếng/bộ' },
+        'EQ003': { spec: 'Dải đo: -40 to 85°C; 0 to 100% RH' },
+        'EQ004': { spec: 'Khả năng cân tối đa: 220g; Độ đọc: 0.01mg' }
+    };
+
+    function editEq(id) {
+        currentId = id;
+        const row = document.querySelector(`tr[onclick="editEq('${id}')"]`);
+        const name = row.cells[1].innerText;
+        
+        // Đổ dữ liệu vào Form
+        document.getElementById('display-name').innerText = name;
+        document.getElementById('display-id').innerText = "Mã thiết bị: #" + id;
+        document.getElementById('in-manu').value = document.getElementById('m-'+id).innerText;
+        document.getElementById('in-model').value = document.getElementById('mo-'+id).innerText;
+        document.getElementById('in-due').value = document.getElementById('d-'+id).innerText;
+        document.getElementById('in-spec').value = db[id].spec;
+
+        showView('edit-view');
+    }
+
+    function saveEq() {
+        const newManu = document.getElementById('in-manu').value;
+        const newModel = document.getElementById('in-model').value;
+        const newDue = document.getElementById('in-due').value;
+        
+        // Cập nhật lại giao diện bảng
+        document.getElementById('m-'+currentId).innerText = newManu;
+        document.getElementById('mo-'+currentId).innerText = newModel;
+        document.getElementById('d-'+currentId).innerText = newDue;
+        
+        // Lưu thông số kỹ thuật vào "DB" ảo
+        db[currentId].spec = document.getElementById('in-spec').value;
+
+        alert("Đã cập nhật thông tin thiết bị #" + currentId);
+        showView('list-view');
+    }
+
+    function showView(viewId) {
+        document.getElementById('list-view').style.display = viewId === 'list-view' ? 'block' : 'none';
+        document.getElementById('edit-view').style.display = viewId === 'edit-view' ? 'block' : 'none';
+        window.scrollTo(0,0);
+    }
+</script>
+
+</body>
+</html>

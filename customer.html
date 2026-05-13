@@ -11,15 +11,17 @@
         <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
     </div>
     <nav class="navbar">
-        <a href="index.html">Home</a>
-        <a href="project.html">Project</a>
-        <a href="customer.html" class="active">Customer</a>
-        <a href="standard-equipment.html">Standard Equipment</a>
+       <nav class="navbar">
+    <a href="index.html" >Home</a>
+    <a href="project.html">Project</a> 
+    <a href="customer.html" class="active">Customer</a> 
+    <a href="equipment.html">Standard Equipment</a>
+</nav>
     </nav>
 </header>
 
 <main class="container">
-    <div id="customer-list-view">
+    <section id="customer-list-view" class="detail-section">
         <h1 class="text-center-aligned">Customer Information</h1>
         <table class="customer-table">
             <thead>
@@ -41,131 +43,198 @@
         <div class="button-wrapper" style="text-align: center; margin-top: 20px;">
             <button class="btn-shiny" onclick="showAddCustomerForm()">+ Add New Customer</button>
         </div>
-    </div>
+    </section>
 
-    <div id="customer-add-view" style="display: none;">
-        <div class="create-project-form">
-            <h1 style="text-align: center;">Add New Customer</h1>
-            <div class="form-grid">
-                <input type="text" id="add-cust-name" placeholder="Full Name">
-                <input type="text" id="add-cust-company" placeholder="Company Name">
-                <input type="text" id="add-cust-phone" placeholder="Phone Number">
-                <textarea id="add-cust-note" placeholder="Customer notes..."></textarea>
-                <div class="card-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
-                    <button class="btn-cancel" onclick="showCustomerList()">Cancel</button>
-                    <button class="btn-save" onclick="saveNewCustomer()">Save Customer</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="customer-item-detail" style="display: none;">
+    <section id="customer-item-detail" class="detail-section" style="display: none;">
         <div class="detail-actions-bar" style="display: flex; justify-content: space-between; margin-bottom: 20px;">
             <button class="btn-back" onclick="showCustomerList()">← Back to List</button>
-            <button id="btn-edit-trigger" class="btn-primary" onclick="enableEdit()">Edit</button>
+            
         </div>
+
         <div class="info-card">
-            <h2 id="detail-title" class="text-center-aligned" style="color: var(--primary-teal);"></h2>
+            <h2 id="detail-title" class="text-center-aligned" style="color: var(--primary-teal); margin-bottom: 20px;"></h2>
+            
             <p><strong>ID:</strong> <span id="display-id"></span></p>
+            
             <p><strong>Company:</strong> 
                 <span id="display-company"></span>
                 <input type="text" id="edit-company" class="form-input" style="display:none;">
             </p>
+            
             <p><strong>Note:</strong> <br>
                 <span id="display-note"></span>
                 <textarea id="edit-note" class="form-input" style="display:none; width: 100%; height: 100px;"></textarea>
             </p>
-            <div id="edit-actions" class="card-footer" style="display: none; justify-content: flex-end; gap: 10px;">
+            <button id="btn-edit" class="btn-primary" onclick="enableEdit()" style="display: block;">Edit</button>
+            <div id="edit-actions" class="card-footer" style="display: none; justify-content: flex-end; gap: 10px; margin-top: 20px;">
                 <button class="btn-cancel" onclick="cancelEdit()">Cancel</button>
                 <button class="btn-save" onclick="saveCustomerChanges()">Save & Overwrite</button>
             </div>
         </div>
+    </section>
+    <div id="customer-add-view" style="display: none;">
+    <div class="create-project-form">
+        <h1 style="text-align: center;">Add New Customer</h1>
+        <div class="form-grid">
+            <input type="text" id="add-cust-name" placeholder="Full Name">
+            <input type="text" id="add-cust-company" placeholder="Company Name">
+            <input type="text" id="add-cust-phone" placeholder="Phone Number">
+            <textarea id="add-cust-note" placeholder="Customer notes..."></textarea>
+            
+            <div class="card-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn-cancel" onclick="showCustomerList()">Cancel</button>
+                <button class="btn-save" onclick="saveNewCustomer()">Save Customer</button>
+            </div>
+        </div>
     </div>
+</div>
 </main>
 
 <script>
-    let customerData = { '1': { id: '1', name: 'Nguyen Van A', company: 'Samsung Vina', phone: '0123456789', note: 'Đã hiệu chuẩn 5 thiết bị...' } };
+    // Dữ liệu mẫu
+    let customerData = { 
+        '1': { id: '1', name: 'Nguyen Van A', company: 'Samsung Vina', phone: '0123456789', note: 'Đã hiệu chuẩn 5 thiết bị...' } 
+    };
     let currentId = null;
 
+    // Xem chi tiết
     function viewCustomer(id) {
         currentId = id;
-        const c = customerData[id];
-        if(!c) return;
+        const customer = customerData[id];
+        if (customer) {
+            document.getElementById('customer-list-view').style.display = 'none';
+            document.getElementById('customer-item-detail').style.display = 'block';
 
-        document.getElementById('customer-list-view').style.display = 'none';
-        document.getElementById('customer-add-view').style.display = 'none';
-        document.getElementById('customer-item-detail').style.display = 'block';
+            document.getElementById('detail-title').textContent = customer.name;
+            document.getElementById('display-id').textContent = customer.id;
+            document.getElementById('display-company').textContent = customer.company;
+            document.getElementById('display-note').textContent = customer.note;
 
-        document.getElementById('detail-title').textContent = c.name;
-        document.getElementById('display-id').textContent = c.id;
-        document.getElementById('display-company').textContent = c.company;
-        document.getElementById('display-note').textContent = c.note;
-        cancelEdit();
+            cancelEdit(); // Reset về trạng thái xem
+        }
     }
 
+    // Quay lại danh sách
     function showCustomerList() {
         document.getElementById('customer-list-view').style.display = 'block';
-        document.getElementById('customer-add-view').style.display = 'none';
         document.getElementById('customer-item-detail').style.display = 'none';
     }
 
-    function showAddCustomerForm() {
-        document.getElementById('customer-list-view').style.display = 'none';
-        document.getElementById('customer-add-view').style.display = 'block';
-    }
-
+    // Kích hoạt chế độ Edit
     function enableEdit() {
-        if(prompt("Nhập mật khẩu (123):") === "123") {
+        const pass = prompt("Nhập mật khẩu (123) để sửa:");
+        if (pass === "123") {
+            // Đổ dữ liệu vào ô input
             document.getElementById('edit-company').value = customerData[currentId].company;
             document.getElementById('edit-note').value = customerData[currentId].note;
             toggleUI(true);
-        } else { alert("Sai mật khẩu!"); }
+        } else {
+            alert("Sai mật khẩu!");
+        }
     }
 
+    // Hủy chỉnh sửa
+    function cancelEdit() {
+        toggleUI(false);
+    }
+
+    // Lưu thay đổi (Overwrite)
     function saveCustomerChanges() {
-        const newCo = document.getElementById('edit-company').value;
-        const newNo = document.getElementById('edit-note').value;
+        const newCompany = document.getElementById('edit-company').value;
+        const newNote = document.getElementById('edit-note').value;
 
-        customerData[currentId].company = newCo;
-        customerData[currentId].note = newNo;
+        // 1. Lưu vào biến dữ liệu
+        customerData[currentId].company = newCompany;
+        customerData[currentId].note = newNote;
 
+        // 2. Cập nhật bảng danh sách
         const row = document.getElementById(`customer-row-${currentId}`);
-        if(row) {
-            row.querySelector('.company-cell').textContent = newCo;
-            row.querySelector('.note-cell').textContent = newNo;
+        if (row) {
+            row.querySelector('.company-cell').textContent = newCompany;
+            row.querySelector('.note-cell').textContent = newNote;
         }
 
-        document.getElementById('display-company').textContent = newCo;
-        document.getElementById('display-note').textContent = newNo;
+        // 3. Cập nhật giao diện chi tiết
+        document.getElementById('display-company').textContent = newCompany;
+        document.getElementById('display-note').textContent = newNote;
+
         toggleUI(false);
-        alert("Đã ghi đè thành công!");
+        alert("Đã cập nhật thông tin khách hàng!");
     }
 
+    // Hàm bổ trợ ẩn/hiện các thành phần Edit
     function toggleUI(isEdit) {
         document.getElementById('display-company').style.display = isEdit ? 'none' : 'inline';
         document.getElementById('display-note').style.display = isEdit ? 'none' : 'inline';
+        
         document.getElementById('edit-company').style.display = isEdit ? 'block' : 'none';
         document.getElementById('edit-note').style.display = isEdit ? 'block' : 'none';
         document.getElementById('edit-actions').style.display = isEdit ? 'flex' : 'none';
-        document.getElementById('btn-edit-trigger').style.display = isEdit ? 'none' : 'block';
+        document.getElementById('btn-edit').style.display = isEdit ? 'none' : 'block';
     }
 
-    function cancelEdit() { toggleUI(false); }
-
-    function saveNewCustomer() {
-        const name = document.getElementById('add-cust-name').value;
-        const comp = document.getElementById('add-cust-company').value;
-        if(!name || !comp) return alert("Thiếu thông tin!");
-        
-        const newId = Date.now().toString().slice(-3);
-        customerData[newId] = { id: newId, name: name, company: comp, phone: document.getElementById('add-cust-phone').value, note: document.getElementById('add-cust-note').value };
-
-        const row = document.createElement('tr');
-        row.id = `customer-row-${newId}`;
-        row.innerHTML = `<td onclick="viewCustomer('${newId}')">${newId}</td><td class="name-cell" onclick="viewCustomer('${newId}')">${name}</td><td class="company-cell">${comp}</td><td>${customerData[newId].phone}</td><td class="note-cell">${customerData[newId].note}</td><td><button class="btn-delete" onclick="deleteCustomer('${newId}')">🗑️</button></td>`;
-        document.getElementById('customer-table-body').appendChild(row);
-        showCustomerList();
+    function deleteCustomer(id) {
+        if(confirm("Xóa khách hàng này?")) {
+            document.getElementById(`customer-row-${id}`).remove();
+            delete customerData[id];
+        }
     }
+
+    // Hàm hiển thị Form thêm mới
+function showAddCustomerForm() {
+    document.getElementById('customer-list-view').style.display = 'none';
+    document.getElementById('customer-add-view').style.display = 'block';
+    document.getElementById('customer-item-detail').style.display = 'none';
+}
+
+// Hàm lưu khách hàng mới
+function saveNewCustomer() {
+    const name = document.getElementById('add-cust-name').value;
+    const company = document.getElementById('add-cust-company').value;
+    const phone = document.getElementById('add-cust-phone').value;
+    const note = document.getElementById('add-cust-note').value;
+
+    if (!name || !company) {
+        alert("Vui lòng nhập tên và công ty!");
+        return;
+    }
+
+    const newId = Date.now().toString().slice(-3); 
+
+    // Lưu vào biến dữ liệu
+    customerData[newId] = {
+        id: newId,
+        name: name,
+        company: company,
+        phone: phone,
+        note: note
+    };
+
+    // Thêm vào bảng HTML
+    const tableBody = document.getElementById('customer-table-body');
+    const newRow = document.createElement('tr');
+    newRow.id = `customer-row-${newId}`;
+    newRow.innerHTML = `
+        <td onclick="viewCustomer('${newId}')">${newId}</td>
+        <td class="name-cell" onclick="viewCustomer('${newId}')">${name}</td>
+        <td class="company-cell" onclick="viewCustomer('${newId}')">${company}</td>
+        <td>${phone}</td>
+        <td class="note-cell">${note}</td>
+        <td><button class="btn-delete" onclick="deleteCustomer('${newId}')">🗑️</button></td>
+    `;
+    tableBody.appendChild(newRow);
+
+    alert("Thêm khách hàng thành công!");
+    // Reset form
+    document.getElementById('add-cust-name').value = '';
+    document.getElementById('add-cust-company').value = '';
+    document.getElementById('add-cust-phone').value = '';
+    document.getElementById('add-cust-note').value = '';
+    
+    showCustomerList();
+}
+
+
 </script>
 </body>
 </html>

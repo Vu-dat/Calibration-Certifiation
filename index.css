@@ -672,3 +672,91 @@ body {
 .customer-table td {
     vertical-align: middle;
 }
+
+
+        /* CSS NÂNG CAO CHO PHẦN DETAIL */
+        .equipment-card {
+            background: white;
+            border-radius: 15px;
+            padding: 35px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            max-width: 1000px;
+            margin: 20px auto;
+            border-top: 5px solid var(--primary-teal);
+        }
+
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .equipment-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-item label {
+            font-weight: 700;
+            color: #444;
+            font-size: 13px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .input-detail {
+            padding: 12px 15px;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            background-color: #fcfcfc;
+            transition: all 0.3s ease;
+        }
+
+        .input-detail:focus {
+            border-color: var(--primary-teal);
+            background-color: #fff;
+            box-shadow: 0 0 0 4px rgba(0, 102, 100, 0.1);
+            outline: none;
+        }
+
+        .full-width {
+            grid-column: span 2;
+        }
+
+        /* Badge trạng thái */
+        .status-badge {
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            background: #e3fcef;
+            color: #00b894;
+        }
+
+        .btn-group {
+            margin-top: 30px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        }
+
+        /* Hiệu ứng hover cho bảng */
+        .customer-table tbody tr {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .customer-table tbody tr:hover {
+            background-color: #f0f7f7 !important;
+        }
+    
