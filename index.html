@@ -16,10 +16,10 @@
     
     <div class="nav-container">
         <nav class="navbar">
-            <a href="#" id="nav-home" class="active" onclick="navigate('home')">Home</a>
-            <a href="#" id="nav-project" onclick="navigate('project')">Project</a>
-            <a href="#" id="nav-customer" onclick="navigate('customer')">Customer</a>
-            <a href="#" id="nav-equipment" onclick="navigate('equipment')">Standard Equipment</a>
+            <a href="index.html" class="active">Home</a>
+            <a href="project.html">Project</a> 
+            <a href="customer.html">Customer</a> 
+            <a href="equipment.html">Standard Equipment</a>
         </nav>
             <button class="btn-shiny" onclick="navigate('signin')">Sign In</button>
         </div>
@@ -57,166 +57,8 @@
         </div>
     </div>
 </main>
-<section id="project-section" class="detail-section" style="display: none;">
-    <div id="project-list-view">
-        <h3 class="text-center-aligned">Danh sách dự án</h3>
-        <div class="project-table-container">
-            <table class="project-table">
-                <thead>
-                    <tr>
-                        <th>Code of Project</th>
-                        <th>Name of Project</th>
-                        <th>Status</th>
-                        <th>Actions</th> </tr>
-                </thead>
-                <tbody id="project-table-body">
-                    <tr id="row-PJ001">
-                        <td onclick="viewProjectDetail('PJ001')">#PJ001</td>
-                        <td onclick="viewProjectDetail('PJ001')">Hiệu chuẩn thước cặp</td>
-                        <td><span class="status-tag">Finished</span></td>
-                        <td><button class="btn-delete" onclick="deleteProject('PJ001')">❌Delete</button></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="button-wrapper">
-            <button class="btn-shiny" onclick="showCreateForm()">+ Create New Project</button>
-        </div>
-        <div class="detail-header">
-        <button class="btn-back" id="btn-back" onclick="navigate('home')">← Home page</button> 
-    </div>
-    </div>
 
-    <div id="project-create-view" style="display: none;">
-        <div class="create-project-form">
-            <h1 style="text-align: center; margin-bottom: 20px;">Create new project</h1>
-            <div class="form-grid">
-                <input type="text" id="new-pj-name" placeholder="Name of project">
-                <input type="text" id="new-pj-id" placeholder="Device ID (Vd: PJ003)">
-                <input type="date" id="new-pj-date">
-                <select id="new-pj-type">
-                    <option>Select calibration type</option>
-                    <option>Temperature</option>
-                    <option>Pressure</option>
-                    <option>Weight</option>
-                </select>
-                <textarea id="new-pj-note" placeholder="Project details..."></textarea>
-                <button class="btn-shiny" onclick="saveNewProject()">Save Project</button>
-            </div>
-            <div style="text-align: center; margin-top: 20px;">
-                <button class="btn-back" onclick="showProjectList()">← Back to Project List</button>
-            </div>
-        </div>
-    </div>
 
-    <div id="project-item-detail" style="display: none;">
-        <button class="btn-back" onclick="showProjectList()">← Back to List</button>
-        <h3 id="detail-title" class="text-center-aligned"></h3>
-        <div class="info-card">
-            <p><strong>ID:</strong> <span id="detail-id"></span></p>
-            <p><strong>Note:</strong> <span id="detail-content"></span></p>
-            <p><strong>Status:</strong> <span id="detail-status"></span></p>
-        </div>
-    </div>
-</section>
-
-<section id="customer-section" class="detail-section" style="display: none;">
-    
-    <div id="customer-list-view">
-        <h1 class="text-center-aligned">Customer Information</h1>
-        <div class="customer-table-container">
-            <table class="customer-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Company</th>
-                        <th>Phone</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="customer-table-body">
-                    <tr id="customer-row-1">
-                        <td onclick="viewCustomer('1')">1</td>
-                        <td class="name-cell" onclick="viewCustomer('1')">Nguyen Van A</td>
-                        <td onclick="viewCustomer('1')" class="company-cell">Samsung Vina</td>
-                        <td onclick="viewCustomer('1')">0123456789</td>
-                        <td><button class="btn-delete" onclick="deleteCustomer('1')">🗑️</button></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="button-wrapper" style="text-align: center; margin-top: 20px;">
-            <button class="btn-shiny" onclick="showAddCustomerForm()">+ Add New Customer</button>
-        </div>
-        <div class="detail-header">
-        <button class="btn-back" id="btn-back" onclick="navigate('home')">← Home page</button> 
-    </div>
-    </div>
-
-    <div id="customer-add-view" style="display: none;">
-        <div class="create-project-form">
-            <h1 style="text-align: center;">Add New Customer</h1>
-            <div class="form-grid">
-                <input type="text" id="add-cust-name" placeholder="Full Name">
-                <input type="text" id="add-cust-company" placeholder="Company Name">
-                <input type="email" id="add-cust-email" placeholder="Email Address">
-                <input type="text" id="add-cust-phone" placeholder="Phone Number">
-                <textarea id="add-cust-note" placeholder="Customer notes..."></textarea>
-                
-                <div class="card-footer">
-                    <button class="btn-cancel" onclick="showCustomerList()">Cancel</button>
-                    <button class="btn-save" onclick="saveNewCustomer()">Save Customer</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="customer-item-detail" style="display: none;">
-    <div class="detail-actions-bar" style="display: flex; justify-content: space-between; margin-bottom: 20px;">
-        <button class="btn-back" onclick="showCustomerList()">← Back to List</button>
-        
-    </div>
-
-    <div class="info-card" style="position: relative;">
-        <h2 id="detail-title" class="text-center-aligned" style="margin-bottom: 20px; color: var(--primary-teal);"></h2>
-        
-        <p><strong>ID:</strong> <span id="display-id"></span></p>
-        
-        <p><strong>Company:</strong> 
-            <span id="display-company"></span>
-            <input type="text" id="edit-company" class="form-input" style="display:none;">
-        </p>
-        
-        <p><strong>Note:</strong> <br>
-            <span id="display-note"></span>
-            <textarea id="edit-note" class="form-input" style="display:none; width: 100%; height: 100px;"></textarea>
-        </p>
-
-        <button id="btn-edit" class="btn-primary" onclick="enableEdit()">Edit</button>
-
-        <div id="edit-actions" class="card-footer" style="display: none; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-            <button class="btn-cancel" onclick="cancelEdit()">Cancel</button>
-            <button class="btn-save" onclick="saveCustomerChanges()">Save & Overwrite</button>
-        </div>
-    </div>
-</div>
-
-</section>
-
-<section id="equipment-section" class="detail-section" style="display: none;">
-    <div class="detail-container">
-        <div class="equipment-info">
-            <h1 class="text-center-aligned">Standard Equipment</h1>
-            <p><strong>Equipment Name:</strong> Standard Thermometer</p>
-            <p><strong>Calibration Due Date:</strong> 2024-12-31</p>
-            <p><strong>Status:</strong> Active</p>
-        </div>
-    </div>
-    <div class="detail-header">
-        <button class="btn-back" id="btn-back" onclick="navigate('home')">← Home page</button> 
-    </div>
-</section>
 <section id="signin-section" class="detail-section" style="display: none;">
     <div class="box">
     <div class="boderline">
@@ -277,273 +119,30 @@
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-
-const projectData = {
-    'PJ001': { title: 'Hiệu chuẩn thước cặp', status: 'Hoàn thành', content: 'Hiệu chuẩn định kỳ cho Samsung Vina' },
-    'PJ002': { title: 'Kiểm định máy đo huyết áp', status: 'Đang xử lý', content: 'Kiểm định tại Bệnh viện Đa khoa' }
-};
-function viewProjectDetail(id) {
-    const project = projectData[id];
-    if (project) {
-        // Ẩn tất cả các view nội bộ của Project
-        document.getElementById('project-list-view').style.display = 'none';
-        document.getElementById('project-create-view').style.display = 'none';
-        
-        // Chỉ hiện duy nhất view chi tiết
-        document.getElementById('project-item-detail').style.display = 'block';
-
-        // Đổ dữ liệu
-        document.getElementById('detail-title').innerText = project.title;
-        document.getElementById('detail-id').innerText = id;
-        document.getElementById('detail-status').innerText = project.status;
-        document.getElementById('detail-content').innerText = project.content;
-        
-        window.scrollTo(0, 0);
-    }
-}
-// Đảm bảo hàm quay lại cũng ẩn hết các view phụ
-function showProjectList() {
-    document.getElementById('project-list-view').style.display = 'block';
-    document.getElementById('project-create-view').style.display = 'none';
-    document.getElementById('project-item-detail').style.display = 'none';
-}
-
-// Hàm lưu dự án mới vào danh sách hiển thị
-function saveNewProject() {
-    const name = document.getElementById('new-pj-name').value;
-    const id = document.getElementById('new-pj-id').value;
-    const type = document.getElementById('new-pj-type').value;
-
-    if (!name || !id) {
-        alert("Please enter the project name and ID!");
-        return;
-    }
-
-    // 1. Cập nhật vào "Database" ảo (Biến projectData của bài trước)
-    projectData[id] = { title: name, status: 'Đang xử lý', content: 'Loại: ' + type };
-
-    // 2. Tạo dòng mới trong bảng HTML
-    const tableBody = document.getElementById('project-table-body');
-    const newRow = document.createElement('tr');
-    newRow.id = `row-${id}`;
-    newRow.innerHTML = `
-        <td onclick="viewProjectDetail('${id}')">#${id}</td>
-        <td onclick="viewProjectDetail('${id}')">${name}</td>
-        <td><span class="status-tag" style="background:#fff4e6; color:#fd7e14;">Mới tạo</span></td>
-        <td><button class="btn-delete" onclick="deleteProject('${id}')">❌Delete</button></td>
-    `;
-    tableBody.appendChild(newRow);
-
-    // 3. Thông báo và quay lại danh sách
-    alert("Project saved successfully!");
-    showProjectList();
-    
-    // Xóa trắng form sau khi lưu
-    document.getElementById('new-pj-name').value = '';
-    document.getElementById('new-pj-id').value = '';
-}
-
-// Hàm xóa dự án
-function deleteProject(id) {
-    if (confirm("Are you sure you want to delete this project?")) {
-        // Xóa dòng trong bảng
-        const row = document.getElementById(`row-${id}`);
-        if (row) row.remove();
-        
-        // Xóa trong bộ nhớ dữ liệu
-        delete projectData[id];
-    }
-}
-
-// Chỉnh lại các hàm ẩn hiện cho đồng bộ
-function showCreateForm() {
-    document.getElementById('project-list-view').style.display = 'none';
-    document.getElementById('project-create-view').style.display = 'block';
-    document.getElementById('project-item-detail').style.display = 'none';
-}
-
-function opnensignin() {
-    getElementById('home-section').style.display = 'none';
-}
-
-
- // 1. Dữ liệu mẫu ban đầu
-let customerData = {
-    '1': { id: '1', name: 'Nguyen Van A', company: 'Samsung Vina', note: 'Đã hiệu chuẩn 5 thiết bị...' }
-};
-let currentId = null;
-
-// 2. Hàm xem chi tiết
-function viewCustomer(id) {
-    currentId = id; // Rất quan trọng: Gán ID hiện tại để hàm Save/Edit sử dụng
-    const customer = customerData[id];
-    
-    if (customer) {
-        // 1. Ẩn danh sách và form thêm mới
-        document.getElementById('customer-list-view').style.display = 'none';
-        document.getElementById('customer-add-view').style.display = 'none';
-        
-        // 2. Hiện vùng chi tiết
-        document.getElementById('customer-item-detail').style.display = 'block';
-
-        // 3. Đổ dữ liệu vào các thẻ (Sửa lại ID cho đúng với HTML ở trên)
-        document.getElementById('detail-title').textContent = customer.name;
-        document.getElementById('display-id').textContent = customer.id;
-        document.getElementById('display-company').textContent = customer.company;
-        document.getElementById('display-note').textContent = customer.note;
-        
-        // 4. Chuẩn bị sẵn dữ liệu vào ô input (ẩn) để khi bấm Edit là có luôn
-        document.getElementById('edit-company').value = customer.company;
-        document.getElementById('edit-note').value = customer.note;
-
-        cancelEdit(); // Đưa về trạng thái xem, ẩn các ô nhập liệu
-        window.scrollTo(0, 0);
-    }
-}
-// 3. Hàm kích hoạt chỉnh sửa (Hỏi pass)
-function enableEdit() {
-    const pass = prompt("Nhập mật khẩu (123) để sửa:");
-    if (pass === "123") {
-        document.getElementById('edit-company').value = customerData[currentId].company;
-        document.getElementById('edit-note').value = customerData[currentId].note;
-        
-        toggleUI(true); // Hiện ô input
-        setTimeout(() => {
-            document.getElementById('edit-company').focus();
-        }, 100);
-    } else {
-        alert("Sai mật khẩu!");
-    }
-}
-
-// 4. HÀM QUAN TRỌNG NHẤT: Ghi đè dữ liệu
-function saveCustomerChanges() {
-    const newCompany = document.getElementById('edit-company').value;
-    const newNote = document.getElementById('edit-note').value;
-
-    // 1. Ghi đè vào biến dữ liệu gốc (Bộ não)
-    customerData[currentId].company = newCompany;
-    customerData[currentId].note = newNote;
-
-    // 2. Ghi đè trực tiếp lên giao diện bảng danh sách
-    const row = document.getElementById(`customer-row-${currentId}`);
-    if (row) {
-        // Cập nhật cột Company (đã có class company-cell)
-        const companyCell = row.querySelector('.company-cell');
-        if (companyCell) companyCell.textContent = newCompany;
-
-        // Cập nhật cột Note (Tìm cột cuối cùng hoặc cột thứ 5)
-        // Vì bạn không đặt class cho cột Note ở bảng, ta dùng nth-child
-        const noteCell = row.querySelector('td:nth-child(5)'); 
-        // Lưu ý: Nếu bạn dùng code mới ở bước 2 thì dùng row.querySelector('.note-cell')
-        if (noteCell) noteCell.textContent = newNote;
-    }
-
-    // 3. Cập nhật lại giao diện trang chi tiết đang xem
-    document.getElementById('display-company').textContent = newCompany;
-    document.getElementById('display-note').textContent = newNote;
-
-    toggleUI(false); 
-    alert("Đã chỉnh sửa thông tin khách hàng thành công!");
-}
-
-// Hàm hỗ trợ ẩn/hiện nhanh
-function toggleUI(isEdit) {
-    document.getElementById('display-company').style.display = isEdit ? 'none' : 'inline';
-    document.getElementById('display-note').style.display = isEdit ? 'none' : 'inline';
-    document.getElementById('edit-company').style.display = isEdit ? 'inline' : 'none';
-    document.getElementById('edit-note').style.display = isEdit ? 'inline' : 'none';
-    document.getElementById('edit-actions').style.display = isEdit ? 'block' : 'none';
-    document.getElementById('btn-edit').style.display = isEdit ? 'none' : 'inline';
-}
-
-function cancelEdit() { toggleUI(false); }
-function showCustomerList() {
-    document.getElementById('customer-list-view').style.display = 'block';
-    
-    if (document.getElementById('customer-item-detail')) {
-        document.getElementById('customer-item-detail').style.display = 'none';
-    }
-    if (document.getElementById('customer-add-view')) {
-        document.getElementById('customer-add-view').style.display = 'none';
-    }
-}
-
-
-// Hàm hiển thị Form thêm mới
-function showAddCustomerForm() {
-    document.getElementById('customer-list-view').style.display = 'none';
-    document.getElementById('customer-add-view').style.display = 'block';
-    document.getElementById('customer-item-detail').style.display = 'none';
-}
-
-// Hàm quay lại danh sách
-function showCustomerList() {
-    document.getElementById('customer-list-view').style.display = 'block';
-    document.getElementById('customer-add-view').style.display = 'none';
-    document.getElementById('customer-item-detail').style.display = 'none';
-}
-
-// Hàm lưu khách hàng mới
-function saveNewCustomer() {
-    const name = document.getElementById('add-cust-name').value;
-    const company = document.getElementById('add-cust-company').value;
-    const email = document.getElementById('add-cust-email').value;
-    const phone = document.getElementById('add-cust-phone').value;
-    const note = document.getElementById('add-cust-note').value;
-
-    if (!name || !company) {
-        alert("Vui lòng nhập tên và công ty!");
-        return;
-    }
-
-    // Tạo ID ngẫu nhiên hoặc tăng dần
-    const newId = Date.now().toString().slice(-3); 
-
-    // 1. Thêm vào bộ nhớ tạm (customerData)
-    customerData[newId] = {
-        id: newId,
-        name: name,
-        company: company,
-        email: email,
-        phone: phone,
-        note: note
-    };
-
-    // 2. Thêm dòng mới vào bảng HTML
-    const tableBody = document.getElementById('customer-table-body');
-    const newRow = document.createElement('tr');
-    newRow.id = `customer-row-${newId}`;
-    newRow.innerHTML = `
-        <td onclick="viewCustomer('${newId}')">${newId}</td>
-        <td class="name-cell" onclick="viewCustomer('${newId}')">${name}</td>
-        <td class="company-cell">${company}</td>
-        <td>${phone}</td>
-        <td><button class="btn-delete" onclick="deleteCustomer('${newId}')">🗑️</button></td>
-    `;
-    tableBody.appendChild(newRow);
-
-    // 3. Thông báo và Reset form
-    alert("Thêm khách hàng thành công!");
-    clearAddCustomerForm();
-    showCustomerList();
-}
-
-function clearAddCustomerForm() {
-    document.getElementById('add-cust-name').value = '';
-    document.getElementById('add-cust-company').value = '';
-    document.getElementById('add-cust-email').value = '';
-    document.getElementById('add-cust-phone').value = '';
-    document.getElementById('add-cust-note').value = '';
-}
-
-// Hàm xóa khách hàng
-function deleteCustomer(id) {
-    if (confirm("Bạn có chắc chắn muốn xóa khách hàng này?")) {
-        document.getElementById(`customer-row-${id}`).remove();
-        delete customerData[id];
-    }
-}
 </script>
 </body>
-</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

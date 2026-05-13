@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Quản lý dự án - LabMaster</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+<header class="header">
+    <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer;">
+        <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
+    </div>
+    <nav class="navbar">
+        <a href="index.html">Home</a>
+        <a href="project.html" class="active">Project</a>
+        <a href="customer.html">Customer</a>
+        <a href="standard-equipment.html">Standard Equipment</a>
+    </nav>
+</header>
+
+<main class="container">
+    <section id="project-list-view" class="detail-section">
+        <h1 class="text-center-aligned">Project List</h1>
+        <table class="project-table" style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th>Code</th><th>Name</th><th>Status</th><th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="project-table-body">
+                <tr id="row-PJ001">
+                    <td onclick="viewDetail('PJ001')">#PJ001</td>
+                    <td onclick="viewDetail('PJ001')">Hiệu chuẩn thước cặp</td>
+                    <td><span class="status-tag">Finished</span></td>
+                    <td><button class="btn-delete" onclick="deleteP('PJ001')">❌</button></td>
+                </tr>
+            </tbody>
+        </table>
+        <button class="btn-shiny" style="margin-top:20px;" onclick="document.getElementById('project-create-view').style.display='block'; document.getElementById('project-list-view').style.display='none';">+ Create New</button>
+    </section>
+
+    <section id="project-create-view" class="detail-section" style="display:none;">
+        <div class="create-project-form">
+            <h2>Create New Project</h2>
+            <div class="form-grid">
+                <input type="text" id="new-pj-name" placeholder="Project Name">
+                <input type="text" id="new-pj-id" placeholder="ID (ex: PJ003)">
+                <button class="btn-save" onclick="saveNew()">Save Project</button>
+                <button class="btn-cancel" onclick="location.reload()">Cancel</button>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script>
+    const projectData = { 'PJ001': { title: 'Hiệu chuẩn thước cặp', status: 'Hoàn thành' } };
+
+    function saveNew() {
+        const name = document.getElementById('new-pj-name').value;
+        const id = document.getElementById('new-pj-id').value;
+        if(name && id) {
+            alert("Project saved!");
+            location.reload(); 
+        }
+    }
+
+    function deleteP(id) {
+        if(confirm("Xóa dự án này?")) document.getElementById(`row-${id}`).remove();
+    }
+
+    function viewDetail(id) {
+        
+    }
+</script>
+</body>
+</html>
