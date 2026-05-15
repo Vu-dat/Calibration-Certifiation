@@ -10,19 +10,19 @@
 <body>
 
 <header class="header">
-    <div class="logo-wrapper" onclick="navigate('home')" style="cursor: pointer;">
+    <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer;">
         <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
     </div>
     
     <div class="nav-container">
         <nav class="navbar">
-            <a href="index.html" class="active">Home</a>
-            <a href="project.html">Project</a> 
-            <a href="customer.html">Customer</a> 
-            <a href="equipment.html">Standard Equipment</a>
+            <a href="index.html" id="nav-home" class="active">Home</a>
+            <a href="project.html" id="nav-project">Project</a> 
+            <a href="customer.html" id="nav-customer">Customer</a> 
+            <a href="equipment.html" id="nav-equipment">Standard Equipment</a>
         </nav>
-            <button class="btn-shiny" onclick="navigate('signin')">Sign In</button>
-        </div>
+            <button class="btn-shiny" onclick="navigate('signin')">Sign In</button>    
+    </div>
 </header>
 
 <main id="home-section" class="container">
@@ -34,28 +34,27 @@
     </div>
 
     <div class="dashboard-grid">
-        <div class="info-card" onclick="openProject()" style="cursor: pointer;">
-            <div class="icon-bg yellow">📁</div>
-            <h3>Project</h3>
-            <p>Manage project documentation and progress.</p>
-            <span class="status-tag">24 Active</span>
-        
-        </div>
-
-        <div class="info-card">
-            <div class="icon-bg orange">🤝</div>
-            <h3>Customer</h3>
-            <p>Manage customer data and calibration history.</p>
-            <span class="status-tag">150+ Clients</span>
-        </div>
-
-        <div class="info-card">
-            <div class="icon-bg purple">🛠️</div>
-            <h3>Standard Equipment</h3>
-            <p>Search for standard equipment and inspection deadlines.</p>
-            <span class="status-tag">48 Items</span>
-        </div>
+    <div class="info-card" onclick="window.location.href='project.html'" style="cursor: pointer; transition: transform 0.3s;">
+        <div class="icon-bg yellow" style="font-size: 2rem; margin-bottom: 10px;">📁</div>
+        <h3>Project Management</h3>
+        <p>Quản lý hồ sơ và tiến độ hiệu chuẩn.</p>
+        <span class="status-tag" style="background: #fff3cd; color: #856404;">24 Active</span>
     </div>
+
+    <div class="info-card" onclick="window.location.href='customer.html'" style="cursor: pointer; transition: transform 0.3s;">
+        <div class="icon-bg orange" style="font-size: 2rem; margin-bottom: 10px;">🤝</div>
+        <h3>Customer Database</h3>
+        <p>Dữ liệu khách hàng & lịch sử liên hệ.</p>
+        <span class="status-tag" style="background: #d4edda; color: #155724;">150+ Clients</span>
+    </div>
+
+    <div class="info-card" onclick="window.location.href='equipment.html'" style="cursor: pointer; transition: transform 0.3s;">
+        <div class="icon-bg purple" style="font-size: 2rem; margin-bottom: 10px;">🛠️</div>
+        <h3>Standard Equipment</h3>
+        <p>Thiết bị chuẩn & hạn kiểm định.</p>
+        <span class="status-tag" style="background: #f8d7da; color: #721c24;">5 Expiring</span>
+    </div>
+</div>
 </main>
 
 
@@ -63,7 +62,7 @@
     <div class="box">
     <div class="boderline">
         <form action="">
-            <h2>Login</h2>
+            <h2>Sign in</h2>
             <div class="input-Box">
                 <input type="text" required>
                 <span>Username</span>
@@ -74,24 +73,39 @@
                 <span>Password</span>
                 <i></i>
             </div>
-            <input class="btn" type="submit" value="Login">
+            <input class="btn" type="submit" value="Sign in">
         </form>
     </div>
     </div>
 </section>
 <footer class="footer">
-    <div class="footer-content">
-        <div class="footer-brand">
-            <h3>LabMaster</h3>
-            <p>Solution for professional calibration management.</p>
+    <div class="footer-container">
+        <div class="footer-column brand-col">
+            <h2 class="footer-logo">Lab<span>Master</span></h2>
+            <p class="footer-slogan">Your lab - Our care. Giải pháp quản lý hiệu chuẩn chuyên nghiệp và tin cậy.</p>
         </div>
-        <div class="footer-info">
-            <p>📧 Email: info@labmaster.vn</p>
-            <p>📞 Hotline: 0123445677</p>
+
+        <div class="footer-column">
+            <h3>Quick Links</h3>
+            <ul>
+                <li><a href="index.html">Trang chủ</a></li>
+                <li><a href="project.html">Dự án</a></li>
+                <li><a href="customer.html">Khách hàng</a></li>
+                <li><a href="equipment.html">Thiết bị chuẩn</a></li>
+            </ul>
+        </div>
+
+        <div class="footer-column">
+            <h3>Contact Us</h3>
+            <div class="contact-info">
+                <p>📍 123 Đường ABC, Quận 1, TP. HCM</p>
+                <p>📞 Hotline: 0123 445 677</p>
+                <p>📧 Email: info@labmaster.vn</p>
+            </div>
         </div>
     </div>
     <div class="footer-bottom">
-        &copy; 2026 LabMaster. Your lab - Our care.
+        <p>&copy; 2026 LabMaster System. All rights reserved.</p>
     </div>
 </footer>
 <script>

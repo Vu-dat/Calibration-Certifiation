@@ -10,20 +10,22 @@
     <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer;">
         <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
     </div>
-    <nav class="navbar">
-       <nav class="navbar">
-    <a href="index.html" >Home</a>
-    <a href="project.html">Project</a> 
-    <a href="customer.html" class="active">Customer</a> 
-    <a href="equipment.html">Standard Equipment</a>
-</nav>
-    </nav>
+    
+    <div class="nav-container">
+        <nav class="navbar">
+            <a href="index.html" id="nav-home">Home</a>
+            <a href="project.html" id="nav-project">Project</a> 
+            <a href="customer.html" id="nav-customer" class="active">Customer</a> 
+            <a href="equipment.html" id="nav-equipment">Standard Equipment</a>
+        </nav>
+        <button class="btn-shiny" onclick="location.href='signin.html'">Sign In</button>
+    </div>
 </header>
 
 <main class="container">
     <section id="customer-list-view" class="detail-section">
         <h1 class="text-center-aligned">Customer Information</h1>
-        <table class="customer-table">
+        <table class="detail-table">
             <thead>
                 <tr>
                     <th>ID</th><th>Name</th><th>Company</th><th>Phone</th><th>Note</th><th>Action</th>
@@ -31,12 +33,36 @@
             </thead>
             <tbody id="customer-table-body">
                 <tr id="customer-row-1">
-                    <td onclick="viewCustomer('1')">1</td>
+                    <td onclick="viewCustomer('1')"><strong>1</strong></td>
                     <td class="name-cell" onclick="viewCustomer('1')">Nguyen Van A</td>
                     <td class="company-cell" onclick="viewCustomer('1')">Samsung Vina</td>
                     <td>0123456789</td>
                     <td class="note-cell">Đã hiệu chuẩn 5 thiết bị...</td>
                     <td><button class="btn-delete" onclick="deleteCustomer('1')">🗑️</button></td>
+                </tr>
+                <tr id="customer-row-2">
+                    <td onclick="viewCustomer('2')">2</td>
+                    <td class="name-cell" onclick="viewCustomer('2')">Tran Thi B</td>
+                    <td class="company-cell" onclick="viewCustomer('2')">LG Electronics</td>
+                    <td>0987654321</td>
+                    <td class="note-cell">Đã hiệu chuẩn 3 thiết bị...</td>
+                    <td><button class="btn-delete" onclick="deleteCustomer('2')">🗑️</button></td>
+                </tr>
+                <tr id="customer-row-3">
+                    <td onclick="viewCustomer('3')">3</td>
+                    <td class="name-cell" onclick="viewCustomer('3')">Le Van C</td>
+                    <td class="company-cell" onclick="viewCustomer('3')">Apple Vietnam</td>
+                    <td>0912345678</td>
+                    <td class="note-cell">Đã hiệu chuẩn 2 thiết bị...</td>
+                    <td><button class="btn-delete" onclick="deleteCustomer('3')">🗑️</button></td>
+                </tr>
+                <tr id="customer-row-4">
+                    <td onclick="viewCustomer('4')">4</td>
+                    <td class="name-cell" onclick="viewCustomer('4')">Pham Thi D</td>
+                    <td class="company-cell" onclick="viewCustomer('4')">Sony Vietnam</td>
+                    <td>0901234567</td>
+                    <td class="note-cell">Đã hiệu chuẩn 1 thiết bị...</td>
+                    <td><button class="btn-delete" onclick="deleteCustomer('4')">🗑️</button></td>
                 </tr>
             </tbody>
         </table>
@@ -60,7 +86,24 @@
                 <span id="display-company"></span>
                 <input type="text" id="edit-company" class="form-input" style="display:none;">
             </p>
-            
+            <p><strong>Mã số thuế:</strong> 
+                <span id="display-tax"></span>
+                <input type="text" id="edit-tax" class="form-input" style="display:none;">
+            </p>
+            <p><strong>Người liên hệ:</strong> 
+                <span id="display-contact"></span>
+                <input type="text" id="edit-contact" class="form-input" style="display:none;">
+            </p>
+            <p><strong>Email công ty:</strong> 
+                <span id="display-email"></span>
+                <input type="email" id="edit-email" class="form-input" style="display:none;">
+            </p>
+            <p><strong>Địa chỉ xuất hóa đơn:</strong> 
+                <span id="display-billing-address"></span>
+                <input type="text" id="edit-billing-address" class="form-input" style="display:none;">
+            </p>
+            <p><strong>Hạng khách hàng:</strong> 
+                <span style="color: gold;">★ VIP Partner</span></p>
             <p><strong>Note:</strong> <br>
                 <span id="display-note"></span>
                 <textarea id="edit-note" class="form-input" style="display:none; width: 100%; height: 100px;"></textarea>
@@ -71,6 +114,7 @@
                 <button class="btn-save" onclick="saveCustomerChanges()">Save & Overwrite</button>
             </div>
         </div>
+        
     </section>
     <div id="customer-add-view" style="display: none;">
     <div class="create-project-form">
@@ -91,28 +135,84 @@
 </main>
 
 <script>
-    // Dữ liệu mẫu
     let customerData = { 
-        '1': { id: '1', name: 'Nguyen Van A', company: 'Samsung Vina', phone: '0123456789', note: 'Đã hiệu chuẩn 5 thiết bị...' } 
-    };
+    '1': { 
+        id: '1', 
+        name: 'Nguyen Van A', 
+        company: 'Samsung Vina', 
+        phone: '0123456789', 
+        tax: '0101010101', 
+        contact: 'Mr. An', 
+        email: 'an.nv@samsung.com', 
+        billingAddress: 'KCN Yên Phong, Bắc Ninh', 
+        note: 'Đã hiệu chuẩn 5 thiết bị...' 
+    }, 
+    '2': { 
+        id: '2', 
+        name: 'Tran Thi B', 
+        company: 'LG Electronics', 
+        phone: '0987654321', 
+        tax: '0202020202', 
+        contact: 'Ms. Bình', 
+        email: 'binh.tt@lg.com', 
+        billingAddress: 'KCN Tràng Duệ, Hải Phòng', 
+        note: 'Đã hiệu chuẩn 3 thiết bị...' 
+    },
+    '3': { 
+        id: '3', 
+        name: 'Le Van C', 
+        company: 'Apple Vietnam', 
+        phone: '0912345678', 
+        tax: '0303030303', 
+        contact: 'Mr. Cường', 
+        email: 'cuong.lv@apple.com', 
+        billingAddress: 'KCN Phú Mỹ, Bà Rịa - Vũng Tàu', 
+        note: 'Đã hiệu chuẩn 2 thiết bị...' 
+    },
+    '4': { 
+        id: '4', 
+        name: 'Pham Thi D', 
+        company: 'Sony Vietnam', 
+        phone: '0901234567', 
+        tax: '0404040404', 
+        contact: 'Ms. Dung', 
+        email: 'dung.pt@sony.com', 
+        billingAddress: 'KCN Sóng Thần, Bà Rịa - Vũng Tàu', 
+        note: 'Đã hiệu chuẩn 1 thiết bị...' 
+    }
+};
     let currentId = null;
 
     // Xem chi tiết
     function viewCustomer(id) {
-        currentId = id;
-        const customer = customerData[id];
-        if (customer) {
-            document.getElementById('customer-list-view').style.display = 'none';
-            document.getElementById('customer-item-detail').style.display = 'block';
+    currentId = id;
+    const customer = customerData[id];
+    if (customer) {
+        // Hiện section Detail, ẩn section List
+        document.getElementById('customer-list-view').style.display = 'none';
+        document.getElementById('customer-item-detail').style.display = 'block';
 
-            document.getElementById('detail-title').textContent = customer.name;
-            document.getElementById('display-id').textContent = customer.id;
-            document.getElementById('display-company').textContent = customer.company;
-            document.getElementById('display-note').textContent = customer.note;
+        // Gán dữ liệu vào các thẻ <span>
+        document.getElementById('detail-title').textContent = customer.name;
+        document.getElementById('display-id').textContent = customer.id;
+        document.getElementById('display-company').textContent = customer.company || "N/A";
+        document.getElementById('display-tax').textContent = customer.tax || "N/A";
+        document.getElementById('display-contact').textContent = customer.contact || "N/A";
+        document.getElementById('display-email').textContent = customer.email || "N/A";
+        document.getElementById('display-billing-address').textContent = customer.billingAddress || "N/A";
+        document.getElementById('display-note').textContent = customer.note || "N/A";
 
-            cancelEdit(); // Reset về trạng thái xem
-        }
+        // Đồng bộ luôn dữ liệu vào các ô input (để khi bấm Edit có sẵn dữ liệu)
+        document.getElementById('edit-company').value = customer.company || "";
+        document.getElementById('edit-tax').value = customer.tax || "";
+        document.getElementById('edit-contact').value = customer.contact || "";
+        document.getElementById('edit-email').value = customer.email || "";
+        document.getElementById('edit-billing-address').value = customer.billingAddress || "";
+        document.getElementById('edit-note').value = customer.note || "";
+
+        cancelEdit(); // Đảm bảo luôn ở chế độ xem khi mới mở
     }
+}
 
     // Quay lại danh sách
     function showCustomerList() {
@@ -122,16 +222,24 @@
 
     // Kích hoạt chế độ Edit
     function enableEdit() {
-        const pass = prompt("Nhập mật khẩu (123) để sửa:");
-        if (pass === "123") {
-            // Đổ dữ liệu vào ô input
-            document.getElementById('edit-company').value = customerData[currentId].company;
-            document.getElementById('edit-note').value = customerData[currentId].note;
-            toggleUI(true);
-        } else {
-            alert("Sai mật khẩu!");
-        }
+    const pass = prompt("Nhập mật khẩu (123) để sửa:");
+    if (pass === "123") {
+        const customer = customerData[currentId];
+        
+        // Đổ dữ liệu vào ô input - Kiểm tra kỹ ID có tồn tại trong HTML không
+        if (document.getElementById('edit-company')) document.getElementById('edit-company').value = customer.company || "";
+        if (document.getElementById('edit-tax')) document.getElementById('edit-tax').value = customer.tax || "";
+        if (document.getElementById('edit-contact')) document.getElementById('edit-contact').value = customer.contact || "";
+        if (document.getElementById('edit-email')) document.getElementById('edit-email').value = customer.email || "";
+        if (document.getElementById('edit-billing-address')) document.getElementById('edit-billing-address').value = customer.billingAddress || "";
+        if (document.getElementById('edit-note')) document.getElementById('edit-note').value = customer.note || "";
+        
+        // Gọi hàm để ẩn chữ, hiện ô nhập liệu
+        toggleUI(true);
+    } else {
+        alert("Sai mật khẩu!");
     }
+}
 
     // Hủy chỉnh sửa
     function cancelEdit() {
@@ -140,38 +248,64 @@
 
     // Lưu thay đổi (Overwrite)
     function saveCustomerChanges() {
-        const newCompany = document.getElementById('edit-company').value;
-        const newNote = document.getElementById('edit-note').value;
+    // 1. Lấy giá trị mới từ các ô input
+    const newCompany = document.getElementById('edit-company').value;
+    const newTax = document.getElementById('edit-tax').value;
+    const newContact = document.getElementById('edit-contact').value;
+    const newEmail = document.getElementById('edit-email').value;
+    const newAddress = document.getElementById('edit-billing-address').value;
+    const newNote = document.getElementById('edit-note').value;
 
-        // 1. Lưu vào biến dữ liệu
-        customerData[currentId].company = newCompany;
-        customerData[currentId].note = newNote;
+    // 2. Cập nhật vào đối tượng dữ liệu bộ nhớ
+    customerData[currentId].company = newCompany;
+    customerData[currentId].tax = newTax;
+    customerData[currentId].contact = newContact;
+    customerData[currentId].email = newEmail;
+    customerData[currentId].billingAddress = newAddress;
+    customerData[currentId].note = newNote;
 
-        // 2. Cập nhật bảng danh sách
-        const row = document.getElementById(`customer-row-${currentId}`);
-        if (row) {
-            row.querySelector('.company-cell').textContent = newCompany;
-            row.querySelector('.note-cell').textContent = newNote;
-        }
+    // 3. Cập nhật hiển thị tại trang Chi tiết (UI labels)
+    document.getElementById('display-company').textContent = newCompany;
+    document.getElementById('display-tax').textContent = newTax;
+    document.getElementById('display-contact').textContent = newContact;
+    document.getElementById('display-email').textContent = newEmail;
+    document.getElementById('display-billing-address').textContent = newAddress;
+    document.getElementById('display-note').textContent = newNote;
 
-        // 3. Cập nhật giao diện chi tiết
-        document.getElementById('display-company').textContent = newCompany;
-        document.getElementById('display-note').textContent = newNote;
-
-        toggleUI(false);
-        alert("Đã cập nhật thông tin khách hàng!");
+    // 4. Cập nhật dòng tương ứng tại bảng danh sách bên ngoài
+    const row = document.getElementById(`customer-row-${currentId}`);
+    if (row) {
+        row.querySelector('.company-cell').textContent = newCompany;
+        // Cập nhật tag ghi chú cho đồng bộ giao diện project.html
+        row.querySelector('.note-cell').innerHTML = `<span class="note-tag">${newNote}</span>`;
     }
+
+    // 5. Thoát chế độ sửa
+    toggleUI(false);
+    alert("Đã cập nhật thông tin khách hàng thành công!");
+}
 
     // Hàm bổ trợ ẩn/hiện các thành phần Edit
     function toggleUI(isEdit) {
-        document.getElementById('display-company').style.display = isEdit ? 'none' : 'inline';
-        document.getElementById('display-note').style.display = isEdit ? 'none' : 'inline';
+    // Danh sách các trường cần chuyển đổi
+    const fields = ['company', 'tax', 'contact', 'email', 'billing-address', 'note'];
+    
+    fields.forEach(field => {
+        const displayElem = document.getElementById(`display-${field}`);
+        const editElem = document.getElementById(`edit-${field}`);
         
-        document.getElementById('edit-company').style.display = isEdit ? 'block' : 'none';
-        document.getElementById('edit-note').style.display = isEdit ? 'block' : 'none';
-        document.getElementById('edit-actions').style.display = isEdit ? 'flex' : 'none';
-        document.getElementById('btn-edit').style.display = isEdit ? 'none' : 'block';
-    }
+        // Nếu là isEdit = true: Ẩn text (none), Hiện input (block)
+        if (displayElem) displayElem.style.display = isEdit ? 'none' : 'inline';
+        if (editElem) editElem.style.display = isEdit ? 'block' : 'none';
+    });
+
+    // Ẩn/Hiện các nút bấm hành động
+    const editActions = document.getElementById('edit-actions');
+    const btnEdit = document.getElementById('btn-edit');
+    
+    if (editActions) editActions.style.display = isEdit ? 'flex' : 'none';
+    if (btnEdit) btnEdit.style.display = isEdit ? 'none' : 'block';
+}
 
     function deleteCustomer(id) {
         if(confirm("Xóa khách hàng này?")) {
@@ -233,8 +367,38 @@ function saveNewCustomer() {
     
     showCustomerList();
 }
+// Lưu trữ dữ liệu đo lường riêng cho từng thiết bị
+let calibrationData = {
+    'EQ001': { measures: [], average: 0, conclusion: '-', color: '' }
+};
+function editEq(id) {
+    currentId = id;
+    showView('edit-view');
+    
+    // Đổ tên và hãng sản xuất
+    document.getElementById('edit-title').innerText = "Detail: " + document.getElementById('n-' + id).innerText;
+    document.getElementById('in-manu').value = document.getElementById('m-' + id).innerText;
+
+    // Lấy dữ liệu đã lưu của thiết bị này
+    const data = calibrationData[id] || { measures: [], average: 0, conclusion: '-', color: '' };
+    const inputs = document.querySelectorAll('.measure-input');
+    
+    // Đổ 10 giá trị Measured vào ô input
+    inputs.forEach((input, index) => {
+        input.value = data.measures[index] || "";
+    });
+
+    // Hiển thị Average và Conclusion đã lưu
+    const avgBox = document.getElementById('res-average');
+    const conBox = document.getElementById('res-conclusion');
+    
+    avgBox.innerText = data.average;
+    conBox.innerText = data.conclusion;
+    conBox.style.color = data.color;
+}
 
 
 </script>
+
 </body>
 </html>
