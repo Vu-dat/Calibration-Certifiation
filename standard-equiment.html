@@ -1,11 +1,605 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <link rel="stylesheet" href="index.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">    
+    <title>Quản lý dự án - LabMaster Pro</title>
+    <style>
+        /* --- Giao diện gốc của bạn giữ nguyên --- */
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .stat-card { background: white; padding: 25px; border-radius: 12px; box-shadow: var(--card-shadow); text-align: center; border-bottom: 4px solid #ddd; transition: var(--transition); }
+        .stat-card:hover { transform: translateY(-5px); }
+        .stat-card h4 { margin: 0; color: #777; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; }
+        .stat-card p { font-size: 2rem; font-weight: 800; margin: 10px 0; color: var(--primary-teal); }
+        .stat-card.total { border-bottom-color: var(--primary-teal); }
+        .stat-card.progress { border-bottom-color: var(--status-progress); }
+        .stat-card.finished { border-bottom-color: var(--status-finished); }
+        .detail-section { background: white; padding: 30px; border-radius: 12px; box-shadow: var(--card-shadow); margin-bottom: 30px; }
+        h1.text-center-aligned { font-size: 1.8rem; color: var(--primary-teal); margin-bottom: 30px; position: relative; padding-bottom: 10px; }
+        h1.text-center-aligned::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 60px; height: 3px; background: var(--primary-teal); }
+        .project-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .project-table th { background: #f8f9fa; text-align: left; padding: 15px; border-bottom: 2px solid #eee; color: #666; font-weight: 600; }
+        .project-table td { padding: 15px; border-bottom: 1px solid #f1f1f1; }
+        .project-table tr:hover { background-color: #fcfcfc; cursor: pointer; }
+        .status-tag { padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
+        .status-finished { background: #e8f5e9; color: #2e7d32; }
+        .status-progress { background: #fff8e1; color: #f57f17; }
+        .btn-shiny { background: var(--primary-teal); color: white; border: none; padding: 12px 25px; border-radius: 8px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 6px rgba(0,128,128,0.2); transition: var(--transition); }
+        .btn-shiny:hover { background: var(--primary-dark); box-shadow: 0 6px 12px rgba(0,128,128,0.3); }
+        .btn-delete { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #ccc; }
+        .btn-delete:hover { color: var(--danger); }
+        .btn-back { background: none; border: 1px solid #ddd; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: 600; margin-bottom: 20px; color: #666; }
+        .btn-back:hover { background: #eee; }
+        .calibration-table { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid #eee; border-radius: 10px; overflow: hidden; margin-top: 20px; }
+        .calibration-table th { background: var(--primary-teal); color: white; padding: 12px; font-size: 0.9rem; }
+        .calibration-table td { padding: 8px; border-bottom: 1px solid #f1f1f1; text-align: center; }
+        .measure-input { width: 45px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; text-align: center; transition: var(--transition); }
+        .measure-input:focus { border-color: var(--primary-teal); outline: none; box-shadow: 0 0 5px rgba(0,128,128,0.2); }
+        .input-detail { border: 1px solid #ddd; padding: 8px 12px; border-radius: 6px; font-size: 0.95rem; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 600px; margin: 0 auto; }
+        .form-grid input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; width: 100%; box-sizing: border-box; }
+        .card-footer { grid-column: span 2; margin-top: 20px; text-align: center; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .detail-section { animation: fadeIn 0.4s ease-out forwards; }
+
+        /* --- CSS CHO TÍNH NĂNG KHÁCH HÀNG & SEARCH EQUIPMENT --- */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .info-card {
+            background: #f9fbfb;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid #008080;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .info-card h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #008080;
+            font-size: 1.1rem;
+        }
+        .info-card p { margin: 6px 0; font-size: 0.95rem; color: #444; }
+        .info-card strong { color: #111; }
+        
+        .search-wrapper { position: relative; }
+        .search-results-box {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 0 0 8px 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+        .search-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f5f5f5;
+            text-align: left;
+        }
+        .search-item:hover { background-color: #f0f7f7; }
+        .search-item .eq-code { font-weight: bold; color: #008080; margin-right: 10px; }
+    </style>
 </head>
 <body>
-    
+
+<header class="header">
+    <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer;">
+        <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
+    </div>
+    <div class="nav-container">
+        <nav class="navbar">
+            <a href="index.html" id="nav-home">Home</a>
+            <a href="project.html" id="nav-project" class="active">Project</a> 
+            <a href="customer.html" id="nav-customer">Customer</a> 
+            <a href="equipment.html" id="nav-equipment">Standard Equipment</a>
+            <a href="databasequipment.html" id="nav-databasequipment">Database Equipment</a>
+        </nav>
+        <button class="btn-shiny" onclick="location.href='signin.html'">Sign In</button>
+    </div>
+</header>
+
+<main class="container">
+    <div class="dashboard-grid">
+        <div class="stat-card total">
+            <h4>Tổng dự án</h4>
+            <p id="stat-total">4</p>
+        </div>
+        <div class="stat-card progress">
+            <h4>Đang thực hiện</h4>
+            <p id="stat-progress">3</p>
+        </div>
+        <div class="stat-card finished">
+            <h4>Hoàn thành</h4>
+            <p id="stat-finished">1</p>
+        </div>
+    </div>
+
+    <section id="project-list-view" class="detail-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1 class="text-center-aligned" style="margin: 0; padding: 0;">Project List</h1>
+            <button class="btn-shiny" onclick="showAddProjectForm()">+ Create New Project</button>
+        </div>
+        
+        <table class="project-table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Project Name</th>
+                    <th>Last Update</th>
+                    <th>Status</th>
+                    <th style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="project-table-body">
+                <tr id="row-PJ001" onclick="viewProjectDetail('PJ001')">
+                    <td><strong>#PJ001</strong></td>
+                    <td>First Project</td>
+                    <td>12/05/2026</td>
+                    <td><span class="status-tag status-finished">Finished</span></td>
+                    <td style="text-align: center;"><button class="btn-delete" onclick="event.stopPropagation(); deleteProject('PJ001')">🗑️</button></td>
+                </tr>
+                <tr id="row-PJ002" onclick="viewProjectDetail('PJ002')">
+                    <td><strong>#PJ002</strong></td>
+                    <td>Second Project</td>
+                    <td>14/05/2026</td>
+                    <td><span class="status-tag status-progress">In Progress</span></td>
+                    <td style="text-align: center;"><button class="btn-delete" onclick="event.stopPropagation(); deleteProject('PJ002')">🗑️</button></td>
+                </tr>
+                <tr id="row-PJ003" onclick="viewProjectDetail('PJ003')">
+                    <td><strong>#PJ003</strong></td>
+                    <td>Third Project</td>
+                    <td>14/05/2026</td>
+                    <td><span class="status-tag status-progress">In Progress</span></td>
+                    <td style="text-align: center;"><button class="btn-delete" onclick="event.stopPropagation(); deleteProject('PJ003')">🗑️</button></td>
+                </tr>
+                <tr id="row-PJ004" onclick="viewProjectDetail('PJ004')">
+                    <td><strong>#PJ004</strong></td>
+                    <td>Thử nghiệm độ bền vật liệu Poly</td>
+                    <td>10/05/2026</td>
+                    <td><span class="status-tag status-progress">In Progress</span></td>
+                    <td style="text-align: center;"><button class="btn-delete" onclick="event.stopPropagation(); deleteProject('PJ004')">🗑️</button></td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section id="project-create-view" class="detail-section" style="display:none;">
+        <h2 style="text-align: center; color: var(--primary-teal);">Create New Project</h2>
+        <div class="form-grid">
+            <input type="text" id="new-pj-id" placeholder="Mã dự án (ví dụ: PJ005)">
+            <input type="text" id="new-pj-name" placeholder="Tên dự án hiệu chuẩn/kiểm định">
+            <div class="card-footer">
+                <button class="btn-back" style="margin-right: 10px;" onclick="showProjectList()">Cancel</button>
+                <button class="btn-shiny" onclick="saveNewProject()">Save & Initialize</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="edit-project-view" class="detail-section" style="display:none;">
+        <button class="btn-back" onclick="showProjectList()">← Back to List</button>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 5px solid var(--primary-teal); box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                <h3 style="color: var(--primary-teal); margin-top: 0; margin-bottom: 15px;">Khách hàng liên kết</h3>
+                <p style="margin: 8px 0;">Tên công ty: <strong>Công ty TNHH Điện máy ABC</strong></p>
+                <p style="margin: 8px 0;">Người liên hệ: <strong>Nguyễn Văn A</strong></p>
+                <p style="margin: 8px 0;">Số điện thoại: <strong>0901.234.567</strong></p>
+            </div>
+
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 5px solid var(--primary-teal); box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                <h3 style="color: var(--primary-teal); margin-top: 0; margin-bottom: 15px;">Thiết bị hiệu chuẩn (Database Equipment)</h3>
+                <div class="search-wrapper">
+                    <input type="text" id="search-equipment-input" class="input-detail" style="width: 100%; box-sizing: border-box; padding: 12px;" placeholder="Gõ tên thiết bị (Washing Machine, Dryer...)...">
+                    <div id="search-results" class="search-results-box"></div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <h2 id="pj-detail-title" style="margin: 0; color: var(--primary-teal);">Project Detail</h2>
+            <p style="margin: 5px 0; color: #666;"><span id="pj-display-id">#---</span> | Trạng thái: <span id="pj-display-status" style="font-weight: bold;">-</span></p>
+        </div>
+
+        <div style="overflow-x: auto; margin-bottom: 20px;">
+            <table class="project-table" style="border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
+                <thead>
+                    <tr style="background: #f1f1f1;">
+                        <th width="80">STT</th>
+                        <th>Tên thiết bị hiệu chuẩn</th>
+                        <th width="150" style="text-align: center;">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody id="added-equipment-list">
+                </tbody>
+            </table>
+        </div>
+
+        <div style="text-align:right; margin-top: 30px;">
+            <button class="btn-shiny" onclick="alert('Đã lưu dữ liệu dự án và thiết bị thành công!')" style="padding: 12px 40px;">Save Changes & Generate Report</button>
+        </div>
+    </section>
+</main>
+
+<script>
+    // 1. Dữ liệu gốc từ Database Equipment dùng để gợi ý truy vấn
+    const dbEquipment = [
+        { id: 'EQ001', name: 'Washing Machine', manufacturer: '100', due: '2026-12-01' },
+        { id: 'EQ002', name: 'Dryer', manufacturer: '101', due: '2027-01-15' },
+        { id: 'EQ003', name: 'Refrigerator', manufacturer: '102', due: '2027-02-20' }
+    ];
+
+    const projectData = { 
+        'PJ001': { id: 'PJ001', title: 'Hiệu chuẩn thước cặp cơ khí', status: 'Finished' },
+        'PJ002': { id: 'PJ002', title: 'Kiểm định đồng hồ đo áp suất', status: 'In Progress' },
+        'PJ003': { id: 'PJ003', title: 'Hiệu chuẩn thiết bị đo nhiệt độ', status: 'In Progress' },
+        'PJ004': { id: 'PJ004', title: 'Thử nghiệm độ bền vật liệu Poly', status: 'In Progress' }
+    };
+
+    let equipmentCounter = 0;
+
+    // --- LOGIC XỬ LÝ TRUY VẤN GỢI Ý (SUGGESTIONS) ---
+    const searchInput = document.getElementById('search-equipment-input');
+    const resultsBox = document.getElementById('search-results');
+
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim().toLowerCase();
+        resultsBox.innerHTML = '';
+        
+        if (query === '') {
+            resultsBox.style.display = 'none';
+            return;
+        }
+
+        // Lọc thiết bị trùng khớp tên hoặc mã
+        const filtered = dbEquipment.filter(eq => 
+            eq.name.toLowerCase().includes(query) || eq.id.toLowerCase().includes(query)
+        );
+
+        if (filtered.length > 0) {
+            filtered.forEach(eq => {
+                const div = document.createElement('div');
+                div.className = 'search-item';
+                div.innerHTML = `<span class="eq-code">#${eq.id}</span><span>${eq.name}</span>`;
+                div.addEventListener('click', function() {
+                    addEquipmentToTable(eq.name);
+                    searchInput.value = '';
+                    resultsBox.style.display = 'none';
+                });
+                resultsBox.appendChild(div);
+            });
+            resultsBox.style.display = 'block';
+        } else {
+            resultsBox.style.display = 'none';
+        }
+    });
+
+    // Nhấn enter bên ngoài ô tìm kiếm tự thêm nếu trùng khớp hoàn toàn hoặc thêm thủ công
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const val = this.value.trim();
+            if (val === '') return;
+            addEquipmentToTable(val);
+            this.value = '';
+            resultsBox.style.display = 'none';
+        }
+    });
+
+    // Ẩn bảng gợi ý khi click ra ngoài
+    document.addEventListener('click', function(e) {
+        if (e.target !== searchInput) {
+            resultsBox.style.display = 'none';
+        }
+    });
+
+
+    // --- HÀM THÊM THIẾT BỊ VÀ ĐỔ BẢNG MẪU CHUẨN (WASHING MACHINE) ---
+    function addEquipmentToTable(name) {
+        equipmentCounter++;
+        const tbody = document.getElementById('added-equipment-list');
+        const eqId = `eq-${equipmentCounter}`;
+
+        // Dòng Master hiển thị tên thiết bị
+        const masterRow = document.createElement('tr');
+        masterRow.setAttribute('onclick', `toggleEquipmentDetail('${eqId}')`);
+        masterRow.style.backgroundColor = '#fff';
+        masterRow.innerHTML = `
+            <td><strong>#${equipmentCounter}</strong></td>
+            <td><span style="color: var(--primary-teal); font-weight: 600; text-decoration: underline;">${name}</span> (Nhấp để xem/ẩn bảng thông số mẫu)</td>
+            <td style="text-align: center;" onclick="event.stopPropagation();">
+                <button class="btn-delete" onclick="removeEquipment('${eqId}')">🗑️</button>
+            </td>
+        `;
+        masterRow.id = `master-${eqId}`;
+
+        // Dòng Detail chứa bảng mẫu hiệu chuẩn lấy cấu trúc từ Washing Machine
+        const detailRow = document.createElement('tr');
+        detailRow.id = `detail-${eqId}`;
+        detailRow.style.display = 'none'; 
+        detailRow.style.backgroundColor = '#fafafa';
+
+        detailRow.innerHTML = `
+            <td colspan="3" style="padding: 15px; border-bottom: 2px solid var(--primary-teal);">
+                <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: inset 0 0 5px rgba(0,0,0,0.05);">
+                    <div style="margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 5px 0; color: #008080;">Bảng số liệu hiệu chuẩn mẫu cho: ${name}</h4>
+                        <p style="margin:0; font-size:0.85rem; color:#666;">Quy trình: <i>F-01, T-02, V-02, TIME-02</i> | Quy chiếu: <i>ISO 6330</i></p>
+                    </div>
+                    
+                    <div style="overflow-x: auto;">
+                        <table class="calibration-table" style="margin-top: 0; width: 100%; border-collapse: collapse; font-size:13px;">
+                            <thead>
+                                <tr style="background-color: #f2f2f2; color: #111;">
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Thông số<br><span style="font-style: italic; font-weight: normal; font-size: 11px;">Parameters</span></th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 100px;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 11px;">Points</span></th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 90px;">Giá trị đo 1</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 90px;">Giá trị đo 2</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 90px;">Giá trị đo 3</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 80px;">Độ KĐBD<br><span style="font-style: italic; font-weight: normal; font-size: 11px;">Uncertainty</span></th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 80px;">Dung sai<br><span style="font-style: italic; font-weight: normal; font-size: 11px;">Tolerance</span></th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 90px;">Sự phù hợp<br><span style="font-style: italic; font-weight: normal; font-size: 11px;">Conformity</span></th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 50px;">Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr data-group="${eqId}-nhietdo">
+                                    <td rowspan="5" class="group-header" style="border: 1px solid #ddd; padding: 8px; text-align: left; font-weight: bold; background-color: #fafafa; vertical-align: middle;">
+                                        Nhiệt độ<br><span style="font-weight: normal; font-style: italic; font-size:11px;">Temperature (°C)</span>
+                                    </td>
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">30</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="30.2" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                                <tr data-group="${eqId}-nhietdo">
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">40</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="39.5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                                <tr data-group="${eqId}-nhietdo">
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">60</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="59.2" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                                <tr data-group="${eqId}-nhietdo">
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">80</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="78.9" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                                <tr data-group="${eqId}-nhietdo">
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">90</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="88.7" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+
+                                <tr data-group="${eqId}-tocdo">
+                                    <td style="border: 1px solid #ddd; padding: 8px; text-align: left; font-weight: bold; background-color: #fafafa;">
+                                        Tốc độ giặt<br><span style="font-weight: normal; font-style: italic; font-size:11px;">Washing Speed (rpm)</span>
+                                    </td>
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">52</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="52.6" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.8" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 2" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+
+                                <tr data-group="${eqId}-thoigian">
+                                    <td style="border: 1px solid #ddd; padding: 8px; text-align: left; font-weight: bold; background-color: #fafafa;">
+                                        Thời gian<br><span style="font-weight: normal; font-style: italic; font-size:11px;">Timer (second)</span>
+                                    </td>
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">100</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="100.0" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.1" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="--" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; color:#999;">--</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+
+                                <tr data-group="${eqId}-mucnuoc">
+                                    <td rowspan="3" class="group-header" style="border: 1px solid #ddd; padding: 8px; text-align: left; font-weight: bold; background-color: #fafafa; vertical-align: middle;">
+                                        Mực nước<br><span style="font-weight: normal; font-style: italic; font-size:11px;">Level Check (mm)</span>
+                                    </td>
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">100</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="100" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                                <tr data-group="${eqId}-mucnuoc">
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">130</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="131" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                                <tr data-group="${eqId}-mucnuoc">
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">160</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="162" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </td>
+        `;
+
+        tbody.appendChild(masterRow);
+        tbody.appendChild(detailRow);
+    }
+
+    // Hàm ẩn/hiện bảng chi tiết của từng thiết bị trong dự án
+    function toggleEquipmentDetail(eqId) {
+        const detailRow = document.getElementById(`detail-${eqId}`);
+        if (detailRow.style.display === 'none') {
+            detailRow.style.display = 'table-row';
+        } else {
+            detailRow.style.display = 'none';
+        }
+    }
+
+    // Hàm xóa thiết bị chính ra khỏi dự án
+    function removeEquipment(eqId) {
+        if (confirm("Xác nhận xóa thiết bị này khỏi dự án?")) {
+            document.getElementById(`master-${eqId}`).remove();
+            document.getElementById(`detail-${eqId}`).remove();
+        }
+    }
+
+    // Hàm xử lý xóa dòng nhỏ (hàng thông số gộp rowspan) lấy nguyên logic từ file database của bạn
+    function deleteSubRow(button) {
+        const currentRow = button.closest('tr');
+        const groupName = currentRow.getAttribute('data-group');
+        const groupRows = Array.from(document.querySelectorAll(`tr[data-group="${groupName}"]`));
+        
+        if (groupRows.length === 1) {
+            currentRow.remove();
+            return;
+        }
+        
+        const headerCell = groupRows[0].querySelector('.group-header') || groupRows[0].querySelector('td:first-child');
+        
+        if (currentRow === groupRows[0]) {
+            const nextRow = groupRows[1];
+            const currentRowsSpan = parseInt(headerCell.getAttribute('rowspan'), 10);
+            headerCell.setAttribute('rowspan', currentRowsSpan - 1);
+            nextRow.insertBefore(headerCell, nextRow.firstChild);
+        } else {
+            const mainHeader = groupRows[0].querySelector('[rowspan]');
+            if (mainHeader) {
+                const currentRowsSpan = parseInt(mainHeader.getAttribute('rowspan'), 10);
+                mainHeader.setAttribute('rowspan', currentRowsSpan - 1);
+            }
+        }
+        currentRow.remove();
+    }
+
+    // --- CÁC HÀM ĐIỀU HƯỚNG GIỮ NGUYÊN GỐC ---
+    function viewProjectDetail(id) {
+        const pj = projectData[id];
+        if (pj) {
+            document.getElementById('project-list-view').style.display = 'none';
+            document.getElementById('project-create-view').style.display = 'none';
+            document.getElementById('edit-project-view').style.display = 'block';
+
+            document.getElementById('pj-detail-title').textContent = pj.title;
+            document.getElementById('pj-display-id').textContent = '#' + pj.id;
+            document.getElementById('pj-display-status').textContent = pj.status;
+            
+            document.getElementById('added-equipment-list').innerHTML = '';
+            equipmentCounter = 0;
+            
+            window.scrollTo(0,0);
+        }
+    }
+
+    function showProjectList() {
+        document.getElementById('project-list-view').style.display = 'block';
+        document.getElementById('project-create-view').style.display = 'none';
+        document.getElementById('edit-project-view').style.display = 'none';
+    }
+
+    function showAddProjectForm() {
+        document.getElementById('project-list-view').style.display = 'none';
+        document.getElementById('project-create-view').style.display = 'block';
+    }
+
+    function saveNewProject() {
+        const name = document.getElementById('new-pj-name').value;
+        const id = document.getElementById('new-pj-id').value;
+
+        if (!name || !id) {
+            alert("Vui lòng nhập đầy đủ thông tin!");
+            return;
+        }
+
+        projectData[id] = { id: id, title: name, status: 'In Progress' };
+
+        const tableBody = document.getElementById('project-table-body');
+        const newRow = document.createElement('tr');
+        newRow.id = `row-${id}`;
+        newRow.innerHTML = `
+            <td onclick="viewProjectDetail('${id}')"><strong>#${id}</strong></td>
+            <td onclick="viewProjectDetail('${id}')">${name}</td>
+            <td>Mới tạo</td>
+            <td><span class="status-tag status-progress">In Progress</span></td>
+            <td style="text-align: center;"><button class="btn-delete" onclick="deleteProject('${id}')">🗑️</button></td>
+        `;
+        tableBody.appendChild(newRow);
+        
+        updateStats();
+        alert("Khởi tạo dự án thành công!");
+        showProjectList();
+    }
+
+    function deleteProject(id) {
+        if (confirm("Xác nhận xóa dự án " + id + "?")) {
+            document.getElementById(`row-${id}`).remove();
+            delete projectData[id];
+            updateStats();
+        }
+    }
+
+    function updateStats() {
+        const values = Object.values(projectData);
+        document.getElementById('stat-total').textContent = values.length;
+        document.getElementById('stat-progress').textContent = values.filter(v => v.status === 'In Progress').length;
+        document.getElementById('stat-finished').textContent = values.filter(v => v.status === 'Finished').length;
+    }
+
+    updateStats();
+</script>
 </body>
 </html>
