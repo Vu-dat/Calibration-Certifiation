@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -135,6 +134,60 @@
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+
+async function submitCalibrationFormAndPrint() {
+    // 1. Thu thập trọn bộ thông tin theo cấu trúc file mẫu của sếp bạn
+    const fullPayload = {
+        certNo: "328344",
+        instrumentName: "Máy giặt wascator",
+        manufacturer: "Electrolux",
+        model: "FOM 71CLS",
+        equipmentId: "241211",
+        serialNumber: "00522/0539752",
+        customerName: "CÔNG TY TNHH PAIHONG VIỆT NAM",
+        calDate: "21.04.2026",
+        reCalDate: "21.04.2027",
+        procedure: "LAB-F-01, LAB-T-02",
+        refStandard: "ISO 6330",
+        tempEnv: "[25 ± 2] ⁰C",
+        humiEnv: "[63 ± 5] %RH",
+        headOfLab: "Lê Cảnh Nhật Quang",
+        director: "Lưu Ngọc Thống",
+        // Mảng danh sách các điểm đo được nhập từ bảng trên giao diện web
+        points: [
+            { parameterName: "Nhiệt độ", calPoint: 30, asFoundValue: 30.2, uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
+            { parameterName: "Nhiệt độ", calPoint: 40, asFoundValue: 39.5, uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
+            { parameterName: "Tốc độ giặt", calPoint: 52, asFoundValue: 52.6, uncertainty: 0.8, tolerance: "± 2", conformity: "A" },
+            { parameterName: "Thời gian", calPoint: 100, asFoundValue: 100.0, uncertainty: 0.1, tolerance: "--", conformity: "--" }
+        ]
+    };
+
+    try {
+        // Gửi thông tin sang Backend C++ lưu trữ vào SQLite chuyên sâu
+        const saveRes = await fetch('http://localhost:18080/api/calibration/save-full', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fullPayload)
+        });
+        const saveResult = await saveRes.json();
+
+        if (saveResult.success) {
+            alert("Lưu trữ hồ sơ lên hệ thống thành công! Bắt đầu in Giấy Chứng Nhận...");
+            
+            // Kích hoạt sinh PDF ngay lập tức
+            const pdfRes = await fetch(`http://localhost:18080/api/calibration/export-pdf/${fullPayload.certNo}`);
+            const pdfResult = await pdfRes.json();
+            
+            if(pdfResult.success) {
+                // Mở chứng nhận PDF chuyên nghiệp lên màn hình để sếp ký duyệt
+                window.open(`http://localhost:18080${pdfResult.pdf_url}`, '_blank');
+            }
+        }
+    } catch (err) {
+        console.error("Lỗi đồng bộ hệ thống: ", err);
+    }
 }
 </script>
 </body>
