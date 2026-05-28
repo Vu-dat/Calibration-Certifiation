@@ -7,92 +7,90 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">    
     <title>Quản lý dự án - LabMaster Pro</title>
     <style>
+        /* --- Giao diện gốc của bạn giữ nguyên --- */
         .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
         .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
         .stat-card { background: white; padding: 25px; border-radius: 12px; box-shadow: var(--card-shadow); text-align: center; border-bottom: 4px solid #ddd; transition: var(--transition); }
         .stat-card:hover { transform: translateY(-5px); }
         .stat-card h4 { margin: 0; color: #777; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; }
-        .stat-card p { font-size: 2rem; font-weight: 800; margin: 10px 0 0 0; color: #333; }
-        .stat-card:nth-child(1) { border-color: #3182ce; }
-        .stat-card:nth-child(2) { border-color: #dd6b20; }
-        .stat-card:nth-child(3) { border-color: #38a169; }
+        .stat-card p { font-size: 2rem; font-weight: 800; margin: 10px 0; color: var(--primary-teal); }
+        .stat-card.total { border-bottom-color: var(--primary-teal); }
+        .stat-card.progress { border-bottom-color: var(--status-progress); }
+        .stat-card.finished { border-bottom-color: var(--status-finished); }
         .detail-section { background: white; padding: 30px; border-radius: 12px; box-shadow: var(--card-shadow); margin-bottom: 30px; }
-        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #edf2f7; }
-        .section-header h2 { margin: 0; color: #2d3748; font-size: 1.5rem; }
-        .detail-table { width: 100%; border-collapse: collapse; text-align: left; }
-        .detail-table th { background: #f7fafc; color: #4a5568; padding: 12px 15px; font-weight: 600; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; }
-        .detail-table td { padding: 12px 15px; border-bottom: 1px solid #edf2f7; color: #4a5568; font-size: 0.95rem; }
-        .detail-table tbody tr:hover { background-color: #f7fafc; cursor: pointer; }
-        .status-tag { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
-        .status-progress { background: #feebc8; color: #c05621; }
-        .status-finished { background: #c6f6d5; color: #22543d; }
-        .btn-delete { background: none; border: none; color: #e53e3e; cursor: pointer; font-size: 1.1rem; padding: 5px; border-radius: 4px; transition: var(--transition); }
-        .btn-delete:hover { background: #fed7d7; }
-        
-        /* CSS CHO BỘ GỢI Ý TÌM KIẾM THEO KIỂU YOUTUBE */
-        .autocomplete-wrapper {
-            position: relative;
-            width: 100%;
+        h1.text-center-aligned { font-size: 1.8rem; color: var(--primary-teal); margin-bottom: 30px; position: relative; padding-bottom: 10px; }
+        h1.text-center-aligned::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 60px; height: 3px; background: var(--primary-teal); }
+        .project-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .project-table th { background: #f8f9fa; text-align: left; padding: 15px; border-bottom: 2px solid #eee; color: #666; font-weight: 600; }
+        .project-table td { padding: 15px; border-bottom: 1px solid #f1f1f1; }
+        .project-table tr:hover { background-color: #fcfcfc; cursor: pointer; }
+        .status-tag { padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
+        .status-finished { background: #e8f5e9; color: #2e7d32; }
+        .status-progress { background: #fff8e1; color: #f57f17; }
+        .btn-shiny { background: var(--primary-teal); color: white; border: none; padding: 12px 25px; border-radius: 8px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 6px rgba(0,128,128,0.2); transition: var(--transition); }
+        .btn-shiny:hover { background: var(--primary-dark); box-shadow: 0 6px 12px rgba(0,128,128,0.3); }
+        .btn-delete { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #ccc; }
+        .btn-delete:hover { color: var(--danger); }
+        .btn-back { background: none; border: 1px solid #ddd; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: 600; margin-bottom: 20px; color: #666; }
+        .btn-back:hover { background: #eee; }
+        .calibration-table { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid #eee; border-radius: 10px; overflow: hidden; margin-top: 20px; }
+        .calibration-table th { background: var(--primary-teal); color: white; padding: 12px; font-size: 0.9rem; }
+        .calibration-table td { padding: 8px; border-bottom: 1px solid #f1f1f1; text-align: center; }
+        .measure-input { width: 45px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; text-align: center; transition: var(--transition); }
+        .measure-input:focus { border-color: var(--primary-teal); outline: none; box-shadow: 0 0 5px rgba(0,128,128,0.2); }
+        .input-detail { border: 1px solid #ddd; padding: 8px 12px; border-radius: 6px; font-size: 0.95rem; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 600px; margin: 0 auto; }
+        .form-grid input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; width: 100%; box-sizing: border-box; }
+        .card-footer { grid-column: span 2; margin-top: 20px; text-align: center; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .detail-section { animation: fadeIn 0.4s ease-out forwards; }
+
+        /* --- CSS CHO TÍNH NĂNG KHÁCH HÀNG & SEARCH EQUIPMENT --- */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
         }
-        .autocomplete-suggestions {
+        .info-card {
+            background: #f9fbfb;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid #008080;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .info-card h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #008080;
+            font-size: 1.1rem;
+        }
+        .info-card p { margin: 6px 0; font-size: 0.95rem; color: #444; }
+        .info-card strong { color: #111; }
+        
+        .search-wrapper { position: relative; }
+        .search-results-box {
             position: absolute;
             top: 100%;
             left: 0;
             right: 0;
             background: white;
-            border: 1px solid #cbd5e0;
-            border-top: none;
-            border-radius: 0 0 6px 6px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            z-index: 999;
+            border: 1px solid #ddd;
+            border-radius: 0 0 8px 8px;
             max-height: 200px;
             overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: none;
         }
-        .suggestion-item {
+        .search-item {
             padding: 10px 15px;
             cursor: pointer;
-            border-bottom: 1px solid #edf2f7;
-            font-size: 0.95rem;
-            color: #2d3748;
+            border-bottom: 1px solid #f5f5f5;
             text-align: left;
         }
-        .suggestion-item:hover {
-            background-color: #ebf8ff;
-            color: #2b6cb0;
-            font-weight: bold;
-        }
-        .suggestion-item strong {
-            color: #008080;
-        }
-
-        .lab-input-cell {
-        width: 100%;
-        padding: 6px;
-        border: 1px solid #cbd5e0;
-        border-radius: 4px;
-        text-align: center;
-        font-family: 'Times New Roman', Times, serif;
-        font-size: 14px;
-        transition: all 0.2s ease;
-        box-sizing: border-box;
-    }
-    .lab-input-cell:focus {
-        border-color: #008080;
-        box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.15);
-        outline: none;
-        background-color: #f0fdfa;
-    }
-    .measured-active {
-        border: 2px solid #008080 !important;
-        background-color: #fbfdfd;
-        font-weight: bold;
-    }
-    #calibration-table tbody tr:nth-child(even) {
-        background-color: #fcfdfd;
-    }
-    #calibration-table tbody tr:hover {
-        background-color: #f4fbfb;
-    }
+        .search-item:hover { background-color: #f0f7f7; }
+        .search-item .eq-code { font-weight: bold; color: #008080; margin-right: 10px; }
     </style>
 </head>
 <body>
@@ -101,7 +99,6 @@
     <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer;">
         <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
     </div>
-    
     <div class="nav-container">
         <nav class="navbar">
             <a href="index.html" id="nav-home">Home</a>
@@ -115,442 +112,462 @@
 </header>
 
 <main class="container">
-    <section id="project-list-view">
-        <div class="dashboard-grid">
-            <div class="stat-card">
-                <h4>Tổng Dự Án</h4>
-                <p id="stat-total">1</p>
+    <div class="dashboard-grid">
+        <div class="stat-card total">
+            <h4>Tổng dự án</h4>
+            <p id="stat-total">4</p>
+        </div>
+        <div class="stat-card progress">
+            <h4>Đang thực hiện</h4>
+            <p id="stat-progress">3</p>
+        </div>
+        <div class="stat-card finished">
+            <h4>Hoàn thành</h4>
+            <p id="stat-finished">1</p>
+        </div>
+    </div>
+
+    <section id="project-list-view" class="detail-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1 class="text-center-aligned" style="margin: 0; padding: 0;">Project List</h1>
+            <button class="btn-shiny" onclick="showAddProjectForm()">+ Create New Project</button>
+        </div>
+        
+        <table class="project-table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Project Name</th>
+                    <th>Last Update</th>
+                    <th>Status</th>
+                    <th style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="project-table-body">
+                <tr id="row-PJ001" onclick="viewProjectDetail('PJ001')">
+                    <td><strong>#PJ001</strong></td>
+                    <td>First Project</td>
+                    <td>12/05/2026</td>
+                    <td><span class="status-tag status-finished">Finished</span></td>
+                    <td style="text-align: center;"><button class="btn-delete" onclick="event.stopPropagation(); deleteProject('PJ001')">🗑️</button></td>
+                </tr>
+                <tr id="row-PJ002" onclick="viewProjectDetail('PJ002')">
+                    <td><strong>#PJ002</strong></td>
+                    <td>Second Project</td>
+                    <td>14/05/2026</td>
+                    <td><span class="status-tag status-progress">In Progress</span></td>
+                    <td style="text-align: center;"><button class="btn-delete" onclick="event.stopPropagation(); deleteProject('PJ002')">🗑️</button></td>
+                </tr>
+                <tr id="row-PJ003" onclick="viewProjectDetail('PJ003')">
+                    <td><strong>#PJ003</strong></td>
+                    <td>Third Project</td>
+                    <td>14/05/2026</td>
+                    <td><span class="status-tag status-progress">In Progress</span></td>
+                    <td style="text-align: center;"><button class="btn-delete" onclick="event.stopPropagation(); deleteProject('PJ003')">🗑️</button></td>
+                </tr>
+                <tr id="row-PJ004" onclick="viewProjectDetail('PJ004')">
+                    <td><strong>#PJ004</strong></td>
+                    <td>Thử nghiệm độ bền vật liệu Poly</td>
+                    <td>10/05/2026</td>
+                    <td><span class="status-tag status-progress">In Progress</span></td>
+                    <td style="text-align: center;"><button class="btn-delete" onclick="event.stopPropagation(); deleteProject('PJ004')">🗑️</button></td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section id="project-create-view" class="detail-section" style="display:none;">
+        <h2 style="text-align: center; color: var(--primary-teal);">Create New Project</h2>
+        <div class="form-grid">
+            <input type="text" id="new-pj-id" placeholder="Mã dự án (ví dụ: PJ005)">
+            <input type="text" id="new-pj-name" placeholder="Tên dự án hiệu chuẩn/kiểm định">
+            <div class="card-footer">
+                <button class="btn-back" style="margin-right: 10px;" onclick="showProjectList()">Cancel</button>
+                <button class="btn-shiny" onclick="saveNewProject()">Save & Initialize</button>
             </div>
-            <div class="stat-card">
-                <h4>Đang Thực Hiện</h4>
-                <p id="stat-progress">1</p>
+        </div>
+    </section>
+
+    <section id="edit-project-view" class="detail-section" style="display:none;">
+        <button class="btn-back" onclick="showProjectList()">← Back to List</button>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 5px solid var(--primary-teal); box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                <h3 style="color: var(--primary-teal); margin-top: 0; margin-bottom: 15px;">Khách hàng liên kết</h3>
+                <p style="margin: 8px 0;">Tên công ty: <strong>Công ty TNHH Điện máy ABC</strong></p>
+                <p style="margin: 8px 0;">Người liên hệ: <strong>Nguyễn Văn A</strong></p>
+                <p style="margin: 8px 0;">Số điện thoại: <strong>0901.234.567</strong></p>
             </div>
-            <div class="stat-card">
-                <h4>Đã Hoàn Thành</h4>
-                <p id="stat-finished">0</p>
+
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 5px solid var(--primary-teal); box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                <h3 style="color: var(--primary-teal); margin-top: 0; margin-bottom: 15px;">Thiết bị hiệu chuẩn (Database Equipment)</h3>
+                <div class="search-wrapper">
+                    <input type="text" id="search-equipment-input" class="input-detail" style="width: 100%; box-sizing: border-box; padding: 12px;" placeholder="Gõ tên thiết bị (Washing Machine, Dryer...)...">
+                    <div id="search-results" class="search-results-box"></div>
+                </div>
             </div>
         </div>
 
-        <div class="detail-section">
-            <div class="section-header">
-                <h2>Danh sách dự án hiệu chuẩn</h2>
-                <button class="btn-shiny" onclick="createNewProjectPrompt()">+ Khởi tạo dự án mới</button>
-            </div>
-            <table class="detail-table">
+        <div style="margin-bottom: 15px;">
+            <h2 id="pj-detail-title" style="margin: 0; color: var(--primary-teal);">Project Detail</h2>
+            <p style="margin: 5px 0; color: #666;"><span id="pj-display-id">#---</span> | Trạng thái: <span id="pj-display-status" style="font-weight: bold;">-</span></p>
+        </div>
+
+        <div style="overflow-x: auto; margin-bottom: 20px;">
+            <table class="project-table" style="border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
                 <thead>
-                    <tr>
-                        <th>Mã dự án</th>
+                    <tr style="background: #f1f1f1;">
+                        <th width="80">STT</th>
                         <th>Tên thiết bị hiệu chuẩn</th>
-                        <th>Kỹ thuật viên</th>
-                        <th>Trạng thái</th>
-                        <th style="text-align: center;">Hành động</th>
+                        <th width="150" style="text-align: center;">Hành động</th>
                     </tr>
                 </thead>
-                <tbody id="project-table-body">
-                    <tr id="row-PRJ-328344">
-                        <td onclick="viewProjectDetail('PRJ-328344')"><strong>#PRJ-328344</strong></td>
-                        <td onclick="viewProjectDetail('PRJ-328344')">Máy giặt wascator (Wascator)</td>
-                        <td onclick="viewProjectDetail('PRJ-328344')">KTV. Nguyễn Văn A</td>
-                        <td onclick="viewProjectDetail('PRJ-328344')"><span class="status-tag status-progress">In Progress</span></td>
-                        <td style="text-align: center;"><button class="btn-delete" onclick="deleteProject('PRJ-328344')">🗑️</button></td>
-                    </tr>
+                <tbody id="added-equipment-list">
                 </tbody>
             </table>
         </div>
-    </section>
 
-    <section id="project-detail-view" class="detail-section" style="display: none;">
-        <div class="section-header">
-            <h2 id="project-detail-title">Project Detail: #PRJ-328344</h2>
-            <button class="btn-shiny" style="background: #4a5568;" onclick="showProjectList()"><b>🔙 Back</b></button>
-        </div>
-        <div id="project-detail-content">
-            <p><strong>Project Name:</strong> <span id="view-project-title">Máy giặt wascator (Wascator)</span></p>
-            <p><strong>Status:</strong> <span class="status-tag status-progress" id="view-project-status">In Progress</span></p>
-            <p><strong>Technician:</strong> KTV. Nguyễn Văn A</p>
-            <p><strong>Description:</strong> Thực hiện quy trình kiểm tra hiệu chuẩn thiết bị lồng giặt tiêu chuẩn phòng Lab.</p>
-            
-            <div style="margin-top: 30px; text-align: left;">
-                <button class="btn-shiny" onclick="switchToCalibrationForm()" style="background-color: #4a5568; color: white; padding: 10px 20px;">
-                    🖨️ In giấy hiệu chuẩn
-                </button>
-            </div>
-        </div>
-    </section>
-
-    <section id="calibration-form-view" class="detail-section" style="display: none;">
-        <div class="section-header">
-            <h2>Biểu mẫu nhập liệu & Xuất giấy chứng nhận</h2>
-            <button class="btn-shiny" style="background: #4a5568;" onclick="backToProjectDetail()">🔙 Hủy bỏ</button>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
-            <div>
-                <h3>Thông tin hành chính chứng nhận</h3>
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <label>Số Giấy Chứng Nhận (Cert No.):</label>
-                    <input type="text" id="input-cert-no" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    
-                    <label style="font-weight: bold; color: #008080;">Tên thiết bị (Gõ tìm kiếm thông minh từ DB mẫu):</label>
-                    <div class="autocomplete-wrapper">
-                        <input type="text" id="input-instrument-name" oninput="handleEquipmentSearch(this.value)" placeholder="Nhập tên thiết bị (VD: Was, Dry...)" style="width:100%; padding:8px; border:2px solid #008080; border-radius:4px; font-weight: bold;">
-                        <div id="search-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
-                    </div>
-                    
-                    <label>Nhà sản xuất (Manufacturer):</label>
-                    <input type="text" id="input-manufacturer" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    
-                    <label>Kiểu (Model):</label>
-                    <input type="text" id="input-model" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    
-                    <label>Mã thiết bị (Equipment ID):</label>
-                    <input type="text" id="input-equipment-id" value="241211" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    
-                    <label>Số sản xuất (Serial Number):</label>
-                    <input type="text" id="input-serial-number" value="SN: 00522/0539752" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                </div>
-            </div>
-
-            <div>
-                <h3>Thông tin đơn vị & Môi trường</h3>
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <label>Tên khách hàng (Customer):</label>
-                    <input type="text" id="input-customer-name" value="CÔNG TY TNHH PAIHONG VIỆT NAM" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    
-                    <label>Ngày hiệu chuẩn (Cal Date):</label>
-                    <input type="text" id="input-cal-date" value="21.04.2026" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    
-                    <label>Hạn hiệu chuẩn (Due Date):</label>
-                    <input type="text" id="input-re-cal-date" value="21.04.2027" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    
-                    <label>Quy trình áp dụng (Procedure):</label>
-                    <input type="text" id="input-procedure" value="LAB-F-01, LAB-T-02" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    
-                    <label>Tiêu chuẩn tham chiếu (Ref Standard):</label>
-                    <input type="text" id="input-ref-standard" value="ISO 6330" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <div>
-                            <label>Nhiệt độ:</label>
-                            <input type="text" id="input-temp-env" value="[25 ± 2] °C" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                        </div>
-                        <div>
-                            <label>Độ ẩm:</label>
-                            <input type="text" id="input-humi-env" value="[63 ± 5] %RH" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="table-responsive-wrapper" style="margin-top: 25px; background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
-    <h3 style="color: #008080; font-family: 'Roboto', sans-serif; font-size: 1.2rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
-        📊 <span>BẢNG KẾT QUẢ ĐO LƯỜNG THỰC TẾ / CALIBRATION RESULTS</span>
-    </h3>
-    
-    <table id="calibration-table" style="width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Times New Roman', Times, serif; font-size: 14px; text-align: center; border: 1px solid #111111; border-radius: 8px; overflow: hidden;">
-        <thead>
-            <tr style="background-color: #008080; color: #ffffff;">
-                <th style="border: 1px solid #111111; padding: 12px 10px; width: 22%; font-weight: 700; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;">Thông số<br><span style="font-style: italic; font-weight: normal; font-size: 12px; opacity: 0.9;">Parameters</span></th>
-                <th style="border: 1px solid #111111; padding: 12px 10px; width: 14%; font-weight: 700; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 12px; opacity: 0.9;">Calibration Points</span></th>
-                
-                <th colspan="3" style="border: 1px solid #111111; padding: 12px 10px; width: 27%; font-weight: 700; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;">Giá trị đo được<br><span style="font-style: italic; font-weight: normal; font-size: 12px; opacity: 0.9;">As Found Value</span></th>
-                
-                <th style="border: 1px solid #111111; padding: 12px 10px; width: 12%; font-weight: 700; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;">Độ KĐBD<br><span style="font-style: italic; font-weight: normal; font-size: 12px; opacity: 0.9;">Uncertainty (k=2)</span></th>
-                <th style="border: 1px solid #111111; padding: 12px 10px; width: 13%; font-weight: 700; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;">Dung sai<br><span style="font-style: italic; font-weight: normal; font-size: 12px; opacity: 0.9;">Tolerance</span></th>
-                <th style="border: 1px solid #111111; padding: 12px 10px; width: 12%; font-weight: 700; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;">Sự phù hợp<br><span style="font-style: italic; font-weight: normal; font-size: 12px; opacity: 0.9;">Conformity</span></th>
-            </tr>
-        </thead>
-        <tbody id="calibration-table-body">
-            <tr>
-                <td colspan="8" style="text-align: center; color: #a0aec0; padding: 30px; font-style: italic; font-family: 'Roboto', sans-serif; font-size: 0.95rem; background-color: #f7fafc;">
-                    🔍 Vui lòng nhập tên thiết bị ở ô tìm kiếm phía trên để hệ thống tự động bứng toàn bộ form cấu trúc bảng...
-                </td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
-            <div>
-                <label>Phụ trách phòng thí nghiệm:</label>
-                <input type="text" id="input-head-of-lab" value="Lê Cảnh Nhật Quang" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-            </div>
-            <div>
-                <label>Giám đốc duyệt ký:</label>
-                <input type="text" id="input-director" value="Lưu Ngọc Thống" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-            </div>
-        </div>
-
-        <div style="margin-top: 30px; text-align: right;">
-            <button id="btn-export-pdf" class="btn-shiny" onclick="executeExportCertificate()" style="background-color: #008080; color: white; padding: 12px 25px; font-size: 1rem;">
-                🖨️ Xác nhận & Xuất PDF bản in
-            </button>
+        <div style="text-align:right; margin-top: 30px;">
+            <button class="btn-shiny" onclick="alert('Đã lưu dữ liệu dự án và thiết bị thành công!')" style="padding: 12px 40px;">Save Changes & Generate Report</button>
         </div>
     </section>
 </main>
 
 <script>
-    // MÔ PHỎNG KHO DỮ LIỆU THIẾT BỊ MẪU LÊN TỚI HÀNG NGHÌN DỮ LIỆU
-    const MockDatabaseEquipment = {
-        "Washing Machine (Wascator)": {
-            manufacturer: "Electrolux",
-            model: "FOM 71CLS",
-            formPoints: [
-                { group: "nhiet-do", paramName: "Nhiệt độ\nTemperature (°C)", rowspan: 3, point: 30, v1: "30.2", v2: "", v3: "", uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
-                { group: "nhiet-do", paramName: "Nhiệt độ\nTemperature (°C)", rowspan: 0, point: 40, v1: "39.5", v2: "", v3: "", uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
-                { group: "nhiet-do", paramName: "Nhiệt độ\nTemperature (°C)", rowspan: 0, point: 60, v1: "59.2", v2: "", v3: "", uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
-                { group: "toc-do", paramName: "Tốc độ vắt\nSpin Speed (rpm)", rowspan: 2, point: 500, v1: "501.8", v2: "", v3: "", uncertainty: 0.8, tolerance: "± 50", conformity: "A" },
-                { group: "toc-do", paramName: "Tốc độ vắt\nSpin Speed (rpm)", rowspan: 0, point: 775, v1: "776.2", v2: "", v3: "", uncertainty: 0.8, tolerance: "± 50", conformity: "A" }
-            ]
-        },
-        "Dryer Machine (Máy sấy chuẩn)": {
-            manufacturer: "Whirlpool",
-            model: "3LWED4705FW",
-            formPoints: [
-                { group: "nhiet-do", paramName: "Nhiệt độ sấy\nTemperature (°C)", rowspan: 2, point: 45, v1: "44.8", v2: "", v3: "", uncertainty: 0.4, tolerance: "± 5", conformity: "A" },
-                { group: "nhiet-do", paramName: "Nhiệt độ sấy\nTemperature (°C)", rowspan: 0, point: 60, v1: "60.1", v2: "", v3: "", uncertainty: 0.4, tolerance: "± 5", conformity: "A" },
-                { group: "thoi-gian", paramName: "Thời gian\nTime (s)", rowspan: 1, point: 600, v1: "600.2", v2: "", v3: "", uncertainty: 0.1, tolerance: "± 2", conformity: "A" }
-            ]
-        },
-        "Refrigerator (Tủ lạnh phòng Lab)": {
-            manufacturer: "Samsung",
-            model: "RT20HAR8DSA",
-            formPoints: [
-                { group: "nhiet-do", paramName: "Nhiệt độ bảo quản\nTemperature (°C)", rowspan: 2, point: 2, v1: "2.1", v2: "", v3: "", uncertainty: 0.2, tolerance: "± 1", conformity: "A" },
-                { group: "nhiet-do", paramName: "Nhiệt độ bảo quản\nTemperature (°C)", rowspan: 0, point: 8, v1: "7.9", v2: "", v3: "", uncertainty: 0.2, tolerance: "± 1", conformity: "A" }
-            ]
-        }
+    // 1. Dữ liệu gốc từ Database Equipment dùng để gợi ý truy vấn
+    const dbEquipment = [
+        { id: 'EQ001', name: 'Washing Machine', manufacturer: '100', due: '2026-12-01' },
+        { id: 'EQ002', name: 'Dryer', manufacturer: '101', due: '2027-01-15' },
+        { id: 'EQ003', name: 'Refrigerator', manufacturer: '102', due: '2027-02-20' }
+    ];
+
+    const projectData = { 
+        'PJ001': { id: 'PJ001', title: 'Hiệu chuẩn thước cặp cơ khí', status: 'Finished' },
+        'PJ002': { id: 'PJ002', title: 'Kiểm định đồng hồ đo áp suất', status: 'In Progress' },
+        'PJ003': { id: 'PJ003', title: 'Hiệu chuẩn thiết bị đo nhiệt độ', status: 'In Progress' },
+        'PJ004': { id: 'PJ004', title: 'Thử nghiệm độ bền vật liệu Poly', status: 'In Progress' }
     };
 
-    let projectData = {
-        'PRJ-328344': { id: 'PRJ-328344', title: 'Máy giặt wascator (Wascator)', status: 'In Progress' }
-    };
-    let currentProjectId = null;
+    let equipmentCounter = 0;
 
-    function showProjectList() {
-        document.getElementById('project-list-view').style.display = 'block';
-        document.getElementById('project-detail-view').style.display = 'none';
-        document.getElementById('calibration-form-view').style.display = 'none';
-    }
+    // --- LOGIC XỬ LÝ TRUY VẤN GỢI Ý (SUGGESTIONS) ---
+    const searchInput = document.getElementById('search-equipment-input');
+    const resultsBox = document.getElementById('search-results');
 
-    function viewProjectDetail(id) {
-        currentProjectId = id;
-        const proj = projectData[id];
-        document.getElementById('project-list-view').style.display = 'none';
-        document.getElementById('project-detail-view').style.display = 'block';
-        document.getElementById('calibration-form-view').style.display = 'none';
-
-        document.getElementById('project-detail-title').innerText = `Project Detail: #${id}`;
-        document.getElementById('view-project-title').innerText = proj.title;
-        document.getElementById('view-project-status').innerText = proj.status;
-    }
-
-    function switchToCalibrationForm() {
-        document.getElementById('project-detail-view').style.display = 'none';
-        document.getElementById('calibration-form-view').style.display = 'block';
-
-        document.getElementById('input-cert-no').value = currentProjectId.replace('PRJ-', '');
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim().toLowerCase();
+        resultsBox.innerHTML = '';
         
-        // Gán tên thiết bị hiện tại của dự án vào ô input tìm kiếm
-        const currentTitle = projectData[currentProjectId].title;
-        document.getElementById('input-instrument-name').value = currentTitle;
-
-        // Tự động tìm kiếm gợi ý khớp ngay lập tức dựa trên tên gốc
-        handleEquipmentSearch(currentTitle, true);
-    }
-
-    // THUẬT TOÁN TÌM KIẾM SUGGESTION CHUYÊN NGHIỆP KIỂU YOUTUBE
-    function handleEquipmentSearch(keyword, isAutoTrigger = false) {
-        const suggestionBox = document.getElementById('search-suggestions');
-        suggestionBox.innerHTML = '';
-
-        if (!keyword || keyword.trim() === '') {
-            suggestionBox.style.display = 'none';
+        if (query === '') {
+            resultsBox.style.display = 'none';
             return;
         }
 
-        const keys = Object.keys(MockDatabaseEquipment);
-        const filteredKeys = keys.filter(key => key.toLowerCase().includes(keyword.toLowerCase()));
+        // Lọc thiết bị trùng khớp tên hoặc mã
+        const filtered = dbEquipment.filter(eq => 
+            eq.name.toLowerCase().includes(query) || eq.id.toLowerCase().includes(query)
+        );
 
-        if (filteredKeys.length === 0) {
-            if (!isAutoTrigger) {
-                suggestionBox.innerHTML = `<div class="suggestion-item" style="color:gray; cursor:default;">❌ Không thấy thiết bị mẫu tương ứng</div>`;
-                suggestionBox.style.display = 'block';
-            }
-            return;
-        }
-
-        // Tạo danh mục các gợi ý thả xuống
-        filteredKeys.forEach(key => {
-            const div = document.createElement('div');
-            div.className = 'suggestion-item';
-            div.innerHTML = `🔍 <strong>${key}</strong>`;
-            div.onclick = function() {
-                selectEquipmentTemplate(key);
-            };
-            suggestionBox.appendChild(div);
-        });
-
-        // Nếu kích hoạt tự động ban đầu và chỉ tìm ra duy nhất hoặc có kết quả tối ưu, tự áp dụng luôn
-        if (isAutoTrigger && filteredKeys.length > 0) {
-            selectEquipmentTemplate(filteredKeys[0]);
-            suggestionBox.style.display = 'none';
+        if (filtered.length > 0) {
+            filtered.forEach(eq => {
+                const div = document.createElement('div');
+                div.className = 'search-item';
+                div.innerHTML = `<span class="eq-code">#${eq.id}</span><span>${eq.name}</span>`;
+                div.addEventListener('click', function() {
+                    addEquipmentToTable(eq.name);
+                    searchInput.value = '';
+                    resultsBox.style.display = 'none';
+                });
+                resultsBox.appendChild(div);
+            });
+            resultsBox.style.display = 'block';
         } else {
-            suggestionBox.style.display = 'block';
+            resultsBox.style.display = 'none';
         }
-    }   
+    });
 
-    // THUẬT TOÁN ĐỒNG BỘ FORM & BẢNG 3 CỘT AS FOUND ĐÚNG THEO FILE DATABASEQUIPMENT
-    // Hàm xử lý bứng toàn bộ cấu trúc bảng từ Database khi click chọn tên thiết bị mẫu
-function selectEquipmentTemplate(key) {
-    // Đồng bộ tên thiết bị lên input chính và ẩn hộp gợi ý kiểu Youtube đi
-    document.getElementById('input-instrument-name').value = key;
-    document.getElementById('search-suggestions').style.display = 'none';
-
-    const eqTemplate = MockDatabaseEquipment[key];
-    if (!eqTemplate) return;
-
-    // Tự động map các dữ liệu hành chính mẫu
-    document.getElementById('input-manufacturer').value = eqTemplate.manufacturer || "";
-    document.getElementById('input-model').value = eqTemplate.model || "";
-
-    const tableBody = document.getElementById('calibration-table-body');
-    tableBody.innerHTML = ''; // Reset bảng dữ liệu trống ban đầu
-
-    // Thuật toán dựng bảng bứng nguyên gốc cấu trúc gộp nhóm từ databasequipment.html
-    eqTemplate.formPoints.forEach(pt => {
-        const row = document.createElement('tr');
-        
-        let htmlContent = '';
-
-        // Xử lý LOGIC ROWSPAN: Nếu thuộc tính rowspan > 0 thì mới chèn cột tiêu đề thông số gộp
-        if (pt.rowspan && pt.rowspan > 0) {
-            htmlContent += `
-                <td rowspan="${pt.rowspan}" class="group-header" style="border: 1px solid #111111; padding: 12px; text-align: left; font-weight: bold; vertical-align: middle; background-color: #f8fafc; color: #2d3748; line-height: 1.4;">
-                    ${pt.paramName.replace('\n', '<br><span style="font-weight: normal; font-style: italic; color: #4a5568; font-size: 13px;">') + '</span>'}
-                </td>
-            `;
+    // Nhấn enter bên ngoài ô tìm kiếm tự thêm nếu trùng khớp hoàn toàn hoặc thêm thủ công
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const val = this.value.trim();
+            if (val === '') return;
+            addEquipmentToTable(val);
+            this.value = '';
+            resultsBox.style.display = 'none';
         }
+    });
 
-        // Đổ đầy đủ các cột dữ liệu theo đúng form chuẩn, 3 cột As Found Value được bao viền Teal chuyên nghiệp
-        htmlContent += `
-            <td style="border: 1px solid #111111; padding: 10px; font-weight: bold; background-color: #f8fafc; color: #1a202c;">
-                <input type="text" class="lab-input-cell cal-point" value="${pt.point}" style="border: none; background: transparent; font-weight: bold; cursor: default;" readonly>
+    // Ẩn bảng gợi ý khi click ra ngoài
+    document.addEventListener('click', function(e) {
+        if (e.target !== searchInput) {
+            resultsBox.style.display = 'none';
+        }
+    });
+
+
+    // --- HÀM THÊM THIẾT BỊ VÀ ĐỔ BẢNG MẪU CHUẨN (WASHING MACHINE) ---
+    function addEquipmentToTable(name) {
+        equipmentCounter++;
+        const tbody = document.getElementById('added-equipment-list');
+        const eqId = `eq-${equipmentCounter}`;
+
+        // Dòng Master hiển thị tên thiết bị
+        const masterRow = document.createElement('tr');
+        masterRow.setAttribute('onclick', `toggleEquipmentDetail('${eqId}')`);
+        masterRow.style.backgroundColor = '#fff';
+        masterRow.innerHTML = `
+            <td><strong>#${equipmentCounter}</strong></td>
+            <td><span style="color: var(--primary-teal); font-weight: 600; text-decoration: underline;">${name}</span> (Nhấp để xem/ẩn bảng thông số mẫu)</td>
+            <td style="text-align: center;" onclick="event.stopPropagation();">
+                <button class="btn-delete" onclick="removeEquipment('${eqId}')">🗑️</button>
             </td>
-            <td style="border: 1px solid #111111; padding: 6px;"><input type="text" class="lab-input-cell measured-active as-found-1" value="${pt.v1 || ''}" placeholder="Lần 1"></td>
-            <td style="border: 1px solid #111111; padding: 6px;"><input type="text" class="lab-input-cell as-found-2" value="${pt.v2 || ''}" placeholder="Lần 2"></td>
-            <td style="border: 1px solid #111111; padding: 6px;"><input type="text" class="lab-input-cell as-found-3" value="${pt.v3 || ''}" placeholder="Lần 3"></td>
-            <td style="border: 1px solid #111111; padding: 6px;"><input type="text" class="lab-input-cell uncertainty" value="${pt.uncertainty}"></td>
-            <td style="border: 1px solid #111111; padding: 6px;"><input type="text" class="lab-input-cell tolerance" value="${pt.tolerance}" style="font-weight: 500;"></td>
-            <td style="border: 1px solid #111111; padding: 6px;"><input type="text" class="lab-input-cell conformity" value="${pt.conformity}" style="font-weight: bold; color: #38a169;"></td>
+        `;
+        masterRow.id = `master-${eqId}`;
+
+        // Dòng Detail chứa bảng mẫu hiệu chuẩn lấy cấu trúc từ Washing Machine
+        const detailRow = document.createElement('tr');
+        detailRow.id = `detail-${eqId}`;
+        detailRow.style.display = 'none'; 
+        detailRow.style.backgroundColor = '#fafafa';
+
+        detailRow.innerHTML = `
+            <td colspan="3" style="padding: 15px; border-bottom: 2px solid var(--primary-teal);">
+                <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: inset 0 0 5px rgba(0,0,0,0.05);">
+                    <div style="margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 5px 0; color: #008080;">Bảng số liệu hiệu chuẩn mẫu cho: ${name}</h4>
+                        <p style="margin:0; font-size:0.85rem; color:#666;">Quy trình: <i>F-01, T-02, V-02, TIME-02</i> | Quy chiếu: <i>ISO 6330</i></p>
+                    </div>
+                    
+                    <div style="overflow-x: auto;">
+                        <table class="calibration-table" style="margin-top: 0; width: 100%; border-collapse: collapse; font-size:13px;">
+                            <thead>
+                                <tr style="background-color: #f2f2f2; color: #111;">
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Thông số<br><span style="font-style: italic; font-weight: normal; font-size: 11px;">Parameters</span></th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 100px;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 11px;">Points</span></th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 90px;">Giá trị đo 1</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 90px;">Giá trị đo 2</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 90px;">Giá trị đo 3</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 80px;">Độ KĐBD<br><span style="font-style: italic; font-weight: normal; font-size: 11px;">Uncertainty</span></th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 80px;">Dung sai<br><span style="font-style: italic; font-weight: normal; font-size: 11px;">Tolerance</span></th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 90px;">Sự phù hợp<br><span style="font-style: italic; font-weight: normal; font-size: 11px;">Conformity</span></th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; width: 50px;">Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr data-group="${eqId}-nhietdo">
+                                    <td rowspan="5" class="group-header" style="border: 1px solid #ddd; padding: 8px; text-align: left; font-weight: bold; background-color: #fafafa; vertical-align: middle;">
+                                        Nhiệt độ<br><span style="font-weight: normal; font-style: italic; font-size:11px;">Temperature (°C)</span>
+                                    </td>
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">30</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="30.2" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                                <tr data-group="${eqId}-nhietdo">
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">40</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="39.5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                                <tr data-group="${eqId}-nhietdo">
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">60</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="59.2" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                                <tr data-group="${eqId}-nhietdo">
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">80</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="78.9" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                                <tr data-group="${eqId}-nhietdo">
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">90</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="88.7" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 3" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+
+                                <tr data-group="${eqId}-tocdo">
+                                    <td style="border: 1px solid #ddd; padding: 8px; text-align: left; font-weight: bold; background-color: #fafafa;">
+                                        Tốc độ giặt<br><span style="font-weight: normal; font-style: italic; font-size:11px;">Washing Speed (rpm)</span>
+                                    </td>
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">52</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="52.6" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.8" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 2" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+
+                                <tr data-group="${eqId}-thoigian">
+                                    <td style="border: 1px solid #ddd; padding: 8px; text-align: left; font-weight: bold; background-color: #fafafa;">
+                                        Thời gian<br><span style="font-weight: normal; font-style: italic; font-size:11px;">Timer (second)</span>
+                                    </td>
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">100</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="100.0" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.1" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="--" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; color:#999;">--</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+
+                                <tr data-group="${eqId}-mucnuoc">
+                                    <td rowspan="3" class="group-header" style="border: 1px solid #ddd; padding: 8px; text-align: left; font-weight: bold; background-color: #fafafa; vertical-align: middle;">
+                                        Mực nước<br><span style="font-weight: normal; font-style: italic; font-size:11px;">Level Check (mm)</span>
+                                    </td>
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">100</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="100" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                                <tr data-group="${eqId}-mucnuoc">
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">130</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="131" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                                <tr data-group="${eqId}-mucnuoc">
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background-color: #fafafa;">160</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="162" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="0.5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><input type="text" value="&plusmn; 5" class="measure-input" style="width:100%;"></td>
+                                    <td style="border: 1px solid #ddd; padding: 4px; font-weight: bold; color: green;">A</td>
+                                    <td style="border: 1px solid #ddd; padding: 4px;"><button onclick="deleteSubRow(this)" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✖</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </td>
         `;
 
-        row.innerHTML = htmlContent;
-        tableBody.appendChild(row);
-    });
-}   
-
-    // Đóng danh sách gợi ý khi bấm trượt ra ngoài ô nhập liệu
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('.autocomplete-wrapper')) {
-            document.getElementById('search-suggestions').style.display = 'none';
-        }
-    });
-
-    function backToProjectDetail() {
-        document.getElementById('calibration-form-view').style.display = 'none';
-        document.getElementById('project-detail-view').style.display = 'block';
+        tbody.appendChild(masterRow);
+        tbody.appendChild(detailRow);
     }
 
-    // THU THẬP ĐA CỘT DỮ LIỆU ĐO VÀ ĐẨY SANG BACKEND C++
-    async function executeExportCertificate() {
-        const btn = document.getElementById('btn-export-pdf');
-        if (!btn) return;
+    // Hàm ẩn/hiện bảng chi tiết của từng thiết bị trong dự án
+    function toggleEquipmentDetail(eqId) {
+        const detailRow = document.getElementById(`detail-${eqId}`);
+        if (detailRow.style.display === 'none') {
+            detailRow.style.display = 'table-row';
+        } else {
+            detailRow.style.display = 'none';
+        }
+    }
 
-        btn.disabled = true;
-        btn.innerHTML = "⏳ Đang kết xuất tài liệu PDF...";
+    // Hàm xóa thiết bị chính ra khỏi dự án
+    function removeEquipment(eqId) {
+        if (confirm("Xác nhận xóa thiết bị này khỏi dự án?")) {
+            document.getElementById(`master-${eqId}`).remove();
+            document.getElementById(`detail-${eqId}`).remove();
+        }
+    }
 
-        const payload = {
-            certNo: document.getElementById('input-cert-no').value,
-            instrumentName: document.getElementById('input-instrument-name').value,
-            manufacturer: document.getElementById('input-manufacturer').value,
-            model: document.getElementById('input-model').value,
-            equipmentId: document.getElementById('input-equipment-id').value,
-            serialNumber: document.getElementById('input-serial-number').value,
-            customerName: document.getElementById('input-customer-name').value,
-            calDate: document.getElementById('input-cal-date').value,
-            reCalDate: document.getElementById('input-re-cal-date').value,
-            procedure: document.getElementById('input-procedure').value,
-            refStandard: document.getElementById('input-ref-standard').value,
-            tempEnv: document.getElementById('input-temp-env').value,
-            humiEnv: document.getElementById('input-humi-env').value,
-            headOfLab: document.getElementById('input-head-of-lab').value,
-            director: document.getElementById('input-director').value,
-            points: []
-        };
+    // Hàm xử lý xóa dòng nhỏ (hàng thông số gộp rowspan) lấy nguyên logic từ file database của bạn
+    function deleteSubRow(button) {
+        const currentRow = button.closest('tr');
+        const groupName = currentRow.getAttribute('data-group');
+        const groupRows = Array.from(document.querySelectorAll(`tr[data-group="${groupName}"]`));
+        
+        if (groupRows.length === 1) {
+            currentRow.remove();
+            return;
+        }
+        
+        const headerCell = groupRows[0].querySelector('.group-header') || groupRows[0].querySelector('td:first-child');
+        
+        if (currentRow === groupRows[0]) {
+            const nextRow = groupRows[1];
+            const currentRowsSpan = parseInt(headerCell.getAttribute('rowspan'), 10);
+            headerCell.setAttribute('rowspan', currentRowsSpan - 1);
+            nextRow.insertBefore(headerCell, nextRow.firstChild);
+        } else {
+            const mainHeader = groupRows[0].querySelector('[rowspan]');
+            if (mainHeader) {
+                const currentRowsSpan = parseInt(mainHeader.getAttribute('rowspan'), 10);
+                mainHeader.setAttribute('rowspan', currentRowsSpan - 1);
+            }
+        }
+        currentRow.remove();
+    }
 
-        const rows = document.querySelectorAll('#calibration-table-body tr');
-        rows.forEach(row => {
-            const calPointEl = row.querySelector('.cal-point');
-            if(!calPointEl) return;
+    // --- CÁC HÀM ĐIỀU HƯỚNG GIỮ NGUYÊN GỐC ---
+    function viewProjectDetail(id) {
+        const pj = projectData[id];
+        if (pj) {
+            document.getElementById('project-list-view').style.display = 'none';
+            document.getElementById('project-create-view').style.display = 'none';
+            document.getElementById('edit-project-view').style.display = 'block';
 
-            // Gộp chuỗi hoặc lấy giá trị trung bình từ 3 cột as-found để lưu trữ sang database C++
-            const v1 = row.querySelector('.as-found-1').value || "0";
-            const v2 = row.querySelector('.as-found-2').value || "";
-            const v3 = row.querySelector('.as-found-3').value || "";
+            document.getElementById('pj-detail-title').textContent = pj.title;
+            document.getElementById('pj-display-id').textContent = '#' + pj.id;
+            document.getElementById('pj-display-status').textContent = pj.status;
             
-            // Log giá trị tổng hợp để truyền đi
-            const finalValueText = v2 || v3 ? `${v1} | ${v2} | ${v3}`.replace(/\|\s*$/, "") : v1;
-
-            payload.points.push({
-                calPoint: parseFloat(calPointEl.value) || 0,
-                asFoundValue: parseFloat(v1) || 0, // Giá trị đo chính thứ nhất
-                allMeasuredValues: finalValueText,   // Chuỗi lưu cả 3 điểm đo
-                uncertainty: parseFloat(row.querySelector('.uncertainty').value) || 0,
-                tolerance: row.querySelector('.tolerance').value,
-                conformity: row.querySelector('.conformity').value
-            });
-        });
-
-        try {
-            const serverBaseUrl = 'http://localhost:18080';
-            const saveResponse = await fetch(`${serverBaseUrl}/api/calibration/save-full`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const saveResult = await saveResponse.json();
-
-            if (!saveResult.success) {
-                alert("Lỗi lưu hồ sơ: " + saveResult.message);
-                return;
-            }
-
-            const pdfResponse = await fetch(`${serverBaseUrl}/api/calibration/export-pdf/${payload.certNo}`);
-            const pdfResult = await pdfResponse.json();
-
-            if (pdfResult.success) {
-                window.open(`${serverBaseUrl}${pdfResult.pdf_url}`, '_blank');
-            } else {
-                alert("Lỗi xuất PDF: " + pdfResult.message);
-            }
-        } catch (error) {
-            console.error(error);
-            alert("Không thể kết nối đến máy chủ LabMaster Server!");
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = "🖨️ Xác nhận & Xuất PDF bản in";
+            document.getElementById('added-equipment-list').innerHTML = '';
+            equipmentCounter = 0;
+            
+            window.scrollTo(0,0);
         }
+        
+    }
+    
+    function showProjectList() {
+        document.getElementById('project-list-view').style.display = 'block';
+        document.getElementById('project-create-view').style.display = 'none';
+        document.getElementById('edit-project-view').style.display = 'none';
     }
 
-    function createNewProjectPrompt() {
-        const id = 'PRJ-' + Math.floor(Math.random() * 900000 + 100000);
-        const name = prompt("Nhập tên thiết bị cần thực hiện hiệu chuẩn:");
-        if (!name) return;
+    function showAddProjectForm() {
+        document.getElementById('project-list-view').style.display = 'none';
+        document.getElementById('project-create-view').style.display = 'block';
+    }
+
+    function saveNewProject() {
+        const name = document.getElementById('new-pj-name').value;
+        const id = document.getElementById('new-pj-id').value;
+
+        if (!name || !id) {
+            alert("Vui lòng nhập đầy đủ thông tin!");
+            return;
+        }
 
         projectData[id] = { id: id, title: name, status: 'In Progress' };
-        
+
         const tableBody = document.getElementById('project-table-body');
         const newRow = document.createElement('tr');
         newRow.id = `row-${id}`;
@@ -562,7 +579,10 @@ function selectEquipmentTemplate(key) {
             <td style="text-align: center;"><button class="btn-delete" onclick="deleteProject('${id}')">🗑️</button></td>
         `;
         tableBody.appendChild(newRow);
+        
         updateStats();
+        alert("Khởi tạo dự án thành công!");
+        showProjectList();
     }
 
     function deleteProject(id) {
@@ -579,6 +599,8 @@ function selectEquipmentTemplate(key) {
         document.getElementById('stat-progress').textContent = values.filter(v => v.status === 'In Progress').length;
         document.getElementById('stat-finished').textContent = values.filter(v => v.status === 'Finished').length;
     }
+
+    updateStats();
 </script>
 </body>
 </html>
