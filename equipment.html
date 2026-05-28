@@ -186,556 +186,236 @@
 </main>
 
 <script>
-    let currentId = '';
+    // Dữ liệu đối tượng trích xuất nguyên vẹn 100% từ file gốc TBC.csv (Không tự ý sửa đổi từ viết hoa/ô trống)
+    let equipmentData = {
+        '1': { stt: '1', key: 'baro', code: 'LAB-BARO.01', name: 'Thermo-hygro-barometer', nsx: 'LUTRON', model: 'MHB-382SD', serial: 'AM.29323', gcn: 'AC-1868', lienKet: 'TECHMASTER', calDate: '29/08/2025', nextDate: '2026-08-29' },
+        '2': { stt: '2', key: 'volume', code: 'LAB-WATERFLOW.01', name: 'Water Flow Meter', nsx: 'N/A', model: 'N/A', serial: '', gcn: 'KT3-00042BDT5', lienKet: 'QUATEST 3', calDate: '27/08/2025', nextDate: '2026-08-27' },
+        '3': { stt: '3', key: 'timer', code: 'LAB-TIMER.01', name: 'Stopwatch', nsx: 'CASIO', model: 'HS-70W', serial: 'J003Q02', gcn: 'KT3-01161BDE5/1', lienKet: 'QUATEST 3', calDate: '2025-08-09', nextDate: '2026-08-09' },
+        '4': { stt: '4', key: 'tacho2', code: 'LAB-TACHO.03', name: 'Digital Tachometer', nsx: 'FLUKE', model: '931', serial: 'N/A', gcn: 'KT3-01161BDE5/2', lienKet: 'QUATEST 3', calDate: '2025-08-09', nextDate: '2026-08-09' },
+        '5': { stt: '5', key: 'tacho3', code: 'LAB-TACHO.02', name: 'Digital Tachometer', nsx: 'TENMARS', model: 'TM-4100N', serial: '230500607', gcn: 'KT3-01161BDE5/3', lienKet: 'QUATEST 3', calDate: '2025-08-09', nextDate: '2026-08-09' },
+        '6': { stt: '6', key: 'timer2', code: 'LAB-TIMER.02', name: 'STOPWATCH', nsx: 'Extech', model: '365510', serial: 'N/A', gcn: 'TSG-0-554097', lienKet: 'QUATEST 3', calDate: '17/9/2025', nextDate: '2026-09-17' },
+        '7': { stt: '7', key: '10kg', code: 'LAB-10M1WEIGHT.01', name: 'Weight M1-10', nsx: 'CHINA', model: '', serial: '--', gcn: 'KT3-0122BKL5', lienKet: 'QUATEST 3', calDate: '2025-03-07', nextDate: '2026-03-07' },
+        '8': { stt: '8', key: '20kg1', code: 'LAB-20M1WEIGHT.02', name: 'Weight M1-20', nsx: 'CHINA', model: '', serial: '--', gcn: 'KT3-0122BKL5', lienKet: 'QUATEST 3', calDate: '2025-03-07', nextDate: '2026-03-07' },
+        '9': { stt: '9', key: '20kg', code: '', name: 'Weight M1-20', nsx: 'CHINA', model: '', serial: '--', gcn: 'KT3-0122BKL5', lienKet: 'QUATEST 3', calDate: '2025-03-07', nextDate: '2026-03-07' },
+        '10': { stt: '10', key: '20kg2', code: 'LAB-20M1WEIGHT.03', name: 'Weight M1-20', nsx: 'CHINA', model: '', serial: '--', gcn: 'KT3-0122BKL5', lienKet: 'QUATEST 3', calDate: '2025-03-07', nextDate: '2026-03-07' },
+        '11': { stt: '11', key: '20kg3', code: 'LAB-20M1WEIGHT.04', name: 'Weight M1-20', nsx: 'CHINA', model: '', serial: '--', gcn: 'KT3-0122BKL5', lienKet: 'QUATEST 3', calDate: '2025-03-07', nextDate: '2026-03-07' },
+        '12': { stt: '12', key: '20kg4', code: 'LAB-20M1WEIGHT.05', name: 'Weight M1-20', nsx: 'CHINA', model: '', serial: '--', gcn: 'KT3-0122BKL5', lienKet: 'QUATEST 3', calDate: '2025-03-07', nextDate: '2026-03-07' },
+        '13': { stt: '13', key: 'caliper2', code: 'LAB-CALIPER.02', name: 'Digital caliper', nsx: 'Mitutoyo', model: 'CD-20APX', serial: 'A17096618', gcn: 'KT3-01293BDD5/1', lienKet: 'QUATEST 3', calDate: '2025-08-09', nextDate: '2026-08-09' },
+        '14': { stt: '14', key: 'panme', code: 'LAB-PANME.01', name: 'Venier micrometer', nsx: 'MITUTOYO', model: '293-240-30', serial: '74363125', gcn: 'KT3-01293BDD5/2', lienKet: 'QUATEST 3', calDate: '', nextDate: '1900-12-31' },
+        '15': { stt: '15', key: 'feeler', code: 'LAB-FEELER.01', name: 'Feeler gauge', nsx: 'NIGATA SEIKI', model: 'NO.150ML', serial: '01293BDD5/3', gcn: 'KT3-01293BDD5/3', lienKet: 'QUATEST 3', calDate: '2025-08-09', nextDate: '2026-08-09' },
+        '16': { stt: '16', key: 'needle', code: 'LAB-CAL_TOOL_16', name: 'Needle detector card', nsx: 'HASHIMA', model: '0.8;\n1.0;\n1.2', serial: '', gcn: 'KT3-01293BDD5/4\nKT3-01293BDD5/5\nKT3-01293BDD5/5', lienKet: 'QUATEST 3', calDate: '28/08/2025', nextDate: '2026-08-28' },
+        '17': { stt: '17', key: 'thickness2', code: 'LAB-GBLOCK.01', name: 'Gauge block grade 0', nsx: 'CHINA', model: '', serial: 'N/A', gcn: 'KT3-01293BDD5/7', lienKet: 'QUATEST 3', calDate: '2025-03-09', nextDate: '2026-03-09' },
+        '18': { stt: '18', key: 'hum', code: 'LAB-THER_HUM.02', name: 'Thermo-hygrometer', nsx: 'TESTO', model: '174H', serial: '37341315', gcn: 'KT3-01499BHL5/1', lienKet: 'QUATEST 3', calDate: '2025-04-09', nextDate: '2026-04-09' },
+        '19': { stt: '19', key: 'flowmeter', code: 'LAB-AIRFLOW.02', name: 'Air Flow Meter', nsx: 'TENMARS', model: 'TM-4001', serial: '230500116', gcn: 'KT3-01499BHL5/2', lienKet: 'QUATEST 3', calDate: '2025-04-09', nextDate: '2026-04-09' },
+        '20': { stt: '20', key: 'load210g', code: 'LAB-BALANCE.03', name: 'Digital Balance', nsx: 'OHAUS', model: 'PA214', serial: 'B523014198', gcn: 'KT3-01514BKL5/1', lienKet: 'QUATEST 3', calDate: '22/08/2025', nextDate: '2026-08-22' },
+        '21': { stt: '21', key: 'load620g', code: 'LAB-BALANCE.02', name: 'Digital Balance', nsx: 'VIBRA SHINKO', model: 'AB623', serial: '240318362', gcn: 'KT3-01514BKL5/2', lienKet: 'QUATEST 3', calDate: '22/08/2025', nextDate: '2026-08-22' },
+        '22': { stt: '22', key: 'balance2', code: 'LAB-WEIGHTSET.02', name: 'F1 Standard Weight Set', nsx: 'METTLER TOLEDO', model: 'F1', serial: '30402730', gcn: 'KT3-01514BKL5/3', lienKet: 'QUATEST 3', calDate: '29/08/2025', nextDate: '2026-08-29' },
+        '23': { stt: '23', key: 'pressure2', code: 'LAB-PRESSURE.02', name: 'Pressure Gauge', nsx: 'LUTRON', model: 'PS-9302', serial: 'I.407815\nQ620822', gcn: 'KT3-01858BCO5/1', lienKet: 'QUATEST 3', calDate: '2025-04-09', nextDate: '2026-04-09' },
+        '24': { stt: '24', key: 'force3', code: 'LAB-MINIFORCE.02', name: 'Pressure Gauge', nsx: 'CHINA', model: 'L400C', serial: 'LZ0209312K\nLoadcell\nMODEL: LFT-25-20KG\nSN: LZ0209312K', gcn: 'KT3-01858BCO5/2', lienKet: 'QUATEST 3', calDate: '25/08/2025', nextDate: '2026-08-25' },
+        '25': { stt: '25', key: 'infrared', code: 'LAB-CAL_TOOL_26', name: 'Infrared thermomter', nsx: 'FLUKE 572-2', model: '572-2', serial: '36230624WS', gcn: 'KT3-02187BNH5/1', lienKet: 'QUATEST 3', calDate: '2025-05-09', nextDate: '2026-05-09' },
+        '26': { stt: '26', key: 'Temp1', code: 'LAB-THERMO.03', name: 'Digital Thermometer', nsx: 'Extech', model: '', serial: 'H330198', gcn: 'KT3-02187BNH5/2', lienKet: 'QUATEST 3', calDate: '2025-10-09', nextDate: '2026-10-09' },
+        '27': { stt: '27', key: 'pressure', code: 'LAB-PRESSURE.01', name: 'Pressure Gauge', nsx: 'BAROLI', model: 'RAISOVA 547', serial: '2257189', gcn: 'KT3-02205BCO4/2', lienKet: 'QUATEST 3', calDate: '2025-05-12', nextDate: '2026-05-12' },
+        '28': { stt: '28', key: 'force2', code: 'LAB-FORCE.01', name: 'Loadcell and indicator', nsx: 'VMC/ Laumas', model: '', serial: '15081469\n201184903', gcn: 'KT3-02386BCO4', lienKet: 'QUATEST 3', calDate: '', nextDate: '1900-12-31' },
+        '29': { stt: '29', key: 'Temp2', code: 'LAB-THERMO.04', name: 'Digital Thermometer', nsx: 'Extech', model: '', serial: 'H399380', gcn: 'KT3-02443BNH4/2', lienKet: 'QUATEST 3', calDate: '2025-05-12', nextDate: '2026-05-12' },
+        '30': { stt: '30', key: 'thickness', code: 'LAB-THICKNESS.01', name: 'Digital Indicator', nsx: 'INSIZE', model: '2103-05', serial: 'M1807248075', gcn: 'TSG-0-554096', lienKet: 'TECHMASTER', calDate: '17/09/2025', nextDate: '2026-09-17' },
+        '31': { stt: '31', key: '1kg', code: 'LAB-1M1WEIGHT.01', name: 'Weight M1-1', nsx: 'CHINA', model: '', serial: '1875', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '32': { stt: '32', key: '2kg', code: 'LAB-2M1WEIGHT.01', name: 'Weight M1-2', nsx: 'CHINA', model: '', serial: '1873', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '33': { stt: '33', key: '2kg1', code: 'LAB-2M1WEIGHT.01', name: 'Weight M1-2', nsx: 'CHINA', model: '', serial: '1874', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '34': { stt: '34', key: 'chamber', code: 'LAB-9HSENSORS.01', name: 'Temp-Humidity 9CH', nsx: 'China', model: '', serial: '--', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '35': { stt: '35', key: 'angle', code: 'LAB-ANGLE.01', name: 'Angle Meter', nsx: 'LEVEL BOX', model: '', serial: '1659BDD9/2', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '36': { stt: '36', key: 'load10kg', code: 'LAB-BALANCE.01', name: 'Digital Balance', nsx: 'LABEX', model: 'HC-B100001', serial: '170630023', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '37': { stt: '37', key: 'load20kg', code: 'LAB-BALANCE.04', name: 'Digital Balance', nsx: 'TPS', model: '', serial: 'CTPS57157100124', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '38': { stt: '38', key: 'load3000g', code: 'LAB-BALANCE.05', name: 'Digital Balance', nsx: '', model: '', serial: '', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '39': { stt: '39', key: 'load5000g', code: 'LAB-BALANCE.06', name: 'Digital Balance', nsx: '', model: '', serial: '', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '40': { stt: '40', key: 'caliper1', code: 'LAB-CALIPER.01', name: 'Digital caliper', nsx: 'Mitutoyo', model: 'CD-15APX', serial: 'B21022878', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '41': { stt: '41', key: 'hardness', code: 'LAB-DUROKIT.01', name: 'durometer kit', nsx: '', model: '', serial: '', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '42': { stt: '42', key: 'force1', code: 'LAB-FORCE.02', name: 'Loadcell and indicator', nsx: 'VMC/ Laumas', model: '', serial: '33073261', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '43': { stt: '43', key: 'force20kg', code: 'LAB-FORCE.03', name: 'Loadcell and indicator', nsx: 'CHINA', model: 'L400C', serial: 'LZ0209312K\nLoadcell\nMODEL: LFT-25-20KG\nSN: LZ0209312K', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '44': { stt: '44', key: 'thickness', code: 'LAB-GBLOCK.02', name: 'Gauge block grade 0', nsx: 'CHINA', model: 'GRADE 0', serial: '200303', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '45': { stt: '45', key: 'heaterblock', code: 'LAB-HEATER-01', name: 'Temperature Heater', nsx: 'CHINA', model: '', serial: '2003323', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '46': { stt: '46', key: 'infrared2', code: 'LAB-INFRARED.01', name: 'Infrared thermomter', nsx: 'FLUKE', model: '62 MAX', serial: '29940181WS', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '47': { stt: '47', key: 'length', code: 'LAB-LENGTH.01', name: 'Tensile Length Counter', nsx: 'MITUTOYO', model: '', serial: '', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '48': { stt: '48', key: 'light', code: 'LAB-LIGHT.01', name: 'Light Meter', nsx: 'Sekonic', model: 'C-700R', serial: 'JT22-000383', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '49': { stt: '49', key: 'light_49', code: 'LAB-LIGHT.02', name: 'Light Meter', nsx: 'KONICA MILNOTA', model: 'CL-200A', serial: '80411030', gcn: '', lienKet: 'VMI', calDate: '2025-04-09', nextDate: '2026-04-09' },
+        '50': { stt: '50', key: 'force4', code: 'LAB-FORCE.04', name: 'Compressor load - indicator', nsx: 'CAS', model: '50kgf', serial: '', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '51': { stt: '51', key: 'force5', code: 'LAB-FORCE.05', name: 'Compressor load - indicator', nsx: 'BONGSHIN', model: 'BS-32', serial: 'Y30167 BS-32\nX23165', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '52': { stt: '52', key: 'force5_52', code: 'LAB-MINIFORCE.05', name: 'Miniloadcell - indicator 200kg', nsx: 'BONGSHIN', model: 'BS-32', serial: 'S30056 BS-32\nR45167\n', gcn: 'TSG-0-554093', lienKet: 'TECHMASTER', calDate: '17/09/2025', nextDate: '2026-09-17' },
+        '53': { stt: '53', key: 'needle2', code: 'LAB-NEEDLE.02', name: 'Needle detector card', nsx: 'HASHIMA', model: '0.8;\n1.0;\n1.2', serial: '', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '54': { stt: '54', key: 'ph', code: 'LAB-PH-01', name: 'pH Solution (4; 7; 10)', nsx: 'USA', model: '', serial: "Manufactuter's", gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '55': { stt: '55', key: 'pinset', code: 'LAB-PINSET.01', name: 'Pin gauge set', nsx: 'CHINA', model: '4.98 - 5.02', serial: '5 PCS', gcn: 'TSG-0-554094', lienKet: 'TECHMASTER', calDate: '17/09/2025', nextDate: '2026-09-17' },
+        '56': { stt: '56', key: 'ruler', code: 'LAB-RULER.01', name: 'Steel Ruler', nsx: 'SHINWA', model: '', serial: '1659BDD9/2', gcn: 'TSG-0-554095', lienKet: 'TECHMASTER', calDate: '17/09/2025', nextDate: '2026-09-17' },
+        '57': { stt: '57', key: 'solar', code: 'LAB-SOLAR.01', name: 'Solar Power Meter', nsx: 'LUTRON', model: 'SPM-1116SD', serial: 'Q968431', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '58': { stt: '58', key: 'spectro', code: 'LAB-SPECTRO.01', name: 'Spectro Cal Kit', nsx: 'JAPAN', model: 'JCRM110\nJCRM140', serial: '81128\n14240', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '59': { stt: '59', key: 'tacho1', code: 'LAB-TACHO.01', name: 'Digital Tachometer', nsx: 'THB', model: '', serial: 'S1049626', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '60': { stt: '60', key: 'hum2', code: 'LAB-THER_H.02', name: 'Thermo-hygrometer', nsx: 'Deree', model: '', serial: '251865', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '61': { stt: '61', key: 'hum3', code: 'LAB-THER_H.03', name: 'Thermo-hygrometer', nsx: 'Deree', model: '', serial: '251868', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '62': { stt: '62', key: 'Temp5', code: 'LAB-THERMO.01', name: 'Digital Thermometer', nsx: 'ETI', model: 'REFERENCE MK2', serial: 'D25216457', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '63': { stt: '63', key: 'Temp4', code: 'LAB-THERMO.02', name: 'Digital Thermometer', nsx: 'ETI', model: '', serial: 'D24270697', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '64': { stt: '64', key: 'Temp3', code: 'LAB-THERMO.05', name: 'Digital Thermometer', nsx: 'Extech', model: '', serial: '1904306', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '65': { stt: '65', key: 'temp11ch', code: 'LAB-THERMO.06', name: 'Temperature 11CH', nsx: 'China', model: '', serial: 'TK6071IP', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '66': { stt: '66', key: 'temp10ch', code: 'LAB-THERMO.07', name: 'Temperature logger', nsx: 'GRAPHTEC', model: '', serial: 'GL220', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '67': { stt: '67', key: 'timer3', code: 'LAB-TIMER.03', name: 'Stopwatch', nsx: 'Extech', model: '365510', serial: 'N/A', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '68': { stt: '68', key: 'balance1', code: 'LAB-WEIGHTSET.01', name: 'F1 Standard Weight Set', nsx: 'METTLER TOLEDO', model: '', serial: '18072601', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '69': { stt: '69', key: 'balance3', code: 'LAB-WEIGHTSET.03', name: 'F1 Standard Weight Set', nsx: '', model: '', serial: '', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '70': { stt: '70', key: 'wilesstemp', code: 'LAB-WIFI_TEPM.01', name: 'Wiless Temperature', nsx: 'MADGETECH', model: 'HiTemp140', serial: '45335', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '71': { stt: '71', key: 'wilesstemp2', code: 'LAB-WIFI_TEPM.02', name: 'Hight temperature data logger', nsx: 'YOWEXA', model: 'YPL-190-B', serial: '24230HTC0000004', gcn: '', lienKet: '', calDate: '', nextDate: '1900-12-31' },
+        '72': { stt: '72', key: 'linear', code: 'LAB-LINEAR.01', name: 'LINEAR SCALE', nsx: '', model: '', serial: '', gcn: 'KT3-01596BDD5', lienKet: 'QUATEST 3', calDate: '2025-10-28', nextDate: '2026-10-28' }
+    };
 
-    function editEq(id) {
-        currentId = id;
-        // Hiển thị view detail
-        showView('edit-view');
-        
-        // Gán tiêu đề và thông tin cơ bản
-        document.getElementById('edit-title').innerText = "Detail: " + document.getElementById('n-' + id).innerText;
-        document.getElementById('in-manu').value = document.getElementById('m-' + id).innerText;
-        document.getElementById('in-due').value = document.getElementById('d-' + id).innerText;
+    // Hàm tự động kết xuất danh sách toàn bộ các cột, không trộn lẫn dữ liệu
+    function renderEquipmentTable() {
+        const tableBody = document.getElementById('equipment-table-body');
+        tableBody.innerHTML = '';
+        const today = new Date();
 
-        // Reset các ô input measure về trống khi mở thiết bị mới
-        const inputs = document.querySelectorAll('.measure-input');
-        inputs.forEach(input => input.value = "");
-        calculateCalibration(); // Reset kết quả tính toán
-    }
-
-    function calculateCalibration() {
-        const inputs = document.querySelectorAll('.measure-input');
-        let sum = 0;
-        let count = 0;
-
-        inputs.forEach(input => {
-            if (input.value !== "") {
-                sum += parseFloat(input.value);
-                count++;
-            }
-        });
-
-        const average = count > 0 ? (sum / count).toFixed(3) : 0;
-        const avgDisplay = document.getElementById('res-average');
-        const conclusionDisplay = document.getElementById('res-conclusion');
-
-        avgDisplay.innerText = average;
-
-        if (count > 0) {
-            if (parseFloat(average) >= 10) {
-                conclusionDisplay.innerText = "PASS";
-                conclusionDisplay.className = "status-pass";
-            } else {
-                conclusionDisplay.innerText = "FAIL";
-                conclusionDisplay.className = "status-fail";
-            }
-        } else {
-            conclusionDisplay.innerText = "-";
-            conclusionDisplay.className = "";
-        }
-    }
-
-    function saveEq() {
-        // Cập nhật lại dữ liệu vào dòng tương ứng ở trang danh sách
-        document.getElementById('m-' + currentId).innerText = document.getElementById('in-manu').value;
-        document.getElementById('d-' + currentId).innerText = document.getElementById('in-due').value;
-        
-        alert("Dữ liệu hiệu chuẩn đã được lưu đè!");
-        showView('list-view');
-    }
-
-    function showView(viewId) {
-        const listView = document.getElementById('list-view');
-        const editView = document.getElementById('edit-view');
-        const addBtn = document.getElementById('add-btn-container');
-
-        if (viewId === 'edit-view') {
-            listView.style.display = 'none';
-            editView.style.display = 'block';
-            if (addBtn) addBtn.style.display = 'none';
-        } else {
-            listView.style.display = 'block';
-            editView.style.display = 'none';
-            if (addBtn) addBtn.style.display = 'block';
-            document.getElementById('add-eq-view').style.display = 'none';
-        }
-    }
-</script>
-
-</body>
-=======
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <title>Standard Equipment - LabMaster</title>
-    <link rel="stylesheet" href="index.css">
-    <style>
-        
-        
-
-        .calibration-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            font-size: 14px;
-        }
-
-        .calibration-table th, .calibration-table td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: center;
-        }
-
-        .calibration-table th {
-            background-color: #f8f9fa;
-            color: #008080;
-        }
-
-        .input-detail {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-
-        .measure-input {
-            width: 60px;
-            text-align: center;
-            padding: 5px;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-        }
-
-        .button-wrapper {
-            text-align: center;
-            margin-top: 30px;
-        }
-
-        .detail-table tbody tr:hover {
-            background-color: #f0f7f7;
-            cursor: pointer;
-        }
-
-        .status-pass { color: green; font-weight: bold; }
-        .status-fail { color: red; font-weight: bold; }
-    </style>
-</head>
-<body>
-
-<header class="header">
-    <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer;">
-        <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
-    </div>
-    
-    <div class="nav-container">
-        <nav class="navbar">
-            <a href="index.html" id="nav-home">Home</a>
-            <a href="project.html" id="nav-project">Project</a> 
-            <a href="customer.html" id="nav-customer">Customer</a> 
-            <a href="equipment.html" id="nav-equipment" class="active">Standard Equipment</a>
-        </nav>
-        <button class="btn-shiny" onclick="location.href='signin.html'">Sign In</button>
-    </div>
-</header>
-
-<main class="container">
-    <section id="list-view"  class="detail-section">
-        <h1 class="text-center-aligned">Standard Equipment List</h1>
-        <table class="detail-table">
-            <thead>
-                <tr>
-                    <th>Code</th>
-                    <th>Name</th>
-                    <th>Manufacturer</th>
-                    <th>Next Due</th>
-                </tr>
-            </thead>
-            <tbody id="eq-body">
-                <tr onclick="editEq('EQ001')">
-                    <td>#EQ001</td>
-                    <td id="n-EQ001">Washing Machine</td>
-                    <td id="m-EQ001">100</td>
-                    <td id="d-EQ001">2026-12-01</td>
-                </tr>
-                <tr onclick="editEq('EQ002')">
-                    <td>#EQ002</td>
-                    <td id="n-EQ002">Dryer</td>
-                    <td id="m-EQ002">101</td>
-                    <td id="d-EQ002">2027-01-15</td>
-                </tr>
-                <tr onclick="editEq('EQ003')">
-                    <td>#EQ003</td>
-                    <td id="n-EQ003">Refrigerator</td>
-                    <td id="m-EQ003">102</td>
-                    <td id="d-EQ003">2027-02-20</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <div class="button-wrapper" id="add-btn-container">
-            <button class="btn-save" style="padding: 12px 40px;" onclick="document.getElementById('add-eq-view').style.display='block'">+ Add New Equipment</button>
-        </div>
-
-        <section id="add-eq-view" style="display:none; background: white; padding: 20px; border-radius: 10px; margin-top: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
-            <h3>Thêm thiết bị mới</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
-                <input type="text" id="new-name" class="input-detail" placeholder="Tên thiết bị">
-                <input type="text" id="new-manu" class="input-detail" placeholder="Hãng sản xuất">
-                <input type="date" id="new-due" class="input-detail">
-            </div>
-            <div style="text-align: right; margin-top: 15px;">
-                <button class="btn-cancel" onclick="document.getElementById('add-eq-view').style.display='none'">Hủy</button>
-                <button class="btn-save" onclick="alert('Đã thêm thành công!'); location.reload();">Lưu</button>
-            </div>
-        </section>
-    </section>
-
-    <section id="edit-view" style="display:none;">
-        <button class="btn-back" onclick="showView('list-view')" style="margin-bottom: 10px; cursor: pointer;">← Back to List</button>
-        <div class="equipment-card">
-            <h2 id="edit-title" style="color: #008080; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">Equipment Specifications</h2>
+        Object.values(equipmentData).forEach((eq) => {
+            let statusClass = 'status-valid';
+            let statusText = 'Còn hạn';
             
-            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-                <h2 style="margin: 0; white-space: nowrap;">Water level:</h2>
-                <input type="text" id="in-manu" class="input-detail" style="max-width: 300px;">
-                <i style="color: #666; display: inline-block;">(ml)</i>
-            </div>
-        </div>
-
-            <div style="overflow-x: auto;">
-                <table class="calibration-table">
-                    <thead>
-                        <tr>
-                            <th>STT</th>
-                            <th>Setting</th>
-                            <th colspan="10">Measured Data (1-10)</th>
-                            <th>Average</th>
-                            <th>U</th>
-                            <th>Tolerance</th>
-                            <th>Conclusion</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>1</td>
-                            <td><input type="number" id="in-setting" class="input-detail" style="width: 80px;"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            
-                            <td id="res-average" style="font-weight: bold;">0</td>
-                            <td><input type="text" id="in-u" style="width: 50px;" class="input-detail"></td>
-                            <td><input type="text" id="in-tolerance" style="width: 50px;" class="input-detail"></td>
-                            <td id="res-conclusion">-</td>
-                        </tr>
-                        <tr>
-                            <td>2</td>
-                            <td><input type="number" id="in-setting" class="input-detail" style="width: 80px;"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            
-                            <td id="res-average" style="font-weight: bold;">0</td>
-                            <td><input type="text" id="in-u" style="width: 50px;" class="input-detail"></td>
-                            <td><input type="text" id="in-tolerance" style="width: 50px;" class="input-detail"></td>
-                            <td id="res-conclusion">-</td>
-                        </tr>
-                        <tr>
-                            <td>3</td>
-                            <td><input type="number" id="in-setting" class="input-detail" style="width: 80px;"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            
-                            <td id="res-average" style="font-weight: bold;">0</td>
-                            <td><input type="text" id="in-u" style="width: 50px;" class="input-detail"></td>
-                            <td><input type="text" id="in-tolerance" style="width: 50px;" class="input-detail"></td>
-                            <td id="res-conclusion">-</td>
-                        </tr>
-                        <tr>
-                            <td>4</td>
-                            <td><input type="number" id="in-setting" class="input-detail" style="width: 80px;"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            
-                            <td id="res-average" style="font-weight: bold;">0</td>
-                            <td><input type="text" id="in-u" style="width: 50px;" class="input-detail"></td>
-                            <td><input type="text" id="in-tolerance" style="width: 50px;" class="input-detail"></td>
-                            <td id="res-conclusion">-</td>
-                        </tr>
-                        <tr>
-                            <td>5</td>
-                            <td><input type="number" id="in-setting" class="input-detail" style="width: 80px;"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            
-                            <td id="res-average" style="font-weight: bold;">0</td>
-                            <td><input type="text" id="in-u" style="width: 50px;" class="input-detail"></td>
-                            <td><input type="text" id="in-tolerance" style="width: 50px;" class="input-detail"></td>
-                            <td id="res-conclusion">-</td>
-                        </tr>
-                        <tr>
-                            <td>6</td>
-                            <td><input type="number" id="in-setting" class="input-detail" style="width: 80px;"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            
-                            <td id="res-average" style="font-weight: bold;">0</td>
-                            <td><input type="text" id="in-u" style="width: 50px;" class="input-detail"></td>
-                            <td><input type="text" id="in-tolerance" style="width: 50px;" class="input-detail"></td>
-                            <td id="res-conclusion">-</td>
-                        </tr>
-                        <tr>
-                            <td>7</td>
-                            <td><input type="number" id="in-setting" class="input-detail" style="width: 80px;"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            
-                            <td id="res-average" style="font-weight: bold;">0</td>
-                            <td><input type="text" id="in-u" style="width: 50px;" class="input-detail"></td>
-                            <td><input type="text" id="in-tolerance" style="width: 50px;" class="input-detail"></td>
-                            <td id="res-conclusion">-</td>
-                        </tr>
-                        <tr>
-                            <td>8</td>
-                            <td><input type="number" id="in-setting" class="input-detail" style="width: 80px;"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            
-                            <td id="res-average" style="font-weight: bold;">0</td>
-                            <td><input type="text" id="in-u" style="width: 50px;" class="input-detail"></td>
-                            <td><input type="text" id="in-tolerance" style="width: 50px;" class="input-detail"></td>
-                            <td id="res-conclusion">-</td>
-                        </tr>
-                        <tr>
-                            <td>9</td>
-                            <td><input type="number" id="in-setting" class="input-detail" style="width: 80px;"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td id="res-average" style="font-weight: bold;">0</td>
-                            <td><input type="text" id="in-u" style="width: 50px;" class="input-detail"></td>
-                            <td><input type="text" id="in-tolerance" style="width: 50px;" class="input-detail"></td>
-                            <td id="res-conclusion">-</td>
-                        </tr>
-                        <tr>
-                            <td>10</td>
-                            <td><input type="number" id="in-setting" class="input-detail" style="width: 80px;"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            
-                            <td id="res-average" style="font-weight: bold;">0</td>
-                            <td><input type="text" id="in-u" style="width: 50px;" class="input-detail"></td>
-                            <td><input type="text" id="in-tolerance" style="width: 50px;" class="input-detail"></td>
-                            <td id="res-conclusion">-</td>
-                        </tr>
-                        <tr>
-                            <td>11</td>
-                            <td><input type="number" id="in-setting" class="input-detail" style="width: 80px;"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            
-                            <td id="res-average" style="font-weight: bold;">0</td>
-                            <td><input type="text" id="in-u" style="width: 50px;" class="input-detail"></td>
-                            <td><input type="text" id="in-tolerance" style="width: 50px;" class="input-detail"></td>
-                            <td id="res-conclusion">-</td>
-                        </tr>
-                        <tr>
-                            <td>12</td>
-                            <td><input type="number" id="in-setting" class="input-detail" style="width: 80px;"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            <td><input type="number" class="measure-input" oninput="calculateCalibration()"></td>
-                            
-                            <td id="res-average" style="font-weight: bold;">0</td>
-                            <td><input type="text" id="in-u" style="width: 50px;" class="input-detail"></td>
-                            <td><input type="text" id="in-tolerance" style="width: 50px;" class="input-detail"></td>
-                            <td id="res-conclusion">-</td>
-                        </tr>
-                        
-                    </tbody>
-                </table>
-            </div>
-
-            <div style="text-align:right; margin-top: 30px;">
-                <button class="btn-save" onclick="saveEq()" style="padding: 10px 30px; cursor: pointer;">Save Changes</button>
-            </div>
-        </div>
-    </section>
-</main>
-
-<script>
-    let currentId = '';
-
-    function editEq(id) {
-        currentId = id;
-        // Hiển thị view detail
-        showView('edit-view');
-        
-        // Gán tiêu đề và thông tin cơ bản
-        document.getElementById('edit-title').innerText = "Detail: " + document.getElementById('n-' + id).innerText;
-        document.getElementById('in-manu').value = document.getElementById('m-' + id).innerText;
-        document.getElementById('in-due').value = document.getElementById('d-' + id).innerText;
-
-        // Reset các ô input measure về trống khi mở thiết bị mới
-        const inputs = document.querySelectorAll('.measure-input');
-        inputs.forEach(input => input.value = "");
-        calculateCalibration(); // Reset kết quả tính toán
-    }
-
-    function calculateCalibration() {
-        const inputs = document.querySelectorAll('.measure-input');
-        let sum = 0;
-        let count = 0;
-
-        inputs.forEach(input => {
-            if (input.value !== "") {
-                sum += parseFloat(input.value);
-                count++;
+            if (eq.nextDate === '1900-12-31' || eq.calDate === '') {
+                statusClass = 'status-expired';
+                statusText = 'Chưa hiệu chuẩn';
+            } else {
+                const expireDate = new Date(eq.nextDate);
+                if (expireDate < today) {
+                    statusClass = 'status-expired';
+                    statusText = 'Hết hạn / Cần HC';
+                }
             }
+
+            const row = document.createElement('tr');
+            row.id = `row-${eq.stt}`;
+            row.setAttribute('onclick', `viewEquipmentDetail('${eq.code || eq.name}')`);
+            
+            // Render chính xác từng cột độc lập theo file csv
+            row.innerHTML = `
+                <td>${eq.stt}</td>
+                <td>${eq.key}</td>
+                <td><strong>${eq.code || '--'}</strong></td>
+                <td>${eq.name}</td>
+                <td>${eq.nsx || '--'}</td>
+                <td>${eq.model || '--'}</td>
+                <td>${eq.serial || '--'}</td>
+                <td>${eq.gcn || '--'}</td>
+                <td>${eq.lienKet || '--'}</td>
+                <td>${eq.calDate || '--'}</td>
+                <td>${eq.nextDate}</td>
+                <td><span class="status-tag ${statusClass}">${statusText}</span></td>
+                <td style="text-align: center;">
+                    <button class="btn-delete" onclick="event.stopPropagation(); deleteEquipment('${eq.stt}')">🗑️</button>
+                </td>
+            `;
+            tableBody.appendChild(row);
         });
 
-        const average = count > 0 ? (sum / count).toFixed(3) : 0;
-        const avgDisplay = document.getElementById('res-average');
-        const conclusionDisplay = document.getElementById('res-conclusion');
-
-        avgDisplay.innerText = average;
-
-        if (count > 0) {
-            if (parseFloat(average) >= 10) {
-                conclusionDisplay.innerText = "PASS";
-                conclusionDisplay.className = "status-pass";
-            } else {
-                conclusionDisplay.innerText = "FAIL";
-                conclusionDisplay.className = "status-fail";
-            }
-        } else {
-            conclusionDisplay.innerText = "-";
-            conclusionDisplay.className = "";
-        }
+        updateStats();
     }
 
-    function saveEq() {
-        // Cập nhật lại dữ liệu vào dòng tương ứng ở trang danh sách
-        document.getElementById('m-' + currentId).innerText = document.getElementById('in-manu').value;
-        document.getElementById('d-' + currentId).innerText = document.getElementById('in-due').value;
+    function showAddEquipmentForm() {
+        document.getElementById('equipment-list-view').style.display = 'none';
+        document.getElementById('equipment-create-view').style.display = 'block';
+    }
+
+    function showEquipmentList() {
+        document.getElementById('equipment-create-view').style.display = 'none';
+        document.getElementById('equipment-list-view').style.display = 'block';
+    }
+
+    function saveNewEquipment() {
+        const code = document.getElementById('new-eq-code').value.trim();
+        const name = document.getElementById('new-eq-name').value.trim();
+        const nsx = document.getElementById('new-eq-nsx').value.trim();
+        const model = document.getElementById('new-eq-model').value.trim();
+        const serial = document.getElementById('new-eq-serial').value.trim();
+        const calDate = document.getElementById('new-eq-caldate').value;
+        const nextDate = document.getElementById('new-eq-nextdate').value || '1900-12-31';
+
+        if (!name) {
+            alert("Vui lòng điền tên thiết bị!");
+            return;
+        }
+
+        const nextStt = String(Object.keys(equipmentData).length + 1);
+
+        equipmentData[nextStt] = {
+            stt: nextStt,
+            key: 'manual_input',
+            code: code,
+            name: name,
+            nsx: nsx,
+            model: model,
+            serial: serial,
+            gcn: '',
+            lienKet: '',
+            calDate: calDate,
+            nextDate: nextDate
+        };
         
-        alert("Dữ liệu hiệu chuẩn đã được lưu đè!");
-        showView('list-view');
+        renderEquipmentTable();
+        alert("Thêm mới thiết bị chuẩn thành công!");
+        showEquipmentList();
     }
 
-    function showView(viewId) {
-        const listView = document.getElementById('list-view');
-        const editView = document.getElementById('edit-view');
-        const addBtn = document.getElementById('add-btn-container');
-
-        if (viewId === 'edit-view') {
-            listView.style.display = 'none';
-            editView.style.display = 'block';
-            if (addBtn) addBtn.style.display = 'none';
-        } else {
-            listView.style.display = 'block';
-            editView.style.display = 'none';
-            if (addBtn) addBtn.style.display = 'block';
-            document.getElementById('add-eq-view').style.display = 'none';
+    function deleteEquipment(stt) {
+        if (confirm("Xác nhận gỡ bỏ thiết bị này khỏi danh sách hoạt động?")) {
+            delete equipmentData[stt];
+            const row = document.getElementById(`row-${stt}`);
+            if (row) row.remove();
+            updateStats();
         }
     }
-</script>
 
+    function updateStats() {
+        const items = Object.values(equipmentData);
+        const today = new Date();
+        
+        let total = items.length;
+        let expired = items.filter(i => {
+            if (i.nextDate === '1900-12-31' || i.calDate === '') return true;
+            return new Date(i.nextDate) < today;
+        }).length;
+        let active = total - expired;
+
+        document.getElementById('stat-total').textContent = total;
+        document.getElementById('stat-active').textContent = active;
+        document.getElementById('stat-expired').textContent = expired;
+    }
+
+    function filterEquipment() {
+        let input = document.getElementById('search-input').value.toUpperCase();
+        let filterStatus = document.getElementById('filter-status').value;
+        let table = document.getElementById('equipment-table-body');
+        let tr = table.getElementsByTagName('tr');
+
+        for (let i = 0; i < tr.length; i++) {
+            let tdCode = tr[i].getElementsByTagName('td')[2]; // Cột CODE
+            let tdName = tr[i].getElementsByTagName('td')[3]; // Cột NAME
+            let tdStatus = tr[i].getElementsByTagName('td')[11]; // Cột Trạng thái mới
+            
+            if (tdCode || tdName) {
+                let txtValueCode = tdCode.textContent || tdCode.innerText;
+                let txtValueName = tdName.textContent || tdName.innerText;
+                let isStatusMatch = true;
+
+                if (filterStatus === 'valid' && !tdStatus.innerHTML.includes('status-valid')) isStatusMatch = false;
+                if (filterStatus === 'expired' && !tdStatus.innerHTML.includes('status-expired')) isStatusMatch = false;
+
+                if ((txtValueCode.toUpperCase().indexOf(input) > -1 || txtValueName.toUpperCase().indexOf(input) > -1) && isStatusMatch) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+    }
+
+    function viewEquipmentDetail(identifier) {
+        console.log("Chi tiết thiết bị chuẩn: " + identifier);
+    }
+
+    // Chạy tải bảng ngay khi load trang
+    window.onload = function() {
+        renderEquipmentTable();
+    };
+</script>
 </body>
->>>>>>> 884598eb2b601d8d121ee39c0688880f53f4c14c
-</html>
