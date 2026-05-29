@@ -119,15 +119,15 @@
         <div class="dashboard-grid">
             <div class="stat-card">
                 <h4>Tổng Dự Án</h4>
-                <p id="stat-total">1</p>
+                <p id="stat-total">4</p>
             </div>
             <div class="stat-card">
                 <h4>Đang Thực Hiện</h4>
-                <p id="stat-progress">1</p>
+                <p id="stat-progress">3</p>
             </div>
             <div class="stat-card">
                 <h4>Đã Hoàn Thành</h4>
-                <p id="stat-finished">0</p>
+                <p id="stat-finished">1</p>
             </div>
         </div>
 
@@ -140,7 +140,7 @@
                 <thead>
                     <tr>
                         <th>Mã dự án</th>
-                        <th>Tên thiết bị hiệu chuẩn</th>
+                        <th>Tên dự án</th>
                         <th>Kỹ thuật viên</th>
                         <th>Trạng thái</th>
                         <th style="text-align: center;">Hành động</th>
@@ -149,10 +149,31 @@
                 <tbody id="project-table-body">
                     <tr id="row-PRJ-328344">
                         <td onclick="viewProjectDetail('PRJ-328344')"><strong>#PRJ-328344</strong></td>
-                        <td onclick="viewProjectDetail('PRJ-328344')">Máy giặt wascator (Wascator)</td>
+                        <td onclick="viewProjectDetail('PRJ-328344')">Hiệu chuẩn hệ thống Wascator - Paihong</td>
                         <td onclick="viewProjectDetail('PRJ-328344')">KTV. Nguyễn Văn A</td>
                         <td onclick="viewProjectDetail('PRJ-328344')"><span class="status-tag status-progress">In Progress</span></td>
                         <td style="text-align: center;"><button class="btn-delete" onclick="deleteProject('PRJ-328344')">🗑️</button></td>
+                    </tr>
+                    <tr id="row-PRJ-552104">
+                        <td onclick="viewProjectDetail('PRJ-552104')"><strong>#PRJ-552104</strong></td>
+                        <td onclick="viewProjectDetail('PRJ-552104')">Kiểm định lò sấy công nghiệp Whirlpool</td>
+                        <td onclick="viewProjectDetail('PRJ-552104')">KTV. Lê Cảnh Quang</td>
+                        <td onclick="viewProjectDetail('PRJ-552104')"><span class="status-tag status-progress">In Progress</span></td>
+                        <td style="text-align: center;"><button class="btn-delete" onclick="deleteProject('PRJ-552104')">🗑️</button></td>
+                    </tr>
+                    <tr id="row-PRJ-882931">
+                        <td onclick="viewProjectDetail('PRJ-882931')"><strong>#PRJ-882931</strong></td>
+                        <td onclick="viewProjectDetail('PRJ-882931')">Hiệu chuẩn định kỳ tủ lạnh Samsung RT20</td>
+                        <td onclick="viewProjectDetail('PRJ-882931')">KTV. Trần Minh Tâm</td>
+                        <td onclick="viewProjectDetail('PRJ-882931')"><span class="status-tag status-finished">Finished</span></td>
+                        <td style="text-align: center;"><button class="btn-delete" onclick="deleteProject('PRJ-882931')">🗑️</button></td>
+                    </tr>
+                    <tr id="row-PRJ-112233">
+                        <td onclick="viewProjectDetail('PRJ-112233')"><strong>#PRJ-112233</strong></td>
+                        <td onclick="viewProjectDetail('PRJ-112233')">Thử nghiệm độ bền vật liệu Poly 2026</td>
+                        <td onclick="viewProjectDetail('PRJ-112233')">KTV. Nguyễn Văn A</td>
+                        <td onclick="viewProjectDetail('PRJ-112233')"><span class="status-tag status-progress">In Progress</span></td>
+                        <td style="text-align: center;"><button class="btn-delete" onclick="deleteProject('PRJ-112233')">🗑️</button></td>
                     </tr>
                 </tbody>
             </table>
@@ -324,7 +345,10 @@
     };
 
     let projectData = {
-        'PRJ-328344': { id: 'PRJ-328344', title: 'Máy giặt wascator (Wascator)', status: 'In Progress' }
+        'PRJ-328344': { id: 'PRJ-328344', title: 'Hiệu chuẩn hệ thống Wascator - Paihong', status: 'In Progress' },
+        'PRJ-552104': { id: 'PRJ-552104', title: 'Kiểm định lò sấy công nghiệp Whirlpool', status: 'In Progress' },
+        'PRJ-882931': { id: 'PRJ-882931', title: 'Hiệu chuẩn định kỳ tủ lạnh Samsung RT20', status: 'Finished' },
+        'PRJ-112233': { id: 'PRJ-112233', title: 'Thử nghiệm độ bền vật liệu Poly 2026', status: 'In Progress' }
     };
     let currentProjectId = null;
 
@@ -546,7 +570,7 @@ function selectEquipmentTemplate(key) {
 
     function createNewProjectPrompt() {
         const id = 'PRJ-' + Math.floor(Math.random() * 900000 + 100000);
-        const name = prompt("Nhập tên thiết bị cần thực hiện hiệu chuẩn:");
+        const name = prompt("Nhập tên dự án mới:");
         if (!name) return;
 
         projectData[id] = { id: id, title: name, status: 'In Progress' };
