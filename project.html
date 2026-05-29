@@ -93,6 +93,7 @@
     #calibration-table tbody tr:hover {
         background-color: #f4fbfb;
     }
+
     </style>
 </head>
 <body>
@@ -212,9 +213,9 @@
                     <label>Số Giấy Chứng Nhận (Cert No.):</label>
                     <input type="text" id="input-cert-no" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
                     
-                    <label style="font-weight: bold; color: #008080;">Tên thiết bị (Gõ tìm kiếm thông minh từ DB mẫu):</label>
+                    <label style="font-weight: bold; ">Tên thiết bị (Gõ tìm kiếm thông minh từ DB mẫu):</label>
                     <div class="autocomplete-wrapper">
-                        <input type="text" id="input-instrument-name" oninput="handleEquipmentSearch(this.value)" placeholder="Nhập tên thiết bị (VD: Was, Dry...)" style="width:100%; padding:8px; border:2px solid #008080; border-radius:4px; font-weight: bold;">
+                        <input type="text" id="input-instrument-name" oninput="handleEquipmentSearch(this.value)" placeholder="Nhập tên thiết bị)" style="width:100%; padding:8px; border-radius:4px; ">
                         <div id="search-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
                     </div>
                     
@@ -264,6 +265,32 @@
             </div>
         </div>
 
+        <!-- MỤC CHỌN THIẾT BỊ CHUẨN (DỮ LIỆU TỪ STANDARD DATABASE) -->
+        <div style="margin-top: 25px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px dashed #008080;">
+            <h3 style="margin-top: 0; color: #008080; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                🛠️ <span>Thiết bị chuẩn sử dụng (Reference Standards)</span>
+            </h3>
+            <div class="autocomplete-wrapper">
+                <input type="text" id="input-standard-search" oninput="handleStandardSearch(this.value)" placeholder="Gõ mã thiết bị (LAB-...) hoặc tên thiết bị chuẩn để thêm nhanh..." style="width:100%; padding:12px; border:1.5px solid #cbd5e0; border-radius:8px; font-size: 1rem;">
+                <div id="standard-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
+            </div>
+            <div id="selected-standards-wrapper" style="margin-top: 15px; display: none;">
+                <table class="detail-table" style="background: white;">
+                    <thead>
+                        <tr>
+                            <th>Tên thiết bị chuẩn</th>
+                            <th>Mã thiết bị (ID)</th>
+                            <th>Liên kết hiệu chuẩn</th>
+                            <th>Hiệu lực đến</th>
+                            <th style="text-align: center;">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="selected-standards-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div class="table-responsive-wrapper" style="margin-top: 25px; background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
     <h3 style="color: #008080; font-family: 'Roboto', sans-serif; font-size: 1.2rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
         📊 <span>BẢNG KẾT QUẢ ĐO LƯỜNG THỰC TẾ / CALIBRATION RESULTS</span>
@@ -280,6 +307,7 @@
                 <th style="border: 1px solid #111111; padding: 12px 10px; width: 12%; font-weight: 700; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;">Độ KĐBD<br><span style="font-style: italic; font-weight: normal; font-size: 12px; opacity: 0.9;">Uncertainty (k=2)</span></th>
                 <th style="border: 1px solid #111111; padding: 12px 10px; width: 13%; font-weight: 700; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;">Dung sai<br><span style="font-style: italic; font-weight: normal; font-size: 12px; opacity: 0.9;">Tolerance</span></th>
                 <th style="border: 1px solid #111111; padding: 12px 10px; width: 12%; font-weight: 700; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;">Sự phù hợp<br><span style="font-style: italic; font-weight: normal; font-size: 12px; opacity: 0.9;">Conformity</span></th>
+                <th style="border: 1px solid #111111; padding: 12px 10px; width: 10%; font-weight: 700; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;">Thao tác<br><span style="font-style: italic; font-weight: normal; font-size: 12px; opacity: 0.9;">Action</span></th>
             </tr>
         </thead>
         <tbody id="calibration-table-body">
@@ -312,17 +340,31 @@
 </main>
 
 <script>
+    // DỮ LIỆU ĐỒNG BỘ TỪ STANDARD EQUIPMENT DATABASE (Trích xuất từ CSV/Database)
+    const standardEquipmentDB = [
+        { code: 'LAB-BARO.01', name: 'Thermo-hygro-barometer', link: 'TECHMASTER', validity: '29/08/2026', gcn: 'AC-1868' },
+        { code: 'LAB-TIMER.01', name: 'Stopwatch', link: 'QUATEST 3', validity: '09/08/2026', gcn: 'KT3-01161BDE5/1' },
+        { code: 'LAB-TACHO.03', name: 'Digital Tachometer', link: 'QUATEST 3', validity: '09/08/2026', gcn: 'KT3-01161BDE5/2' },
+        { code: 'LAB-CALIPER.02', name: 'Digital caliper', link: 'QUATEST 3', validity: '09/08/2026', gcn: 'KT3-01293BDD5/1' },
+        { code: 'LAB-THER_HUM.02', name: 'Thermo-hygrometer', link: 'QUATEST 3', validity: '04/09/2026', gcn: 'KT3-01499BHL5/1' }
+    ];
+
     // MÔ PHỎNG KHO DỮ LIỆU THIẾT BỊ MẪU LÊN TỚI HÀNG NGHÌN DỮ LIỆU
     const MockDatabaseEquipment = {
         "Washing Machine (Wascator)": {
             manufacturer: "Electrolux",
             model: "FOM 71CLS",
             formPoints: [
-                { group: "nhiet-do", paramName: "Nhiệt độ\nTemperature (°C)", rowspan: 3, point: 30, v1: "30.2", v2: "", v3: "", uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
+                { group: "nhiet-do", paramName: "Nhiệt độ\nTemperature (°C)", rowspan: 5, point: 30, v1: "30.2", v2: "", v3: "", uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
                 { group: "nhiet-do", paramName: "Nhiệt độ\nTemperature (°C)", rowspan: 0, point: 40, v1: "39.5", v2: "", v3: "", uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
                 { group: "nhiet-do", paramName: "Nhiệt độ\nTemperature (°C)", rowspan: 0, point: 60, v1: "59.2", v2: "", v3: "", uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
-                { group: "toc-do", paramName: "Tốc độ vắt\nSpin Speed (rpm)", rowspan: 2, point: 500, v1: "501.8", v2: "", v3: "", uncertainty: 0.8, tolerance: "± 50", conformity: "A" },
-                { group: "toc-do", paramName: "Tốc độ vắt\nSpin Speed (rpm)", rowspan: 0, point: 775, v1: "776.2", v2: "", v3: "", uncertainty: 0.8, tolerance: "± 50", conformity: "A" }
+                { group: "nhiet-do", paramName: "Nhiệt độ\nTemperature (°C)", rowspan: 0, point: 80, v1: "78.9", v2: "", v3: "", uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
+                { group: "nhiet-do", paramName: "Nhiệt độ\nTemperature (°C)", rowspan: 0, point: 90, v1: "88.7", v2: "", v3: "", uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
+                { group: "toc-do", paramName: "Tốc độ giặt\nWashing Speed (rpm)", rowspan: 1, point: 52, v1: "52.6", v2: "", v3: "", uncertainty: 0.8, tolerance: "± 2", conformity: "A" },
+                { group: "thoi-gian", paramName: "Thời gian\nTimer (second)", rowspan: 1, point: 100, v1: "100.0", v2: "", v3: "", uncertainty: 0.1, tolerance: "--", conformity: "--" },
+                { group: "muc-nuoc", paramName: "Mực nước\nLevel Check (mm)", rowspan: 3, point: 100, v1: "100", v2: "", v3: "", uncertainty: 0.5, tolerance: "± 5", conformity: "A" },
+                { group: "muc-nuoc", paramName: "Mực nước\nLevel Check (mm)", rowspan: 0, point: 130, v1: "131", v2: "", v3: "", uncertainty: 0.5, tolerance: "± 5", conformity: "A" },
+                { group: "muc-nuoc", paramName: "Mực nước\nLevel Check (mm)", rowspan: 0, point: 160, v1: "162", v2: "", v3: "", uncertainty: 0.5, tolerance: "± 5", conformity: "A" }
             ]
         },
         "Dryer Machine (Máy sấy chuẩn)": {
@@ -345,7 +387,7 @@
     };
 
     let projectData = {
-        'PRJ-328344': { id: 'PRJ-328344', title: 'Hiệu chuẩn hệ thống Wascator - Paihong', status: 'In Progress' },
+        'PRJ-328344': { id: 'PRJ-328344', title: '', status: 'In Progress' },
         'PRJ-552104': { id: 'PRJ-552104', title: 'Kiểm định lò sấy công nghiệp Whirlpool', status: 'In Progress' },
         'PRJ-882931': { id: 'PRJ-882931', title: 'Hiệu chuẩn định kỳ tủ lạnh Samsung RT20', status: 'Finished' },
         'PRJ-112233': { id: 'PRJ-112233', title: 'Thử nghiệm độ bền vật liệu Poly 2026', status: 'In Progress' }
@@ -376,12 +418,80 @@
 
         document.getElementById('input-cert-no').value = currentProjectId.replace('PRJ-', '');
         
-        // Gán tên thiết bị hiện tại của dự án vào ô input tìm kiếm
-        const currentTitle = projectData[currentProjectId].title;
-        document.getElementById('input-instrument-name').value = currentTitle;
+        
 
         // Tự động tìm kiếm gợi ý khớp ngay lập tức dựa trên tên gốc
         handleEquipmentSearch(currentTitle, true);
+    }
+
+    // THUẬT TOÁN TRUY VẤN THIẾT BỊ CHUẨN (KIỂU YOUTUBE SEARCH)
+    let selectedStandards = [];
+
+    function handleStandardSearch(keyword) {
+        const suggestionBox = document.getElementById('standard-suggestions');
+        suggestionBox.innerHTML = '';
+
+        if (!keyword || keyword.trim().length < 1) {
+            suggestionBox.style.display = 'none';
+            return;
+        }
+
+        const query = keyword.toLowerCase();
+        // Lọc theo mã hoặc tên
+        const filtered = standardEquipmentDB.filter(eq => 
+            eq.code.toLowerCase().includes(query) || 
+            eq.name.toLowerCase().includes(query)
+        );
+
+        if (filtered.length === 0) {
+            suggestionBox.innerHTML = `<div class="suggestion-item" style="color:gray;">❌ Không tìm thấy thiết bị chuẩn này</div>`;
+        } else {
+            filtered.forEach(eq => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.innerHTML = `🏷️ <strong>${eq.code}</strong> - ${eq.name}`;
+                div.onclick = () => addStandardTag(eq);
+                suggestionBox.appendChild(div);
+            });
+        }
+        suggestionBox.style.display = 'block';
+    }
+
+    function addStandardTag(eq) {
+        if (selectedStandards.find(s => s.code === eq.code)) return;
+        
+        selectedStandards.push(eq);
+        renderStandardTags();
+        document.getElementById('input-standard-search').value = '';
+        document.getElementById('standard-suggestions').style.display = 'none';
+    }
+
+    function renderStandardTags() {
+        const wrapper = document.getElementById('selected-standards-wrapper');
+        const tbody = document.getElementById('selected-standards-body');
+        
+        if (selectedStandards.length === 0) {
+            wrapper.style.display = 'none';
+            return;
+        }
+
+        wrapper.style.display = 'block';
+        tbody.innerHTML = selectedStandards.map((eq, index) => `
+            <tr>
+                <td>${eq.name}</td>
+                <td><strong>${eq.code}</strong></td>
+                <td>${eq.link} / ${eq.gcn}</td>
+                <td style="color: #c05621; font-weight: bold;">${eq.validity}</td>
+                <td style="text-align: center;">
+                    <button class="btn-delete" onclick="removeStandardTag(${index})" title="Gỡ bỏ">🗑️</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function removeStandardTag(index) {
+        selectedStandards.splice(index, 1);
+        renderStandardTags();
     }
 
     // THUẬT TOÁN TÌM KIẾM SUGGESTION CHUYÊN NGHIỆP KIỂU YOUTUBE
@@ -445,6 +555,8 @@ function selectEquipmentTemplate(key) {
     // Thuật toán dựng bảng bứng nguyên gốc cấu trúc gộp nhóm từ databasequipment.html
     eqTemplate.formPoints.forEach(pt => {
         const row = document.createElement('tr');
+        // Lưu tên thông số vào dataset để tí nữa JS thu thập cho dễ
+        row.dataset.parameterName = pt.paramName.replace('\n', ' ');
         
         let htmlContent = '';
 
@@ -468,6 +580,7 @@ function selectEquipmentTemplate(key) {
             <td style="border: 1px solid #111111; padding: 6px;"><input type="text" class="lab-input-cell uncertainty" value="${pt.uncertainty}"></td>
             <td style="border: 1px solid #111111; padding: 6px;"><input type="text" class="lab-input-cell tolerance" value="${pt.tolerance}" style="font-weight: 500;"></td>
             <td style="border: 1px solid #111111; padding: 6px;"><input type="text" class="lab-input-cell conformity" value="${pt.conformity}" style="font-weight: bold; color: #38a169;"></td>
+            <td style="border: 1px solid #111111; padding: 6px;"><button onclick="deleteSubRow(this)" style="color: #ff4d4d; background: none; border: none; cursor: pointer; font-size: 16px; font-weight: bold;">✖</button></td>
         `;
 
         row.innerHTML = htmlContent;
@@ -511,11 +624,26 @@ function selectEquipmentTemplate(key) {
             humiEnv: document.getElementById('input-humi-env').value,
             headOfLab: document.getElementById('input-head-of-lab').value,
             director: document.getElementById('input-director').value,
-            points: []
+            points: [],
+            // Gửi mảng thiết bị chuẩn đã chọn
+            standards: selectedStandards.map(s => ({
+                code: s.code,
+                name: s.name,
+                link: `${s.link} / ${s.gcn}`,
+                validity: s.validity
+            }))
         };
 
         const rows = document.querySelectorAll('#calibration-table-body tr');
         rows.forEach(row => {
+            // Lấy tên thông số từ dataset hoặc từ ô group-header
+            let pName = row.dataset.parameterName;
+            if (!pName) {
+                // Nếu là hàng gộp, tìm hàng cha có chứa group-header
+                const prevHeader = row.previousElementSibling?.querySelector('.group-header');
+                pName = prevHeader ? row.previousElementSibling.dataset.parameterName : "";
+            }
+
             const calPointEl = row.querySelector('.cal-point');
             if(!calPointEl) return;
 
@@ -528,6 +656,7 @@ function selectEquipmentTemplate(key) {
             const finalValueText = v2 || v3 ? `${v1} | ${v2} | ${v3}`.replace(/\|\s*$/, "") : v1;
 
             payload.points.push({
+                parameterName: pName,
                 calPoint: parseFloat(calPointEl.value) || 0,
                 asFoundValue: parseFloat(v1) || 0, // Giá trị đo chính thứ nhất
                 allMeasuredValues: finalValueText,   // Chuỗi lưu cả 3 điểm đo
