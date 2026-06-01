@@ -4,6 +4,47 @@
     <meta charset="UTF-8">
     <title>Customer Management - LabMaster</title>
     <link rel="stylesheet" href="index.css">
+    <style>
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #edf2f7; }
+        .section-header h2 { margin: 0; color: #2d3748; font-size: 1.5rem; }
+        
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+        }
+        .info-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .info-group label {
+            font-weight: 700;
+            color: #4a5568;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .display-value {
+            padding: 12px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 1px solid #edf2f7;
+            color: #2d3748;
+            min-height: 20px;
+        }
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+    </style>
 </head>
 <body>
 <header class="header">
@@ -25,12 +66,12 @@
 
 <main class="container">
     <!-- Dashboard Thống kê Khách hàng -->
-    <div class="dashboard-grid" style="margin-bottom: 30px;">
+    <div class="dashboard-grid" style="margin-bottom: 40px;">
         <div class="stat-card total" style="border-bottom: 4px solid #008080;">
             <h4>Đối tác hệ thống</h4>
             <p id="stat-cust-total">4</p>
         </div>
-        <div class="stat-card" style="border-bottom: 4px solid gold;">
+        <div class="stat-card" style="border-bottom: 4px solid #3182ce;">
             <h4>VIP Partners</h4>
             <p id="stat-cust-vip">4</p>
         </div>
@@ -41,8 +82,8 @@
     </div>
 
     <section id="customer-list-view" class="detail-section">
-        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-            <h2 style="margin:0; color: var(--primary-teal);">📇 Quản lý Cơ sở Khách hàng</h2>
+        <div class="section-header">
+            <h2>Customer Database</h2>
             <button class="btn-shiny" onclick="showAddCustomerForm()">+ Thêm Khách hàng Mới</button>
         </div>
 
@@ -68,63 +109,67 @@
     </section>
 
     <section id="customer-item-detail" class="detail-section" style="display: none;">
-        <div class="detail-actions-bar" style="display: flex; justify-content: space-between; margin-bottom: 20px;">
-            <button class="btn-back" onclick="showCustomerList()">← Back to List</button>
-            
+        <div class="section-header">
+            <h2 id="display-name-header">Hồ sơ khách hàng</h2>
+            <button class="btn-shiny" style="background: #4a5568;" onclick="showCustomerList()"><b>🔙 Trở lại</b></button>
         </div>
 
-        <div class="info-card">
-            <div class="profile-header" style="display: flex; gap: 30px; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #edf2f7; padding-bottom: 20px;">
-                <div class="profile-avatar" style="width: 100px; height: 100px; border-radius: 50%; background: var(--secondary-teal); display: flex; align-items: center; justify-content: center; font-size: 40px; color: var(--primary-teal);">🏢</div>
-                <div class="profile-title-main">
-                    <h2 id="detail-title" style="margin: 0; color: var(--primary-teal); font-size: 2rem;"></h2>
-                    <span id="display-id-tag" style="background: #e2e8f0; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; color: #4a5568; font-weight: bold;">ID: #---</span>
-                </div>
+        <div class="profile-header">
+            <div style="width: 80px; height: 80px; border-radius: 12px; background: var(--primary-teal); display: flex; align-items: center; justify-content: center; font-size: 30px; color: white;">🏢</div>
+            <div>
+                <h2 id="display-name-title" style="margin: 0; color: #2d3748;">---</h2>
+                <span id="display-id-tag" class="status-tag status-finished">ID: #---</span>
             </div>
+        </div>
 
-            <div class="profile-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
-                <div class="profile-col">
-                    <p><strong>🏢 Công ty:</strong> 
-                        <span id="display-company"></span>
-                        <input type="text" id="edit-company" class="form-input" style="display:none;">
-                    </p>
-                    <p><strong>🧾 Mã số thuế:</strong> 
-                        <span id="display-tax"></span>
-                        <input type="text" id="edit-tax" class="form-input" style="display:none;">
-                    </p>
-                    <p><strong>📍 Địa chỉ xuất hóa đơn:</strong> 
-                        <span id="display-billing-address"></span>
-                        <input type="text" id="edit-billing-address" class="form-input" style="display:none;">
-                    </p>
-                </div>
-                <div class="profile-col">
-                    <p><strong>👤 Người liên hệ:</strong> 
-                        <span id="display-contact"></span>
-                        <input type="text" id="edit-contact" class="form-input" style="display:none;">
-                    </p>
-                    <p><strong>📧 Email:</strong> 
-                        <span id="display-email"></span>
-                        <input type="email" id="edit-email" class="form-input" style="display:none;">
-                    </p>
-                    <p><strong>🏅 Hạng khách hàng:</strong> <span style="color: gold; font-weight: bold;">★ VIP Partner</span></p>
-                </div>
+        <div class="admin-grid">
+            <div class="info-group">
+                <label>🏢 Tên công ty / Tổ chức</label>
+                <div id="display-company" class="display-value"></div>
+                <input type="text" id="edit-company" class="form-input" style="display:none;">
             </div>
-            
-            <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 10px;">
-                <p><strong>📝 Ghi chú nội bộ:</strong> <br>
-                    <span id="display-note"></span>
-                    <textarea id="edit-note" class="form-input" style="display:none; width: 100%; height: 80px;"></textarea>
-                </p>
+            <div class="info-group">
+                <label>🧾 Mã số thuế</label>
+                <div id="display-tax" class="display-value"></div>
+                <input type="text" id="edit-tax" class="form-input" style="display:none;">
             </div>
+            <div class="info-group">
+                <label>👤 Người đại diện liên hệ</label>
+                <div id="display-contact" class="display-value"></div>
+                <input type="text" id="edit-contact" class="form-input" style="display:none;">
+            </div>
+            <div class="info-group">
+                <label>📧 Địa chỉ Email</label>
+                <div id="display-email" class="display-value"></div>
+                <input type="email" id="edit-email" class="form-input" style="display:none;">
+            </div>
+            <div class="info-group">
+                <label>📍 Địa chỉ xuất hóa đơn</label>
+                <div id="display-billing-address" class="display-value"></div>
+                <input type="text" id="edit-billing-address" class="form-input" style="display:none;">
+            </div>
+            <div class="info-group">
+                <label>🏅 Phân hạng</label>
+                <div class="display-value"><span style="color: #b45309; font-weight: bold;">★ VIP PARTNER</span></div>
+            </div>
+        </div>
 
-            <button id="btn-edit" class="btn-primary" onclick="enableEdit()" style="display: block;">Edit</button>
-            <div id="edit-actions" class="card-footer" style="display: none; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <div style="margin-top: 20px;">
+            <label style="font-weight: 700; color: #4a5568; font-size: 0.85rem; text-transform: uppercase;">📝 Ghi chú nội bộ</label>
+            <div id="display-note" class="display-value" style="margin-top: 10px; min-height: 80px;"></div>
+            <textarea id="edit-note" class="form-input" style="display:none; width: 100%; height: 80px; margin-top: 10px;"></textarea>
+        </div>
+
+        <div style="margin-top: 30px; display: flex; justify-content: flex-end;">
+            <button id="btn-edit" class="btn-shiny" onclick="enableEdit()" style="background: #2d3748;">✏️ Chỉnh sửa hồ sơ</button>
+        </div>
+
+        <div id="edit-actions" style="display: none; justify-content: flex-end; gap: 10px; margin-top: 20px;">
                 <button class="btn-cancel" onclick="cancelEdit()">Cancel</button>
                 <button class="btn-save" onclick="saveCustomerChanges()">Save & Overwrite</button>
             </div>
-        </div>
-        
     </section>
+
     <div id="customer-add-view" style="display: none;">
     <div class="create-project-form">
         <h1 style="text-align: center;">Add New Customer</h1>
@@ -202,8 +247,8 @@
         if (customer) {
             document.getElementById('customer-list-view').style.display = 'none';
             document.getElementById('customer-item-detail').style.display = 'block';
-            document.getElementById('detail-title').textContent = customer.name;
-            document.getElementById('display-id-tag').textContent = "ID: #" + customer.id;
+            document.getElementById('display-name-title').textContent = customer.name;
+            document.getElementById('display-id-tag').innerText = "ID: #" + customer.id;
             document.getElementById('display-company').textContent = customer.company || "N/A";
             document.getElementById('display-tax').textContent = customer.tax || "N/A";
             document.getElementById('display-contact').textContent = customer.contact || "N/A";
@@ -375,6 +420,8 @@ function editEq(id) {
 }
 
 
+    // Tự động render danh sách ngay khi load trang để có thể cuộn thủ công
+    renderCustomerTable();
 </script>
 
 </body>
