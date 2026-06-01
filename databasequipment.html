@@ -6,55 +6,51 @@
     <title>Standard Equipment - LabMaster</title>
     <link rel="stylesheet" href="index.css">
     <style>
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .stat-card { background: white; padding: 25px; border-radius: 12px; box-shadow: var(--card-shadow); text-align: center; border-bottom: 4px solid #ddd; }
+        .stat-card h4 { margin: 0; color: #777; text-transform: uppercase; font-size: 0.85rem; }
+        .stat-card p { font-size: 2rem; font-weight: 800; margin: 10px 0 0 0; color: #333; }
         
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #edf2f7; }
+        .section-header h2 { margin: 0; color: #2d3748; font-size: 1.5rem; }
         
-
-        .calibration-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            font-size: 14px;
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
         }
-
-        .calibration-table th, .calibration-table td {
-            border: 1px solid #ddd;
+        .lab-input {
+            width: 100%;
             padding: 10px;
-            text-align: center;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-family: 'Roboto', sans-serif;
         }
 
-        .calibration-table th {
-            background-color: #f8f9fa;
-            color: #008080;
+        #calibration-table th {
+            background-color: #008080;
+            color: white;
+            padding: 12px;
         }
-
-        .input-detail {
+        #calibration-table td {
+            border: 1px solid #e2e8f0;
+        }
+        .cell-input {
             width: 100%;
+            border: none;
+            text-align: center;
             padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
+            background: transparent;
         }
-
-        .measure-input {
-            width: 60px;
-            text-align: center;
-            padding: 5px;
-            border: 1px solid #ccc;
-            border-radius: 3px;
+        .cell-input:focus {
+            background: #f0fdfa;
+            outline: 2px solid #008080;
         }
-
-        .button-wrapper {
-            text-align: center;
-            margin-top: 30px;
-        }
-
-        .detail-table tbody tr:hover {
-            background-color: #f0f7f7;
-            cursor: pointer;
-        }
-
-        .status-pass { color: green; font-weight: bold; }
-        .status-fail { color: red; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -77,8 +73,26 @@
 </header>
 
 <main class="container">
+    <div class="dashboard-grid">
+        <div class="stat-card" style="border-color: #3182ce;">
+            <h4>Mẫu thiết bị</h4>
+            <p>128</p>
+        </div>
+        <div class="stat-card" style="border-color: #38a169;">
+            <h4>Đã đồng bộ PDF</h4>
+            <p>120</p>
+        </div>
+        <div class="stat-card" style="border-color: #e53e3e;">
+            <h4>Chưa có quy trình</h4>
+            <p>08</p>
+        </div>
+    </div>
+
     <section id="list-view"  class="detail-section">
-        <h1 class="text-center-aligned">Database Equipment</h1>
+        <div class="section-header">
+            <h2>Database Equipment Template</h2>
+            <button class="btn-shiny" onclick="document.getElementById('add-eq-view').style.display='block'">+ Thêm mẫu thiết bị</button>
+        </div>
         <table class="detail-table">
             <thead>
                 <tr>
@@ -129,25 +143,30 @@
     </section>
 
     <section id="edit-view" style="display:none;">
-        <button class="btn-back" onclick="showView('list-view')" style="margin-bottom: 10px; cursor: pointer;">← Back to List</button>
-        <div class="equipment-card">
-            <h2 id="edit-title" style="color: #008080; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">Equipment Specifications</h2>
-            <h3>Quy trình hiệu chuẩn: <i>F-01, T-02, V-02, TIME-02 </i></h3>
-            <h3>Quy trình tham chiếu: <i>ISO 6330</i></h3>
-            <input type="text" id="in-model" class="input-detail" style="max-width: 150px;" placeholder="Model (optional)">
-            <input type="text" id="in-serial" class="input-detail" style="max-width: 150px;" placeholder="Serial Number (optional)">
-            <input type="text" id="in-nsx" class="input-detail" style="max-width: 150px;" placeholder="Nhà sản xuất (optional)">
-            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-            
+        <div class="section-header">
+            <h2 id="edit-title">Chi tiết mẫu thiết bị</h2>
+            <button class="btn-shiny" style="background: #4a5568;" onclick="showView('list-view')"><b>🔙 Trở lại</b></button>
+        </div>
 
+        <div class="admin-grid">
+            <div>
+                <label>Quy trình hiệu chuẩn:</label>
+                <input type="text" class="lab-input" value="LAB-F-01, LAB-T-02">
             </div>
+            <div>
+                <label>Tiêu chuẩn tham chiếu:</label>
+                <input type="text" class="lab-input" value="ISO 6330">
+            </div>
+            <div>
+                <label>Nhà sản xuất mặc định:</label>
+                <input type="text" id="in-nsx" class="lab-input">
             </div>
         </div>
 
 <div style="overflow-x: auto; margin: 20px 0;">
-    <table id="calibration-table" style="width: 100%; border-collapse: collapse; font-family: 'Times New Roman', Times, serif; font-size: 14px; text-align: center;">
+    <table id="calibration-table" style="width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Times New Roman', Times, serif; font-size: 14px; text-align: center; border: 1px solid #111;">
         <thead>
-            <tr style="background-color: #f2f2f2;">
+            <tr>
                 <th style="border: 1px solid #111111; padding: 10px; width: 18%;">Thông số<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Parameters</span></th>
                 <th style="border: 1px solid #111111; padding: 10px; width: 14%;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Calibration Points</span></th>
                 
