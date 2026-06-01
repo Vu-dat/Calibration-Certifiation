@@ -87,6 +87,29 @@ body {
     margin-bottom: 10px;
 }
 
+/* STAT CARD COPIED FROM PROJECT FOR SYNC */
+.stat-card {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    text-align: center;
+    border-bottom: 4px solid #ddd;
+    transition: all 0.3s ease;
+}
+.stat-card p { font-size: 2rem; font-weight: 800; margin: 10px 0 0 0; color: #333; }
+
+/* Định nghĩa hoạt ảnh xuất hiện */
+@keyframes slideUpFade {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
 /* DASHBOARD GRID */
 .dashboard-grid {
@@ -103,10 +126,60 @@ body {
     box-shadow: 0 10px 30px rgba(0,0,0,0.03);
     border: 1px solid rgba(0,0,0,0.05);
     transition: transform 0.5s ease;
+    opacity: 0; /* Trạng thái ban đầu để chờ hoạt ảnh */
+    animation: slideUpFade 0.6s ease forwards;
 }
 
-.info-card:hover {
+.info-card.stat-main:hover {
     transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    border-color: var(--primary-teal);
+}
+
+/* Tạo độ trễ cho từng thẻ xuất hiện lần lượt */
+.info-card.stat-main:nth-child(1) { animation-delay: 0.1s; }
+.info-card.stat-main:nth-child(2) { animation-delay: 0.2s; }
+.info-card.stat-main:nth-child(3) { animation-delay: 0.3s; }
+.info-card.stat-main:nth-child(4) { animation-delay: 0.4s; }
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.trend {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.card-footer-stats {
+    margin-top: 25px;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-val {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #2d3748;
+    line-height: 1;
+}
+
+.sub-lbl {
+    font-size: 0.85rem;
+    color: #718096;
+    margin-top: 5px;
+}
+
+.alert-card {
+    background: #fff5f5;
+    border: 1px solid #feb2b2;
 }
 
 .icon-bg {
@@ -123,6 +196,7 @@ body {
 .icon-bg.yellow { background: #fff9db; }
 .icon-bg.orange { background: #fff4e6; }
 .icon-bg.purple { background: #f3f0ff; }
+.icon-bg.teal { background: #e6f2f2; }
 
 .status-tag {
     display: inline-block;

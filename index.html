@@ -6,6 +6,7 @@
     <title>LabMaster - Calibration Management System</title>
     <link rel="stylesheet" href="index.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -29,33 +30,102 @@
 <main id="home-section" class="container">
     <div class="hero-card">
         <div class="hero-content">
-            <h2 class="slogan-text">Your lab - Our care</h2>
-            <p class="welcome-msg">Welcome back! Have a productive day.</p>
+            <div class="hero-text-wrapper">
+                <h2 class="slogan-text">LabMaster Pro <span style="font-size: 1.2rem; font-weight: 300; display: block; margin-top: 5px;">Hệ thống Quản lý Hiệu chuẩn Doanh nghiệp</span></h2>
+                <p class="welcome-msg">Chào mừng trở lại! Hệ thống đã sẵn sàng cho ngày làm việc mới.</p>
+                <div class="hero-actions">
+                    <button class="btn-shiny" onclick="location.href='project.html'">+ Khởi tạo Dự án</button>
+                    <button class="btn-shiny" style="background: rgba(255,255,255,0.2); backdrop-filter: blur(5px); border: 1px solid white;" onclick="location.href='equipment.html'">Tra cứu Thiết bị</button>
+                </div>
+            </div>
+            <div class="hero-stats-mini">
+                <div class="mini-stat">
+                    <span class="val">98%</span>
+                    <span class="lbl">Compliance</span>
+                </div>
+                <div class="mini-stat">
+                    <span class="val">1.2k</span>
+                    <span class="lbl">Certificates</span>
+                </div>
+            </div>
         </div>
     </div>
 
+    <div class="section-title-wrapper" style="padding: 0 5%; margin-bottom: 20px;">
+        <h3 style="font-size: 1.5rem; color: #2d3748; display: flex; align-items: center; gap: 10px;">
+            <span>📊</span> Dashboard Tổng quan
+        </h3>
+    </div>
+
     <div class="dashboard-grid">
-    <div class="info-card" onclick="window.location.href='project.html'" style="cursor: pointer; transition: transform 0.3s;">
-        <div class="icon-bg yellow" style="font-size: 2rem; margin-bottom: 10px;">📁</div>
-        <h3>Project Management</h3>
-        <p>Quản lý hồ sơ và tiến độ hiệu chuẩn.</p>
-        <span class="status-tag" style="background: #fff3cd; color: #856404;">24 Active</span>
+        <div class="info-card stat-main" onclick="window.location.href='project.html'">
+            <div class="card-header">
+                <div class="icon-bg yellow">📁</div>
+                <span class="trend up">↑ 12%</span>
+            </div>
+            <h3>Quản lý Dự án</h3>
+            <p>Theo dõi tiến độ hiệu chuẩn thời gian thực.</p>
+            <div class="card-footer-stats">
+                <span class="main-val">24</span>
+                <span class="sub-lbl">Đang thực hiện</span>
+            </div>
+        </div>
+
+        <div class="info-card stat-main" onclick="window.location.href='customer.html'">
+            <div class="card-header">
+                <div class="icon-bg orange">🤝</div>
+                <span class="trend">New</span>
+            </div>
+            <h3>Cơ sở Khách hàng</h3>
+            <p>Quản lý quan hệ và lịch sử kiểm định khách hàng.</p>
+            <div class="card-footer-stats">
+                <span class="main-val">152</span>
+                <span class="sub-lbl">Đối tác tin cậy</span>
+            </div>
+        </div>
+
+        <div class="info-card stat-main alert-card" onclick="window.location.href='equipment.html'">
+            <div class="card-header">
+                <div class="icon-bg purple">🛠️</div>
+                <span class="trend down" style="background: #fed7d7; color: #c53030;">Cần xử lý</span>
+            </div>
+            <h3>Thiết bị chuẩn</h3>
+            <p>Kiểm soát hạn hiệu chuẩn và liên kết chuẩn.</p>
+            <div class="card-footer-stats">
+                <span class="main-val" style="color: #e53e3e;">05</span>
+                <span class="sub-lbl">Sắp hết hạn</span>
+            </div>
+        </div>
+
+        <div class="info-card stat-main chart-card">
+            <div class="card-header">
+                <div class="icon-bg teal">📊</div>
+            </div>
+            <h3>Phân bổ Trạng thái</h3>
+            <p>Tỷ lệ hoàn thành công việc hệ thống.</p>
+            <div class="chart-wrapper">
+                <canvas id="projectStatusChart"></canvas>
+            </div>
+        </div>
     </div>
 
-    <div class="info-card" onclick="window.location.href='customer.html'" style="cursor: pointer; transition: transform 0.3s;">
-        <div class="icon-bg orange" style="font-size: 2rem; margin-bottom: 10px;">🤝</div>
-        <h3>Customer Database</h3>
-        <p>Dữ liệu khách hàng & lịch sử liên hệ.</p>
-        <span class="status-tag" style="background: #d4edda; color: #155724;">150+ Clients</span>
+    <div class="recent-activity-section" style="padding: 40px 5%;">
+        <div class="info-card" style="width: 100%; text-align: left;">
+            <h3 style="border-bottom: 1px solid #edf2f7; padding-bottom: 15px; margin-bottom: 20px;">🕒 Hoạt động gần đây</h3>
+            <div class="activity-list">
+                <div class="activity-item" style="display: flex; gap: 15px; padding: 10px 0; border-bottom: 1px dashed #f0f0f0;">
+                    <span style="color: #008080; font-weight: bold;">[PJ-328344]</span>
+                    <span>KTV. Nguyễn Văn A đã hoàn thành báo cáo hiệu chuẩn Wascator.</span>
+                    <span style="margin-left: auto; color: #a0aec0; font-size: 0.85rem;">2 giờ trước</span>
+                </div>
+                <div class="activity-item" style="display: flex; gap: 15px; padding: 10px 0; border-bottom: 1px dashed #f0f0f0;">
+                    <span style="color: #dd6b20; font-weight: bold;">[ALERT]</span>
+                    <span>Thiết bị LAB-TIMER.01 sắp hết hạn hiệu chuẩn trong 15 ngày tới.</span>
+                    <span style="margin-left: auto; color: #a0aec0; font-size: 0.85rem;">6 giờ trước</span>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <div class="info-card" onclick="window.location.href='equipment.html'" style="cursor: pointer; transition: transform 0.3s;">
-        <div class="icon-bg purple" style="font-size: 2rem; margin-bottom: 10px;">🛠️</div>
-        <h3>Standard Equipment Database</h3>
-        <p>Thiết bị chuẩn & hạn kiểm định.</p>
-        <span class="status-tag" style="background: #f8d7da; color: #721c24;">5 Expiring</span>
-    </div>
-</div>
 </main>
 
 
@@ -111,6 +181,22 @@
     </div>
 </footer>
 <script>
+// Dữ liệu dự án thực tế (Đồng bộ cấu trúc với trang project.html)
+const projectData = {
+    'PRJ-328344': { id: 'PRJ-328344', title: 'Hiệu chuẩn hệ thống Wascator', status: 'In Progress' },
+    'PRJ-552104': { id: 'PRJ-552104', title: 'Kiểm định lò sấy Whirlpool', status: 'In Progress' },
+    'PRJ-882931': { id: 'PRJ-882931', title: 'Hiệu chuẩn tủ lạnh Samsung', status: 'Finished' },
+    'PRJ-112233': { id: 'PRJ-112233', title: 'Thử nghiệm độ bền Poly', status: 'In Progress' },
+    'PRJ-999001': { id: 'PRJ-999001', title: 'Bảo trì thiết bị đo lực', status: 'To Do' }
+};
+
+// Hàm cập nhật các con số thống kê trên Dashboard
+function updateDashboardStats() {
+    const projects = Object.values(projectData);
+    const inProgressCount = projects.filter(p => p.status === 'In Progress').length;
+    document.querySelector('.info-card.stat-main .main-val').textContent = inProgressCount;
+}
+
    function navigate(page) {
     const pages = ['home', 'project', 'customer', 'equipment', 'signin'];
 
@@ -136,6 +222,48 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// Khởi tạo Biểu đồ Dự án
+function initProjectChart() {
+    const ctx = document.getElementById('projectStatusChart').getContext('2d');
+    
+    // 1. Tính toán số liệu thực tế từ biến projectData
+    const projects = Object.values(projectData);
+    const inProgress = projects.filter(p => p.status === 'In Progress').length;
+    const finished = projects.filter(p => p.status === 'Finished').length;
+    const todo = projects.filter(p => p.status === 'To Do').length;
+
+    new Chart(ctx, {
+        type: 'doughnut', // Sử dụng doughnut cho cảm giác hiện đại hơn Pie truyền thống
+        data: {
+            labels: ['Đang thực hiện', 'Hoàn thành', 'Chưa bắt đầu'],
+            datasets: [{
+                data: [inProgress, finished, todo],
+                backgroundColor: [
+                    '#ffc107', // Vàng (Warning)
+                    '#28a745', // Xanh lá (Success)
+                    '#17a2b8'  // Xanh dương (Info)
+                ],
+                hoverOffset: 10,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true,
+                        font: { size: 12, family: "'Roboto', sans-serif" }
+                    }
+                }
+            },
+            cutout: '70%' // Tạo độ rỗng ở giữa để chuyên nghiệp hơn
+        }
+    });
+}
 
 async function submitCalibrationFormAndPrint() {
     // 1. Thu thập trọn bộ thông tin theo cấu trúc file mẫu của sếp bạn
@@ -189,31 +317,11 @@ async function submitCalibrationFormAndPrint() {
         console.error("Lỗi đồng bộ hệ thống: ", err);
     }
 }
+
+// Chạy khi trang load xong
+window.addEventListener('DOMContentLoaded', (event) => {
+    initProjectChart();
+    updateDashboardStats(); // Đồng bộ số liệu trên card Quản lý dự án
+});
 </script>
 </body>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

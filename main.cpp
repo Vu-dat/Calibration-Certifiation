@@ -43,8 +43,18 @@ void initEnterpriseDatabase() {
                        "TOLERANCE TEXT,"
                        "CONFORMITY TEXT);";
 
+    // Bảng lưu trữ danh sách thiết bị chuẩn sử dụng cho Chứng nhận này
+    string sqlStandards = "CREATE TABLE IF NOT EXISTS CERTIFICATE_STANDARDS ("
+                          "ID INTEGER PRIMARY KEY AUTOINCREMENT,"
+                          "CERT_NO TEXT,"
+                          "EQ_CODE TEXT,"
+                          "EQ_NAME TEXT,"
+                          "LINK TEXT,"
+                          "VALIDITY TEXT);";
+
     sqlite3_exec(DB, sqlCertificates.c_str(), NULL, 0, &messError);
     sqlite3_exec(DB, sqlPoints.c_str(), NULL, 0, &messError);
+    sqlite3_exec(DB, sqlStandards.c_str(), NULL, 0, &messError);
     sqlite3_close(DB);
 }
 
@@ -100,6 +110,25 @@ void savePointInfo(string certNo, string param, double cp, double af, double unc
     sqlite3_close(DB);
 }
 
+// Hàm lưu thiết bị chuẩn sử dụng
+void saveStandardRef(string certNo, string code, string name, string link, string validity) {
+    sqlite3* DB;
+    sqlite3_open("labmaster_enterprise.db", &DB);
+    string sql = "INSERT INTO CERTIFICATE_STANDARDS (CERT_NO, EQ_CODE, EQ_NAME, LINK, VALIDITY) VALUES (?, ?, ?, ?, ?);";
+    sqlite3_stmt* stmt;
+    sqlite3_prepare_v2(DB, sql.c_str(), -1, &stmt, NULL);
+    
+    sqlite3_bind_text(stmt, 1, certNo.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, code.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, name.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, link.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 5, validity.c_str(), -1, SQLITE_TRANSIENT);
+    
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    sqlite3_close(DB);
+}
+
 int main() {
     crow::SimpleApp app;
     initEnterpriseDatabase();
@@ -117,11 +146,13 @@ int main() {
 
         string certNo = x["certNo"].s();
         
-        // Xóa các điểm đo cũ của Chứng nhận này để tránh trùng lặp nếu người dùng bấm xuất lại lần 2
+        // Xóa dữ liệu cũ của Chứng nhận này để cập nhật mới
         sqlite3* DB;
         sqlite3_open("labmaster_enterprise.db", &DB);
-        string deleteSql = "DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = '" + certNo + "';";
-        sqlite3_exec(DB, deleteSql.c_str(), NULL, 0, NULL);
+        string delPoints = "DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = '" + certNo + "';";
+        string delStds = "DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = '" + certNo + "';";
+        sqlite3_exec(DB, delPoints.c_str(), NULL, 0, NULL);
+        sqlite3_exec(DB, delStds.c_str(), NULL, 0, NULL);
         sqlite3_close(DB);
 
         // Lưu thông tin tổng quan hành chính
@@ -144,6 +175,20 @@ int main() {
                     point["uncertainty"].d(),
                     point["tolerance"].s(),
                     point["conformity"].s()
+                );
+            }
+        }
+
+        // Lưu danh sách thiết bị chuẩn sử dụng
+        if (x.has("standards")) {
+            auto stds_list = x["standards"];
+            for (auto& std : stds_list) {
+                saveStandardRef(
+                    certNo,
+                    std["code"].s(),
+                    std["name"].s(),
+                    std["link"].s(),
+                    std["validity"].s()
                 );
             }
         }

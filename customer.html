@@ -24,52 +24,47 @@
 </header>
 
 <main class="container">
+    <!-- Dashboard Thống kê Khách hàng -->
+    <div class="dashboard-grid" style="margin-bottom: 30px;">
+        <div class="stat-card total" style="border-bottom: 4px solid #008080;">
+            <h4>Đối tác hệ thống</h4>
+            <p id="stat-cust-total">4</p>
+        </div>
+        <div class="stat-card" style="border-bottom: 4px solid gold;">
+            <h4>VIP Partners</h4>
+            <p id="stat-cust-vip">4</p>
+        </div>
+        <div class="stat-card" style="border-bottom: 4px solid #17a2b8;">
+            <h4>Mới (30 ngày)</h4>
+            <p>+2</p>
+        </div>
+    </div>
+
     <section id="customer-list-view" class="detail-section">
-        <h1 class="text-center-aligned">Customer Information</h1>
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+            <h2 style="margin:0; color: var(--primary-teal);">📇 Quản lý Cơ sở Khách hàng</h2>
+            <button class="btn-shiny" onclick="showAddCustomerForm()">+ Thêm Khách hàng Mới</button>
+        </div>
+
+        <!-- Bộ lọc và Tìm kiếm -->
+        <div class="search-container" style="margin-bottom: 20px; display: flex; gap: 10px;">
+            <input type="text" id="cust-search-input" placeholder="Tìm tên khách hàng, công ty hoặc số điện thoại..." onkeyup="filterCustomers()" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <select id="filter-rank" onchange="filterCustomers()" style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <option value="all">Tất cả hạng</option>
+                <option value="VIP">Hạng VIP</option>
+                <option value="Standard">Hạng Thường</option>
+            </select>
+        </div>
+
         <table class="detail-table">
             <thead>
                 <tr>
-                    <th>ID</th><th>Name</th><th>Company</th><th>Phone</th><th>Note</th><th>Action</th>
+                    <th width="80">ID</th><th>Người đại diện</th><th>Công ty / Tổ chức</th><th>Liên hệ</th><th>Phân hạng</th><th style="text-align: center;">Thao tác</th>
                 </tr>
             </thead>
             <tbody id="customer-table-body">
-                <tr id="customer-row-1">
-                    <td onclick="viewCustomer('1')"><strong>1</strong></td>
-                    <td class="name-cell" onclick="viewCustomer('1')">Nguyen Van A</td>
-                    <td class="company-cell" onclick="viewCustomer('1')">Samsung Vina</td>
-                    <td>0123456789</td>
-                    <td class="note-cell">Đã hiệu chuẩn 5 thiết bị...</td>
-                    <td><button class="btn-delete" onclick="deleteCustomer('1')">🗑️</button></td>
-                </tr>
-                <tr id="customer-row-2">
-                    <td onclick="viewCustomer('2')">2</td>
-                    <td class="name-cell" onclick="viewCustomer('2')">Tran Thi B</td>
-                    <td class="company-cell" onclick="viewCustomer('2')">LG Electronics</td>
-                    <td>0987654321</td>
-                    <td class="note-cell">Đã hiệu chuẩn 3 thiết bị...</td>
-                    <td><button class="btn-delete" onclick="deleteCustomer('2')">🗑️</button></td>
-                </tr>
-                <tr id="customer-row-3">
-                    <td onclick="viewCustomer('3')">3</td>
-                    <td class="name-cell" onclick="viewCustomer('3')">Le Van C</td>
-                    <td class="company-cell" onclick="viewCustomer('3')">Apple Vietnam</td>
-                    <td>0912345678</td>
-                    <td class="note-cell">Đã hiệu chuẩn 2 thiết bị...</td>
-                    <td><button class="btn-delete" onclick="deleteCustomer('3')">🗑️</button></td>
-                </tr>
-                <tr id="customer-row-4">
-                    <td onclick="viewCustomer('4')">4</td>
-                    <td class="name-cell" onclick="viewCustomer('4')">Pham Thi D</td>
-                    <td class="company-cell" onclick="viewCustomer('4')">Sony Vietnam</td>
-                    <td>0901234567</td>
-                    <td class="note-cell">Đã hiệu chuẩn 1 thiết bị...</td>
-                    <td><button class="btn-delete" onclick="deleteCustomer('4')">🗑️</button></td>
-                </tr>
             </tbody>
         </table>
-        <div class="button-wrapper" style="text-align: center; margin-top: 20px;">
-            <button class="btn-shiny" onclick="showAddCustomerForm()">+ Add New Customer</button>
-        </div>
     </section>
 
     <section id="customer-item-detail" class="detail-section" style="display: none;">
@@ -79,36 +74,49 @@
         </div>
 
         <div class="info-card">
-            <h2 id="detail-title" class="text-center-aligned" style="color: var(--primary-teal); margin-bottom: 20px;"></h2>
+            <div class="profile-header" style="display: flex; gap: 30px; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #edf2f7; padding-bottom: 20px;">
+                <div class="profile-avatar" style="width: 100px; height: 100px; border-radius: 50%; background: var(--secondary-teal); display: flex; align-items: center; justify-content: center; font-size: 40px; color: var(--primary-teal);">🏢</div>
+                <div class="profile-title-main">
+                    <h2 id="detail-title" style="margin: 0; color: var(--primary-teal); font-size: 2rem;"></h2>
+                    <span id="display-id-tag" style="background: #e2e8f0; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; color: #4a5568; font-weight: bold;">ID: #---</span>
+                </div>
+            </div>
+
+            <div class="profile-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+                <div class="profile-col">
+                    <p><strong>🏢 Công ty:</strong> 
+                        <span id="display-company"></span>
+                        <input type="text" id="edit-company" class="form-input" style="display:none;">
+                    </p>
+                    <p><strong>🧾 Mã số thuế:</strong> 
+                        <span id="display-tax"></span>
+                        <input type="text" id="edit-tax" class="form-input" style="display:none;">
+                    </p>
+                    <p><strong>📍 Địa chỉ xuất hóa đơn:</strong> 
+                        <span id="display-billing-address"></span>
+                        <input type="text" id="edit-billing-address" class="form-input" style="display:none;">
+                    </p>
+                </div>
+                <div class="profile-col">
+                    <p><strong>👤 Người liên hệ:</strong> 
+                        <span id="display-contact"></span>
+                        <input type="text" id="edit-contact" class="form-input" style="display:none;">
+                    </p>
+                    <p><strong>📧 Email:</strong> 
+                        <span id="display-email"></span>
+                        <input type="email" id="edit-email" class="form-input" style="display:none;">
+                    </p>
+                    <p><strong>🏅 Hạng khách hàng:</strong> <span style="color: gold; font-weight: bold;">★ VIP Partner</span></p>
+                </div>
+            </div>
             
-            <p><strong>ID:</strong> <span id="display-id"></span></p>
-            
-            <p><strong>Company:</strong> 
-                <span id="display-company"></span>
-                <input type="text" id="edit-company" class="form-input" style="display:none;">
-            </p>
-            <p><strong>Mã số thuế:</strong> 
-                <span id="display-tax"></span>
-                <input type="text" id="edit-tax" class="form-input" style="display:none;">
-            </p>
-            <p><strong>Người liên hệ:</strong> 
-                <span id="display-contact"></span>
-                <input type="text" id="edit-contact" class="form-input" style="display:none;">
-            </p>
-            <p><strong>Email công ty:</strong> 
-                <span id="display-email"></span>
-                <input type="email" id="edit-email" class="form-input" style="display:none;">
-            </p>
-            <p><strong>Địa chỉ xuất hóa đơn:</strong> 
-                <span id="display-billing-address"></span>
-                <input type="text" id="edit-billing-address" class="form-input" style="display:none;">
-            </p>
-            <p><strong>Hạng khách hàng:</strong> 
-                <span style="color: gold;">★ VIP Partner</span></p>
-            <p><strong>Note:</strong> <br>
-                <span id="display-note"></span>
-                <textarea id="edit-note" class="form-input" style="display:none; width: 100%; height: 100px;"></textarea>
-            </p>
+            <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 10px;">
+                <p><strong>📝 Ghi chú nội bộ:</strong> <br>
+                    <span id="display-note"></span>
+                    <textarea id="edit-note" class="form-input" style="display:none; width: 100%; height: 80px;"></textarea>
+                </p>
+            </div>
+
             <button id="btn-edit" class="btn-primary" onclick="enableEdit()" style="display: block;">Edit</button>
             <div id="edit-actions" class="card-footer" style="display: none; justify-content: flex-end; gap: 10px; margin-top: 20px;">
                 <button class="btn-cancel" onclick="cancelEdit()">Cancel</button>
@@ -136,84 +144,75 @@
 </main>
 
 <script>
-    let customerData = { 
-    '1': { 
-        id: '1', 
-        name: 'Nguyen Van A', 
-        company: 'Samsung Vina', 
-        phone: '0123456789', 
-        tax: '0101010101', 
-        contact: 'Mr. An', 
-        email: 'an.nv@samsung.com', 
-        billingAddress: 'KCN Yên Phong, Bắc Ninh', 
-        note: 'Đã hiệu chuẩn 5 thiết bị...' 
-    }, 
-    '2': { 
-        id: '2', 
-        name: 'Tran Thi B', 
-        company: 'LG Electronics', 
-        phone: '0987654321', 
-        tax: '0202020202', 
-        contact: 'Ms. Bình', 
-        email: 'binh.tt@lg.com', 
-        billingAddress: 'KCN Tràng Duệ, Hải Phòng', 
-        note: 'Đã hiệu chuẩn 3 thiết bị...' 
-    },
-    '3': { 
-        id: '3', 
-        name: 'Le Van C', 
-        company: 'Apple Vietnam', 
-        phone: '0912345678', 
-        tax: '0303030303', 
-        contact: 'Mr. Cường', 
-        email: 'cuong.lv@apple.com', 
-        billingAddress: 'KCN Phú Mỹ, Bà Rịa - Vũng Tàu', 
-        note: 'Đã hiệu chuẩn 2 thiết bị...' 
-    },
-    '4': { 
-        id: '4', 
-        name: 'Pham Thi D', 
-        company: 'Sony Vietnam', 
-        phone: '0901234567', 
-        tax: '0404040404', 
-        contact: 'Ms. Dung', 
-        email: 'dung.pt@sony.com', 
-        billingAddress: 'KCN Sóng Thần, Bà Rịa - Vũng Tàu', 
-        note: 'Đã hiệu chuẩn 1 thiết bị...' 
-    }
-};
+    let customerData = {
+        '1': { id: '1', name: 'Nguyen Van A', company: 'Samsung Vina', phone: '0123456789', tax: '0101010101', contact: 'Mr. An', email: 'an.nv@samsung.com', billingAddress: 'KCN Yên Phong, Bắc Ninh', note: 'Đã hiệu chuẩn 5 thiết bị...' },
+        '2': { id: '2', name: 'Tran Thi B', company: 'LG Electronics', phone: '0987654321', tax: '0202020202', contact: 'Ms. Bình', email: 'binh.tt@lg.com', billingAddress: 'KCN Tràng Duệ, Hải Phòng', note: 'Đã hiệu chuẩn 3 thiết bị...' },
+        '3': { id: '3', name: 'Le Van C', company: 'Apple Vietnam', phone: '0912345678', tax: '0303030303', contact: 'Mr. Cường', email: 'cuong.lv@apple.com', billingAddress: 'KCN Phú Mỹ, Bà Rịa - Vũng Tàu', note: 'Đã hiệu chuẩn 2 thiết bị...' },
+        '4': { id: '4', name: 'Pham Thi D', company: 'Sony Vietnam', phone: '0901234567', tax: '0404040404', contact: 'Ms. Dung', email: 'dung.pt@sony.com', billingAddress: 'KCN Sóng Thần, Bà Rịa - Vũng Tàu', note: 'Đã hiệu chuẩn 1 thiết bị...' }
+    };
+
     let currentId = null;
 
-    // Xem chi tiết
-    function viewCustomer(id) {
-    currentId = id;
-    const customer = customerData[id];
-    if (customer) {
-        // Hiện section Detail, ẩn section List
-        document.getElementById('customer-list-view').style.display = 'none';
-        document.getElementById('customer-item-detail').style.display = 'block';
-
-        // Gán dữ liệu vào các thẻ <span>
-        document.getElementById('detail-title').textContent = customer.name;
-        document.getElementById('display-id').textContent = customer.id;
-        document.getElementById('display-company').textContent = customer.company || "N/A";
-        document.getElementById('display-tax').textContent = customer.tax || "N/A";
-        document.getElementById('display-contact').textContent = customer.contact || "N/A";
-        document.getElementById('display-email').textContent = customer.email || "N/A";
-        document.getElementById('display-billing-address').textContent = customer.billingAddress || "N/A";
-        document.getElementById('display-note').textContent = customer.note || "N/A";
-
-        // Đồng bộ luôn dữ liệu vào các ô input (để khi bấm Edit có sẵn dữ liệu)
-        document.getElementById('edit-company').value = customer.company || "";
-        document.getElementById('edit-tax').value = customer.tax || "";
-        document.getElementById('edit-contact').value = customer.contact || "";
-        document.getElementById('edit-email').value = customer.email || "";
-        document.getElementById('edit-billing-address').value = customer.billingAddress || "";
-        document.getElementById('edit-note').value = customer.note || "";
-
-        cancelEdit(); // Đảm bảo luôn ở chế độ xem khi mới mở
+    function renderCustomerTable(data = customerData) {
+        const tableBody = document.getElementById('customer-table-body');
+        tableBody.innerHTML = '';
+        Object.values(data).forEach(cust => {
+            const row = document.createElement('tr');
+            row.id = `customer-row-${cust.id}`;
+            row.innerHTML = `
+                <td onclick="viewCustomer('${cust.id}')"><strong>#${cust.id}</strong></td>
+                <td class="name-cell" onclick="viewCustomer('${cust.id}')">
+                    <div style="font-weight: 600;">${cust.name}</div>
+                    <div style="font-size: 0.75rem; color: #718096;">${cust.contact || 'Chưa cập nhật'}</div>
+                </td>
+                <td class="company-cell" onclick="viewCustomer('${cust.id}')">
+                    <div style="color: var(--primary-teal); font-weight: 500;">${cust.company}</div>
+                    <div style="font-size: 0.75rem; color: #a0aec0;">MST: ${cust.tax || '---'}</div>
+                </td>
+                <td>
+                    <div>📞 ${cust.phone}</div>
+                    <div style="font-size: 0.8rem;">📧 ${cust.email || '---'}</div>
+                </td>
+                <td><span class="status-tag" style="background: #fef3c7; color: #b45309; font-size: 0.7rem;">★ VIP PARTNER</span></td>
+                <td style="text-align: center;">
+                    <button class="btn-delete" onclick="deleteCustomer('${cust.id}')" title="Xóa hồ sơ">🗑️</button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+        document.getElementById('stat-cust-total').textContent = Object.keys(customerData).length;
+        document.getElementById('stat-cust-vip').textContent = Object.keys(customerData).length;
     }
-}
+
+    function filterCustomers() {
+        const query = document.getElementById('cust-search-input').value.toLowerCase();
+        const filtered = Object.values(customerData).filter(c => 
+            c.name.toLowerCase().includes(query) || 
+            c.company.toLowerCase().includes(query) || 
+            c.phone.includes(query)
+        );
+        const filteredObj = {};
+        filtered.forEach(c => filteredObj[c.id] = c);
+        renderCustomerTable(filteredObj);
+    }
+
+    function viewCustomer(id) {
+        currentId = id;
+        const customer = customerData[id];
+        if (customer) {
+            document.getElementById('customer-list-view').style.display = 'none';
+            document.getElementById('customer-item-detail').style.display = 'block';
+            document.getElementById('detail-title').textContent = customer.name;
+            document.getElementById('display-id-tag').textContent = "ID: #" + customer.id;
+            document.getElementById('display-company').textContent = customer.company || "N/A";
+            document.getElementById('display-tax').textContent = customer.tax || "N/A";
+            document.getElementById('display-contact').textContent = customer.contact || "N/A";
+            document.getElementById('display-email').textContent = customer.email || "N/A";
+            document.getElementById('display-billing-address').textContent = customer.billingAddress || "N/A";
+            document.getElementById('display-note').textContent = customer.note || "N/A";
+            toggleUI(false);
+        }
+    }
 
     // Quay lại danh sách
     function showCustomerList() {
@@ -226,16 +225,12 @@
     const pass = prompt("Nhập mật khẩu (123) để sửa:");
     if (pass === "123") {
         const customer = customerData[currentId];
-        
-        // Đổ dữ liệu vào ô input - Kiểm tra kỹ ID có tồn tại trong HTML không
         if (document.getElementById('edit-company')) document.getElementById('edit-company').value = customer.company || "";
         if (document.getElementById('edit-tax')) document.getElementById('edit-tax').value = customer.tax || "";
         if (document.getElementById('edit-contact')) document.getElementById('edit-contact').value = customer.contact || "";
         if (document.getElementById('edit-email')) document.getElementById('edit-email').value = customer.email || "";
         if (document.getElementById('edit-billing-address')) document.getElementById('edit-billing-address').value = customer.billingAddress || "";
         if (document.getElementById('edit-note')) document.getElementById('edit-note').value = customer.note || "";
-        
-        // Gọi hàm để ẩn chữ, hiện ô nhập liệu
         toggleUI(true);
     } else {
         alert("Sai mật khẩu!");
@@ -249,39 +244,25 @@
 
     // Lưu thay đổi (Overwrite)
     function saveCustomerChanges() {
-    // 1. Lấy giá trị mới từ các ô input
     const newCompany = document.getElementById('edit-company').value;
     const newTax = document.getElementById('edit-tax').value;
     const newContact = document.getElementById('edit-contact').value;
     const newEmail = document.getElementById('edit-email').value;
     const newAddress = document.getElementById('edit-billing-address').value;
     const newNote = document.getElementById('edit-note').value;
-
-    // 2. Cập nhật vào đối tượng dữ liệu bộ nhớ
     customerData[currentId].company = newCompany;
     customerData[currentId].tax = newTax;
     customerData[currentId].contact = newContact;
     customerData[currentId].email = newEmail;
     customerData[currentId].billingAddress = newAddress;
     customerData[currentId].note = newNote;
-
-    // 3. Cập nhật hiển thị tại trang Chi tiết (UI labels)
     document.getElementById('display-company').textContent = newCompany;
     document.getElementById('display-tax').textContent = newTax;
     document.getElementById('display-contact').textContent = newContact;
     document.getElementById('display-email').textContent = newEmail;
     document.getElementById('display-billing-address').textContent = newAddress;
     document.getElementById('display-note').textContent = newNote;
-
-    // 4. Cập nhật dòng tương ứng tại bảng danh sách bên ngoài
-    const row = document.getElementById(`customer-row-${currentId}`);
-    if (row) {
-        row.querySelector('.company-cell').textContent = newCompany;
-        // Cập nhật tag ghi chú cho đồng bộ giao diện project.html
-        row.querySelector('.note-cell').innerHTML = `<span class="note-tag">${newNote}</span>`;
-    }
-
-    // 5. Thoát chế độ sửa
+    renderCustomerTable();
     toggleUI(false);
     alert("Đã cập nhật thông tin khách hàng thành công!");
 }
@@ -289,18 +270,12 @@
     // Hàm bổ trợ ẩn/hiện các thành phần Edit
     function toggleUI(isEdit) {
     // Danh sách các trường cần chuyển đổi
-    const fields = ['company', 'tax', 'contact', 'email', 'billing-address', 'note'];
-    
+    const fields = ['company', 'tax', 'contact', 'email', 'billing-address', 'note'];   
     fields.forEach(field => {
         const displayElem = document.getElementById(`display-${field}`);
         const editElem = document.getElementById(`edit-${field}`);
-        
-        // Nếu là isEdit = true: Ẩn text (none), Hiện input (block)
-        if (displayElem) displayElem.style.display = isEdit ? 'none' : 'inline';
         if (editElem) editElem.style.display = isEdit ? 'block' : 'none';
     });
-
-    // Ẩn/Hiện các nút bấm hành động
     const editActions = document.getElementById('edit-actions');
     const btnEdit = document.getElementById('btn-edit');
     
@@ -312,6 +287,7 @@
         if(confirm("Xóa khách hàng này?")) {
             document.getElementById(`customer-row-${id}`).remove();
             delete customerData[id];
+            renderCustomerTable();
         }
     }
 
