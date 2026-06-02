@@ -352,7 +352,7 @@
     // MÔ PHỎNG KHO DỮ LIỆU THIẾT BỊ MẪU LÊN TỚI HÀNG NGHÌN DỮ LIỆU
     const MockDatabaseEquipment = {
         "Washing Machine (Wascator)": {
-            manufacturer: "Electrolux",
+            manufacturer: "Electrolux Professional",
             model: "FOM 71CLS",
             formPoints: [
                 { group: "nhiet-do", paramName: "Nhiệt độ\nTemperature (°C)", rowspan: 5, point: 30, v1: "30.2", v2: "", v3: "", uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
@@ -360,28 +360,39 @@
                 { group: "nhiet-do", paramName: "Nhiệt độ\nTemperature (°C)", rowspan: 0, point: 60, v1: "59.2", v2: "", v3: "", uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
                 { group: "nhiet-do", paramName: "Nhiệt độ\nTemperature (°C)", rowspan: 0, point: 80, v1: "78.9", v2: "", v3: "", uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
                 { group: "nhiet-do", paramName: "Nhiệt độ\nTemperature (°C)", rowspan: 0, point: 90, v1: "88.7", v2: "", v3: "", uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
-                { group: "toc-do", paramName: "Tốc độ giặt\nWashing Speed (rpm)", rowspan: 1, point: 52, v1: "52.6", v2: "", v3: "", uncertainty: 0.8, tolerance: "± 2", conformity: "A" },
-                { group: "thoi-gian", paramName: "Thời gian\nTimer (second)", rowspan: 1, point: 100, v1: "100.0", v2: "", v3: "", uncertainty: 0.1, tolerance: "--", conformity: "--" },
+                { group: "toc-do", paramName: "Tốc độ giặt\nWashing Speed (rpm)", rowspan: 2, point: 52, v1: "52.1", v2: "", v3: "", uncertainty: 0.8, tolerance: "± 2", conformity: "A" },
+                { group: "toc-do", paramName: "Tốc độ vắt\nExtract Speed (rpm)", rowspan: 0, point: 500, v1: "501.5", v2: "", v3: "", uncertainty: 2.5, tolerance: "± 10", conformity: "A" },
+                { group: "thoi-gian", paramName: "Thời gian\nTimer (s)", rowspan: 1, point: 300, v1: "300.2", v2: "", v3: "", uncertainty: 0.1, tolerance: "± 2", conformity: "A" },
                 { group: "muc-nuoc", paramName: "Mực nước\nLevel Check (mm)", rowspan: 3, point: 100, v1: "100", v2: "", v3: "", uncertainty: 0.5, tolerance: "± 5", conformity: "A" },
                 { group: "muc-nuoc", paramName: "Mực nước\nLevel Check (mm)", rowspan: 0, point: 130, v1: "131", v2: "", v3: "", uncertainty: 0.5, tolerance: "± 5", conformity: "A" },
                 { group: "muc-nuoc", paramName: "Mực nước\nLevel Check (mm)", rowspan: 0, point: 160, v1: "162", v2: "", v3: "", uncertainty: 0.5, tolerance: "± 5", conformity: "A" }
             ]
         },
-        "Dryer Machine (Máy sấy chuẩn)": {
+        "Dryer Machine": {
             manufacturer: "Whirlpool",
             model: "3LWED4705FW",
             formPoints: [
-                { group: "nhiet-do", paramName: "Nhiệt độ sấy\nTemperature (°C)", rowspan: 2, point: 45, v1: "44.8", v2: "", v3: "", uncertainty: 0.4, tolerance: "± 5", conformity: "A" },
+                { group: "nhiet-do", paramName: "Nhiệt độ sấy\nTemperature (°C)", rowspan: 5, point: 45, v1: "44.8", v2: "", v3: "", uncertainty: 0.4, tolerance: "± 5", conformity: "A" },
+                { group: "nhiet-do", paramName: "Nhiệt độ sấy\nTemperature (°C)", rowspan: 0, point: 50, v1: "49.9", v2: "", v3: "", uncertainty: 0.4, tolerance: "± 5", conformity: "A" },
+                { group: "nhiet-do", paramName: "Nhiệt độ sấy\nTemperature (°C)", rowspan: 0, point: 55, v1: "54.9", v2: "", v3: "", uncertainty: 0.4, tolerance: "± 5", conformity: "A" },
                 { group: "nhiet-do", paramName: "Nhiệt độ sấy\nTemperature (°C)", rowspan: 0, point: 60, v1: "60.1", v2: "", v3: "", uncertainty: 0.4, tolerance: "± 5", conformity: "A" },
-                { group: "thoi-gian", paramName: "Thời gian\nTime (s)", rowspan: 1, point: 600, v1: "600.2", v2: "", v3: "", uncertainty: 0.1, tolerance: "± 2", conformity: "A" }
+                { group: "nhiet-do", paramName: "Nhiệt độ sấy\nTemperature (°C)", rowspan: 0, point: 70, v1: "70.2", v2: "", v3: "", uncertainty: 0.4, tolerance: "± 5", conformity: "A" },
+                { group: "toc-do", paramName: "Tốc độ lồng sấy\nRotation Speed (rpm)", rowspan: 1, point: 50, v1: "50.3", v2: "", v3: "", uncertainty: 0.5, tolerance: "± 2", conformity: "A" },
+                { group: "thoi-gian", paramName: "Thời gian\nTime (s)", rowspan: 1, point: 600, v1: "600.2", v2: "", v3: "", uncertainty: 0.1, tolerance: "± 2", conformity: "A" },
+                { group: "luu-luong", paramName: "Lưu lượng khí\nAir Flow (m/s)", rowspan: 1, point: 15, v1: "15.1", v2: "", v3: "", uncertainty: 0.2, tolerance: "± 2", conformity: "A" }
             ]
         },
-        "Refrigerator (Tủ lạnh phòng Lab)": {
+        "Refrigerator": {
             manufacturer: "Samsung",
             model: "RT20HAR8DSA",
             formPoints: [
-                { group: "nhiet-do", paramName: "Nhiệt độ bảo quản\nTemperature (°C)", rowspan: 2, point: 2, v1: "2.1", v2: "", v3: "", uncertainty: 0.2, tolerance: "± 1", conformity: "A" },
-                { group: "nhiet-do", paramName: "Nhiệt độ bảo quản\nTemperature (°C)", rowspan: 0, point: 8, v1: "7.9", v2: "", v3: "", uncertainty: 0.2, tolerance: "± 1", conformity: "A" }
+                { group: "ngan-mat", paramName: "Nhiệt độ ngăn mát\nFridge Temp (°C)", rowspan: 3, point: 2, v1: "2.3", v2: "", v3: "", uncertainty: 0.2, tolerance: "± 2", conformity: "A" },
+                { group: "ngan-mat", paramName: "Nhiệt độ ngăn mát\nFridge Temp (°C)", rowspan: 0, point: 4, v1: "4.1", v2: "", v3: "", uncertainty: 0.2, tolerance: "± 2", conformity: "A" },
+                { group: "ngan-mat", paramName: "Nhiệt độ ngăn mát\nFridge Temp (°C)", rowspan: 0, point: 8, v1: "7.8", v2: "", v3: "", uncertainty: 0.2, tolerance: "± 2", conformity: "A" },
+                { group: "ngan-dong", paramName: "Nhiệt độ ngăn đông\nFreezer Temp (°C)", rowspan: 3, point: -18, v1: "-17.5", v2: "", v3: "", uncertainty: 0.5, tolerance: "± 3", conformity: "A" },
+                { group: "ngan-dong", paramName: "Nhiệt độ ngăn đông\nFreezer Temp (°C)", rowspan: 0, point: -15, v1: "-14.9", v2: "", v3: "", uncertainty: 0.5, tolerance: "± 3", conformity: "A" },
+                { group: "ngan-dong", paramName: "Nhiệt độ ngăn đông\nFreezer Temp (°C)", rowspan: 0, point: -12, v1: "-12.1", v2: "", v3: "", uncertainty: 0.5, tolerance: "± 3", conformity: "A" },
+                { group: "do-am", paramName: "Độ ẩm ngăn mát\nHumidity (%RH)", rowspan: 1, point: 60, v1: "61.2", v2: "", v3: "", uncertainty: 2.0, tolerance: "± 10", conformity: "A" }
             ]
         }
     };
@@ -407,10 +418,23 @@
         document.getElementById('project-detail-view').style.display = 'block';
         document.getElementById('calibration-form-view').style.display = 'none';
 
+        // Luôn làm tươi (refresh) dữ liệu từ localStorage mỗi khi xem chi tiết để đảm bảo đồng bộ
+        MockDatabaseEquipment = JSON.parse(localStorage.getItem('MockDatabaseEquipment')) || {};
+
         document.getElementById('project-detail-title').innerText = `Project Detail: #${id}`;
-        document.getElementById('view-project-title').innerText = proj.title;
+        currentTitle = proj.title; // Lưu title để phục vụ nhận diện thiết bị tự động
+        document.getElementById('view-project-title').innerText = currentTitle;
         document.getElementById('view-project-status').innerText = proj.status;
     }
+
+    // Đồng bộ lại dữ liệu tiêu đề ban đầu (vì trong biến projectData ở trên có chỗ để trống)
+    projectData['PRJ-328344'].title = "Hiệu chuẩn hệ thống Wascator - Paihong";
+    projectData['PRJ-552104'].title = "Kiểm định lò sấy công nghiệp Whirlpool";
+    projectData['PRJ-882931'].title = "Hiệu chuẩn định kỳ tủ lạnh Samsung RT20";
+    projectData['PRJ-112233'].title = "Thử nghiệm độ bền vật liệu Poly 2026";
+
+    // Cập nhật thống kê ban đầu
+    updateStats();
 
     function switchToCalibrationForm() {
         document.getElementById('project-detail-view').style.display = 'none';
@@ -418,10 +442,32 @@
 
         document.getElementById('input-cert-no').value = currentProjectId.replace('PRJ-', '');
         
-        
+        // TỰ ĐỘNG NHẬN DIỆN MẪU THIẾT BỊ DỰA TRÊN TÊN DỰ ÁN
+        if (currentTitle) {
+            const titleLower = currentTitle.toLowerCase();
+            let matchedKey = "";
 
-        // Tự động tìm kiếm gợi ý khớp ngay lập tức dựa trên tên gốc
-        handleEquipmentSearch(currentTitle, true);
+            // Bảng ánh xạ từ khóa thông minh
+            const templateMapping = {
+                "wascator": "Washing Machine (Wascator)",
+                "máy giặt": "Washing Machine (Wascator)",
+                "lò sấy": "Dryer Machine",
+                "dryer": "Dryer Machine",
+                "tủ lạnh": "Refrigerator",
+                "refrigerator": "Refrigerator"
+            };
+
+            for (const [keyword, templateName] of Object.entries(templateMapping)) {
+                if (titleLower.includes(keyword)) {
+                    matchedKey = templateName;
+                    break;
+                }
+            }
+
+            if (matchedKey && MockDatabaseEquipment[matchedKey]) {
+                selectEquipmentTemplate(matchedKey);
+            }
+        }
     }
 
     // THUẬT TOÁN TRUY VẤN THIẾT BỊ CHUẨN (KIỂU YOUTUBE SEARCH)
