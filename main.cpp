@@ -220,5 +220,17 @@ int main() {
         return res;
     });
 
+    // API để phục vụ các file tĩnh (như PDF chứng nhận)
+    CROW_ROUTE(app, "/static/certificates/<string>")
+    ([](string filename){
+        crow::response res;
+        res.set_static_file_info("static/certificates/" + filename);
+        // Thiết lập header để trình duyệt hiểu đây là PDF
+        res.set_header("Content-Type", "application/pdf");
+        // Thêm CORS để tránh lỗi bảo mật khi mở từ file HTML
+        res.set_header("Access-Control-Allow-Origin", "*");
+        return res;
+    });
+
     app.port(18080).multithreaded().run();
 }
