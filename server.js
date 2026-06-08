@@ -114,7 +114,7 @@ app.post('/api/projects', (req, res) => {
         stmt.run([id, title, tech, status], function(err) {
             if (err) return res.status(500).json({ success: false, error: err.message });
             
-            logActivity("KTV. Nhật Quang", action, "PROJECTS", id, desc);
+            logActivity(tech || "Hệ thống / KTV", action, "PROJECTS", id, desc);
             res.json({ success: true, id: id });
         });
         stmt.finalize();
@@ -276,4 +276,3 @@ app.post('/api/auth/login', (req, res) => {
         });
     });
 });
-
