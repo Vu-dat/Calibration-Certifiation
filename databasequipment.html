@@ -91,7 +91,10 @@
     <section id="list-view"  class="detail-section">
         <div class="section-header">
             <h2>Database Equipment Template</h2>
-            <button class="btn-shiny" onclick="document.getElementById('add-eq-view').style.display='block'">+ Thêm mẫu thiết bị</button>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-shiny" style="background: #e53e3e;" onclick="resetDatabase()">🗑 Xóa dữ liệu tùy chỉnh</button>
+                <button class="btn-shiny" onclick="document.getElementById('add-eq-view').style.display='block'">+ Thêm mẫu thiết bị</button>
+            </div>
         </div>
         <table class="detail-table">
             <thead>
@@ -161,6 +164,10 @@
                 <label>Nhà sản xuất mặc định:</label>
                 <input type="text" id="in-nsx" class="lab-input">
             </div>
+            <div>
+                <label>Hạn hiệu chuẩn mẫu:</label>
+                <input type="text" id="in-due" class="lab-input">
+            </div>
         </div>
 
 <div style="overflow-x: auto; margin: 20px 0;">
@@ -178,133 +185,7 @@
                 <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Thao tác<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Action</span></th>
             </tr>
         </thead>
-        <tbody>
-            <tr data-group="nhiet-do">
-                <td rowspan="5" class="group-header" style="border: 1px solid #111111; padding: 10px; text-align: left; font-weight: bold; vertical-align: middle; background-color: #fafafa;">
-                    Nhiệt độ<br><span style="font-weight: normal; font-style: italic;">Temperature (°C)</span>
-                </td>
-                <td style="border: 1px solid #111111; padding: 10px; font-weight: bold; background-color: #fafafa;">30</td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="30.2" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="0.3" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="&plusmn; 3" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="A" style="width: 100%; border: none; text-align: center; font-family: inherit; font-weight: bold; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><button onclick="deleteRow(this)" style="color: #ff4d4d; background: none; border: none; cursor: pointer; font-size: 16px; font-weight: bold;">✖</button></td>
-            </tr>
-            <tr data-group="nhiet-do">
-                <td style="border: 1px solid #111111; padding: 10px; font-weight: bold; background-color: #fafafa;">40</td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="39.5" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="0.3" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="&plusmn; 3" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="A" style="width: 100%; border: none; text-align: center; font-family: inherit; font-weight: bold; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><button onclick="deleteRow(this)" style="color: #ff4d4d; background: none; border: none; cursor: pointer; font-size: 16px; font-weight: bold;">✖</button></td>
-            </tr>
-            <tr data-group="nhiet-do">
-                <td style="border: 1px solid #111111; padding: 10px; font-weight: bold; background-color: #fafafa;">60</td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="59.2" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="0.3" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="&plusmn; 3" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="A" style="width: 100%; border: none; text-align: center; font-family: inherit; font-weight: bold; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><button onclick="deleteRow(this)" style="color: #ff4d4d; background: none; border: none; cursor: pointer; font-size: 16px; font-weight: bold;">✖</button></td>
-            </tr>
-            <tr data-group="nhiet-do">
-                <td style="border: 1px solid #111111; padding: 10px; font-weight: bold; background-color: #fafafa;">80</td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="78.9" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="0.3" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="&plusmn; 3" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="A" style="width: 100%; border: none; text-align: center; font-family: inherit; font-weight: bold; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><button onclick="deleteRow(this)" style="color: #ff4d4d; background: none; border: none; cursor: pointer; font-size: 16px; font-weight: bold;">✖</button></td>
-            </tr>
-            <tr data-group="nhiet-do">
-                <td style="border: 1px solid #111111; padding: 10px; font-weight: bold; background-color: #fafafa;">90</td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="88.7" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="0.3" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="&plusmn; 3" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="A" style="width: 100%; border: none; text-align: center; font-family: inherit; font-weight: bold; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><button onclick="deleteRow(this)" style="color: #ff4d4d; background: none; border: none; cursor: pointer; font-size: 16px; font-weight: bold;">✖</button></td>
-            </tr>
-
-            <tr data-group="toc-do">
-                <td style="border: 1px solid #111111; padding: 10px; text-align: left; font-weight: bold; background-color: #fafafa;">
-                    Tốc độ giặt<br><span style="font-weight: normal; font-style: italic;">Washing Speed (rpm)</span>
-                </td>
-                <td style="border: 1px solid #111111; padding: 10px; font-weight: bold; background-color: #fafafa;">52</td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="52.6" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="0.8" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="&plusmn; 2" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="A" style="width: 100%; border: none; text-align: center; font-family: inherit; font-weight: bold; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><button onclick="deleteRow(this)" style="color: #ff4d4d; background: none; border: none; cursor: pointer; font-size: 16px; font-weight: bold;">✖</button></td>
-            </tr>
-
-            <tr data-group="thoi-gian">
-                <td style="border: 1px solid #111111; padding: 10px; text-align: left; font-weight: bold; background-color: #fafafa;">
-                    Thời gian<br><span style="font-weight: normal; font-style: italic;">Timer (second)</span>
-                </td>
-                <td style="border: 1px solid #111111; padding: 10px; font-weight: bold; background-color: #fafafa;">100</td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="100.0" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="0.1" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="--" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="--" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><button onclick="deleteRow(this)" style="color: #ff4d4d; background: none; border: none; cursor: pointer; font-size: 16px; font-weight: bold;">✖</button></td>
-            </tr>
-
-            <tr data-group="muc-nuoc">
-                <td rowspan="3" class="group-header" style="border: 1px solid #111111; padding: 10px; text-align: left; font-weight: bold; vertical-align: middle; background-color: #fafafa;">
-                    Mực nước<br><span style="font-weight: normal; font-style: italic;">Level Check (mm)</span>
-                </td>
-                <td style="border: 1px solid #111111; padding: 10px; font-weight: bold; background-color: #fafafa;">100</td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="100" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="0.5" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="&plusmn; 5" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="A" style="width: 100%; border: none; text-align: center; font-family: inherit; font-weight: bold; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><button onclick="deleteRow(this)" style="color: #ff4d4d; background: none; border: none; cursor: pointer; font-size: 16px; font-weight: bold;">✖</button></td>
-            </tr>
-            <tr data-group="muc-nuoc">
-                <td style="border: 1px solid #111111; padding: 10px; font-weight: bold; background-color: #fafafa;">130</td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="131" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="0.5" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="&plusmn; 5" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="A" style="width: 100%; border: none; text-align: center; font-family: inherit; font-weight: bold; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><button onclick="deleteRow(this)" style="color: #ff4d4d; background: none; border: none; cursor: pointer; font-size: 16px; font-weight: bold;">✖</button></td>
-            </tr>
-            <tr data-group="muc-nuoc">
-                <td style="border: 1px solid #111111; padding: 10px; font-weight: bold; background-color: #fafafa;">160</td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="162" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="0.5" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="&plusmn; 5" style="width: 100%; border: none; text-align: center; font-family: inherit; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><input type="text" value="A" style="width: 100%; border: none; text-align: center; font-family: inherit; font-weight: bold; font-size: inherit;"></td>
-                <td style="border: 1px solid #111111; padding: 4px;"><button onclick="deleteRow(this)" style="color: #ff4d4d; background: none; border: none; cursor: pointer; font-size: 16px; font-weight: bold;">✖</button></td>
-            </tr>
-        </tbody>
+        <tbody id="calibration-table-rows"></tbody>
     </table>
 </div>
             <div style="text-align:right; margin-top: 30px;">
@@ -315,22 +196,113 @@
 </main>
 
 <script>
+    const MockTemplates = {
+        "Washing Machine": [
+            { group: "temp", name: "Nhiệt độ\nTemperature (°C)", points: [30, 40, 60, 80, 90], v1: "30.2", unc: 0.3, tol: "± 3" },
+            { group: "speed", name: "Tốc độ giặt\nWashing Speed (rpm)", points: [52], v1: "52.6", unc: 0.8, tol: "± 2" },
+            { group: "timer", name: "Thời gian\nTimer (s)", points: [100], v1: "100.0", unc: 0.1, tol: "--" },
+            { group: "water-level", name: "Mức nước\nWater Level (L)", points: [10, 20, 30], v1: "10.5", unc: 0.2, tol: "± 1" },
+            { group: "spin-speed", name: "Tốc độ vắt\nSpin Speed (rpm)", points: [500, 750, 1000], v1: "500.8", unc: 0.8, tol: "± 50" }
+        ],
+        "Dryer": [
+            { group: "temp", name: "Nhiệt độ sấy\nDrying Temp (°C)", points: [45, 50, 60, 70], v1: "44.8", unc: 0.4, tol: "± 5" },
+            { group: "speed", name: "Tốc độ lồng sấy\nRotation Speed (rpm)", points: [50], v1: "50.3", unc: 0.5, tol: "± 2" },
+            { group: "timer", name: "Thời gian\nTimer (s)", points: [600], v1: "600.2", unc: 0.1, tol: "± 2" },
+            { group: "water-level", name: "Lưu lượng nước\nWater Level (L)", points: [5, 10], v1: "5.2", unc: 0.1, tol: "± 0.5" }
+        ],
+        "Refrigerator": [
+            { group: "fridge_temp", name: "Nhiệt độ ngăn mát\nFridge Temp (°C)", points: [2, 4, 8], v1: "2.3", unc: 0.2, tol: "± 2" },
+            { group: "freezer_temp", name: "Nhiệt độ ngăn đông\nFreezer Temp (°C)", points: [-18, -20, -22], v1: "-17.5", unc: 0.5, tol: "± 3" },
+            { group: "fridge_humi", name: "Độ ẩm ngăn mát\nHumidity (%RH)", points: [60, 70], v1: "61.2", unc: 2.0, tol: "± 10" },
+            { group: "freezer_humi", name: "Độ ẩm ngăn đông\nHumidity (%RH)", points: [40, 50], v1: "38.5", unc: 2.5, tol: "± 10" }
+        ]
+    };
+
     let currentId = '';
 
     function editEq(id) {
         currentId = id;
-        // Hiển thị view detail
+        const name = document.getElementById('n-' + id).innerText;
         showView('edit-view');
         
-        // Gán tiêu đề và thông tin cơ bản
-        document.getElementById('edit-title').innerText = "Detail: " + document.getElementById('n-' + id).innerText;
-        document.getElementById('in-manu').value = document.getElementById('m-' + id).innerText;
+        document.getElementById('edit-title').innerText = "Detail: " + name;
+        // Đảm bảo ID in-nsx tồn tại trong HTML của bạn
+        if(document.getElementById('in-nsx')) {
+            document.getElementById('in-nsx').value = document.getElementById('m-' + id).innerText;
+        }
         document.getElementById('in-due').value = document.getElementById('d-' + id).innerText;
 
-        // Reset các ô input measure về trống khi mở thiết bị mới
-        const inputs = document.querySelectorAll('.measure-input');
-        inputs.forEach(input => input.value = "");
-        calculateCalibration(); // Reset kết quả tính toán
+        const tbody = document.getElementById('calibration-table-rows');
+        tbody.innerHTML = '';
+
+        // Kiểm tra xem có dữ liệu đã lưu trong localStorage chưa
+        let db = {};
+        try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
+        
+        const savedData = db[name];
+        const template = savedData ? savedData.formPoints : (MockTemplates[name] || MockTemplates["Washing Machine"]);
+
+        if (Array.isArray(template) && !savedData) {
+            // Render từ MockTemplates (Dữ liệu gốc)
+            renderFromMock(template, tbody);
+        } else if (savedData) {
+            // Render từ LocalStorage (Dữ liệu người dùng đã lưu)
+            renderFromSaved(template, tbody);
+        }
+    }
+
+    function renderFromMock(template, tbody) {
+        template.forEach(item => {
+            item.points.forEach((p, idx) => {
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-group', item.group);
+                let html = '';
+                if (idx === 0) {
+                    html += `<td rowspan="${item.points.length}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">${item.name.replace('\n','<br><span style="font-weight:normal;font-style:italic;">')}</span></td>`;
+                }
+                // Tính toán giá trị đo thực tế dựa trên độ lệch (offset) của mẫu
+                const offset = parseFloat(item.v1) - item.points[0];
+                const displayVal = (p + offset).toFixed(1);
+                html += renderCells(p, displayVal, '', '', item.unc, item.tol, 'A');
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            });
+        });
+    }
+
+    function renderFromSaved(points, tbody) {
+        points.forEach(pt => {
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-group', pt.group);
+            let html = '';
+            if (pt.rowspan > 0) {
+                html += `<td rowspan="${pt.rowspan}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">${pt.paramName.replace('\n','<br><span style="font-weight:normal;font-style:italic;">')}</span></td>`;
+            }
+            html += renderCells(pt.point, pt.v1, pt.v2, pt.v3, pt.uncertainty, pt.tolerance, pt.conformity);
+            tr.innerHTML = html;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderCells(p, v1, v2, v3, unc, tol, conf) {
+        return `
+            <td class="point-cell" style="border:1px solid #111;padding:10px;font-weight:bold;background:#fafafa;">${p}</td>
+            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${v1}" class="cell-input v1"></td>
+            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${v2}" class="cell-input v2"></td>
+            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${v3}" class="cell-input v3"></td>
+            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${unc}" class="cell-input unc"></td>
+            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${tol}" class="cell-input tol"></td>
+            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${conf}" class="cell-input conf" style="font-weight:bold;"></td>
+            <td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>
+        `;
+    }
+
+    function resetDatabase() {
+        if (confirm("Bạn có chắc chắn muốn xóa toàn bộ dữ liệu tùy chỉnh trong localStorage và quay về mặc định? Hành động này không thể hoàn tác.")) {
+            localStorage.removeItem('labmaster_equipment_db');
+            alert("Đã xóa dữ liệu thành công! Trang sẽ được tải lại.");
+            location.reload();
+        }
     }
 
     function calculateCalibration() {
@@ -366,11 +338,46 @@
     }
 
     function saveEq() {
-        // Cập nhật lại dữ liệu vào dòng tương ứng ở trang danh sách
-        document.getElementById('m-' + currentId).innerText = document.getElementById('in-manu').value;
+        const name = document.getElementById('n-' + currentId).innerText;
+        const rows = document.querySelectorAll('#calibration-table-rows tr');
+        const formPoints = [];
+        let lastParamName = '';
+
+        rows.forEach(row => {
+            const groupHeader = row.querySelector('.group-header');
+            if (groupHeader) lastParamName = groupHeader.innerText;
+
+            formPoints.push({
+                group: row.getAttribute('data-group'),
+                paramName: lastParamName,
+                rowspan: groupHeader ? parseInt(groupHeader.getAttribute('rowspan')) : 0,
+                point: row.querySelector('.point-cell').innerText,
+                v1: row.querySelector('.v1').value,
+                v2: row.querySelector('.v2').value,
+                v3: row.querySelector('.v3').value,
+                uncertainty: row.querySelector('.unc').value,
+                tolerance: row.querySelector('.tol').value,
+                conformity: row.querySelector('.conf').value
+            });
+        });
+
+        // Lưu vào LocalStorage
+        let db = {};
+        try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
+        
+        db[name] = {
+            manufacturer: document.getElementById('in-nsx') ? document.getElementById('in-nsx').value : '',
+            nextDue: document.getElementById('in-due').value,
+            formPoints: formPoints
+        };
+        
+        localStorage.setItem('labmaster_equipment_db', JSON.stringify(db));
+
+        // Cập nhật UI danh sách
+        if(document.getElementById('m-' + currentId)) document.getElementById('m-' + currentId).innerText = db[name].manufacturer;
         document.getElementById('d-' + currentId).innerText = document.getElementById('in-due').value;
         
-        alert("Dữ liệu hiệu chuẩn đã được lưu đè!");
+        alert("Dữ liệu đã được lưu vào hệ thống!");
         showView('list-view');
     }
 

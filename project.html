@@ -387,7 +387,7 @@ body {
 /* ========== PRINT MEDIA ========== */
 @media print {
   body { background: white; min-width: initial; }
-  .app-header, #project-list-view, #project-detail-view,
+  .header, #project-list-view, #project-detail-view,
   #calibration-editor-view .workspace-container .workspace-header,
   #calibration-editor-view #editor-view,
   .preview-toolbar { display: none !important; }
@@ -572,7 +572,7 @@ body {
       <!-- CARD 1: THÔNG TIN TỔ CHỨC -->
       <div class="form-card">
         <div class="form-card-title"><span>1</span> Thông tin tổ chức hiệu chuẩn</div>
-        <div class="field"><label>Tên đơn vị (EN)</label><input id="f-co" value="Labmaster ST Company Limited"></div>
+        <div class="field"><label>Tên đơn vị (EN)</label><input id="f-co" value="Labmaster Company"></div>
         <div class="field"><label>Địa chỉ đơn vị</label><input id="f-co-addr" value="17 street 179, Tang Nhon Phu ward, Ho Chi Minh city"></div>
         <div class="field-row">
           <div class="field"><label>Email</label><input id="f-co-email" value="sale@labmaster.vn"></div>
@@ -745,8 +745,10 @@ const standardEquipmentDB = [
   { code:'LAB-THER_HUM.02', name:'Thermo-hygrometer 02', link:'QUATEST 3', validity:'04.09.2026', gcn:'KT3-01499BHL5/2' }
 ];
 
-const MockDatabaseEquipment = {
-  "Washing Machine (Wascator)": {
+/* ====== EQUIPMENT DATABASE – LIVE SYNC TỪ DATABASEQUIPMENT ====== */
+// Dữ liệu mặc định (fallback nếu chưa có gì trong localStorage)
+const DefaultEquipmentDB = {
+  "Washing Machine": {
     manufacturer:"Electrolux Professional", model:"FOM 71CLS",
     instEn:"Wascator",
     formPoints:[
@@ -767,7 +769,7 @@ const MockDatabaseEquipment = {
       {group:"toc-do-vat", paramName:"Tốc độ vắt\nSpin Speed (rpm)", rowspan:0, point:1100, v1:"1103", v2:"", v3:"", uncertainty:0.8, tolerance:"± 50", conformity:"A"}
     ]
   },
-  "Dryer Machine": {
+  "Dryer": {
     manufacturer:"Whirlpool", model:"3LWED4705FW", instEn:"Dryer Machine",
     formPoints:[
       {group:"nhiet-do", paramName:"Nhiệt độ sấy\nTemperature (°C)", rowspan:5, point:45, v1:"44.8", v2:"", v3:"", uncertainty:0.4, tolerance:"± 5", conformity:"A"},
@@ -789,10 +791,50 @@ const MockDatabaseEquipment = {
       {group:"ngan-dong", paramName:"Nhiệt độ ngăn đông\nFreezer Temp (°C)", rowspan:3, point:-18, v1:"-17.5", v2:"", v3:"", uncertainty:0.5, tolerance:"± 3", conformity:"A"},
       {group:"ngan-dong", paramName:"Nhiệt độ ngăn đông\nFreezer Temp (°C)", rowspan:0, point:-15, v1:"-14.9", v2:"", v3:"", uncertainty:0.5, tolerance:"± 3", conformity:"A"},
       {group:"ngan-dong", paramName:"Nhiệt độ ngăn đông\nFreezer Temp (°C)", rowspan:0, point:-12, v1:"-12.1", v2:"", v3:"", uncertainty:0.5, tolerance:"± 3", conformity:"A"},
-      {group:"do-am", paramName:"Độ ẩm ngăn mát\nHumidity (%RH)", rowspan:1, point:60, v1:"61.2", v2:"", v3:"", uncertainty:2.0, tolerance:"± 10", conformity:"A"}
+      {group:"do-am", paramName:"Độ ẩm ngăn mát\nHumidity (%RH)", rowspan:1, point:60, v1:"61.2", v2:"", v3:"", uncertainty:2.0, tolerance:"± 10", conformity:"A"},
+      {group:"do-am", paramName:"Độ ẩm ngăn đông\nHumidity (%RH)", rowspan:1, point:60, v1:"62.5", v2:"", v3:"", uncertainty:2.0, tolerance:"± 10", conformity:"A"}
     ]
   }
 };
+
+// Hàm đọc DB động — merge default + localStorage (localStorage ghi đè default)
+function getMockDatabaseEquipment() {
+  let stored = {};
+  try { stored = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
+  return Object.assign({}, DefaultEquipmentDB, stored);
+}
+// Alias để không phải sửa toàn bộ code bên dưới
+let MockDatabaseEquipment = getMockDatabaseEquipment();
+
+// Refresh DB mỗi khi tab được focus lại (người dùng vừa từ databasequipment về)
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible') {
+    MockDatabaseEquipment = getMockDatabaseEquipment();
+    showDbSyncBadge();
+  }
+});
+window.addEventListener('focus', function() {
+  MockDatabaseEquipment = getMockDatabaseEquipment();
+});
+window.addEventListener('storage', function(e) {
+  if (e.key === 'labmaster_equipment_db') {
+    MockDatabaseEquipment = getMockDatabaseEquipment();
+    showDbSyncBadge();
+  }
+});
+
+function showDbSyncBadge() {
+  let b = document.getElementById('db-sync-badge');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'db-sync-badge';
+    b.style.cssText = 'position:fixed;top:66px;right:18px;background:#1a4f9c;color:#fff;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.18);transition:opacity .5s;';
+    document.body.appendChild(b);
+  }
+  b.textContent = '🔄 Database đã được cập nhật!';
+  b.style.opacity = '1';
+  setTimeout(() => { b.style.opacity = '0'; }, 3000);
+}
 
 /* ====== PROJECT DATA ====== */
 let projectData = {
@@ -866,13 +908,16 @@ function openCalibrationWorkspace() {
   // Pre-fill cert no
   document.getElementById('f-certno').value = currentProjectId.replace('PRJ-', '');
 
+  // Refresh DB từ localStorage trước khi auto-match
+  MockDatabaseEquipment = getMockDatabaseEquipment();
+
   // Auto-match template
   const titleLower = currentTitle.toLowerCase();
   const templateMapping = {
-    'wascator':'Washing Machine (Wascator)',
-    'máy giặt':'Washing Machine (Wascator)',
-    'lò sấy':'Dryer Machine',
-    'dryer':'Dryer Machine',
+    'wascator':'Washing Machine',
+    'máy giặt':'Washing Machine',
+    'lò sấy':'Dryer',
+    'dryer':'Dryer',
     'tủ lạnh':'Refrigerator',
     'refrigerator':'Refrigerator'
   };
@@ -891,6 +936,9 @@ function openCalibrationWorkspace() {
 
 /* ====== EQUIPMENT SEARCH ====== */
 function handleEquipmentSearch(keyword) {
+  // Refresh DB từ localStorage mỗi lần search
+  MockDatabaseEquipment = getMockDatabaseEquipment();
+
   const box = document.getElementById('equipment-suggestions');
   box.innerHTML = '';
   if (!keyword || keyword.trim() === '') { box.style.display='none'; return; }
@@ -898,11 +946,20 @@ function handleEquipmentSearch(keyword) {
   if (keys.length === 0) {
     box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy mẫu thiết bị</div>`;
   } else {
+    // Lấy danh sách key từ localStorage để đánh dấu "đã đồng bộ"
+    let storedKeys = [];
+    try { storedKeys = Object.keys(JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}')); } catch(e) {}
+
     keys.forEach(key => {
       const eq = MockDatabaseEquipment[key];
+      const isLive = storedKeys.includes(key);
       const d = document.createElement('div');
       d.className = 'suggestion-item';
-      d.innerHTML = `🔍 <strong>${key}</strong> &nbsp;–&nbsp; ${eq.manufacturer} ${eq.model}`;
+      d.innerHTML = `🔍 <strong>${key}</strong> &nbsp;–&nbsp; ${eq.manufacturer} ${eq.model}
+        <span style="margin-left:auto;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;
+          background:${isLive?'#c6f6d5':'#feebc8'};color:${isLive?'#22543d':'#7b4a00'};">
+          ${isLive ? '🔗 Live DB' : '📦 Default'}
+        </span>`;
       d.onclick = () => selectEquipmentTemplate(key);
       box.appendChild(d);
     });
@@ -1243,29 +1300,32 @@ function switchToEditor() {
 }
 
 /* ====== PROJECT MANAGEMENT ====== */
-function updateStats() {
-  const vals = Object.values(projectData);
-  document.getElementById('stat-total').textContent = vals.length;
-  document.getElementById('stat-progress').textContent = vals.filter(v=>v.status==='In Progress').length;
-  document.getElementById('stat-finished').textContent = vals.filter(v=>v.status==='Finished').length;
+const API_URL = "http://localhost:18080/api";
+
+async function updateStats() {
+  const res = await fetch(`${API_URL}/projects`);
+  const projects = await res.json();
+  document.getElementById('stat-total').textContent = projects.length;
+  document.getElementById('stat-progress').textContent = projects.filter(v=>v.status==='In Progress').length;
+  document.getElementById('stat-finished').textContent = projects.filter(v=>v.status==='Finished').length;
+  
+  // Render lại bảng
+  const tbody = document.getElementById('project-table-body');
+  tbody.innerHTML = '';
+  projects.forEach(proj => renderProjectRow(proj));
 }
 
-function createNewProjectPrompt() {
+async function createNewProjectPrompt() {
   const name = prompt('Nhập tên dự án mới:');
   if (!name) return;
   const id = 'PRJ-' + Math.floor(Math.random()*900000+100000);
-  projectData[id] = {id, title:name, tech:'KTV. Chưa phân công', status:'In Progress'};
-  const row = document.createElement('tr');
-  row.id = `row-${id}`;
-  row.onclick = () => viewProjectDetail(id);
-  row.innerHTML = `
-    <td><strong style="color:var(--accent)">#${id}</strong></td>
-    <td>${name}</td>
-    <td>KTV. Chưa phân công</td>
-    <td><span class="badge badge-new">Mới</span></td>
-    <td style="text-align:center;" onclick="event.stopPropagation()"><button class="delete-btn" onclick="deleteProject('${id}')">🗑</button></td>
-  `;
-  document.getElementById('project-table-body').appendChild(row);
+  const newProj = { id, title: name, tech: 'KTV. Chưa phân công', status: 'In Progress' };
+  
+  await fetch(`${API_URL}/projects`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newProj)
+  });
   updateStats();
 }
 
@@ -1299,6 +1359,9 @@ document.addEventListener('click', function(e) {
 renderStandardsForm();
 renderResultsForm();
 updateStats();
+
+const userSession = JSON.stringify(localStorage.getItem('labmaster_user'));
+if (!userSession) { window.location.href = 'login.html'; } // Chưa đăng nhập thì đuổi ra ngoài
 </script>
 </body>
 </html>
