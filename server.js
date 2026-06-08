@@ -249,6 +249,13 @@ app.get('/api/audit-logs', (req, res) => {
     });
 });
 
+app.get('/api/stats/summary', (req, res) => {
+    db.get("SELECT COUNT(*) as certCount FROM CERTIFICATES", [], (err, row) => {
+        if (err) return res.status(500).json({ success: false });
+        res.json({ certCount: row.certCount || 0 });
+    });
+});
+
 // KHỞI CHẠY SERVER
 app.listen(port, () => {
     console.log(`[LabMaster Enterprise OS] Backend API đang chạy mượt mà tại cổng: http://localhost:${port}`);
