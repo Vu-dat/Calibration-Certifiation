@@ -414,6 +414,13 @@ body {
 
 /* Row count pill */
 .row-count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; background: var(--accent-light); color: var(--accent); border-radius: 100px; font-size: 11px; font-weight: 700; padding: 0 6px; }
+
+/* ========== TOAST & MODAL ========== */
+#toast-container { position: fixed; top: 70px; right: 24px; z-index: 9999; }
+.toast { background: #333; color: #fff; padding: 12px 20px; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 10px; font-size: 13px; animation: slideIn 0.3s ease forwards; border-left: 4px solid var(--accent); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 1000; }
+.modal-card { background: white; padding: 24px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: var(--shadow); }
 </style>
 </head>
 <body>
@@ -450,7 +457,7 @@ body {
     <div class="panel">
       <div class="panel-header">
         <h2>Danh sách dự án hiệu chuẩn</h2>
-        <button class="btn btn-primary" onclick="createNewProjectPrompt()">+ Khởi tạo dự án mới</button>
+        <button class="btn btn-primary" onclick="openModal('modal-create-project')">+ Khởi tạo dự án mới</button>
       </div>
       <div class="panel-body">
         <table class="data-table">
@@ -463,36 +470,7 @@ body {
               <th style="text-align:center;">Hành động</th>
             </tr>
           </thead>
-          <tbody id="project-table-body">
-            <tr id="row-PRJ-328344" onclick="viewProjectDetail('PRJ-328344')">
-              <td><strong style="color:var(--accent)">#PRJ-328344</strong></td>
-              <td>Hiệu chuẩn hệ thống Wascator – Paihong</td>
-              <td>KTV. Nguyễn Văn A</td>
-              <td><span class="badge badge-progress">In Progress</span></td>
-              <td style="text-align:center;" onclick="event.stopPropagation()"><button class="delete-btn" onclick="deleteProject('PRJ-328344')">🗑</button></td>
-            </tr>
-            <tr id="row-PRJ-552104" onclick="viewProjectDetail('PRJ-552104')">
-              <td><strong style="color:var(--accent)">#PRJ-552104</strong></td>
-              <td>Kiểm định lò sấy công nghiệp Whirlpool</td>
-              <td>KTV. Lê Cảnh Quang</td>
-              <td><span class="badge badge-progress">In Progress</span></td>
-              <td style="text-align:center;" onclick="event.stopPropagation()"><button class="delete-btn" onclick="deleteProject('PRJ-552104')">🗑</button></td>
-            </tr>
-            <tr id="row-PRJ-882931" onclick="viewProjectDetail('PRJ-882931')">
-              <td><strong style="color:var(--accent)">#PRJ-882931</strong></td>
-              <td>Hiệu chuẩn định kỳ tủ lạnh Samsung RT20</td>
-              <td>KTV. Trần Minh Tâm</td>
-              <td><span class="badge badge-finished">Finished</span></td>
-              <td style="text-align:center;" onclick="event.stopPropagation()"><button class="delete-btn" onclick="deleteProject('PRJ-882931')">🗑</button></td>
-            </tr>
-            <tr id="row-PRJ-112233" onclick="viewProjectDetail('PRJ-112233')">
-              <td><strong style="color:var(--accent)">#PRJ-112233</strong></td>
-              <td>Thử nghiệm độ bền vật liệu Poly 2026</td>
-              <td>KTV. Nguyễn Văn A</td>
-              <td><span class="badge badge-progress">In Progress</span></td>
-              <td style="text-align:center;" onclick="event.stopPropagation()"><button class="delete-btn" onclick="deleteProject('PRJ-112233')">🗑</button></td>
-            </tr>
-          </tbody>
+          <tbody id="project-table-body"></tbody>
         </table>
       </div>
     </div>
@@ -565,7 +543,8 @@ body {
         <div class="workspace-header-actions">
           <button class="btn btn-secondary btn-sm" onclick="backToProjectDetail()">← Quay lại dự án</button>
           <button class="btn btn-danger btn-sm" onclick="clearEditorData()">↺ Làm mới</button>
-          <button class="btn btn-primary" onclick="switchToPreview()">👁 Xem trước bản in A4</button>
+          <button class="btn btn-teal" onclick="saveCalibrationData()">💾 Lưu vào SQL DB</button>
+          <button class="btn btn-primary" onclick="switchToPreview()">👁 Xem trước & In</button>
         </div>
       </div>
 
@@ -730,8 +709,23 @@ body {
       <div class="a4" id="print-content"></div>
     </div>
   </div>
-
 </main>
+
+<!-- MODALS & OVERLAYS -->
+<div id="modal-create-project" class="modal-overlay">
+    <div class="modal-card">
+        <h3 style="margin-bottom:16px;">Khởi tạo dự án mới</h3>
+        <div class="field">
+            <label>Tên dự án hiệu chuẩn</label>
+            <input type="text" id="m-proj-name" placeholder="Ví dụ: Hiệu chuẩn máy giặt...">
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
+            <button class="btn btn-secondary btn-sm" onclick="closeModal('modal-create-project')">Hủy</button>
+            <button class="btn btn-primary btn-sm" onclick="confirmCreateProject()">Khởi tạo ngay</button>
+        </div>
+    </div>
+</div>
+<div id="toast-container"></div>
 
 <script>
 /* ====== DỮ LIỆU ====== */
@@ -837,14 +831,10 @@ function showDbSyncBadge() {
 }
 
 /* ====== PROJECT DATA ====== */
-let projectData = {
-  'PRJ-328344':{ id:'PRJ-328344', title:'Hiệu chuẩn hệ thống Wascator – Paihong', tech:'KTV. Nguyễn Văn A', status:'In Progress' },
-  'PRJ-552104':{ id:'PRJ-552104', title:'Kiểm định lò sấy công nghiệp Whirlpool', tech:'KTV. Lê Cảnh Quang', status:'In Progress' },
-  'PRJ-882931':{ id:'PRJ-882931', title:'Hiệu chuẩn định kỳ tủ lạnh Samsung RT20', tech:'KTV. Trần Minh Tâm', status:'Finished' },
-  'PRJ-112233':{ id:'PRJ-112233', title:'Thử nghiệm độ bền vật liệu Poly 2026', tech:'KTV. Nguyễn Văn A', status:'In Progress' }
-};
+let projectsList = [];
 let currentProjectId = null;
 let currentTitle = '';
+const API_URL = "http://localhost:18080/api";
 
 /* ====== SIMPLE MODE STATE ====== */
 let standards = [
@@ -869,12 +859,14 @@ function showProjectList() {
   document.getElementById('editor-header-actions').style.display='none';
   document.getElementById('preview-header-actions').style.display='none';
   document.getElementById('main-header-actions').style.display='flex';
-  updateStats();
+  fetchProjects();
 }
 
 function viewProjectDetail(id) {
   currentProjectId = id;
-  const proj = projectData[id];
+  const proj = projectsList.find(p => p.ID === id);
+  if(!proj) return;
+
   currentTitle = proj.title;
   document.getElementById('project-list-view').style.display='none';
   document.getElementById('project-detail-view').style.display='block';
@@ -895,41 +887,39 @@ function backToProjectDetail() {
   document.getElementById('main-header-actions').style.display='none';
 }
 
-function openCalibrationWorkspace() {
+async function openCalibrationWorkspace() {
   document.getElementById('project-detail-view').style.display='none';
   document.getElementById('calibration-editor-view').style.display='block';
   document.getElementById('editor-view').style.display='block';
   document.getElementById('preview-view').style.display='none';
-  document.getElementById('main-header-actions').style.display='none';
-  document.getElementById('editor-header-actions').style.display='flex';
-  document.getElementById('preview-header-actions').style.display='none';
   document.getElementById('ws-title-crumb').textContent=currentProjectId;
 
-  // Pre-fill cert no
-  document.getElementById('f-certno').value = currentProjectId.replace('PRJ-', '');
+  const certNo = currentProjectId.replace('PRJ-', '');
+  document.getElementById('f-certno').value = certNo;
 
-  // Refresh DB từ localStorage trước khi auto-match
-  MockDatabaseEquipment = getMockDatabaseEquipment();
-
-  // Auto-match template
-  const titleLower = currentTitle.toLowerCase();
-  const templateMapping = {
-    'wascator':'Washing Machine',
-    'máy giặt':'Washing Machine',
-    'lò sấy':'Dryer',
-    'dryer':'Dryer',
-    'tủ lạnh':'Refrigerator',
-    'refrigerator':'Refrigerator'
-  };
-  for (const [kw, tpl] of Object.entries(templateMapping)) {
-    if (titleLower.includes(kw) && MockDatabaseEquipment[tpl]) {
-      selectEquipmentTemplate(tpl);
-      break;
-    }
+  // 1. Cố gắng load dữ liệu từ Database
+  const hasData = await loadExistingCalibration(certNo);
+  
+  if (!hasData) {
+      // 2. Nếu không có dữ liệu cũ, mới dùng Auto-match template
+      const titleLower = currentTitle.toLowerCase();
+      const templateMapping = {
+        'wascator':'Washing Machine', 'máy giặt':'Washing Machine',
+        'lò sấy':'Dryer', 'dryer':'Dryer',
+        'tủ lạnh':'Refrigerator', 'refrigerator':'Refrigerator'
+      };
+      for (const [kw, tpl] of Object.entries(templateMapping)) {
+        if (titleLower.includes(kw) && MockDatabaseEquipment[tpl]) {
+          selectEquipmentTemplate(tpl);
+          showToast("Đã tải mẫu thông số tự động từ tiêu chuẩn thiết bị.");
+          break;
+        }
+      }
+  } else {
+      showToast("Đã khôi phục dữ liệu đã lưu từ Database SQL.");
   }
 
   renderStandardsForm();
-  renderResultsForm();
   updateRowCount();
   window.scrollTo(0,0);
 }
@@ -1299,53 +1289,142 @@ function switchToEditor() {
   document.getElementById('editor-view').style.display='block';
 }
 
-/* ====== PROJECT MANAGEMENT ====== */
-const API_URL = "http://localhost:18080/api";
+/* ====== TOAST & MODAL HELPERS ====== */
+function showToast(msg, type='success') {
+    const container = document.getElementById('toast-container');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span>${type==='success'?'✅':'❌'}</span> ${msg}`;
+    container.appendChild(t);
+    setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(), 500); }, 3000);
+}
+function openModal(id) { document.getElementById(id).style.display='flex'; }
+function closeModal(id) { document.getElementById(id).style.display='none'; }
 
+/* ====== PROJECT MANAGEMENT ====== */
 async function updateStats() {
-  const res = await fetch(`${API_URL}/projects`);
-  const projects = await res.json();
-  document.getElementById('stat-total').textContent = projects.length;
-  document.getElementById('stat-progress').textContent = projects.filter(v=>v.status==='In Progress').length;
-  document.getElementById('stat-finished').textContent = projects.filter(v=>v.status==='Finished').length;
-  
-  // Render lại bảng
-  const tbody = document.getElementById('project-table-body');
-  tbody.innerHTML = '';
-  projects.forEach(proj => renderProjectRow(proj));
+  document.getElementById('stat-total').textContent = projectsList.length;
+  document.getElementById('stat-progress').textContent = projectsList.filter(v=>v.STATUS==='In Progress').length;
+  document.getElementById('stat-finished').textContent = projectsList.filter(v=>v.STATUS==='Finished').length;
+
+  const res = await fetch(`${API_URL}/stats/summary`);
+  const summary = await res.json();
+  document.getElementById('stat-certs').textContent = summary.certCount || 0;
 }
 
-async function createNewProjectPrompt() {
-  const name = prompt('Nhập tên dự án mới:');
+async function fetchProjects() {
+  const res = await fetch(`${API_URL}/projects`);
+  projectsList = await res.json();
+  const tbody = document.getElementById('project-table-body');
+  tbody.innerHTML = '';
+  projectsList.forEach(proj => {
+      const row = document.createElement('tr');
+      row.onclick = () => viewProjectDetail(proj.ID);
+      row.innerHTML = `
+          <td><strong style="color:var(--accent)">#${proj.ID}</strong></td>
+          <td>${proj.TITLE}</td>
+          <td>${proj.TECH}</td>
+          <td><span class="badge badge-${proj.STATUS==='Finished'?'finished':'progress'}">${proj.STATUS}</span></td>
+          <td style="text-align:center;" onclick="event.stopPropagation()">
+            <button class="delete-btn" onclick="deleteProject('${proj.ID}')">🗑</button>
+          </td>
+      `;
+      tbody.appendChild(row);
+  });
+  updateStats();
+}
+
+async function confirmCreateProject() {
+  const name = document.getElementById('m-proj-name').value;
   if (!name) return;
+  const user = JSON.parse(localStorage.getItem('labmaster_user'));
   const id = 'PRJ-' + Math.floor(Math.random()*900000+100000);
-  const newProj = { id, title: name, tech: 'KTV. Chưa phân công', status: 'In Progress' };
+  const newProj = { id, title: name, tech: user.fullName || 'KTV. Nguyễn Văn A', status: 'In Progress' };
   
   await fetch(`${API_URL}/projects`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(newProj)
   });
-  updateStats();
+  closeModal('modal-create-project');
+  showToast("Dự án mới đã được khởi tạo!");
+  fetchProjects();
+}
+
+async function saveCalibrationData() {
+    const user = JSON.parse(localStorage.getItem('labmaster_user'));
+    const payload = {
+        certNo: document.getElementById('f-certno').value,
+        instrumentName: txt('f-inst-vi'), manufacturer: txt('f-mfr'), model: txt('f-model'),
+        equipmentId: txt('f-id'), serialNumber: txt('f-sn'), customerName: txt('f-cust'),
+        calDate: txt('f-caldate'), reCalDate: txt('f-recaldate'), procedure: txt('f-proc'),
+        refStandard: txt('f-ref'), tempEnv: txt('f-temp'), humiEnv: txt('f-humi'),
+        headOfLab: txt('f-sign1'), director: txt('f-sign2'),
+        points: collectCalibrationResults().map(p => ({
+            parameterName: p.param, calPoint: p.point, asFoundValue: p.found,
+            uncertainty: p.unc, tolerance: p.tol, conformity: p.conf
+        })),
+        currentUser: user?.fullName || "KTV"
+    };
+
+    const res = await fetch(`${API_URL}/calibration/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if(result.success) showToast("Đã lưu dữ liệu hiệu chuẩn vào SQL Database!");
+    else showToast("Lỗi khi lưu dữ liệu: " + result.error, "error");
 }
 
 function deleteProject(id) {
   if (!confirm(`Xác nhận xóa dự án ${id}?`)) return;
-  const el = document.getElementById(`row-${id}`);
-  if (el) el.remove();
-  delete projectData[id];
-  updateStats();
+  fetch(`${API_URL}/projects/${id}`, { method: 'DELETE' }).then(() => {
+      showToast("Đã xóa dự án thành công.");
+      fetchProjects();
+  });
 }
 
-function clearEditorData() {
-  if (!confirm('Xác nhận làm mới toàn bộ dữ liệu workspace?')) return;
-  document.querySelectorAll('#calibration-editor-view input[type=text], #calibration-editor-view textarea').forEach(el => {
-    if (!el.classList.contains('cal-point')) el.value='';
-  });
-  standards=[]; results=[]; selectedStandards=[];
-  renderStandardsForm(); renderResultsForm(); renderStandardTags();
-  document.getElementById('calibration-table-body').innerHTML='<tr><td colspan="9" class="cal-empty-state">🔍 Gõ tên thiết bị để tải dữ liệu mẫu</td></tr>';
-  updateRowCount();
+async function loadExistingCalibration(certNo) {
+    const res = await fetch(`${API_URL}/calibration/${certNo}`);
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (!data.cert) return false;
+
+    const c = data.cert;
+    document.getElementById('f-inst-vi').value = c.INSTRUMENT_NAME;
+    document.getElementById('f-mfr').value = c.MANUFACTURER;
+    document.getElementById('f-model').value = c.MODEL;
+    document.getElementById('f-id').value = c.EQUIPMENT_ID;
+    document.getElementById('f-sn').value = c.SERIAL_NUMBER;
+    document.getElementById('f-cust').value = c.CUSTOMER_NAME;
+    document.getElementById('f-caldate').value = c.CAL_DATE;
+    document.getElementById('f-recaldate').value = c.RE_CAL_DATE;
+    document.getElementById('f-proc').value = c.PROCEDURE;
+    document.getElementById('f-ref').value = c.REF_STANDARD;
+    document.getElementById('f-temp').value = c.TEMP_ENV;
+    document.getElementById('f-humi').value = c.HUMI_ENV;
+    document.getElementById('f-sign1').value = c.HEAD_OF_LAB;
+    document.getElementById('f-sign2').value = c.DIRECTOR;
+
+    const tbody = document.getElementById('calibration-table-body');
+    tbody.innerHTML = '';
+    data.points.forEach(p => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><input type="text" class="lab-input-cell" value="${p.PARAMETER_NAME}"></td>
+            <td><input type="text" class="lab-input-cell cal-point" value="${p.CAL_POINT}"></td>
+            <td><input type="text" class="lab-input-cell measured-active as-found-1" value="${p.AS_FOUND_VALUE}"></td>
+            <td><input type="text" class="lab-input-cell as-found-2" value=""></td>
+            <td><input type="text" class="lab-input-cell as-found-3" value=""></td>
+            <td><input type="text" class="lab-input-cell uncertainty" value="${p.UNCERTAINTY}"></td>
+            <td><input type="text" class="lab-input-cell tolerance" value="${p.TOLERANCE}"></td>
+            <td><input type="text" class="lab-input-cell conformity" value="${p.CONFORMITY}"></td>
+            <td style="text-align:center;"><button onclick="this.closest('tr').remove();updateRowCount();" class="btn-rm">×</button></td>
+        `;
+        tbody.appendChild(row);
+    });
+    return true;
 }
 
 /* ====== CLOSE DROPDOWNS ON OUTSIDE CLICK ====== */
@@ -1356,11 +1435,9 @@ document.addEventListener('click', function(e) {
 });
 
 /* ====== INIT ====== */
-renderStandardsForm();
-renderResultsForm();
-updateStats();
+fetchProjects();
 
-const userSession = JSON.stringify(localStorage.getItem('labmaster_user'));
+const userSession = localStorage.getItem('labmaster_user');
 if (!userSession) { window.location.href = 'login.html'; } // Chưa đăng nhập thì đuổi ra ngoài
 </script>
 </body>
