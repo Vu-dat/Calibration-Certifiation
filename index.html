@@ -294,7 +294,7 @@ async function submitCalibrationFormAndPrint() {
 
     try {
         // Gửi thông tin sang Backend C++ lưu trữ vào SQLite chuyên sâu
-        const saveRes = await fetch('http://localhost:18080/api/calibration/save-full', {
+        const saveRes = await fetch('http://YOUR_PUBLIC_BACKEND_URL:18080/api/calibration/save-full', { // Thay đổi thành địa chỉ IP công cộng hoặc tên miền của máy chủ backend
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(fullPayload)
@@ -305,7 +305,7 @@ async function submitCalibrationFormAndPrint() {
             alert("Lưu trữ hồ sơ lên hệ thống thành công! Bắt đầu in Giấy Chứng Nhận...");
             
             // Kích hoạt sinh PDF ngay lập tức
-            const pdfRes = await fetch(`http://localhost:18080/api/calibration/export-pdf/${fullPayload.certNo}`);
+            const pdfRes = await fetch(`http://YOUR_PUBLIC_BACKEND_URL:18080/api/calibration/export-pdf/${fullPayload.certNo}`); // Thay đổi thành địa chỉ IP công cộng hoặc tên miền của máy chủ backend
             const pdfResult = await pdfRes.json();
             
             if(pdfResult.success) {
