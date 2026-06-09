@@ -50,6 +50,7 @@
               <th>Mã dự án</th>
               <th>Tên dự án</th>
               <th>Kỹ thuật viên</th>
+              <th>Ngày tạo</th>
               <th>Trạng thái</th>
               <th style="text-align:center;">Hành động</th>
             </tr>
@@ -74,27 +75,27 @@
       <div class="proj-info-grid">
         <div class="proj-info-item">
           <label>Mã dự án</label>
-          <p id="pd-id" style="color:var(--accent); font-size:15px; font-weight:700;"></p>
+          <p id="pd-id" style="color:var(--accent); font-size:15.5px; font-weight:700;">---</p>
         </div>
         <div class="proj-info-item">
           <label>Tên dự án</label>
-          <p id="pd-name"></p>
+          <p id="pd-name">---</p>
         </div>
         <div class="proj-info-item">
           <label>Trạng thái</label>
-          <p id="pd-status"></p>
+          <p id="pd-status">---</p>
         </div>
         <div class="proj-info-item">
           <label>Kỹ thuật viên</label>
-          <p>KTV. Nguyễn Văn A</p>
+          <p id="pd-tech">---</p>
         </div>
         <div class="proj-info-item">
           <label>Ngày tạo</label>
-          <p>21/04/2026</p>
+          <p id="pd-created">---</p>
         </div>
         <div class="proj-info-item">
           <label>Hạn hiệu chuẩn</label>
-          <p>20/02/2027</p>
+          <p id="pd-expire">---</p>
         </div>
       </div>
       <div class="section-divider"></div>
@@ -424,18 +425,8 @@ let currentTitle = '';
 const API_URL = "http://localhost:18080/api";
 
 /* ====== SIMPLE MODE STATE ====== */
-let standards = [
-  {name:'Thermo-Hygrometer', id:'LAB-THER_H.01', trace:'QUATEST III', due:'04.09.2026'},
-  {name:'Digital Tachometer', id:'LAB-TACHO.01', trace:'QUATEST III', due:'08.09.2026'},
-  {name:'Digital Thermometer', id:'LAB-THERMO.01', trace:'QUATEST III', due:'10.09.2026'},
-  {name:'Timer', id:'LAB-TIME.01', trace:'QUATEST III', due:'08.09.2026'}
-];
-let results = [
-  {param:'Nhiệt độ / Temperature (°C)', point:'30', found:'30.2', found2:'', unc:'0.3', tol:'± 3', conf:'A'},
-  {param:'', point:'40', found:'39.5', found2:'', unc:'0.3', tol:'± 3', conf:'A'},
-  {param:'Tốc độ giặt / Washing Speed (rpm)', point:'52', found:'52.6', found2:'', unc:'0.8', tol:'± 2', conf:'A'},
-  {param:'Thời gian / Timer (s)', point:'100', found:'100.0', found2:'', unc:'0.1', tol:'--', conf:'--'}
-];
+let standards = [];
+let results = [];
 let selectedStandards = [];
 
 /* ====== NAVIGATION ====== */
@@ -459,11 +450,28 @@ function viewProjectDetail(id) {
   document.getElementById('project-detail-view').style.display='block';
   document.getElementById('calibration-editor-view').style.display='none';
   document.getElementById('main-header-actions').style.display='none';
-  document.getElementById('pd-id').textContent='#' + id;
-  document.getElementById('pd-name').textContent=proj.TITLE;
-  document.getElementById('pd-title-crumb').textContent=id;
-  document.getElementById('pd-status').innerHTML =
-    `<span class="badge badge-${proj.STATUS==='Finished'?'finished':'progress'}">${proj.STATUS}</span>`;
+
+  // Hiển thị thông tin định danh rõ ràng (Mã, Tên, Trạng thái)
+  document.getElementById('pd-id').textContent = proj.ID;
+  document.getElementById('pd-name').textContent = proj.TITLE;
+  document.getElementById('pd-title-crumb').textContent = `${proj.ID} - ${proj.TITLE}`;
+  
+  const statusClass = proj.STATUS === 'Finished' ? 'finished' : 'progress';
+  document.getElementById('pd-status').innerHTML = 
+    `<span class="badge badge-${statusClass}">${proj.STATUS}</span>`;
+
+  // Đồng nhất thông tin Kỹ thuật viên và Ngày tạo (có giờ phút)
+  document.getElementById('pd-tech').textContent = proj.TECH || 'Chưa phân công';
+  
+  if (proj.CREATED_AT) {
+    const date = new Date(proj.CREATED_AT.includes(' ') ? proj.CREATED_AT.replace(' ', 'T') : proj.CREATED_AT);
+    document.getElementById('pd-created').textContent = date.toLocaleString('vi-VN', {
+      hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+  } else { // Nếu không có ngày tạo, hiển thị placeholder
+    document.getElementById('pd-created').textContent = 'Chưa xác định'; 
+    document.getElementById('pd-expire').textContent = 'Chưa xác định';
+  }
 }
 
 function backToProjectDetail() {
@@ -507,6 +515,7 @@ async function openCalibrationWorkspace() {
   }
 
   renderStandardsForm();
+  renderResultsForm();
   updateRowCount();
   window.scrollTo(0,0);
 }
@@ -724,7 +733,7 @@ function collectCalibrationResults() {
     });
   });
   // Fallback to simple mode if advanced is empty
-  if (res.length === 0) return results.map(r=>({...r, found: [r.found,r.found2].filter(Boolean).join(' / ')}));
+  if (res.length === 0) return []; // No fallback to hardcoded results
   return res;
 }
 
@@ -907,10 +916,12 @@ async function fetchProjects() {
   projectsList.forEach(proj => {
       const row = document.createElement('tr');
       row.onclick = () => viewProjectDetail(proj.ID);
+      const createdDate = proj.CREATED_AT ? new Date(proj.CREATED_AT).toLocaleDateString('vi-VN') : '---';
       row.innerHTML = `
           <td><strong style="color:var(--accent)">#${proj.ID}</strong></td>
           <td>${proj.TITLE}</td>
           <td>${proj.TECH}</td>
+          <td>${createdDate}</td>
           <td><span class="badge badge-${proj.STATUS==='Finished'?'finished':'progress'}">${proj.STATUS}</span></td>
           <td style="text-align:center;" onclick="event.stopPropagation()">
             <button class="delete-btn" onclick="deleteProject('${proj.ID}')">🗑</button>
@@ -993,8 +1004,7 @@ async function confirmCreateProject() {
   const name = document.getElementById('m-proj-name').value;
   if (!name) return;
   const user = JSON.parse(localStorage.getItem('labmaster_user'));
-  const id = 'PRJ-' + Math.floor(Math.random()*900000+100000);
-  const newProj = { id, title: name, tech: user.fullName || 'KTV. Nguyễn Văn A', status: 'In Progress' };
+  const newProj = { title: name, tech: user.fullName || 'KTV. Nguyễn Văn A', status: 'In Progress' };
   
   await fetch(`${API_URL}/projects`, {
     method: 'POST',
