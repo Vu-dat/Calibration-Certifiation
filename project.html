@@ -6,422 +6,6 @@
     <link rel="stylesheet" href="index.css">
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
     <title>Quản lý Dự Án – LabMaster Pro</title>
-<style>
-/* ========== RESET & ROOT ========== */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --bg: #eceae5;
-  --surface: #ffffff;
-  --border: #e0ddd6;
-  --border-dk: #b8b5ae;
-  --text: #1a1917;
-  --muted: #6b6860;
-  --hint: #9e9c96;
-  --accent: #008080;
-  --accent-light: #e6f2f2;
-  --teal: #007a78;
-  --teal-light: #e6f7f7;
-  --danger: #c0392b;
-  --success: #1e7e34;
-  --warning: #c05621;
-  --radius: 8px;
-  --shadow: 0 4px 16px rgba(26,25,23,0.07);
-  --transition: all .18s ease;
-}
-body {
-  font-family: 'Be Vietnam Pro', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-}
-
-/* ========== HEADER ========== */
-.app-header {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 0 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 56px;
-  position: sticky;
-  top: 0;
-  z-index: 200;
-  box-shadow: 0 1px 0 var(--border);
-}
-.app-header-left { display: flex; align-items: center; gap: 14px; }
-
-
-.btn-shiny {
-    background: var(--accent);
-    color: white; border: none; padding: 8px 20px; border-radius: 8px;
-    font-weight: bold; cursor: pointer; transition: all 0.3s ease;
-}
-.btn-shiny:hover { background: var(--teal); transform: translateY(-2px); }
-
-/* ========== BUTTONS ========== */
-.btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px; font-size: 13px; font-weight: 500;
-  font-family: 'Be Vietnam Pro', sans-serif;
-  border-radius: var(--radius); cursor: pointer;
-  border: 1px solid transparent; transition: var(--transition);
-  white-space: nowrap;
-}
-.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-.btn-primary:hover { background: #153f7e; }
-.btn-teal { background: var(--teal); color: #fff; border-color: var(--teal); }
-.btn-teal:hover { background: #005e5c; }
-.btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border-dk); }
-.btn-secondary:hover { background: #f3f2ef; }
-.btn-danger { background: #fff; color: var(--danger); border-color: #f5c6cb; }
-.btn-danger:hover { background: #fdf0ef; }
-.btn-ghost { background: none; color: var(--muted); border-color: transparent; }
-.btn-ghost:hover { background: var(--bg); color: var(--text); }
-.btn-sm { padding: 5px 11px; font-size: 12px; }
-.btn-icon { padding: 6px; width: 32px; height: 32px; justify-content: center; border-radius: 6px; }
-
-/* ========== MAIN LAYOUT ========== */
-.main-container {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 28px 24px;
-}
-
-/* ========== STAT CARDS ========== */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-  margin-bottom: 28px;
-}
-.stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 22px 24px;
-  box-shadow: var(--shadow);
-  border-left: 4px solid transparent;
-  transition: var(--transition);
-}
-.stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(26,25,23,0.1); }
-.stat-card:nth-child(1) { border-left-color: var(--accent); }
-.stat-card:nth-child(2) { border-left-color: var(--warning); }
-.stat-card:nth-child(3) { border-left-color: var(--teal); }
-.stat-card:nth-child(4) { border-left-color: #8b5cf6; }
-.stat-card h4 { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
-.stat-card p { font-size: 2.2rem; font-weight: 800; color: var(--text); margin-top: 8px; line-height: 1; }
-
-/* ========== PANEL / CARD ========== */
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  margin-bottom: 24px;
-}
-.panel-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--border);
-}
-.panel-header h2 { font-size: 16px; font-weight: 700; }
-.panel-body { padding: 0; }
-
-/* ========== TABLE ========== */
-.data-table { width: 100%; border-collapse: collapse; }
-.data-table th {
-  padding: 11px 16px; text-align: left;
-  font-size: 11px; font-weight: 700; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .6px;
-  background: #f8f7f4; border-bottom: 1px solid var(--border);
-}
-.data-table td {
-  padding: 13px 16px; border-bottom: 1px solid var(--border);
-  font-size: 13.5px; color: var(--text);
-  vertical-align: middle;
-}
-.data-table tbody tr:last-child td { border-bottom: none; }
-.data-table tbody tr { cursor: pointer; transition: var(--transition); }
-.data-table tbody tr:hover { background: var(--accent-light); }
-.data-table tbody tr td:last-child { cursor: default; }
-
-/* ========== BADGE ========== */
-.badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 10px; border-radius: 100px;
-  font-size: 11px; font-weight: 700; text-transform: uppercase;
-}
-.badge-progress { background: #feebc8; color: #c05621; }
-.badge-finished { background: #c6f6d5; color: #22543d; }
-.badge-new { background: var(--accent-light); color: var(--accent); }
-
-/* ========== PROJECT DETAIL VIEW ========== */
-.detail-back-bar {
-  display: flex; align-items: center; gap: 10px;
-  padding: 14px 24px; border-bottom: 1px solid var(--border);
-}
-.detail-back-bar .breadcrumb {
-  font-size: 13px; color: var(--muted);
-  display: flex; align-items: center; gap: 6px;
-}
-.detail-back-bar .breadcrumb span { color: var(--text); font-weight: 600; }
-.proj-info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 16px;
-  padding: 24px;
-}
-.proj-info-item { }
-.proj-info-item label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; display: block; margin-bottom: 4px; }
-.proj-info-item p { font-size: 14px; font-weight: 500; }
-.proj-actions-bar {
-  display: flex; gap: 10px; align-items: center;
-  padding: 18px 24px; border-top: 1px solid var(--border);
-  background: #f8f7f4; border-radius: 0 0 12px 12px;
-}
-
-/* ========== EDITOR WORKSPACE ========== */
-#editor-view { display: block; }
-#preview-view { display: none; }
-
-.workspace-container {
-  max-width: 1100px;
-  margin: 24px auto;
-  padding: 0 20px;
-}
-.workspace-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 20px;
-}
-.workspace-header h3 { font-size: 18px; font-weight: 700; }
-.workspace-header-actions { display: flex; gap: 8px; }
-
-.form-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 28px 32px;
-  box-shadow: var(--shadow);
-  margin-bottom: 20px;
-}
-.form-card-title {
-  font-size: 11px; font-weight: 700;
-  color: var(--muted); text-transform: uppercase; letter-spacing: .8px;
-  padding-bottom: 10px; margin-bottom: 20px;
-  border-bottom: 2px solid var(--accent-light);
-  display: flex; align-items: center; gap: 8px;
-}
-.form-card-title span { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; background: var(--accent); color: #fff; border-radius: 50%; font-size: 11px; }
-
-.field { margin-bottom: 14px; }
-.field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
-.field input, .field select, .field textarea {
-  width: 100%; padding: 9px 12px;
-  font-size: 13.5px; font-family: 'Be Vietnam Pro', sans-serif;
-  border: 1px solid var(--border); border-radius: 6px;
-  background: var(--surface); color: var(--text); outline: none;
-  transition: border-color .15s;
-}
-.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,79,156,0.08); }
-.field textarea { resize: vertical; min-height: 64px; }
-.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.field-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
-
-/* ========== STANDARDS TABLE IN EDITOR ========== */
-.editor-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-.editor-table th { background: #f5f4f0; padding: 9px 12px; border: 1px solid var(--border); text-align: left; font-weight: 600; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
-.editor-table td { border: 1px solid var(--border); padding: 4px; }
-.editor-table input { width: 100%; border: none; padding: 7px 10px; outline: none; font-family: 'Be Vietnam Pro', sans-serif; font-size: 13px; background: transparent; }
-.editor-table input:focus { background: var(--accent-light); }
-.editor-table tr:hover td { background: #fafaf8; }
-
-/* ========== RESULTS GRID IN EDITOR ========== */
-.res-outer { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 10px; }
-.res-head {
-  display: grid;
-  grid-template-columns: 2.5fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 44px;
-  background: #f5f4f0; padding: 9px 12px; gap: 6px;
-  border-bottom: 1px solid var(--border);
-}
-.res-head span { font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
-.res-row {
-  display: grid;
-  grid-template-columns: 2.5fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 44px;
-  border-top: 1px solid var(--border); gap: 6px; padding: 5px 10px; align-items: center;
-  transition: var(--transition);
-}
-.res-row:hover { background: #fafaf8; }
-.res-row input, .res-row select {
-  width: 100%; border: 1px solid transparent; padding: 6px;
-  font-family: 'Be Vietnam Pro', sans-serif; font-size: 13px; outline: none; border-radius: 4px;
-  background: transparent;
-}
-.res-row input:focus, .res-row select:focus { background: var(--accent-light); border-color: var(--border-dk); }
-.res-row select { cursor: pointer; }
-
-.btn-rm { background: none; border: none; color: var(--hint); font-size: 17px; cursor: pointer; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; transition: var(--transition); }
-.btn-rm:hover { color: var(--danger); background: #fdf0ef; }
-.btn-add-row { width: 100%; padding: 11px; background: none; border: 1px dashed var(--border-dk); border-top: none; font-size: 13px; color: var(--muted); cursor: pointer; border-radius: 0 0 8px 8px; font-family: 'Be Vietnam Pro', sans-serif; transition: var(--transition); }
-.btn-add-row:hover { background: var(--accent-light); color: var(--accent); }
-
-/* ========== STANDARD SEARCH (AUTOCOMPLETE) ========== */
-.autocomplete-wrapper { position: relative; }
-.autocomplete-suggestions {
-  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-  background: white; border: 1px solid var(--border);
-  border-radius: 8px; box-shadow: 0 8px 24px rgba(26,25,23,0.12);
-  z-index: 999; max-height: 220px; overflow-y: auto; display: none;
-}
-.suggestion-item {
-  padding: 10px 14px; cursor: pointer;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px; color: var(--text); transition: var(--transition);
-  display: flex; align-items: center; gap: 8px;
-}
-.suggestion-item:last-child { border-bottom: none; }
-.suggestion-item:hover { background: var(--accent-light); color: var(--accent); }
-.suggestion-item strong { color: var(--teal); }
-
-/* ========== CALIBRATION TABLE ========== */
-.cal-table-wrapper {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  margin-top: 10px;
-}
-#calibration-table { width: 100%; border-collapse: collapse; font-size: 13.5px; text-align: center; }
-#calibration-table thead tr { background: var(--teal); color: #fff; }
-#calibration-table th {
-  padding: 11px 8px; font-weight: 700; font-size: 11.5px;
-  text-transform: uppercase; letter-spacing: .4px; border: 1px solid rgba(255,255,255,0.15);
-}
-#calibration-table td { border: 1px solid #d1d5db; padding: 5px; vertical-align: middle; }
-#calibration-table tbody tr:nth-child(even) { background: #fafafa; }
-#calibration-table tbody tr:hover { background: var(--teal-light); }
-.group-header {
-  text-align: left; font-weight: 600; background: #f5f4f0 !important;
-  vertical-align: middle; padding: 10px 12px !important; line-height: 1.4;
-}
-.lab-input-cell {
-  width: 100%; border: 1px solid transparent; border-radius: 4px;
-  padding: 5px 6px; font-family: 'Be Vietnam Pro', sans-serif; font-size: 13px;
-  text-align: center; background: transparent; transition: var(--transition);
-}
-.lab-input-cell:focus {
-  border-color: var(--teal); background: var(--teal-light);
-  box-shadow: 0 0 0 2px rgba(0,122,120,0.12); outline: none;
-}
-.measured-active { border: 1.5px solid rgba(0,122,120,0.35) !important; }
-.cal-empty-state { text-align: center; color: var(--hint); padding: 40px; font-style: italic; font-size: 14px; }
-
-/* ========== SELECTED STANDARDS TAGS ========== */
-.standards-selected-panel {
-  margin-top: 14px; display: none;
-  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
-}
-.selected-std-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.selected-std-table th { background: #f5f4f0; padding: 9px 12px; border-bottom: 1px solid var(--border); text-align: left; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-.selected-std-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.selected-std-table tr:last-child td { border-bottom: none; }
-.validity-ok { color: var(--teal); font-weight: 600; }
-.validity-warn { color: var(--warning); font-weight: 600; }
-
-/* ========== PREVIEW A4 ========== */
-.preview-panel {
-  background: #c8c5bf;
-  padding: 40px 20px;
-  min-height: calc(100vh - 56px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  overflow-x: auto;
-}
-.preview-toolbar {
-  width: 210mm; margin-bottom: 16px;
-  display: flex; gap: 8px; justify-content: flex-end;
-}
-.a4 {
-  width: 210mm; min-height: 297mm; background: white;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.25);
-  padding: 15mm 15mm 15mm;
-  font-family: "Times New Roman", Times, serif;
-  font-size: 10pt; color: #000; position: relative;
-}
-
-/* A4 Certificate Styles */
-.cert-header { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 5mm; border: 1.5pt solid #008080; padding: 3mm 4mm; margin-bottom: 6mm; }
-.cert-logo-box { width: 24mm; display: flex; align-items: center; justify-content: center; }
-.cert-logo-box svg { width: 100%; height: auto; }
-.cert-company-name { font-size: 12.5pt; font-weight: bold; color: #008080; text-transform: uppercase; line-height: 1.2; }
-.cert-company-detail { font-size: 8.5pt; color: #333; line-height: 1.3; margin-top: 1mm; }
-.cert-iso { text-align: center; font-size: 9pt; font-weight: bold; border: 1pt solid #008080; padding: 2mm 3mm; min-width: 38mm; color: #008080; }
-.cert-title-block { text-align: center; margin: 6mm 0; }
-.cert-title-vi { font-size: 18pt; font-weight: bold; text-transform: uppercase; color: #008080; }
-.cert-title-en { font-size: 11pt; font-style: italic; color: #333; margin-top: 1px; }
-.cert-info-table { width: 100%; border-collapse: collapse; margin-bottom: 4mm; font-size: 10pt; }
-.cert-info-table td { border: 0.5pt solid #000; padding: 1.8mm 2.2mm; vertical-align: top; line-height: 1.3; }
-.cert-info-table .lbl { width: 23%; }
-.cert-info-table .lbl-en { font-style: italic; color: #333; font-size: 9.5pt; }
-.cert-info-table .val { font-weight: bold; }
-.cert-info-table .no-border { border: none; }
-.cert-std-table { width: 100%; border-collapse: collapse; margin: 3mm 0 4mm; font-size: 9.5pt; }
-.cert-std-table th { background: #f2f2f2; padding: 2mm; text-align: center; font-weight: bold; border: 0.5pt solid #000; }
-.cert-std-table td { border: 0.5pt solid #000; padding: 1.8mm 2mm; }
-.cert-env { border: 0.5pt solid #000; padding: 2mm 2.5mm; margin: 4mm 0 6mm; font-size: 10pt; line-height: 1.4; }
-.cert-results { width: 100%; border-collapse: collapse; margin-top: 3mm; font-size: 9.5pt; }
-.cert-results th { background: #f2f2f2; padding: 2.2mm 1.5mm; text-align: center; font-weight: bold; border: 0.5pt solid #000; }
-.cert-results td { border: 0.5pt solid #000; padding: 1.8mm 2mm; text-align: center; }
-.cert-results td.tdl { text-align: left; }
-.cert-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; margin-top: 6mm; text-align: center; }
-.cert-sign-title { font-weight: bold; font-size: 10pt; }
-.cert-sign-en { font-size: 9.5pt; font-style: italic; color: #333; }
-.cert-sign-name { font-weight: bold; margin-top: 20mm; font-size: 10.5pt; }
-.cert-notes { font-size: 9pt; line-height: 1.4; margin-top: 6mm; }
-.cert-notes p { margin-bottom: 1mm; text-align: justify; }
-.cert-footer { margin-top: 6mm; text-align: center; border-top: 0.5pt solid #777; padding-top: 2mm; font-size: 8.5pt; color: #444; }
-.cert-section-title { font-size: 10.5pt; font-weight: bold; margin-top: 4mm; color: #008080; }
-.page-break { page-break-before: always; padding-top: 10mm; }
-.cert-no-repeat { font-size: 9.5pt; font-weight: bold; margin-bottom: 3mm; }
-
-/* ========== PRINT MEDIA ========== */
-@media print {
-  body { background: white; min-width: initial; }
-  .header, #project-list-view, #project-detail-view,
-  #calibration-editor-view .workspace-container .workspace-header,
-  #calibration-editor-view #editor-view,
-  .preview-toolbar { display: none !important; }
-  #calibration-editor-view #preview-view { display: block !important; }
-  .preview-panel { padding: 0; background: none; display: block; }
-  .a4 { box-shadow: none; padding: 15mm; margin: 0 auto; width: 210mm; }
-  @page { size: A4 portrait; margin: 0; }
-}
-
-/* ========== MISC ========== */
-.delete-btn {
-  background: none; border: none; color: var(--hint); cursor: pointer;
-  font-size: 16px; padding: 5px; border-radius: 4px; transition: var(--transition);
-}
-.delete-btn:hover { color: var(--danger); background: #fdf0ef; }
-.section-divider { height: 1px; background: var(--border); margin: 0; }
-.empty-state { text-align: center; padding: 60px 24px; color: var(--muted); }
-.env-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
-.env-item { display: flex; align-items: center; gap: 8px; }
-.env-item label { font-size: 12px; font-weight: 600; color: var(--muted); }
-.env-item input { padding: 6px 10px; font-size: 13px; font-family: 'Be Vietnam Pro', sans-serif; border: 1px solid var(--border); border-radius: 6px; outline: none; width: 160px; transition: border-color .15s; }
-.env-item input:focus { border-color: var(--accent); }
-.info-bar { display: flex; align-items: center; gap: 6px; padding: 10px 14px; background: var(--accent-light); border: 1px solid #c5d8f8; border-radius: 8px; font-size: 13px; color: var(--accent); margin-bottom: 14px; }
-
-/* Row count pill */
-.row-count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; background: var(--accent-light); color: var(--accent); border-radius: 100px; font-size: 11px; font-weight: 700; padding: 0 6px; }
-
-/* ========== TOAST & MODAL ========== */
-#toast-container { position: fixed; top: 70px; right: 24px; z-index: 9999; }
-.toast { background: #333; color: #fff; padding: 12px 20px; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 10px; font-size: 13px; animation: slideIn 0.3s ease forwards; border-left: 4px solid var(--accent); }
-@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 1000; }
-.modal-card { background: white; padding: 24px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: var(--shadow); }
-</style>
 </head>
 <body>
 
@@ -520,6 +104,9 @@ body {
       <div class="proj-actions-bar">
         <button class="btn btn-primary" onclick="openCalibrationWorkspace()">
           📋 Mở không gian nhập liệu & Xuất chứng nhận
+        </button>
+        <button class="btn btn-success" onclick="markProjectAsFinished()">
+          ✅ Đánh dấu hoàn thành
         </button>
         <button class="btn btn-secondary" onclick="showProjectList()">← Quay lại</button>
       </div>
@@ -704,7 +291,7 @@ body {
     <div class="preview-panel">
       <div class="preview-toolbar">
         <button class="btn btn-secondary btn-sm" onclick="switchToEditor()">← Sửa dữ liệu</button>
-        <button class="btn btn-primary btn-sm" onclick="window.print()">🖨 In / Xuất PDF</button>
+        <button class="btn btn-primary btn-sm" onclick="exportPDFAndFinish()">🖨 Xuất PDF & Hoàn thành</button>
       </div>
       <div class="a4" id="print-content"></div>
     </div>
@@ -867,16 +454,16 @@ function viewProjectDetail(id) {
   const proj = projectsList.find(p => p.ID === id);
   if(!proj) return;
 
-  currentTitle = proj.title;
+  currentTitle = proj.TITLE;
   document.getElementById('project-list-view').style.display='none';
   document.getElementById('project-detail-view').style.display='block';
   document.getElementById('calibration-editor-view').style.display='none';
   document.getElementById('main-header-actions').style.display='none';
   document.getElementById('pd-id').textContent='#' + id;
-  document.getElementById('pd-name').textContent=proj.title;
+  document.getElementById('pd-name').textContent=proj.TITLE;
   document.getElementById('pd-title-crumb').textContent=id;
-  document.getElementById('pd-status').innerHTML=
-    `<span class="badge badge-${proj.status==='Finished'?'finished':'progress'}">${proj.status}</span>`;
+  document.getElementById('pd-status').innerHTML =
+    `<span class="badge badge-${proj.STATUS==='Finished'?'finished':'progress'}">${proj.STATUS}</span>`;
 }
 
 function backToProjectDetail() {
@@ -1145,7 +732,7 @@ function collectAllStandards() {
   // Merge selected tags + manual table
   const merged = [];
   selectedStandards.forEach(s => merged.push({name:s.name, id:s.code, trace:s.link+' / '+s.gcn, due:s.validity}));
-  standards.forEach(s => { if(s.name) merged.push(s); });
+  // standards.forEach(s => { if(s.name) merged.push(s); }); // Removed hardcoded standards from print preview
   return merged;
 }
 
@@ -1334,6 +921,74 @@ async function fetchProjects() {
   updateStats();
 }
 
+/**
+ * Đánh dấu dự án là Hoàn thành và cập nhật lên Server
+ */
+async function markProjectAsFinished(skipConfirm = false) {
+  if (!currentProjectId) return;
+  if (!skipConfirm && !confirm("Xác nhận đánh dấu dự án này là HOÀN THÀNH?")) return;
+
+  const proj = projectsList.find(p => p.ID === currentProjectId);
+  if (!proj) return;
+
+  const payload = {
+    id: proj.ID,
+    title: proj.TITLE,
+    tech: proj.TECH,
+    status: 'Finished'
+  };
+
+  const res = await fetch(`${API_URL}/projects`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const result = await res.json();
+  if (result.success) {
+    showToast("Dự án đã được đánh dấu hoàn thành!");
+    document.getElementById('pd-status').innerHTML = `<span class="badge badge-finished">Finished</span>`;
+    fetchProjects(); // Cập nhật lại danh sách và các con số thống kê
+  }
+}
+
+/**
+ * Xuất PDF qua Backend và tự động chuyển trạng thái dự án sang Finished
+ */
+async function exportPDFAndFinish() {
+  const certNo = document.getElementById('f-certno').value;
+  if (!certNo) {
+    showToast("Không tìm thấy số GCN để xuất PDF", "error");
+    return;
+  }
+
+  showToast("Đang tạo tệp PDF chuyên nghiệp...");
+
+  try {
+    // 1. Gọi API Backend để render PDF từ dữ liệu SQL
+    const res = await fetch(`${API_URL}/calibration/export-pdf/${certNo}`);
+    const result = await res.json();
+
+    if (result.success) {
+      // 2. Mở file PDF trong tab mới để KTV xem/in
+      const pdfFullUrl = `http://localhost:18080${result.pdf_url}`;
+      window.open(pdfFullUrl, '_blank');
+
+      // 3. Tự động cập nhật trạng thái dự án thành Finished (bỏ qua bước xác nhận)
+      const proj = projectsList.find(p => p.ID === currentProjectId);
+      if (proj && proj.STATUS !== 'Finished') {
+        await markProjectAsFinished(true); 
+      }
+      
+      showToast("Xuất PDF thành công & Dự án đã được tự động hoàn thành!");
+    } else {
+      showToast("Lỗi khi tạo PDF: " + result.message, "error");
+    }
+  } catch (err) {
+    console.error(err);
+    showToast("Lỗi kết nối server khi xuất PDF", "error");
+  }
+}
+
 async function confirmCreateProject() {
   const name = document.getElementById('m-proj-name').value;
   if (!name) return;
@@ -1364,7 +1019,8 @@ async function saveCalibrationData() {
             parameterName: p.param, calPoint: p.point, asFoundValue: p.found,
             uncertainty: p.unc, tolerance: p.tol, conformity: p.conf
         })),
-        currentUser: user?.fullName || "KTV"
+        currentUser: user?.fullName || "KTV",
+        standards: collectAllStandards() // Send selected standards to backend
     };
 
     const res = await fetch(`${API_URL}/calibration/save`, {
@@ -1392,6 +1048,7 @@ async function loadExistingCalibration(certNo) {
     if (!data.cert) return false;
 
     const c = data.cert;
+    const s = data.standards;
     document.getElementById('f-inst-vi').value = c.INSTRUMENT_NAME;
     document.getElementById('f-mfr').value = c.MANUFACTURER;
     document.getElementById('f-model').value = c.MODEL;
@@ -1406,6 +1063,9 @@ async function loadExistingCalibration(certNo) {
     document.getElementById('f-humi').value = c.HUMI_ENV;
     document.getElementById('f-sign1').value = c.HEAD_OF_LAB;
     document.getElementById('f-sign2').value = c.DIRECTOR;
+
+    selectedStandards = s.map(std => ({ name: std.EQ_NAME, id: std.EQ_CODE, link: std.LINK, validity: std.VALIDITY, gcn: '' })); // Populate selectedStandards
+    renderStandardTags(); // Render the loaded standards
 
     const tbody = document.getElementById('calibration-table-body');
     tbody.innerHTML = '';
