@@ -50,6 +50,15 @@ db.serialize(() => {
         FOREIGN KEY(CERT_NO) REFERENCES CERTIFICATES(CERT_NO) ON DELETE CASCADE
     )`);
 
+    // 5. Bảng lưu trữ danh sách thiết bị chuẩn sử dụng cho Chứng nhận này
+    db.run(`CREATE TABLE IF NOT EXISTS CERTIFICATE_STANDARDS (
+        ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        CERT_NO TEXT,
+        EQ_CODE TEXT,
+        EQ_NAME TEXT,
+        LINK TEXT,
+        VALIDITY TEXT
+    )`);
     // 5. Bảng ghi lịch sử chỉnh sửa (Audit Trail)
     db.run(`CREATE TABLE IF NOT EXISTS ACTIVITY_LOGS (
         ID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,15 +150,18 @@ app.get('/api/calibration/:certNo', (req, res) => {
     const certNo = req.params.certNo;
     db.get("SELECT * FROM CERTIFICATES WHERE CERT_NO = ?", [certNo], (err, cert) => {
         if (err || !cert) return res.status(404).json({ success: false, message: "Không tìm thấy số GCN" });
-        
-        db.all("SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ?", [certNo], (err, points) => {
-            res.json({ cert, points });
+
+        db.all("SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ?", [certNo], (err, points) => { // Fetch points
+            db.all("SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ?", [certNo], (err, standards) => { // Fetch standards
+                res.json({ cert, points, standards });
+            });
         });
     });
 });
 
 app.post('/api/calibration/save', (req, res) => {
     const data = req.body;
+    const standards = data.standards || [];
     // Lấy thông tin người thực hiện từ body do frontend gửi lên
     const currentWorker = req.body.currentUser || "Hệ thống / KTV"; 
 
@@ -173,6 +185,7 @@ app.post('/api/calibration/save', (req, res) => {
         certStmt.finalize();
         
         // 2. Xóa các điểm đo cũ để tránh trùng rác dữ liệu
+        db.run("DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ?", [data.certNo]); // Delete old standards
         db.run("DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ?", [data.certNo], (err) => {
             if (err) return res.status(500).json({ success: false, error: err.message });
             
