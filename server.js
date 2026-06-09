@@ -112,22 +112,38 @@ app.get('/api/projects', (req, res) => {
 });
 
 app.post('/api/projects', (req, res) => {
-    const { id, title, tech, status } = req.body;
-    
-    db.get("SELECT ID FROM PROJECTS WHERE ID = ?", [id], (err, row) => {
-        const isNew = !row;
-        const action = isNew ? "CREATE" : "UPDATE";
-        const desc = isNew ? `Tạo mới dự án: "${title}"` : `Cập nhật trạng thái dự án "${title}" thành [${status}]`;
+    let { id, title, tech, status } = req.body;
 
-        const stmt = db.prepare(`INSERT OR REPLACE INTO PROJECTS (ID, TITLE, TECH, STATUS) VALUES (?, ?, ?, ?)`);
-        stmt.run([id, title, tech, status], function(err) {
-            if (err) return res.status(500).json({ success: false, error: err.message });
-            
-            logActivity(tech || "Hệ thống / KTV", action, "PROJECTS", id, desc);
-            res.json({ success: true, id: id });
+    const saveToDb = (finalId) => {
+        db.get("SELECT ID FROM PROJECTS WHERE ID = ?", [finalId], (err, row) => {
+            const isNew = !row;
+            const action = isNew ? "CREATE" : "UPDATE";
+            const desc = isNew ? `Tạo mới dự án: "${title}"` : `Cập nhật trạng thái dự án "${title}" thành [${status}]`;
+
+            const stmt = db.prepare(`INSERT OR REPLACE INTO PROJECTS (ID, TITLE, TECH, STATUS) VALUES (?, ?, ?, ?)`);
+            stmt.run([finalId, title, tech, status], function(err) {
+                if (err) return res.status(500).json({ success: false, error: err.message });
+                logActivity(tech || "Hệ thống / KTV", action, "PROJECTS", finalId, desc);
+                res.json({ success: true, id: finalId });
+            });
+            stmt.finalize();
         });
-        stmt.finalize();
-    });
+    };
+
+    if (!id) {
+        // Thuật toán tịnh tiến: Tìm mã PRJ-XXXXXX cao nhất trong DB
+        db.get("SELECT ID FROM PROJECTS WHERE ID LIKE 'PRJ-%' ORDER BY ID DESC LIMIT 1", (err, row) => {
+            let nextNum = 1;
+            if (row && row.ID) {
+                const lastNum = parseInt(row.ID.split('-')[1]);
+                if (!isNaN(lastNum)) nextNum = lastNum + 1;
+            }
+            const nextId = `PRJ-${String(nextNum).padStart(6, '0')}`;
+            saveToDb(nextId);
+        });
+    } else {
+        saveToDb(id);
+    }
 });
 
 app.delete('/api/projects/:id', (req, res) => {
