@@ -34,6 +34,10 @@
 </div>
 
 <script>
+    // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
+    const API_BASE_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:18080' 
+    : window.location.origin;
     async function handleLogin() {
         const u = document.getElementById('username').value;
         const p = document.getElementById('password').value;
@@ -48,7 +52,7 @@
         }
 
         try {
-            const response = await fetch('http://localhost:18080/api/auth/login', {
+            const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: u, password: p })

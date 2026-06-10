@@ -5,11 +5,15 @@ const path = require('path');
 const { exec } = require('child_process');
 
 const app = express();
-const port = 18080;
-
+const port = process.env.PORT || 18080;
 app.use(cors());
 app.use(express.json());
 app.use('/static', express.static(path.join(__dirname, 'static')));
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
 
 // Khởi tạo và kết nối Database SQLite
 const db = new sqlite3.Database(path.join(__dirname, 'labmaster_enterprise.db'));

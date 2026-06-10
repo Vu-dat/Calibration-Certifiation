@@ -189,6 +189,17 @@
 </main>
 
 <script>
+    document.addEventListener("DOMContentLoaded", () => {
+    const user = localStorage.getItem('labmaster_user');
+    if (!user) {
+        alert("Hết phiên làm việc hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại!");
+        window.location.href = 'login.html'; // Hoặc đường dẫn '/'
+    }
+});
+    // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
+    const API_BASE_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:18080' 
+    : window.location.origin;
     let customerData = {
         '1': { id: '1', name: 'Nguyen Van A', company: 'Samsung Vina', phone: '0123456789', tax: '0101010101', contact: 'Mr. An', email: 'an.nv@samsung.com', billingAddress: 'KCN Yên Phong, Bắc Ninh', note: 'Đã hiệu chuẩn 5 thiết bị...' },
         '2': { id: '2', name: 'Tran Thi B', company: 'LG Electronics', phone: '0987654321', tax: '0202020202', contact: 'Ms. Bình', email: 'binh.tt@lg.com', billingAddress: 'KCN Tràng Duệ, Hải Phòng', note: 'Đã hiệu chuẩn 3 thiết bị...' },

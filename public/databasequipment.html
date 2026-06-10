@@ -196,6 +196,17 @@
 </main>
 
 <script>
+    document.addEventListener("DOMContentLoaded", () => {
+    const user = localStorage.getItem('labmaster_user');
+    if (!user) {
+        alert("Hết phiên làm việc hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại!");
+        window.location.href = 'login.html'; // Hoặc đường dẫn '/'
+    }
+    });
+    // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
+    const API_BASE_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:18080' 
+    : window.location.origin;
     const MockTemplates = {
         "Washing Machine": [
             { group: "temp", name: "Nhiệt độ\nTemperature (°C)", points: [30, 40, 60, 80, 90], v1: "30.2", unc: 0.3, tol: "± 3" },

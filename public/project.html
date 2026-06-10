@@ -316,6 +316,17 @@
 <div id="toast-container"></div>
 
 <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const user = localStorage.getItem('labmaster_user');
+    if (!user) {
+        alert("Hết phiên làm việc hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại!");
+        window.location.href = 'login.html'; // Hoặc đường dẫn '/'
+    }
+});
+  // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
+  const API_BASE_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:18080' 
+    : window.location.origin;
 /* ====== DỮ LIỆU ====== */
 const standardEquipmentDB = [
   { code:'LAB-THER_H.01', name:'Thermo-Hygrometer', link:'QUATEST III', validity:'04.09.2026', gcn:'KT3-1499BHL5/1' },

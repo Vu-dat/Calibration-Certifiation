@@ -181,6 +181,13 @@
     </div>
 </footer>
 <script>
+    document.addEventListener("DOMContentLoaded", () => {
+    const user = localStorage.getItem('labmaster_user');
+    if (!user) {
+        alert("Hết phiên làm việc hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại!");
+        window.location.href = 'login.html'; // Hoặc đường dẫn '/'
+    }
+});
 // Dữ liệu dự án thực tế (Đồng bộ cấu trúc với trang project.html)
 const projectData = {
     'PRJ-328344': { id: 'PRJ-328344', title: 'Hiệu chuẩn hệ thống Wascator', status: 'In Progress' },

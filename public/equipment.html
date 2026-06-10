@@ -187,6 +187,10 @@
 </main>
 
 <script>
+    // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
+    const API_BASE_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:18080' 
+    : window.location.origin;
     // Dữ liệu đối tượng trích xuất nguyên vẹn 100% từ file gốc TBC.csv (Không tự ý sửa đổi từ viết hoa/ô trống)
     let equipmentData = {
         '1': { stt: '1', key: 'baro', code: 'LAB-BARO.01', name: 'Thermo-hygro-barometer', nsx: 'LUTRON', model: 'MHB-382SD', serial: 'AM.29323', gcn: 'AC-1868', lienKet: 'TECHMASTER', calDate: '29/08/2025', nextDate: '2026-08-29' },
