@@ -6,6 +6,98 @@
     <link rel="stylesheet" href="index.css">
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
     <title>Quản lý Dự Án – LabMaster Pro</title>
+    <style>
+      /* Áp dụng font chữ chuẩn hỗ trợ tiếng Việt tốt nhất cho toàn bộ trang và khi in */
+    body, table, input, select, textarea, button {
+    font-family: "Arial", "Segoe UI", sans-serif !important;
+}
+@media print {
+    /* 1. Ép hệ thống dùng font chữ Arial / Segoe UI hỗ trợ Unicode tiếng Việt tốt nhất */
+    * {
+        font-family: "Arial", "Segoe UI", "Helvetica", sans-serif !important;
+    }
+
+    /* 2. Cấu hình khổ giấy A4 dọc chuẩn văn bản pháp lý */
+    @page {
+        size: A4 portrait;
+        margin: 15mm 15mm 15mm 15mm;
+    }
+
+    /* 3. Ẩn tất cả thanh công cụ, nút thao tác để bản in sạch sẽ */
+    .header, .navbar, .btn, .btn-rm, #main-header-actions, .actions-column, button, .no-print {
+        display: none !important;
+    }
+
+    /* 4. Đặt nền phẳng trắng tinh cho toàn bộ trang */
+    body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    #project-detail-view, .container {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    /* 5. Định dạng lưới thông tin dự án phía trên */
+    .admin-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 15px !important;
+        background: transparent !important;
+        border: 1px solid #000000 !important;
+        padding: 12px !important;
+        margin-bottom: 20px !important;
+        border-radius: 0 !important; /* Bỏ bo góc để chuẩn văn bản hành chính */
+    }
+
+    .info-group {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+
+    /* 6. XỬ LÝ TRIỆT ĐỂ Ô INPUT TRONG BẢNG: GIỮ TIẾNG VIỆT, XÓA VIỀN, KHÔNG VỠ KHUNG */
+    .lab-input-cell, input, select, textarea, td input {
+        font-family: "Arial", "Segoe UI", sans-serif !important;
+        font-size: 10pt !important;
+        color: #000000 !important;
+        border: none !important; /* Xóa bỏ ô vuông input */
+        background: transparent !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        outline: none !important;
+        box-shadow: none !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+    }
+
+    /* 7. Định dạng bảng dữ liệu kiểm định sắc nét với viền đen */
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        margin-top: 15px !important;
+    }
+
+    th, td {
+        border: 1px solid #000000 !important; /* Viền đen rõ ràng khi in */
+        padding: 6px 8px !important;
+        font-size: 10pt !important;
+        vertical-align: middle !important;
+    }
+
+    th {
+        background-color: #f2f2f2 !important; /* Màu nền xám nhẹ cho tiêu đề bảng */
+    }
+}
+    </style>
 </head>
 <body>
 
@@ -210,7 +302,7 @@
                 <th style="text-align:center;">Xóa</th>
               </tr>
             </thead>
-            <tbody id="selected-standards-body"></tbody>
+            <tbody id="std-form-body"></tbody>
           </table>
         </div>
       </div>
@@ -695,12 +787,19 @@ function removeStandardTag(i) { selectedStandards.splice(i,1); renderStandardTag
 /* ====== SIMPLE MODE TABLES ====== */
 function renderStandardsForm() {
   const c = document.getElementById('std-form-body');
-  c.innerHTML = standards.map((s,i) => `
+  
+  // Kiểm tra xem thẻ có tồn tại trên giao diện không, nếu không tồn tại thì dừng lại, không chạy tiếp để tránh lỗi
+  if (!c) {
+    console.warn("Cảnh báo: Không tìm thấy phần tử 'std-form-body' trên giao diện HTML.");
+    return;
+  }
+
+  c.innerHTML = standards.map((s, i) => `
     <tr>
-      <td><input value="${s.name}" oninput="standards[${i}].name=this.value"></td>
-      <td><input value="${s.id}" oninput="standards[${i}].id=this.value"></td>
-      <td><input value="${s.trace}" oninput="standards[${i}].trace=this.value"></td>
-      <td><input value="${s.due}" oninput="standards[${i}].due=this.value"></td>
+      <td><input value="${s.name || ''}" oninput="standards[${i}].name=this.value"></td>
+      <td><input value="${s.id || ''}" oninput="standards[${i}].id=this.value"></td>
+      <td><input value="${s.trace || ''}" oninput="standards[${i}].trace=this.value"></td>
+      <td><input value="${s.due || ''}" oninput="standards[${i}].due=this.value"></td>
       <td><button class="btn-rm" onclick="standards.splice(${i},1);renderStandardsForm()">×</button></td>
     </tr>
   `).join('');
@@ -739,12 +838,23 @@ function collectCalibrationResults() {
   rows.forEach(row => {
     const calPoint = row.querySelector('.cal-point');
     if (!calPoint) return;
-    let paramName = row.dataset.parameterName || '';
+
+        // 1. Lấy tên thông số từ dataset (mẫu sẵn) hoặc input ở cột đầu tiên (nhập tay/DB)
+        let paramName = row.dataset.parameterName || '';
+        if (!paramName) {
+          const pInput = row.querySelector('td:first-child input:not(.cal-point)');
+          if (pInput) paramName = pInput.value;
+        }
+
+        // 2. Nếu là hàng gộp (rowspan), tìm tên thông số ở hàng cha phía trên
     if (!paramName) {
-      // Try to find from group-header in previous sibling
       let prev = row.previousElementSibling;
       while(prev) {
-        if(prev.dataset.parameterName) { paramName=''; break; }
+            const prevParam = prev.dataset.parameterName || (prev.querySelector('td:first-child input:not(.cal-point)') ? prev.querySelector('td:first-child input:not(.cal-point)').value : '');
+            if (prevParam && prev.querySelector('td[rowspan]')) {
+              paramName = prevParam;
+              break;
+            }
         prev = prev.previousElementSibling;
       }
     }
@@ -753,7 +863,7 @@ function collectCalibrationResults() {
     const v3 = (row.querySelector('.as-found-3')||{}).value || '';
     const foundStr = [v1,v2,v3].filter(Boolean).join(' / ') || v1;
     res.push({
-      param: paramName,
+          param: (paramName || '').replace(/\n/g, ' '),
       point: calPoint.value,
       found: foundStr,
       unc: (row.querySelector('.uncertainty')||{}).value || '',
@@ -1010,7 +1120,7 @@ async function exportPDFAndFinish() {
 
     if (result.success) {
       // 2. Mở file PDF trong tab mới để KTV xem/in
-      const pdfFullUrl = `http://localhost:18080${result.pdf_url}`;
+      const pdfFullUrl = `${window.location.origin}${result.pdf_url}`;
       window.open(pdfFullUrl, '_blank');
 
       // 3. Tự động cập nhật trạng thái dự án thành Finished (bỏ qua bước xác nhận)
