@@ -17,7 +17,6 @@ app.get('/', (req, res) => {
 
 // Khởi tạo và kết nối Database SQLite
 const db = new sqlite3.Database(path.join(__dirname, 'labmaster_enterprise.db'));
-
 db.serialize(() => {
     // 1. Bảng quản lý tiến độ Dự án
     db.run(`CREATE TABLE IF NOT EXISTS PROJECTS (
@@ -28,7 +27,7 @@ db.serialize(() => {
         CREATED_AT DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // 2. Bảng quản lý thông tin khách hàng
+    // 2. Bảng quản lý thông tin khách hàng (Bổ sung bảng bị thiếu)
     db.run(`CREATE TABLE IF NOT EXISTS CUSTOMERS (
         ID TEXT PRIMARY KEY, NAME TEXT, COMPANY TEXT, PHONE TEXT, TAX TEXT, EMAIL TEXT, ADDRESS TEXT, NOTE TEXT
     )`);
@@ -61,9 +60,11 @@ db.serialize(() => {
         EQ_CODE TEXT,
         EQ_NAME TEXT,
         LINK TEXT,
-        VALIDITY TEXT
+        VALIDITY TEXT,
+        FOREIGN KEY(CERT_NO) REFERENCES CERTIFICATES(CERT_NO) ON DELETE CASCADE
     )`);
-    // 5. Bảng ghi lịch sử chỉnh sửa (Audit Trail)
+
+    // 6. Bảng ghi lịch sử chỉnh sửa (Audit Trail)
     db.run(`CREATE TABLE IF NOT EXISTS ACTIVITY_LOGS (
         ID INTEGER PRIMARY KEY AUTOINCREMENT,
         USER_NAME TEXT DEFAULT 'Hệ thống / KTV',
@@ -73,7 +74,8 @@ db.serialize(() => {
         DESCRIPTION TEXT,
         TIMESTAMP DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
-    // 6. Bảng quản lý tài khoản nhân viên (Bổ sung cho phần Đăng nhập)
+
+    // 7. Bảng quản lý tài khoản nhân viên (Bổ sung cho phần Đăng nhập)
     db.run(`CREATE TABLE IF NOT EXISTS USERS (
         ID INTEGER PRIMARY KEY AUTOINCREMENT,
         USERNAME TEXT UNIQUE,
@@ -82,16 +84,23 @@ db.serialize(() => {
         ROLE TEXT               -- 'admin', 'head_of_lab', 'technician'
     )`);
 
-    // Chèn thử 3 tài khoản mẫu ứng với 3 phân quyền nếu bảng trống
-    db.get("SELECT COUNT(*) as count FROM USERS", [], (err, row) => {
-        if (row && row.count === 0) {
-            const stmt = db.prepare(`INSERT INTO USERS (USERNAME, PASSWORD, FULL_NAME, ROLE) VALUES (?, ?, ?, ?)`);
-            stmt.run("ktv1", "123456", "KTV. Nguyễn Văn A", "technician");
-            stmt.run("tplab", "123456", "Trưởng Phòng B", "head_of_lab");
-            stmt.run("admin", "admin123", "Quản Trị Viên Hệ Thống", "admin");
-            stmt.finalize();
-        }
-    });
+    // 8. Bảng lưu trữ mẫu thiết bị (Database Equipment)
+    db.run(`CREATE TABLE IF NOT EXISTS EQUIPMENT_TEMPLATES (
+        NAME TEXT PRIMARY KEY,
+        MANUFACTURER TEXT,
+        NEXT_DUE TEXT
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS TEMPLATE_POINTS (
+        ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        TEMPLATE_NAME TEXT,
+        PARAMETER_NAME TEXT,
+        CAL_POINT TEXT,
+        UNCERTAINTY TEXT,
+        TOLERANCE TEXT,
+        CONFORMITY TEXT,
+        FOREIGN KEY(TEMPLATE_NAME) REFERENCES EQUIPMENT_TEMPLATES(NAME) ON DELETE CASCADE
+    )`);
 });
 
 // Hàm tiện ích tự động ghi nhật ký hệ thống ngầm
@@ -243,9 +252,74 @@ app.post('/api/calibration/save', (req, res) => {
 
 app.get('/api/calibration/export-pdf/:certNo', (req, res) => {
     const certNo = req.params.certNo;
-    exec(`node generate_pdf.js ${certNo}`, (error) => {
-        if (error) return res.status(500).json({ success: false, msg: "Lỗi render PDF" });
-        res.json({ success: true, pdf_url: `/static/certificates/GCN_${certNo}.pdf` });
+    const scriptPath = path.join(__dirname, 'generate_pdf.js');
+
+    // Ép chạy file generate_pdf.js qua dòng lệnh và hứng toàn bộ lỗi hệ thống
+    exec(`node "${scriptPath}" "${certNo}"`, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`❌ [PDF CRASH] Lỗi thực thi tệp tin: ${error.message}`);
+            if (stderr) {
+                console.error(`🔍 [CHI TIẾT LỖI SẬP]: ${stderr}`);
+            }
+            return res.status(500).json({ success: false, message: "Lỗi tạo PDF" });
+        }
+        
+        // Trả về link file tĩnh nếu tạo thành công
+        res.json({ success: true, pdfUrl: `/static/certificates/GCN_${certNo}.pdf` });
+    });
+});
+
+// ================= API QUẢN LÝ MẪU THIẾT BỊ (DATABASE EQUIPMENT) =================
+
+app.get('/api/equipment-templates', (req, res) => {
+    db.all("SELECT * FROM EQUIPMENT_TEMPLATES", [], (err, rows) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        
+        const fetchPoints = rows.map(template => {
+            return new Promise((resolve) => {
+                db.all("SELECT * FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ?", [template.NAME], (err, points) => {
+                    template.formPoints = points || [];
+                    resolve(template);
+                });
+            });
+        });
+
+        Promise.all(fetchPoints).then(results => res.json(results));
+    });
+});
+
+app.post('/api/equipment-templates', (req, res) => {
+    const { name, manufacturer, nextDue, formPoints } = req.body;
+    if (!name) return res.status(400).json({ success: false, message: "Thiếu tên thiết bị" });
+
+    db.serialize(() => {
+        db.run("INSERT OR REPLACE INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE) VALUES (?, ?, ?)", [name, manufacturer, nextDue]);
+        db.run("DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ?", [name], () => {
+            if (formPoints && formPoints.length > 0) {
+                const stmt = db.prepare("INSERT INTO TEMPLATE_POINTS (TEMPLATE_NAME, PARAMETER_NAME, CAL_POINT, UNCERTAINTY, TOLERANCE, CONFORMITY) VALUES (?, ?, ?, ?, ?, ?)");
+                formPoints.forEach(p => {
+                    // Đồng bộ tên field từ frontend (paramName, point...)
+                    stmt.run([name, p.paramName, p.point, p.uncertainty, p.tolerance, p.conformity]);
+                });
+                stmt.finalize();
+            }
+            logActivity("Hệ thống", "UPDATE", "EQUIPMENT_TEMPLATES", name, `Cập nhật mẫu thiết bị: ${name}`);
+            res.json({ success: true });
+        });
+    });
+});
+
+app.delete('/api/equipment-templates/:name', (req, res) => {
+    const name = req.params.name;
+    db.serialize(() => {
+        db.run("DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ?", [name], (err) => {
+            if (err) return res.status(500).json({ success: false, error: err.message });
+            db.run("DELETE FROM EQUIPMENT_TEMPLATES WHERE NAME = ?", [name], (err) => {
+                if (err) return res.status(500).json({ success: false, error: err.message });
+                logActivity("Hệ thống", "DELETE", "EQUIPMENT_TEMPLATES", name, `Đã xóa mẫu thiết bị: ${name}`);
+                res.json({ success: true });
+            });
+        });
     });
 });
 
@@ -314,5 +388,19 @@ app.post('/api/auth/login', (req, res) => {
                 role: user.ROLE
             }
         });
+    });
+});
+
+// API lấy thông tin chi tiết của một dự án theo ID
+app.get('/api/projects/:id', (req, res) => {
+    const projectId = req.params.id;
+    db.get("SELECT * FROM PROJECTS WHERE ID = ?", [projectId], (err, row) => {
+        if (err) {
+            return res.status(500).json({ success: false, error: err.message });
+        }
+        if (!row) {
+            return res.status(404).json({ success: false, message: "Không tìm thấy dự án!" });
+        }
+        res.json({ success: true, project: row });
     });
 });

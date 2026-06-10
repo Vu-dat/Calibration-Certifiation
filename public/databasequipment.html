@@ -93,7 +93,7 @@
             <h2>Database Equipment Template</h2>
             <div style="display: flex; gap: 10px;">
                 <button class="btn-shiny" style="background: #e53e3e;" onclick="resetDatabase()">🗑 Xóa dữ liệu tùy chỉnh</button>
-                <button class="btn-shiny" onclick="document.getElementById('add-eq-view').style.display='block'">+ Thêm mẫu thiết bị</button>
+                <button class="btn-shiny" onclick="openAddView()">+ Thêm mẫu thiết bị</button>
             </div>
         </div>
         <table class="detail-table">
@@ -106,29 +106,11 @@
                 </tr>
             </thead>
             <tbody id="eq-body">
-                <tr onclick="editEq('EQ001')">
-                    <td>#EQ001</td>
-                    <td id="n-EQ001">Washing Machine</td>
-                    <td id="m-EQ001">100</td>
-                    <td id="d-EQ001">2026-12-01</td>
-                </tr>
-                <tr onclick="editEq('EQ002')">
-                    <td>#EQ002</td>
-                    <td id="n-EQ002">Dryer</td>
-                    <td id="m-EQ002">101</td>
-                    <td id="d-EQ002">2027-01-15</td>
-                </tr>
-                <tr onclick="editEq('EQ003')">
-                    <td>#EQ003</td>
-                    <td id="n-EQ003">Refrigerator</td>
-                    <td id="m-EQ003">102</td>
-                    <td id="d-EQ003">2027-02-20</td>
-                </tr>
             </tbody>
         </table>
 
         <div class="button-wrapper" id="add-btn-container">
-            <button class="btn-save" style="padding: 12px 40px;" onclick="document.getElementById('add-eq-view').style.display='block'">+ Add New Equipment</button>
+            <button class="btn-save" style="padding: 12px 40px;" onclick="openAddView()">+ Add New Equipment</button>
         </div>
 
         <section id="add-eq-view" style="display:none; background: white; padding: 20px; border-radius: 10px; margin-top: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
@@ -138,9 +120,28 @@
                 <input type="text" id="new-manu" class="input-detail" placeholder="Hãng sản xuất">
                 <input type="date" id="new-due" class="input-detail">
             </div>
+            
+            <div style="overflow-x: auto; margin-top: 20px;">
+                <h4 style="margin-bottom: 10px; color: #008080;">Thiết lập thông số kỹ thuật mặc định:</h4>
+                <table style="width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Times New Roman', Times, serif; font-size: 14px; text-align: center; border: 1px solid #111;">
+                    <thead>
+                        <tr style="background-color: #008080; color: white;">
+                            <th style="border: 1px solid #111; padding: 8px;">Thông số (Parameters)</th>
+                            <th style="border: 1px solid #111; padding: 8px;">Điểm HC</th>
+                            <th style="border: 1px solid #111; padding: 8px;">Đo lần 1</th>
+                            <th style="border: 1px solid #111; padding: 8px;">KĐBĐ</th>
+                            <th style="border: 1px solid #111; padding: 8px;">Dung sai</th>
+                            <th style="border: 1px solid #111; padding: 8px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="new-calibration-table-rows"></tbody>
+                </table>
+                <button type="button" class="btn-shiny" style="margin-top: 10px; font-size: 12px; padding: 8px 15px;" onclick="addNewRowToAddForm()">+ Thêm dòng thông số</button>
+            </div>
+
             <div style="text-align: right; margin-top: 15px;">
                 <button class="btn-cancel" onclick="document.getElementById('add-eq-view').style.display='none'">Hủy</button>
-                <button class="btn-save" onclick="alert('Đã thêm thành công!'); location.reload();">Lưu</button>
+                <button class="btn-save" onclick="saveNewEquipment()">Lưu</button>
             </div>
         </section>
     </section>
@@ -201,10 +202,13 @@
     if (!user) {
         alert("Hết phiên làm việc hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại!");
         window.location.href = 'login.html'; // Hoặc đường dẫn '/'
+        return;
     }
+    renderTable(); // Gọi hàm vẽ bảng khi trang load xong
     });
+
     // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
-    const API_BASE_URL = window.location.hostname === 'localhost' 
+    const API_BASE_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:18080' 
     : window.location.origin;
     const MockTemplates = {
@@ -230,6 +234,57 @@
     };
 
     let currentId = '';
+
+    // Hàm vẽ bảng danh sách thiết bị dựa trên Mock và LocalStorage
+    function renderTable() {
+        const tbody = document.getElementById('eq-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        let db = {};
+        try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
+
+        // Lấy danh sách tên thiết bị duy nhất từ cả Mock và DB tùy chỉnh
+        const allNames = Array.from(new Set([...Object.keys(MockTemplates), ...Object.keys(db)]));
+
+        allNames.forEach((name, index) => {
+            const id = `EQ${String(index + 1).padStart(3, '0')}`;
+            const data = db[name] || {};
+            
+            // Ưu tiên lấy NSX và Ngày từ DB, nếu không có thì lấy giá trị mặc định tạm thời
+            const manu = data.manufacturer || (MockTemplates[name] ? "Default" : "---");
+            const due = data.nextDue || (MockTemplates[name] ? "2026-12-31" : "---");
+
+            const tr = document.createElement('tr');
+            tr.onclick = () => editEq(id);
+            tr.innerHTML = `
+                <td>#${id}</td>
+                <td id="n-${id}">${name}</td>
+                <td id="m-${id}">${manu}</td>
+                <td id="d-${id}">${due}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Hàm xử lý lưu thiết bị mới vào cơ sở dữ liệu trình duyệt
+    function saveNewEquipment() {
+        const name = document.getElementById('new-name').value.trim();
+        const manu = document.getElementById('new-manu').value.trim();
+        const due = document.getElementById('new-due').value;
+
+        if (!name) { alert("Vui lòng nhập tên thiết bị!"); return; }
+
+        let db = {};
+        try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
+
+        // Khởi tạo mẫu mới với các điểm đo rỗng (Người dùng sẽ vào Edit để thêm điểm sau)
+        db[name] = { manufacturer: manu, nextDue: due, formPoints: [] };
+
+        localStorage.setItem('labmaster_equipment_db', JSON.stringify(db));
+        alert('Đã thêm mẫu thiết bị mới thành công!');
+        location.reload(); // Tải lại để cập nhật bảng và đóng view
+    }
 
     function editEq(id) {
         currentId = id;
