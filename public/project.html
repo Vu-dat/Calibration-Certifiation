@@ -73,30 +73,24 @@
         <div class="breadcrumb">Projects / <span id="pd-title-crumb">Chi tiết</span></div>
       </div>
       <div class="proj-info-grid">
-        <div class="proj-info-item">
-          <label>Mã dự án</label>
-          <p id="pd-id" style="color:var(--accent); font-size:15.5px; font-weight:700;">---</p>
-        </div>
-        <div class="proj-info-item">
-          <label>Tên dự án</label>
-          <p id="pd-name">---</p>
-        </div>
-        <div class="proj-info-item">
-          <label>Trạng thái</label>
-          <p id="pd-status">---</p>
-        </div>
-        <div class="proj-info-item">
-          <label>Kỹ thuật viên</label>
-          <p id="pd-tech">---</p>
-        </div>
-        <div class="proj-info-item">
-          <label>Ngày tạo</label>
-          <p id="pd-created">---</p>
-        </div>
-        <div class="proj-info-item">
-          <label>Hạn hiệu chuẩn</label>
-          <p id="pd-expire">---</p>
-        </div>
+        <div class="admin-grid" id="proj-info-grid">
+    <div class="info-group">
+        <label>Mã Dự Án (Project ID)</label>
+        <div class="display-value" id="view-proj-id">-</div>
+    </div>
+    <div class="info-group">
+        <label>Tên Dự Án / Thiết Bị</label>
+        <div class="display-value" id="view-proj-title">-</div>
+    </div>
+    <div class="info-group">
+        <label>Kỹ thuật viên (Tech)</label>
+        <div class="display-value" id="view-proj-tech">-</div>
+    </div>
+    <div class="info-group">
+        <label>Trạng thái</label>
+        <div class="display-value" id="view-proj-status">-</div>
+    </div>
+</div>
       </div>
       <div class="section-divider"></div>
       <p style="padding:16px 24px; color:var(--muted); font-size:13.5px;">
@@ -324,9 +318,7 @@
     }
 });
   // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
-  const API_BASE_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:18080' 
-    : window.location.origin;
+  const API_BASE_URL = 'http://localhost:18080';
 /* ====== DỮ LIỆU ====== */
 const standardEquipmentDB = [
   { code:'LAB-THER_H.01', name:'Thermo-Hygrometer', link:'QUATEST III', validity:'04.09.2026', gcn:'KT3-1499BHL5/1' },
@@ -457,31 +449,57 @@ function viewProjectDetail(id) {
   if(!proj) return;
 
   currentTitle = proj.TITLE;
-  document.getElementById('project-list-view').style.display='none';
-  document.getElementById('project-detail-view').style.display='block';
-  document.getElementById('calibration-editor-view').style.display='none';
-  document.getElementById('main-header-actions').style.display='none';
 
-  // Hiển thị thông tin định danh rõ ràng (Mã, Tên, Trạng thái)
-  document.getElementById('pd-id').textContent = proj.ID;
-  document.getElementById('pd-name').textContent = proj.TITLE;
-  document.getElementById('pd-title-crumb').textContent = `${proj.ID} - ${proj.TITLE}`;
+  // --- Bọc an toàn cho phần ẩn/hiện giao diện (Tránh lỗi sập style) ---
+  const listView = document.getElementById('project-list-view');
+  const detailView = document.getElementById('project-detail-view');
+  const editorView = document.getElementById('calibration-editor-view');
+  const headerActions = document.getElementById('main-header-actions');
+
+  if(listView) listView.style.display = 'none';
+  if(detailView) detailView.style.display = 'block';
+  if(editorView) editorView.style.display = 'none';
+  if(headerActions) headerActions.style.display = 'none';
+
+  // --- Đổ dữ liệu vào các thẻ hiển thị chi tiết ---
+  if(document.getElementById('pd-id')) document.getElementById('pd-id').textContent = proj.ID;
+  if(document.getElementById('pd-name')) document.getElementById('pd-name').textContent = proj.TITLE;
+  if(document.getElementById('pd-title-crumb')) document.getElementById('pd-title-crumb').textContent = `${proj.ID} - ${proj.TITLE}`;
   
-  const statusClass = proj.STATUS === 'Finished' ? 'finished' : 'progress';
-  document.getElementById('pd-status').innerHTML = 
+  // --- Đổ dữ liệu đồng bộ vào vùng proj-info-grid (Nếu bạn có dùng) ---
+  if(document.getElementById('view-proj-id')) document.getElementById('view-proj-id').innerText = proj.ID;
+  if(document.getElementById('view-proj-title')) document.getElementById('view-proj-title').innerText = proj.TITLE;
+  if(document.getElementById('view-proj-tech')) document.getElementById('view-proj-tech').innerText = proj.TECH || 'Chưa phân công';
+  
+  // Xử lý hiển thị Badge trạng thái màu sắc
+  const pdStatus = document.getElementById('pd-status');
+  if(pdStatus) {
+    const statusClass = proj.STATUS === 'Finished' ? 'finished' : 'progress';
+  document.getElementById('view-proj-status').innerHTML = 
     `<span class="badge badge-${statusClass}">${proj.STATUS}</span>`;
-
-  // Đồng nhất thông tin Kỹ thuật viên và Ngày tạo (có giờ phút)
-  document.getElementById('pd-tech').textContent = proj.TECH || 'Chưa phân công';
+  }
   
-  if (proj.CREATED_AT) {
-    const date = new Date(proj.CREATED_AT.includes(' ') ? proj.CREATED_AT.replace(' ', 'T') : proj.CREATED_AT);
-    document.getElementById('pd-created').textContent = date.toLocaleString('vi-VN', {
-      hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
-    });
-  } else { // Nếu không có ngày tạo, hiển thị placeholder
-    document.getElementById('pd-created').textContent = 'Chưa xác định'; 
-    document.getElementById('pd-expire').textContent = 'Chưa xác định';
+  if(document.getElementById('view-proj-status')) {
+    document.getElementById('view-proj-status').innerText = proj.STATUS;
+  }
+
+  // Đồng nhất thông tin Kỹ thuật viên và Ngày tạo
+  if(document.getElementById('pd-tech')) {
+    document.getElementById('pd-tech').textContent = proj.TECH || 'Chưa phân công';
+  }
+  
+  // Xử lý định dạng ngày tháng an toàn
+  const pdCreated = document.getElementById('pd-created');
+  if(pdCreated) {
+    if (proj.CREATED_AT) {
+      const date = new Date(proj.CREATED_AT.includes(' ') ? proj.CREATED_AT.replace(' ', 'T') : proj.CREATED_AT);
+      pdCreated.textContent = date.toLocaleString('vi-VN', {
+        hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
+      });
+    } else {
+      pdCreated.textContent = 'Chưa xác định'; 
+      if(document.getElementById('pd-expire')) document.getElementById('pd-expire').textContent = 'Chưa xác định';
+    }
   }
 }
 
@@ -1120,6 +1138,57 @@ fetchProjects();
 
 const userSession = localStorage.getItem('labmaster_user');
 if (!userSession) { window.location.href = 'login.html'; } // Chưa đăng nhập thì đuổi ra ngoài
+
+// Hàm lấy tham số ID dự án từ thanh địa chỉ (Ví dụ: project.html?id=PJ001)
+function getProjectIdFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('id');
+}
+
+// Hàm đổ dữ liệu động vào vùng chứa proj-info-grid
+async function loadProjectDetail() {
+    const projectId = getProjectIdFromUrl();
+    
+    // Nếu trên URL không có ?id=..., hệ thống sẽ không chạy tiếp (tránh lỗi)
+    if (!projectId) {
+        console.log("Không tìm thấy tham số ID dự án trên URL.");
+        return; 
+    }
+
+    try {
+        // Dùng chung biến API_BASE_URL tổng ở đầu file
+        const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`);
+        const result = await response.json();
+
+        if (result.success) {
+            const project = result.project;
+            
+            // Tìm các thẻ trong proj-info-grid bằng ID để gán giá trị thật từ DB
+            if (document.getElementById('view-proj-id')) 
+                document.getElementById('view-proj-id').innerText = project.ID || '-';
+            
+            if (document.getElementById('view-proj-title')) 
+                document.getElementById('view-proj-title').innerText = project.TITLE || '-';
+            
+            if (document.getElementById('view-proj-tech')) 
+                document.getElementById('view-proj-tech').innerText = project.TECH || '-';
+            
+            if (document.getElementById('view-proj-status')) 
+                document.getElementById('view-proj-status').innerText = project.STATUS || '-';
+            
+            console.log("Đã đồng bộ dữ liệu dự án động thành công!");
+        } else {
+            console.error("Không lấy được chi tiết dự án:", result.message);
+        }
+    } catch (error) {
+        console.error("Lỗi kết nối API chi tiết dự án:", error);
+    }
+}
+
+// Kích hoạt hàm chạy ngay khi trang web tải xong giao diện
+document.addEventListener("DOMContentLoaded", () => {
+    loadProjectDetail();
+});
 </script>
 </body>
 </html>

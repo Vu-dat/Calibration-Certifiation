@@ -1505,3 +1505,74 @@ body {
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 1000; }
 .modal-card { background: white; padding: 24px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: var(--shadow); }
+
+
+/* ---- THIẾT KẾ MỚI CHO VÙNG THÔNG TIN DỰ ÁN ---- */
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+    background: #ffffff; /* Đổi sang nền trắng tinh tế */
+    padding: 24px;
+    border-radius: 16px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04); /* Thêm đổ bóng nhẹ sang trọng */
+    border: 1px solid #eef2f6;
+}
+
+.info-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Thu hẹp khoảng cách giữa nhãn và giá trị */
+    padding: 12px 16px;
+    background: #f8fafc; /* Tạo một lớp nền xám nhẹ riêng cho từng ô */
+    border-radius: 10px;
+    border-left: 4px solid #cbd5e1; /* Thanh điểm nhấn bên trái mặc định */
+    transition: all 0.3s ease;
+}
+
+/* Hiệu ứng tương tác nhẹ khi di chuột qua từng ô thông tin */
+.info-group:hover {
+    transform: translateY(-2px);
+    border-left-color: #007a78; /* Đổi màu thanh điểm nhấn sang xanh LabMaster */
+    background: #f1f5f9;
+}
+
+.info-group label {
+    font-weight: 600;
+    color: #64748b; /* Màu chữ nhãn thanh lịch, không quá tối */
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+.display-value {
+    color: #1e293b;
+    font-size: 1.05rem;
+    font-weight: 700; /* Làm nổi bật dữ liệu thật */
+    word-break: break-word;
+}
+
+/* ---- TRANG TRÍ RIÊNG CHO CÁC BADGE TRẠNG THÁI ---- */
+.badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 30px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+/* Trạng thái đang tiến hành (In Progress) */
+.badge-progress {
+    background-color: #fef3c7;
+    color: #d97706;
+    border: 1px solid #fde68a;
+}
+
+/* Trạng thái hoàn thành (Finished) */
+.badge-finished {
+    background-color: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
