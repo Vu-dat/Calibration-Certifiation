@@ -596,24 +596,24 @@ function addNewRowToAddForm() {
     tbody.appendChild(row);
 }
 
-// 4. FIX LỖI "NOT DEFINED": Hàm xử lý thu thập dữ liệu và POST API lên database SQLite
+// HÀM LƯU THIẾT BỊ MỚI VÀ ĐẨY THẲNG LÊN MÀN HÌNH CHÍNH
 async function executeCreateEquipment() {
     const name = document.getElementById('new-name')?.value || '';
     const eqId = document.getElementById('new-eq-id')?.value || '';
     const manu = document.getElementById('new-manu')?.value || '';
     const due  = document.getElementById('new-due')?.value || '';
 
-    // Kiểm tra dữ liệu đầu vào nghiêm ngặt
+    // 1. Kiểm tra dữ liệu đầu vào nghiêm ngặt
     if (!name.trim() || !eqId.trim()) {
         if (typeof showToast === 'function') {
-            showToast('Lỗi: Tên thiết bị chuẩn và Mã nhận diện bắt buộc phải nhập!', 'warning');
+            showToast('Lỗi: Tên thiết bị chuẩn và Mã nhận diện không được để trống!', 'warning');
         } else {
-            alert('Lỗi: Tên thiết bị chuẩn và Mã nhận diện bắt buộc phải nhập!');
+            alert('Lỗi: Tên thiết bị chuẩn và Mã nhận diện không được để trống!');
         }
         return;
     }
 
-    // Vòng lặp bóc tách danh sách mảng các thông số điểm chuẩn mặc định từ bảng trong Modal
+    // 2. Quét động mảng thông số điểm chuẩn mẫu cài đặt trong bảng Modal
     const points = [];
     document.querySelectorAll('.add-eq-data-row').forEach(row => {
         const pName = row.querySelector('.param-name')?.value || '';
@@ -627,49 +627,48 @@ async function executeCreateEquipment() {
         }
     });
 
-const payload = {
-    equipment_id: eqId.trim(),
-    standard_name: name.trim(),
-    manufacturer: manu.trim(),
-    expiry_date: due, 
-    points: points
-};
+    const payload = {
+        equipment_id: eqId.trim(),
+        standard_name: name.trim(),
+        manufacturer: manu.trim(),
+        due_date: due,
+        points: points
+    };
+
+    // Xác định URL API (Sử dụng hằng số toàn cục hoặc fallback về cổng 18080)
+    const TARGET_URL = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:18080');
 
     try {
         if (typeof showToast === 'function') {
-            showToast('Đang tiến hành ghi dữ liệu thiết bị vào database...', 'info');
+            showToast('Đang tiến hành lưu thiết bị vào database...', 'info');
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/equipment`, {
+        // 3. Thực hiện lệnh POST gửi dữ liệu lên Backend
+        const response = await fetch(`${TARGET_URL}/api/equipment`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
-        if (!response.ok) throw new Error("Mất kết nối API từ Server hoặc Endpoint sai.");
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
         const result = await response.json();
-        
         if (result.success) {
             if (typeof showToast === 'function') {
-                showToast('Đã lưu thiết bị chuẩn mới vào cơ sở dữ liệu thành công!', 'success');
+                showToast('Đã lưu thiết bị chuẩn mới và cập nhật giao diện!', 'success');
             } else {
-                alert('Đã thêm thiết bị chuẩn mới vào database thành công!');
+                alert('Đã thêm thiết bị chuẩn mới thành công!');
             }
-            
-            // Đóng Modal xổ ra
-            closeEquipmentModal(); 
-            
-            // Làm tươi lại bảng danh sách hiển thị ngoài màn hình chính
-            if (typeof fetchEquipmentList === 'function') {
+            closeEquipmentModal();
+            if (typeof init === 'function') {
+                init();
+            } else if (typeof fetchEquipmentList === 'function') {
                 fetchEquipmentList();
-            } else if (typeof updateTable === 'function') {
-                updateTable();
             } else {
-                window.location.reload(); // Cách dự phòng cuối cùng nếu trang không có hàm render động
+                window.location.reload(); // Phương án dự phòng cuối cùng
             }
         } else {
-            alert(`Lỗi lưu DB từ máy chủ: ${result.message}`);
+            alert(`Lỗi ghi nhận từ máy chủ: ${result.message}`);
         }
     } catch (error) {
         console.error("Lỗi kịch bản executeCreateEquipment:", error);

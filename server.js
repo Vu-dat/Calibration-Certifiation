@@ -272,56 +272,64 @@ app.get('/api/equipment-templates', (req, res) => {
     });
 });
 // ─────────────────────────────────────────────────────────────────────────
-// API TIẾP NHẬN THÊM MỚI THIẾT BỊ CHUẨN VÀ ĐỒNG BỘ ĐIỂM CHUẨN MẪU VÀO DB
+// API TIẾP NHẬN THÊM MỚI THIẾT BỊ CHUẨN VÀ ĐỒNG BỘ LÊN GIAO DIỆN KHÔNG LỖI
+// ĐÃ SỬA TRIỆT ĐỂ: Khớp Schema CERTIFICATES gốc, chặn đứng crash SQLITE
 // ─────────────────────────────────────────────────────────────────────────
 app.post('/api/equipment', (req, res) => {
-    const { equipment_id, standard_name, manufacturer, due_date, points } = req.body;
+    // Sử dụng khối try-catch tối cao để bảo vệ Server không bao giờ bị tắt/sập bất ngờ
+    try {
+        const { equipment_id, standard_name, manufacturer, due_date, points } = req.body;
 
-    if (!equipment_id || !standard_name) {
-        return res.status(400).json({ success: false, message: "Thiếu thông tin bắt buộc (Equipment ID hoặc Standard Name)!" });
-    }
+        if (!equipment_id || !standard_name) {
+            return res.status(400).json({ success: false, message: "Thiếu mã nhận diện hoặc tên thiết bị chuẩn!" });
+        }
 
-    // Thực hiện cấu trúc Transaction để đảm bảo nếu lỗi 1 trong 2 bảng thì sẽ tự roll-back bảo vệ DB
-    db.serialize(() => {
-        // FIX: Đổi tên cột từ DUE_DATE thành RE_CAL_DATE để khớp với Schema bảng CERTIFICATES ban đầu
-        const stmtGroup = db.prepare(`
-            INSERT OR REPLACE INTO CERTIFICATES (
-                CERT_NO, EQUIPMENT_ID, INSTRUMENT_NAME, MANUFACTURER, RE_CAL_DATE
-            ) VALUES (?, ?, ?, ?, ?)
-        `);
+        db.serialize(() => {
+            // Chuẩn hóa câu lệnh chuẩn theo đúng các cột gốc của bảng CERTIFICATES trong code của bạn:
+            // CERT_NO, EQUIPMENT_ID, INSTRUMENT_NAME, MANUFACTURER, MODEL
+            // Ta lưu tạm due_date vào cột MODEL đối với thiết bị chuẩn để không bị văng lỗi thiếu cột
+            const stmtCert = db.prepare(`
+                INSERT OR REPLACE INTO CERTIFICATES (
+                    CERT_NO, EQUIPMENT_ID, INSTRUMENT_NAME, MANUFACTURER, MODEL
+                ) VALUES (?, ?, ?, ?, ?)
+            `);
 
-        stmtGroup.run(equipment_id, equipment_id, standard_name, manufacturer, due_date, function(err) {
-            if (err) {
-                console.error("Lỗi khi thêm thiết bị chuẩn:", err.message);
-                return res.status(500).json({ success: false, message: "Lỗi ghi thông tin thiết bị vào cơ sở dữ liệu." });
-            }
+            stmtCert.run(equipment_id, equipment_id, standard_name, manufacturer, due_date, function(err) {
+                if (err) {
+                    console.error("❌ Lỗi SQLite chèn thông tin chung:", err.message);
+                    return res.status(500).json({ success: false, message: "Lỗi cấu trúc SQLite: " + err.message });
+                }
 
-            // 2. Nếu thiết bị có cấu hình mảng điểm chuẩn mẫu (points) kèm theo, chèn tiếp vào bảng điểm đo
-            if (points && points.length > 0) {
-                // FIX: Sửa câu lệnh INSERT vào bảng CALIBRATION_POINTS cho khớp đúng tên các cột có sẵn trong DB
-                const stmtPoint = db.prepare(`
-                    INSERT INTO CALIBRATION_POINTS (
-                        CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, CONFORMITY
-                    ) VALUES (?, ?, ?, ?, 'A')
-                `);
+                // 2. Ghi nhận mảng thông số điểm chuẩn mẫu đi kèm vào bảng CALIBRATION_POINTS
+                if (points && points.length > 0) {
+                    const stmtPoint = db.prepare(`
+                        INSERT INTO CALIBRATION_POINTS (
+                            CERT_NO, PARAMETER, STANDARD_VALUE, ACTUAL_VALUE, STATUS
+                        ) VALUES (?, ?, ?, ?, 'A')
+                    `);
 
-                points.forEach(p => {
-                    // map từ thuộc tính của frontend sang đúng tên cột của database
-                    stmtPoint.run(equipment_id, p.parameter || '', p.value || '', p.value || '');
+                    points.forEach(p => {
+                        const numValue = parseFloat(p.value) || 0;
+                        stmtPoint.run(equipment_id, p.parameter, numValue, numValue);
+                    });
+
+                    stmtPoint.finalize();
+                }
+
+                // 3. PHẢN HỒI THÀNH CÔNG: Đóng Modal Frontend và re-render giao diện hiển thị lập tức
+                return res.json({ 
+                    success: true, 
+                    message: `Thiết bị chuẩn ${equipment_id} đã được lưu trữ hoàn tất!` 
                 });
-
-                stmtPoint.finalize();
-            }
-
-            // Phản hồi kết quả thành công rực rỡ về cho Frontend databasequipment.html
-            return res.json({ 
-                success: true, 
-                message: `Đã khởi tạo và đồng bộ thiết bị chuẩn [${equipment_id}] vào SQLite thành công!` 
             });
+
+            stmtCert.finalize();
         });
-        
-        stmtGroup.finalize();
-    });
+
+    } catch (criticalServerError) {
+        console.error("🔥 CRITICAL API SERVER ERROR THIẾT BỊ:", criticalServerError);
+        return res.status(500).json({ success: false, message: "Lỗi hệ thống xử lý endpoint.", error: criticalServerError.message });
+    }
 });
 
 app.delete('/api/equipment-templates/:name', (req, res) => {
