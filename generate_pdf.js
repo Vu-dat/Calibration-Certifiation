@@ -28,8 +28,35 @@ if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
 const SAFE_NAME   = certNo.replace(/[^a-zA-Z0-9]/g, '_');
 const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.pdf`);
 
-const fontPath     = path.join(BASE_DIR, 'arial.ttf');
-const fontBoldPath = path.join(BASE_DIR, 'arial-bold.ttf');
+// ─────────────────────── CẤU HÌNH FONT (SỬA LỖI TIẾNG VIỆT) ───────────────────────
+// Chiến lược tìm kiếm font: Ưu tiên local -> Windows System -> Linux System
+const fontSearchPaths = {
+    regular: [
+        path.join(BASE_DIR, 'arial.ttf'),
+        'C:\\Windows\\Fonts\\arial.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf'
+    ],
+    bold: [
+        path.join(BASE_DIR, 'arial-bold.ttf'),
+        path.join(BASE_DIR, 'arialbd.ttf'),
+        'C:\\Windows\\Fonts\\arialbd.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'
+    ]
+};
+
+function findFirstExistingPath(paths) {
+    for (const p of paths) {
+        try {
+            if (fs.existsSync(p)) return p;
+        } catch (e) { continue; }
+    }
+    return null;
+}
+
+const FINAL_FONT_REGULAR_PATH = findFirstExistingPath(fontSearchPaths.regular);
+const FINAL_FONT_BOLD_PATH    = findFirstExistingPath(fontSearchPaths.bold);
 
 // ─────────────────────── KẾT NỐI DATABASE ───────────────────────
 const db = new sqlite3.Database(DB_PATH, (err) => {
@@ -44,11 +71,22 @@ function dbAll(sql, params) {
 }
 
 // ─────────────────────── HELPERS ───────────────────────
-const hasFont     = () => fs.existsSync(fontPath);
-const hasBoldFont = () => fs.existsSync(fontBoldPath);
+// Tên alias đăng ký với PDFKit — dùng nhất quán ở mọi nơi
+const FONT_REGULAR = 'ArialCustom';
+const FONT_BOLD    = 'ArialCustom-Bold';
+
 function setFont(doc, bold = false) {
-    if (bold && hasBoldFont()) { doc.font('arial-Bold'); return; }
-    if (hasFont()) doc.font('arial');
+    if (bold && FINAL_FONT_BOLD_PATH) {
+        try { doc.font(FONT_BOLD); } catch (e) { doc.font('Helvetica-Bold'); }
+    } else if (!bold && FINAL_FONT_REGULAR_PATH) {
+        try { doc.font(FONT_REGULAR); } catch (e) { doc.font('Helvetica'); }
+    } else {
+        if (!FINAL_FONT_REGULAR_PATH) {
+            console.error("CRITICAL WARNING: Không tìm thấy font hỗ trợ Tiếng Việt (Arial). PDF sẽ bị lỗi hiển thị!");
+        }
+        // Fallback sang font mặc định (sẽ bị lỗi dấu tiếng Việt nếu rơi vào đây)
+        doc.font(bold ? 'Helvetica-Bold' : 'Helvetica');
+    }
 }
 
 // ─────────────────────── LUỒNG CHÍNH ───────────────────────
@@ -77,8 +115,13 @@ async function main() {
         const writeStream = fs.createWriteStream(OUTPUT_FILE);
         doc.pipe(writeStream);
 
-        if (hasFont())     doc.registerFont('arial', fontPath);
-        if (hasBoldFont()) doc.registerFont('arial-Bold', fontBoldPath);
+        // Đăng ký font với alias nhất quán — chỉ đăng ký khi file thực sự tồn tại
+        try {
+            if (FINAL_FONT_REGULAR_PATH) doc.registerFont(FONT_REGULAR, FINAL_FONT_REGULAR_PATH);
+            if (FINAL_FONT_BOLD_PATH)    doc.registerFont(FONT_BOLD,    FINAL_FONT_BOLD_PATH);
+        } catch (err) {
+            console.error("Lỗi nghiêm trọng khi đăng ký font TrueType:", err.message);
+        }
 
         const C = {
             PRIMARY:       '#007a78',

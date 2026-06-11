@@ -425,6 +425,26 @@ app.post('/api/calibration/export-pdf', (req, res) => {
         }
 
         // 4. Ghi thiết bị chuẩn mới — map đúng field gửi từ frontend
+        // 5. Sau khi finalize() của bước cuối xác nhận DB ghi xong, mới gọi generate_pdf.js
+        const runExec = () => {
+            exec(`node "${scriptPath}" "${cert_no}"`, (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`Lỗi thực thi generate_pdf.js: ${error.message}`);
+                    if (stderr) console.error(`Chi tiết: ${stderr}`);
+                    return res.status(500).json({ success: false, message: "Lỗi hệ thống khi sinh PDF." });
+                }
+
+                const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+                logActivity("Hệ thống / KTV", "EXPORT_PDF", "CERTIFICATES", cert_no, `Xuất PDF: ${fileName}`);
+
+                return res.json({
+                    success: true,
+                    message: `Đã xuất thành công GCN_${cert_no}.pdf`,
+                    file_url: `http://localhost:${process.env.PORT || 18080}/static/${fileName}`
+                });
+            });
+        };
+
         const stds = data.standards || [];
         if (stds.length > 0) {
             const stdStmt = db.prepare(`
@@ -434,26 +454,15 @@ app.post('/api/calibration/export-pdf', (req, res) => {
             stds.forEach(s => {
                 stdStmt.run([cert_no, s.id || s.code || '', s.name || '', s.trace || s.link || '', s.due || s.validity || '']);
             });
-            stdStmt.finalize();
-        }
-
-        // 5. Sau khi lưu xong, gọi script generate_pdf.js
-        exec(`node "${scriptPath}" "${cert_no}"`, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Lỗi thực thi generate_pdf.js: ${error.message}`);
-                if (stderr) console.error(`Chi tiết: ${stderr}`);
-                return res.status(500).json({ success: false, message: "Lỗi hệ thống khi sinh PDF." });
-            }
-
-            const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-            logActivity("Hệ thống / KTV", "EXPORT_PDF", "CERTIFICATES", cert_no, `Xuất PDF: ${fileName}`);
-
-            return res.json({
-                success: true,
-                message: `Đã xuất thành công GCN_${cert_no}.pdf`,
-                file_url: `http://localhost:${process.env.PORT || 18080}/static/${fileName}`
+            // Chờ finalize hoàn tất (tất cả INSERT đã flush vào DB) rồi mới sinh PDF
+            stdStmt.finalize((err) => {
+                if (err) return res.status(500).json({ success: false, error: err.message });
+                runExec();
             });
-        });
+        } else {
+            // Không có standards — chờ bước serialize kết thúc rồi sinh PDF
+            db.run("SELECT 1", [], () => runExec());
+        }
     });
 });
 
