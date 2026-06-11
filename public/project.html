@@ -391,7 +391,11 @@
         <h3 style="margin-bottom:16px;">Khởi tạo dự án mới</h3>
         <div class="field">
             <label>Tên dự án hiệu chuẩn</label>
-            <input type="text" id="m-proj-name" placeholder="Ví dụ: Hiệu chuẩn máy giặt...">
+            <input type="text" id="m-proj-name" placeholder="Ví dụ: Hiệu chuẩn máy giặt Wascator FOM 71CLS...">
+        </div>
+        <div class="field" style="margin-top:12px;">
+            <label>Kỹ thuật viên phụ trách</label>
+            <input type="text" id="m-proj-tech" placeholder="Ví dụ: Nguyễn Văn A...">
         </div>
         <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
             <button class="btn btn-secondary btn-sm" onclick="closeModal('modal-create-project')">Hủy</button>
@@ -515,9 +519,12 @@ function showDbSyncBadge() {
 
 /* ====== PROJECT DATA ====== */
 let projectsList = [];
+let currentActiveCertNo = null; 
 let currentProjectId = null;
 let currentTitle = '';
-const API_URL = "http://localhost:18080/api";
+const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:18080/api'
+    : 'https://labmaster-backend.onrender.com/api'; 
 
 /* ====== SIMPLE MODE STATE ====== */
 let standards = [];
@@ -768,19 +775,29 @@ function addStandardTag(eq) {
 }
 
 function renderStandardTags() {
-  const wrapper = document.getElementById('selected-standards-wrapper');
-  const tbody = document.getElementById('selected-standards-body');
-  if (selectedStandards.length === 0) { wrapper.style.display='none'; return; }
-  wrapper.style.display = 'block';
-  tbody.innerHTML = selectedStandards.map((eq, i) => `
-    <tr>
-      <td>${eq.name}</td>
-      <td><strong>${eq.code}</strong></td>
-      <td>${eq.link} / ${eq.gcn}</td>
-      <td class="validity-ok">${eq.validity}</td>
-      <td style="text-align:center;"><button class="delete-btn" onclick="removeStandardTag(${i})">🗑</button></td>
-    </tr>
-  `).join('');
+    // Tìm kiếm thông minh dựa trên mọi khả năng ID có thể có trong HTML của bạn
+    const container = document.getElementById('selected-standards-list') 
+                   || document.getElementById('standards-tags-container')
+                   || document.querySelector('.selected-standards-container');
+    
+    // PHÒNG VỆ TRIỆT ĐỂ: Nếu chưa mở tab hoặc không tìm thấy container, lưu log và thoát an toàn
+    if (!container) {
+        console.log("Hệ thống ẩn hoặc chưa nạp vùng hiển thị Tag thiết bị chuẩn. Bỏ qua để chống crash.");
+        return;
+    }
+
+    container.innerHTML = '';
+    
+    // Đảm bảo biến selectedStandards có tồn tại và là mảng
+    if (typeof selectedStandards !== 'undefined' && Array.isArray(selectedStandards)) {
+        selectedStandards.forEach((std, index) => {
+            const tag = document.createElement('span');
+            tag.className = 'standard-tag';
+            tag.style = "display: inline-block; background: #e6f2f2; color: #007a78; padding: 4px 8px; margin: 2px; border-radius: 4px; font-size: 13px;";
+            tag.innerHTML = `${std} <span class="remove-tag" style="cursor:pointer; margin-left: 5px; color: #c0392b;" onclick="removeStandardTag(${index})">&times;</span>`;
+            container.appendChild(tag);
+        });
+    }
 }
 function removeStandardTag(i) { selectedStandards.splice(i,1); renderStandardTags(); }
 
@@ -1101,58 +1118,77 @@ async function markProjectAsFinished(skipConfirm = false) {
   }
 }
 
-/**
- * Xuất PDF qua Backend và tự động chuyển trạng thái dự án sang Finished
- */
 async function exportPDFAndFinish() {
-  const certNo = document.getElementById('f-certno').value;
-  if (!certNo) {
-    showToast("Không tìm thấy số GCN để xuất PDF", "error");
-    return;
-  }
+    // Lấy cert_no từ field nhập liệu trong workspace (f-certno)
+    const certNo = (document.getElementById('f-certno')?.value || '').trim()
+                || (typeof currentActiveCertNo !== 'undefined' && currentActiveCertNo)
+                || '';
 
-  showToast("Đang tạo tệp PDF chuyên nghiệp...");
-
-  try {
-    // 1. Gọi API Backend để render PDF từ dữ liệu SQL
-    const res = await fetch(`${API_URL}/calibration/export-pdf/${certNo}`);
-    const result = await res.json();
-
-    if (result.success) {
-      // 2. Mở file PDF trong tab mới để KTV xem/in
-      const pdfFullUrl = `${window.location.origin}${result.pdf_url}`;
-      window.open(pdfFullUrl, '_blank');
-
-      // 3. Tự động cập nhật trạng thái dự án thành Finished (bỏ qua bước xác nhận)
-      const proj = projectsList.find(p => p.ID === currentProjectId);
-      if (proj && proj.STATUS !== 'Finished') {
-        await markProjectAsFinished(true); 
-      }
-      
-      showToast("Xuất PDF thành công & Dự án đã được tự động hoàn thành!");
-    } else {
-      showToast("Lỗi khi tạo PDF: " + result.message, "error");
+    if (!certNo || certNo === '-') {
+        showToast('Vui lòng nhập Số chứng nhận (Cert No.) trong phần thông tin thiết bị!', 'warning');
+        return;
     }
-  } catch (err) {
-    console.error(err);
-    showToast("Lỗi kết nối server khi xuất PDF", "error");
-  }
-}
 
-async function confirmCreateProject() {
-  const name = document.getElementById('m-proj-name').value;
-  if (!name) return;
-  const user = JSON.parse(localStorage.getItem('labmaster_user'));
-  const newProj = { title: name, tech: user.fullName || 'KTV. Nguyễn Văn A', status: 'In Progress' };
-  
-  await fetch(`${API_URL}/projects`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newProj)
-  });
-  closeModal('modal-create-project');
-  showToast("Dự án mới đã được khởi tạo!");
-  fetchProjects();
+    showToast('Đang lưu dữ liệu và sinh file PDF...', 'info');
+
+    // Thu thập điểm đo từ bảng calibration-table-body (advanced mode)
+    const pointRecords = collectCalibrationResults().map(r => ({
+        parameterName: r.param,
+        calPoint:      r.point,
+        asFoundValue:  r.found,
+        uncertainty:   r.unc,
+        tolerance:     r.tol,
+        conformity:    r.conf
+    }));
+
+    // Thu thập thiết bị chuẩn đã chọn
+    const standardRecords = collectAllStandards().map(s => ({
+        name:  s.name,
+        id:    s.id,
+        trace: s.trace,
+        due:   s.due
+    }));
+
+    // Gom toàn bộ thông tin từ form editor — dùng đúng ID f-* đã khai báo trong HTML
+    const payload = {
+        cert_no:        certNo,
+        instrumentName: txt('f-inst-vi'),
+        manufacturer:   txt('f-mfr'),
+        model:          txt('f-model'),
+        equipmentId:    txt('f-id'),
+        serialNumber:   txt('f-sn'),
+        customerName:   txt('f-cust'),
+        calDate:        txt('f-caldate'),
+        reCalDate:      txt('f-recaldate'),
+        procedure:      txt('f-proc'),
+        refStandard:    txt('f-ref'),
+        tempEnv:        txt('f-temp'),
+        humiEnv:        txt('f-humi'),
+        headOfLab:      txt('f-sign1'),
+        director:       txt('f-sign2'),
+        points:         pointRecords,
+        standards:      standardRecords
+    };
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/calibration/export-pdf`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showToast(result.message, 'success');
+            if (result.file_url) window.open(result.file_url, '_blank');
+            if (typeof fetchProjects === 'function') fetchProjects();
+        } else {
+            showToast(`Lỗi xử lý từ Server: ${result.message}`, 'danger');
+        }
+    } catch (error) {
+        console.error("Lỗi API xuất PDF:", error);
+        showToast('Lỗi kết nối máy chủ, không thể sinh PDF!', 'danger');
+    }
 }
 
 async function saveCalibrationData() {
@@ -1190,50 +1226,36 @@ function deleteProject(id) {
   });
 }
 
-async function loadExistingCalibration(certNo) {
-    const res = await fetch(`${API_URL}/calibration/${certNo}`);
-    if (!res.ok) return false;
-    const data = await res.json();
-    if (!data.cert) return false;
+async function loadExistingCalibration(projectId) {
+    currentActiveCertNo = projectId; 
+    currentProjectId = projectId;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/calibration/${projectId}`);
+        
+        if (response.status === 404) {
+            console.log("Dự án mới, chưa có dữ liệu hiệu chuẩn cũ.");
+            resetWorkspaceForm();
+            return;
+        }
 
-    const c = data.cert;
-    const s = data.standards;
-    document.getElementById('f-inst-vi').value = c.INSTRUMENT_NAME;
-    document.getElementById('f-mfr').value = c.MANUFACTURER;
-    document.getElementById('f-model').value = c.MODEL;
-    document.getElementById('f-id').value = c.EQUIPMENT_ID;
-    document.getElementById('f-sn').value = c.SERIAL_NUMBER;
-    document.getElementById('f-cust').value = c.CUSTOMER_NAME;
-    document.getElementById('f-caldate').value = c.CAL_DATE;
-    document.getElementById('f-recaldate').value = c.RE_CAL_DATE;
-    document.getElementById('f-proc').value = c.PROCEDURE;
-    document.getElementById('f-ref').value = c.REF_STANDARD;
-    document.getElementById('f-temp').value = c.TEMP_ENV;
-    document.getElementById('f-humi').value = c.HUMI_ENV;
-    document.getElementById('f-sign1').value = c.HEAD_OF_LAB;
-    document.getElementById('f-sign2').value = c.DIRECTOR;
+        if (!response.ok) throw new Error("Lỗi kết nối API lấy dữ liệu hiệu chuẩn");
 
-    selectedStandards = s.map(std => ({ name: std.EQ_NAME, id: std.EQ_CODE, link: std.LINK, validity: std.VALIDITY, gcn: '' })); // Populate selectedStandards
-    renderStandardTags(); // Render the loaded standards
-
-    const tbody = document.getElementById('calibration-table-body');
-    tbody.innerHTML = '';
-    data.points.forEach(p => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><input type="text" class="lab-input-cell" value="${p.PARAMETER_NAME}"></td>
-            <td><input type="text" class="lab-input-cell cal-point" value="${p.CAL_POINT}"></td>
-            <td><input type="text" class="lab-input-cell measured-active as-found-1" value="${p.AS_FOUND_VALUE}"></td>
-            <td><input type="text" class="lab-input-cell as-found-2" value=""></td>
-            <td><input type="text" class="lab-input-cell as-found-3" value=""></td>
-            <td><input type="text" class="lab-input-cell uncertainty" value="${p.UNCERTAINTY}"></td>
-            <td><input type="text" class="lab-input-cell tolerance" value="${p.TOLERANCE}"></td>
-            <td><input type="text" class="lab-input-cell conformity" value="${p.CONFORMITY}"></td>
-            <td style="text-align:center;"><button onclick="this.closest('tr').remove();updateRowCount();" class="btn-rm">×</button></td>
-        `;
-        tbody.appendChild(row);
-    });
-    return true;
+        const result = await response.json();
+        if (result && result.hasData) {
+            // Trường hợp ĐÃ CÓ dữ liệu cũ: Gọi hàm đổ mảng kết quả vào bảng của bạn
+            if (typeof fillCalibrationTableRows === 'function') {
+                fillCalibrationTableRows(result.points);
+                showToast("Đã khôi phục thành công tiến trình hiệu chuẩn cũ từ hệ thống.", "success");
+            } else {
+                console.warn("Chưa định nghĩa hàm fillCalibrationTableRows để hiển thị điểm đo cũ.");
+            }
+        }
+    } catch (error) {
+        console.error("Lỗi kiểm tra lịch sử hiệu chuẩn:", error);
+        // Nếu kẹt mạng hoặc lỗi bất ngờ, vẫn dọn sạch form để người dùng nhập mới
+        resetWorkspaceForm();
+    }
 }
 
 /* ====== CLOSE DROPDOWNS ON OUTSIDE CLICK ====== */
@@ -1295,10 +1317,81 @@ async function loadProjectDetail() {
     }
 }
 
-// Kích hoạt hàm chạy ngay khi trang web tải xong giao diện
 document.addEventListener("DOMContentLoaded", () => {
     loadProjectDetail();
 });
+
+function resetWorkspaceForm() {
+    console.log("Đang làm sạch không gian làm việc cho dự án mới...");
+    
+    // Clear sạch các ô input an toàn bằng toán học optional chaining
+    const inputs = document.querySelectorAll('#calibration-editor-view input[type=text], #calibration-editor-view textarea');
+    if (inputs && inputs.length > 0) {
+        inputs.forEach(el => {
+            if (!el.classList.contains('cal-point')) el.value = '';
+        });
+    }
+    
+    selectedStandards = [];
+    
+    const tableBody = document.getElementById('calibration-table-body');
+    if (tableBody) {
+        tableBody.innerHTML = '<tr><td colspan="9" class="cal-empty-state" style="text-align:center; padding: 20px; color:#9e9c96;">🔍 Dự án mới: Chọn thiết bị chuẩn và nhập kết quả điểm đo thực tế của bạn</td></tr>';
+    }
+    
+    renderStandardTags();
+}
+
+// Hàm hiển thị Modal nhập liệu hoặc xác nhận tạo dự án mới
+function confirmCreateProject() {
+    const addModal = document.getElementById('modal-create-project');
+
+    // Nếu modal đang mở (người dùng bấm "Khởi tạo ngay" bên trong modal), lấy dữ liệu và gửi lên
+    const newTitle = (document.getElementById('m-proj-name')?.value || '').trim();
+    const newTech  = (document.getElementById('m-proj-tech')?.value || '').trim();
+
+    if (!newTitle) {
+        showToast('Vui lòng nhập tên dự án!', 'warning');
+        return;
+    }
+
+    closeModal('modal-create-project');
+
+    executeCreateProject({
+        title:  newTitle,
+        tech:   newTech || 'Chưa phân công',
+        status: 'In Progress'
+    });
+}
+
+// Hàm gửi dữ liệu POST lên Backend để ghi vào SQLite
+async function executeCreateProject(projectData) {
+    try {
+        showToast('Đang khởi tạo dự án trên hệ thống...', 'info');
+        const response = await fetch(`${API_BASE_URL}/api/projects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(projectData)
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showToast('Tạo dự án mới thành công!', 'success');
+            
+            // Xóa sạch ô nhập sau khi thêm thành công
+            if(document.getElementById('m-proj-name')) document.getElementById('m-proj-name').value = '';
+            if(document.getElementById('m-proj-tech')) document.getElementById('m-proj-tech').value = '';
+            
+            // Làm tươi lại danh sách hiển thị
+            if (typeof fetchProjects === 'function') fetchProjects();
+        } else {
+            showToast(`Lỗi từ máy chủ: ${result.message || result.error}`, 'danger');
+        }
+    } catch (error) {
+        console.error("Lỗi kết nối API tạo dự án:", error);
+        showToast('Không thể kết nối đến máy chủ để tạo dự án!', 'danger');
+    }
+}
 </script>
 </body>
 </html>

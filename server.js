@@ -3,7 +3,8 @@ const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const path = require('path');
 const { exec } = require('child_process');
-
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
 const app = express();
 const port = process.env.PORT || 18080;
 app.use(cors());
@@ -250,24 +251,7 @@ app.post('/api/calibration/save', (req, res) => {
 
 });
 
-app.get('/api/calibration/export-pdf/:certNo', (req, res) => {
-    const certNo = req.params.certNo;
-    const scriptPath = path.join(__dirname, 'generate_pdf.js');
 
-    // Ép chạy file generate_pdf.js qua dòng lệnh và hứng toàn bộ lỗi hệ thống
-    exec(`node "${scriptPath}" "${certNo}"`, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`❌ [PDF CRASH] Lỗi thực thi tệp tin: ${error.message}`);
-            if (stderr) {
-                console.error(`🔍 [CHI TIẾT LỖI SẬP]: ${stderr}`);
-            }
-            return res.status(500).json({ success: false, message: "Lỗi tạo PDF" });
-        }
-        
-        // Trả về link file tĩnh nếu tạo thành công
-        res.json({ success: true, pdfUrl: `/static/certificates/GCN_${certNo}.pdf` });
-    });
-});
 
 // ================= API QUẢN LÝ MẪU THIẾT BỊ (DATABASE EQUIPMENT) =================
 
@@ -360,6 +344,116 @@ app.get('/api/stats/summary', (req, res) => {
     db.get("SELECT COUNT(*) as certCount FROM CERTIFICATES", [], (err, row) => {
         if (err) return res.status(500).json({ success: false });
         res.json({ certCount: row.certCount || 0 });
+    });
+});
+
+// Tạo thư mục static nếu chưa tồn tại để tránh lỗi kẹt file
+const staticDir = path.join(__dirname, 'static');
+if (!fs.existsSync(staticDir)) fs.mkdirSync(staticDir, { recursive: true });
+
+/**
+ * POST /api/calibration/export-pdf
+ * Nhận toàn bộ dữ liệu workspace từ frontend, lưu vào DB, sau đó gọi generate_pdf.js để xuất file.
+ * Body: { cert_no, instrumentName, manufacturer, model, equipmentId, serialNumber,
+ *         customerName, calDate, reCalDate, procedure, refStandard, tempEnv, humiEnv,
+ *         headOfLab, director, points: [{parameterName, calPoint, asFoundValue, uncertainty, tolerance, conformity}],
+ *         standards: [{name, id, trace, due}] }
+ */
+app.post('/api/calibration/export-pdf', (req, res) => {
+    const data = req.body;
+    const cert_no = data.cert_no || data.certNo;
+
+    if (!cert_no) {
+        return res.status(400).json({ success: false, message: "Thiếu số chứng nhận cert_no!" });
+    }
+
+    const scriptPath = path.join(__dirname, 'generate_pdf.js');
+
+    // Hàm lưu dữ liệu vào DB rồi mới gọi script sinh PDF
+    db.serialize(() => {
+        // 1. Lưu / cập nhật bảng CERTIFICATES
+        const certStmt = db.prepare(`
+            INSERT OR REPLACE INTO CERTIFICATES 
+            (CERT_NO, INSTRUMENT_NAME, MANUFACTURER, MODEL, EQUIPMENT_ID, SERIAL_NUMBER,
+             CUSTOMER_NAME, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV,
+             HEAD_OF_LAB, DIRECTOR)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `);
+        certStmt.run([
+            cert_no,
+            data.instrumentName || data.instrument_name || '',
+            data.manufacturer   || '',
+            data.model          || '',
+            data.equipmentId    || data.equipment_id    || '',
+            data.serialNumber   || data.serial_number   || '',
+            data.customerName   || data.customer_name   || '',
+            data.calDate        || data.cal_date         || '',
+            data.reCalDate      || data.re_cal_date      || '',
+            data.procedure      || '',
+            data.refStandard    || data.ref_standard     || '',
+            data.tempEnv        || data.temp_env         || '',
+            data.humiEnv        || data.humi_env         || '',
+            data.headOfLab      || data.head_of_lab      || '',
+            data.director       || ''
+        ]);
+        certStmt.finalize();
+
+        // 2. Xóa điểm đo cũ và thiết bị chuẩn cũ
+        db.run("DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ?", [cert_no]);
+        db.run("DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ?", [cert_no]);
+
+        // 3. Ghi điểm đo mới — map đúng tên field gửi từ frontend
+        const points = data.points || [];
+        if (points.length > 0) {
+            const ptStmt = db.prepare(`
+                INSERT INTO CALIBRATION_POINTS
+                (CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY)
+                VALUES (?,?,?,?,?,?,?)
+            `);
+            points.forEach(p => {
+                ptStmt.run([
+                    cert_no,
+                    p.parameterName || p.param    || '',
+                    p.calPoint      || p.point    || '',
+                    p.asFoundValue  || p.found    || '',
+                    p.uncertainty   || p.unc      || '',
+                    p.tolerance     || p.tol      || '',
+                    p.conformity    || p.conf     || ''
+                ]);
+            });
+            ptStmt.finalize();
+        }
+
+        // 4. Ghi thiết bị chuẩn mới — map đúng field gửi từ frontend
+        const stds = data.standards || [];
+        if (stds.length > 0) {
+            const stdStmt = db.prepare(`
+                INSERT INTO CERTIFICATE_STANDARDS (CERT_NO, EQ_CODE, EQ_NAME, LINK, VALIDITY)
+                VALUES (?,?,?,?,?)
+            `);
+            stds.forEach(s => {
+                stdStmt.run([cert_no, s.id || s.code || '', s.name || '', s.trace || s.link || '', s.due || s.validity || '']);
+            });
+            stdStmt.finalize();
+        }
+
+        // 5. Sau khi lưu xong, gọi script generate_pdf.js
+        exec(`node "${scriptPath}" "${cert_no}"`, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Lỗi thực thi generate_pdf.js: ${error.message}`);
+                if (stderr) console.error(`Chi tiết: ${stderr}`);
+                return res.status(500).json({ success: false, message: "Lỗi hệ thống khi sinh PDF." });
+            }
+
+            const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+            logActivity("Hệ thống / KTV", "EXPORT_PDF", "CERTIFICATES", cert_no, `Xuất PDF: ${fileName}`);
+
+            return res.json({
+                success: true,
+                message: `Đã xuất thành công GCN_${cert_no}.pdf`,
+                file_url: `http://localhost:${process.env.PORT || 18080}/static/${fileName}`
+            });
+        });
     });
 });
 
