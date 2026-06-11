@@ -283,11 +283,10 @@ app.post('/api/equipment', (req, res) => {
 
     // Thực hiện cấu trúc Transaction để đảm bảo nếu lỗi 1 trong 2 bảng thì sẽ tự roll-back bảo vệ DB
     db.serialize(() => {
-        // 1. Chèn thông tin chung của thiết bị chuẩn vào bảng lưu trữ của bạn
-        // Lưu ý: Hãy chắc chắn tên bảng (ví dụ: EQUIPMENTS hoặc STANDARD_EQUIPMENT) khớp với schema của bạn
+        // FIX: Đổi tên cột từ DUE_DATE thành RE_CAL_DATE để khớp với Schema bảng CERTIFICATES ban đầu
         const stmtGroup = db.prepare(`
             INSERT OR REPLACE INTO CERTIFICATES (
-                CERT_NO, EQUIPMENT_ID, INSTRUMENT_NAME, MANUFACTURER, DUE_DATE
+                CERT_NO, EQUIPMENT_ID, INSTRUMENT_NAME, MANUFACTURER, RE_CAL_DATE
             ) VALUES (?, ?, ?, ?, ?)
         `);
 
@@ -299,15 +298,16 @@ app.post('/api/equipment', (req, res) => {
 
             // 2. Nếu thiết bị có cấu hình mảng điểm chuẩn mẫu (points) kèm theo, chèn tiếp vào bảng điểm đo
             if (points && points.length > 0) {
+                // FIX: Sửa câu lệnh INSERT vào bảng CALIBRATION_POINTS cho khớp đúng tên các cột có sẵn trong DB
                 const stmtPoint = db.prepare(`
                     INSERT INTO CALIBRATION_POINTS (
-                        CERT_NO, PARAMETER, STANDARD_VALUE, ACTUAL_VALUE, STATUS
+                        CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, CONFORMITY
                     ) VALUES (?, ?, ?, ?, 'A')
                 `);
 
                 points.forEach(p => {
-                    // Chèn điểm chuẩn mẫu (Lấy giá trị mẫu làm chuẩn, giá trị hiển thị để trống hoặc bằng giá trị mẫu)
-                    stmtPoint.run(equipment_id, p.parameter, parseFloat(p.value) || 0, parseFloat(p.value) || 0);
+                    // map từ thuộc tính của frontend sang đúng tên cột của database
+                    stmtPoint.run(equipment_id, p.parameter || '', p.value || '', p.value || '');
                 });
 
                 stmtPoint.finalize();

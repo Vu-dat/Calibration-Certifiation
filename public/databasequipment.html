@@ -219,6 +219,7 @@
 </main>
 
 <script>
+    const TARGET_URL = 'http://localhost:18080';
     document.addEventListener("DOMContentLoaded", () => {
     const user = localStorage.getItem('labmaster_user');
     if (!user) {
@@ -626,22 +627,20 @@ async function executeCreateEquipment() {
         }
     });
 
-    // Thiết lập gói tin (Payload) đẩy lên server
-    const payload = {
-        equipment_id: eqId.trim(),
-        standard_name: name.trim(),
-        manufacturer: manu.trim(),
-        due_date: due,
-        points: points
-    };
+const payload = {
+    equipment_id: eqId.trim(),
+    standard_name: name.trim(),
+    manufacturer: manu.trim(),
+    expiry_date: due, 
+    points: points
+};
 
     try {
         if (typeof showToast === 'function') {
             showToast('Đang tiến hành ghi dữ liệu thiết bị vào database...', 'info');
         }
 
-        // Thực hiện lệnh POST đến endpoint backend
-        const response = await fetch(`${TARGET_URL}/api/equipment`, {
+        const response = await fetch(`${API_BASE_URL}/api/equipment`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
