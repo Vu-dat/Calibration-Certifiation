@@ -1365,31 +1365,58 @@ function confirmCreateProject() {
 }
 
 // Hàm gửi dữ liệu POST lên Backend để ghi vào SQLite
-async function executeCreateProject(projectData) {
+async function executeCreateEquipment() {
+    const name = document.getElementById('new-name')?.value || '';
+    const eqId = document.getElementById('new-eq-id')?.value || '';
+    const manu = document.getElementById('new-manu')?.value || '';
+    const due  = document.getElementById('new-due')?.value || '';
+
+    if (!name.trim() || !eqId.trim()) {
+        alert('Lỗi cú pháp: Tên thiết bị chuẩn và Mã nhận diện bắt buộc không được để trống!');
+        return;
+    }
+
+    // Thu thập danh sách điểm đo mẫu cấu hình trong bảng của Modal
+    const points = [];
+    document.querySelectorAll('#new-calibration-table-rows tr').forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        if (inputs.length >= 2 && (inputs[0].value || inputs[1].value)) {
+            points.push({
+                parameter: inputs[0].value.trim(),
+                value: inputs[1].value.trim()
+            });
+        }
+    });
+
+    const payload = {
+        equipment_id: eqId.trim(),
+        standard_name: name.trim(),
+        manufacturer: manu.trim(),
+        due_date: due,
+        points: points
+    };
+
     try {
-        showToast('Đang khởi tạo dự án trên hệ thống...', 'info');
-        const response = await fetch(`${API_BASE_URL}/api/projects`, {
+        // Gọi API POST lên Server (Đảm bảo hằng số API_BASE_URL đã được bạn khai báo ở đầu file)
+        const response = await fetch(`${API_BASE_URL}/api/equipment`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(projectData)
+            body: JSON.stringify(payload)
         });
 
         const result = await response.json();
         if (result.success) {
-            showToast('Tạo dự án mới thành công!', 'success');
+            alert('Đã lưu dữ liệu thiết bị chuẩn mới vào database thành công!');
+            closeEquipmentModal(); // Đóng form xổ ra
             
-            // Xóa sạch ô nhập sau khi thêm thành công
-            if(document.getElementById('m-proj-name')) document.getElementById('m-proj-name').value = '';
-            if(document.getElementById('m-proj-tech')) document.getElementById('m-proj-tech').value = '';
-            
-            // Làm tươi lại danh sách hiển thị
-            if (typeof fetchProjects === 'function') fetchProjects();
+            // Gọi hàm tải lại danh sách thiết bị chuẩn chính thức của bạn để làm tươi màn hình
+            if (typeof fetchEquipmentList === 'function') fetchEquipmentList(); 
         } else {
-            showToast(`Lỗi từ máy chủ: ${result.message || result.error}`, 'danger');
+            alert(`Máy chủ báo lỗi: ${result.message}`);
         }
     } catch (error) {
-        console.error("Lỗi kết nối API tạo dự án:", error);
-        showToast('Không thể kết nối đến máy chủ để tạo dự án!', 'danger');
+        console.error("Lỗi kết nối máy chủ:", error);
+        alert('Không thể kết nối đến API hệ thống để lưu thiết bị mới!');
     }
 }
 </script>

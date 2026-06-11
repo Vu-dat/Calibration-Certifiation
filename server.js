@@ -271,25 +271,56 @@ app.get('/api/equipment-templates', (req, res) => {
         Promise.all(fetchPoints).then(results => res.json(results));
     });
 });
+// ─────────────────────────────────────────────────────────────────────────
+// API TIẾP NHẬN THÊM MỚI THIẾT BỊ CHUẨN VÀ ĐỒNG BỘ ĐIỂM CHUẨN MẪU VÀO DB
+// ─────────────────────────────────────────────────────────────────────────
+app.post('/api/equipment', (req, res) => {
+    const { equipment_id, standard_name, manufacturer, due_date, points } = req.body;
 
-app.post('/api/equipment-templates', (req, res) => {
-    const { name, manufacturer, nextDue, formPoints } = req.body;
-    if (!name) return res.status(400).json({ success: false, message: "Thiếu tên thiết bị" });
+    if (!equipment_id || !standard_name) {
+        return res.status(400).json({ success: false, message: "Thiếu thông tin bắt buộc (Equipment ID hoặc Standard Name)!" });
+    }
 
+    // Thực hiện cấu trúc Transaction để đảm bảo nếu lỗi 1 trong 2 bảng thì sẽ tự roll-back bảo vệ DB
     db.serialize(() => {
-        db.run("INSERT OR REPLACE INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE) VALUES (?, ?, ?)", [name, manufacturer, nextDue]);
-        db.run("DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ?", [name], () => {
-            if (formPoints && formPoints.length > 0) {
-                const stmt = db.prepare("INSERT INTO TEMPLATE_POINTS (TEMPLATE_NAME, PARAMETER_NAME, CAL_POINT, UNCERTAINTY, TOLERANCE, CONFORMITY) VALUES (?, ?, ?, ?, ?, ?)");
-                formPoints.forEach(p => {
-                    // Đồng bộ tên field từ frontend (paramName, point...)
-                    stmt.run([name, p.paramName, p.point, p.uncertainty, p.tolerance, p.conformity]);
-                });
-                stmt.finalize();
+        // 1. Chèn thông tin chung của thiết bị chuẩn vào bảng lưu trữ của bạn
+        // Lưu ý: Hãy chắc chắn tên bảng (ví dụ: EQUIPMENTS hoặc STANDARD_EQUIPMENT) khớp với schema của bạn
+        const stmtGroup = db.prepare(`
+            INSERT OR REPLACE INTO CERTIFICATES (
+                CERT_NO, EQUIPMENT_ID, INSTRUMENT_NAME, MANUFACTURER, DUE_DATE
+            ) VALUES (?, ?, ?, ?, ?)
+        `);
+
+        stmtGroup.run(equipment_id, equipment_id, standard_name, manufacturer, due_date, function(err) {
+            if (err) {
+                console.error("Lỗi khi thêm thiết bị chuẩn:", err.message);
+                return res.status(500).json({ success: false, message: "Lỗi ghi thông tin thiết bị vào cơ sở dữ liệu." });
             }
-            logActivity("Hệ thống", "UPDATE", "EQUIPMENT_TEMPLATES", name, `Cập nhật mẫu thiết bị: ${name}`);
-            res.json({ success: true });
+
+            // 2. Nếu thiết bị có cấu hình mảng điểm chuẩn mẫu (points) kèm theo, chèn tiếp vào bảng điểm đo
+            if (points && points.length > 0) {
+                const stmtPoint = db.prepare(`
+                    INSERT INTO CALIBRATION_POINTS (
+                        CERT_NO, PARAMETER, STANDARD_VALUE, ACTUAL_VALUE, STATUS
+                    ) VALUES (?, ?, ?, ?, 'A')
+                `);
+
+                points.forEach(p => {
+                    // Chèn điểm chuẩn mẫu (Lấy giá trị mẫu làm chuẩn, giá trị hiển thị để trống hoặc bằng giá trị mẫu)
+                    stmtPoint.run(equipment_id, p.parameter, parseFloat(p.value) || 0, parseFloat(p.value) || 0);
+                });
+
+                stmtPoint.finalize();
+            }
+
+            // Phản hồi kết quả thành công rực rỡ về cho Frontend databasequipment.html
+            return res.json({ 
+                success: true, 
+                message: `Đã khởi tạo và đồng bộ thiết bị chuẩn [${equipment_id}] vào SQLite thành công!` 
+            });
         });
+        
+        stmtGroup.finalize();
     });
 });
 

@@ -214,7 +214,7 @@ async function main() {
         doc.fontSize(11).fillColor(C.PRIMARY).text('KẾT QUẢ HIỆU CHUẨN / CALIBRATION RESULTS:', { align: 'center' });
         doc.moveDown(0.4);
 
-        const rx   = 60; // Căn lề trái đồng bộ với bảng trên
+        const rx   = 60; 
         // Điều chỉnh lại độ rộng các cột để tránh lệch phải và vỡ chữ Conformity
         const rW6  = [155, 60, 90, 60, 55, 55]; // Tổng vẫn là 475
         const rX   = [rx, rx+155, rx+215, rx+305, rx+365, rx+420];
