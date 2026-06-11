@@ -168,12 +168,12 @@ async function main() {
 
         // ─────────────────────── BẢNG THIẾT BỊ CHUẨN SỬ DỤNG ───────────────────────
         setFont(doc, true);
-        doc.fontSize(11).fillColor(C.PRIMARY).text('CHUẨN SỬ DỤNG / STANDARDS USED:');
+        doc.fontSize(11).fillColor(C.PRIMARY).text('CHUẨN SỬ DỤNG / STANDARDS USED:', { align: 'center' });
         doc.moveDown(0.4);
 
-        const sx   = 45;
+        const sx   = 60; // Căn lề trái 60 để bảng nằm giữa trang A4 (595pt)
         const sW   = [170, 80, 135, 90];   // cột: Tên, Mã, Liên kết, Hiệu lực
-        const sX   = [sx, sx+170, sx+250, sx+385];
+        const sX   = [sx, sx+170, sx+250, sx+385]; 
         const sRowH = 22;
         let   sY   = doc.y;
         const sTotalW = sW.reduce((a,b)=>a+b, 0);  // 475
@@ -211,13 +211,13 @@ async function main() {
 
         // ─────────────────────── BẢNG KẾT QUẢ HIỆU CHUẨN ───────────────────────
         setFont(doc, true);
-        doc.fontSize(11).fillColor(C.PRIMARY).text('KẾT QUẢ HIỆU CHUẨN / CALIBRATION RESULTS:');
+        doc.fontSize(11).fillColor(C.PRIMARY).text('KẾT QUẢ HIỆU CHUẨN / CALIBRATION RESULTS:', { align: 'center' });
         doc.moveDown(0.4);
 
-        const rx   = 45;
-        const rW   = [175, 65, 100, 60, 75];  // Thông số, Điểm HC, Giá trị đo, KĐBĐ, Dung sai, Phù hợp → thêm 1 cột
-        const rW6  = [175, 65, 100, 60, 55, 20]; // 6 cột thực tế (tổng 475)
-        const rX   = [rx, rx+175, rx+240, rx+340, rx+400, rx+455];
+        const rx   = 60; // Căn lề trái đồng bộ với bảng trên
+        // Điều chỉnh lại độ rộng các cột để tránh lệch phải và vỡ chữ Conformity
+        const rW6  = [155, 60, 90, 60, 55, 55]; // Tổng vẫn là 475
+        const rX   = [rx, rx+155, rx+215, rx+305, rx+365, rx+420];
         const rRowH = 24;
         let   rY   = doc.y;
 
