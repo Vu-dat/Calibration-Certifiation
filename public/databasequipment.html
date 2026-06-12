@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -92,12 +91,12 @@
         </div>
     </div>
 
-    <section id="list-view"  class="detail-section">
+    <section id="list-view" class="detail-section">
         <div class="section-header">
             <h2>Database Equipment Template</h2>
             <div style="display: flex; gap: 10px;">
                 <button class="btn-shiny" style="background: #e53e3e;" onclick="resetDatabase()">🗑 Xóa dữ liệu tùy chỉnh</button>
-                <button class="btn-shiny" onclick="openAddView('add-eq-view')">+ Thêm mẫu thiết bị</button>
+                <button class="btn-shiny" onclick="openAddView()">+ Thêm mẫu thiết bị</button>
             </div>
         </div>
         <table class="detail-table">
@@ -113,59 +112,52 @@
             </tbody>
         </table>
 
-    <div id="modal-create-equipment" class="modal-backdrop" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
-    <div class="modal-content" style="background: #ffffff; padding: 24px; border-radius: 8px; width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); font-family: Arial, sans-serif;">
-        
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #edf2f7;">
-            <h3 style="margin: 0; color: #2d3748; font-size: 1.25rem; font-weight: 600;">🛠️ Thêm Thiết Bị Chuẩn Mới</h3>
-            <span style="cursor: pointer; font-size: 24px; color: #aaa; line-height: 1;" onclick="closeEquipmentModal()">&times;</span>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 14px; max-height: 450px; overflow-y: auto; padding-right: 5px;">
-            <div>
-                <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Tên thiết bị chuẩn (Standard Name)</label>
-                <input type="text" id="new-name" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;" placeholder="Ví dụ: Thermo-Hygrometer">
-            </div>
-            <div>
-                <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Mã nhận diện (Equipment ID)</label>
-                <input type="text" id="new-eq-id" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;" placeholder="Ví dụ: LAB-THER_H.01">
-            </div>
-            <div>
-                <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Nhà sản xuất (Manufacturer)</label>
-                <input type="text" id="new-manu" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;" placeholder="Ví dụ: Fluke Corporation">
-            </div>
-            <div>
-                <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Hạn hiệu chuẩn (Due Date)</label>
-                <input type="date" id="new-due" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
-            </div>
-
-            <div style="margin-top: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <label style="font-size: 13px; font-weight: 600; color: #2d3748;">📋 Cấu hình thông số điểm chuẩn mặc định</label>
-                    <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;" onclick="addNewRowToAddForm()">+ Thêm hàng</button>
+        <div id="modal-create-equipment" class="modal-backdrop" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
+            <div class="modal-content" style="background: #ffffff; padding: 24px; border-radius: 8px; width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); font-family: Arial, sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #edf2f7;">
+                    <h3 style="margin: 0; color: #2d3748; font-size: 1.25rem; font-weight: 600;">🛠️ Thêm Thiết Bị Chuẩn Mới</h3>
+                    <span style="cursor: pointer; font-size: 24px; color: #aaa; line-height: 1;" onclick="closeEquipmentModal()">&times;</span>
                 </div>
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="background: #f7fafc; font-size: 12px; text-align: left; border-bottom: 2px solid #edf2f7;">
-                            <th style="padding: 6px;">Thông số (Parameter)</th>
-                            <th style="padding: 6px; width: 140px;">Giá trị mẫu</th>
-                            <th style="padding: 6px; width: 40px; text-align: center;">Xóa</th>
-                        </tr>
-                    </thead>
-                    <tbody id="new-calibration-table-rows">
-                        </tbody>
-                </table>
+                <div style="display: flex; flex-direction: column; gap: 14px; max-height: 450px; overflow-y: auto; padding-right: 5px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Tên thiết bị chuẩn (Standard Name)</label>
+                        <input type="text" id="new-name" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;" placeholder="Ví dụ: Thermo-Hygrometer">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Mã nhận diện (Equipment ID)</label>
+                        <input type="text" id="new-eq-id" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;" placeholder="Ví dụ: LAB-THER_H.01">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Nhà sản xuất (Manufacturer)</label>
+                        <input type="text" id="new-manu" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;" placeholder="Ví dụ: Fluke Corporation">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Hạn hiệu chuẩn (Due Date)</label>
+                        <input type="date" id="new-due" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <label style="font-size: 13px; font-weight: 600; color: #2d3748;">📋 Cấu hình thông số điểm chuẩn mặc định</label>
+                            <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;" onclick="addNewRowToAddForm()">+ Thêm hàng</button>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #f7fafc; font-size: 12px; text-align: left; border-bottom: 2px solid #edf2f7;">
+                                    <th style="padding: 6px;">Thông số (Parameter)</th>
+                                    <th style="padding: 6px; width: 140px;">Giá trị mẫu</th>
+                                    <th style="padding: 6px; width: 40px; text-align: center;">Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="new-calibration-table-rows"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 15px; border-top: 1px solid #edf2f7;">
+                    <button class="btn btn-secondary" type="button" onclick="closeEquipmentModal()">Hủy bỏ</button>
+                    <button class="btn btn-primary" type="button" onclick="executeCreateEquipment()">💾 Lưu thiết bị</button>
+                </div>
             </div>
         </div>
-
-        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 15px; border-top: 1px solid #edf2f7;">
-            <button class="btn btn-secondary" type="button" onclick="closeEquipmentModal()">Hủy bỏ</button>
-            <button class="btn btn-primary" type="button" onclick="executeCreateEquipment()">💾 Lưu thiết bị</button>          </div>
-
-    </div>
-</div>
-
-
     </section>
 
     <section id="edit-view" style="display:none;">
@@ -193,149 +185,150 @@
             </div>
         </div>
 
-<div style="overflow-x: auto; margin: 20px 0;">
-    <table id="calibration-table" style="width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Times New Roman', Times, serif; font-size: 14px; text-align: center; border: 1px solid #111;">
-        <thead>
-            <tr>
-                <th style="border: 1px solid #111111; padding: 10px; width: 18%;">Thông số<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Parameters</span></th>
-                <th style="border: 1px solid #111111; padding: 10px; width: 14%;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Calibration Points</span></th>
-                
-                <th colspan="3" style="border: 1px solid #111111; padding: 10px; width: 24%;">Giá trị đo được<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">As Found Value</span></th>
-                
-                <th style="border: 1px solid #111111; padding: 10px; width: 11%;">Độ KĐBD<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Uncertainty</span></th>
-                <th style="border: 1px solid #111111; padding: 10px; width: 11%;">Dung sai<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Tolerance</span></th>
-                <th style="border: 1px solid #111111; padding: 10px; width: 12%;">Sự phù hợp<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Conformity</span></th>
-                <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Thao tác<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Action</span></th>
-            </tr>
-        </thead>
-        <tbody id="calibration-table-rows"></tbody>
-    </table>
-</div>
-            <div style="text-align:right; margin-top: 30px;">
-                <button class="btn-save" onclick="saveEq()" style="padding: 10px 30px; cursor: pointer;">Save Changes</button>
-            </div>
+        <div style="overflow-x: auto; margin: 20px 0;">
+            <table id="calibration-table" style="width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Times New Roman', Times, serif; font-size: 14px; text-align: center; border: 1px solid #111;">
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 22%;">Thông số<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Parameters</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 15%;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Calibration Points</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 15%;">Giá trị đo được<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">As Found Value</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 12%;">Độ KĐBD<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Uncertainty</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 12%;">Dung sai<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Tolerance</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 12%;">Sự phù hợp<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Conformity</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 12%;">Thao tác<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Action</span></th>
+                    </tr>
+                </thead>
+                <tbody id="calibration-table-rows"></tbody>
+            </table>
+        </div>
+        <div style="text-align:right; margin-top: 30px;">
+            <button class="btn-save" onclick="saveEq()" style="padding: 10px 30px; cursor: pointer;">Save Changes</button>
         </div>
     </section>
 </main>
 
 <script>
-    const TARGET_URL = 'http://localhost:18080';
-    document.addEventListener("DOMContentLoaded", () => {
-    const user = localStorage.getItem('labmaster_user');
-    if (!user) {
-        alert("Hết phiên làm việc hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại!");
-        window.location.href = 'login.html'; // Hoặc đường dẫn '/'
-        return;
-    }
-    renderTable(); // Gọi hàm vẽ bảng khi trang load xong
-    });
-
-    // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
     const API_BASE_URL = window.location.hostname === 'localhost'
-    ? 'http://localhost:18080' 
-    : window.location.origin;
+        ? 'http://localhost:18080' 
+        : window.location.origin;
+
+    const TARGET_URL = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:18080');
+
+    // Dữ liệu Mock cấu trúc chuẩn xác theo đúng hình ảnh bạn cung cấp
     const MockTemplates = {
         "Washing Machine": [
-            { group: "temp", name: "Nhiệt độ\nTemperature (°C)", points: [30, 40, 60, 80, 90], v1: "30.2", unc: 0.3, tol: "± 3" },
-            { group: "speed", name: "Tốc độ giặt\nWashing Speed (rpm)", points: [52], v1: "52.6", unc: 0.8, tol: "± 2" },
-            { group: "timer", name: "Thời gian\nTimer (s)", points: [100], v1: "100.0", unc: 0.1, tol: "--" },
-            { group: "water-level", name: "Mức nước\nWater Level (L)", points: [10, 20, 30], v1: "10.5", unc: 0.2, tol: "± 1" },
-            { group: "spin-speed", name: "Tốc độ vắt\nSpin Speed (rpm)", points: [500, 750, 1000], v1: "500.8", unc: 0.8, tol: "± 50" }
+            { group: "temp", name: "Nhiệt độ\nTemperature (°C)", points: [30, 40, 60, 80, 90], values: ["30.2", "39.5", "59.2", "78.9", "88.7"], unc: "0.3", tol: "± 3", conf: "A" },
+            { group: "speed", name: "Tốc độ giặt\nWashing Speed (rpm)", points: [52], values: ["52.6"], unc: "0.8", tol: "± 2", conf: "A" },
+            { group: "timer", name: "Thời gian\nTimer (second)", points: [100], values: ["100.0"], unc: "0.1", tol: "--", conf: "--" },
+            { group: "water-level", name: "Mức nước\nLevel Check (mm)", points: [100, 130, 160, 200], values: ["100", "131", "162", "201"], unc: "0.5", tol: "± 5", conf: "A" },
+            { group: "spin-speed", name: "Tốc độ vắt\nSpin Speed (rpm)", points: [500, 775, 950, 1100], values: ["501.8", "776.2", "953.5", "1103"], unc: "0.8", tol: "± 50", conf: "A" }
         ],
         "Dryer": [
-            { group: "temp", name: "Nhiệt độ sấy\nDrying Temp (°C)", points: [45, 50, 60, 70], v1: "44.8", unc: 0.4, tol: "± 5" },
-            { group: "speed", name: "Tốc độ lồng sấy\nRotation Speed (rpm)", points: [50], v1: "50.3", unc: 0.5, tol: "± 2" },
-            { group: "timer", name: "Thời gian\nTimer (s)", points: [600], v1: "600.2", unc: 0.1, tol: "± 2" },
-            { group: "water-level", name: "Lưu lượng nước\nWater Level (L)", points: [5, 10], v1: "5.2", unc: 0.1, tol: "± 0.5" }
+            { group: "temp", name: "Nhiệt độ sấy\nDrying Temp (°C)", points: [45, 50, 60, 70], values: ["44.8", "49.8", "60.1", "69.9"], unc: "0.4", tol: "± 5", conf: "A" }
         ],
         "Refrigerator": [
-            { group: "fridge_temp", name: "Nhiệt độ ngăn mát\nFridge Temp (°C)", points: [2, 4, 8], v1: "2.3", unc: 0.2, tol: "± 2" },
-            { group: "freezer_temp", name: "Nhiệt độ ngăn đông\nFreezer Temp (°C)", points: [-18, -20, -22], v1: "-17.5", unc: 0.5, tol: "± 3" },
-            { group: "fridge_humi", name: "Độ ẩm ngăn mát\nHumidity (%RH)", points: [60, 70], v1: "61.2", unc: 2.0, tol: "± 10" },
-            { group: "freezer_humi", name: "Độ ẩm ngăn đông\nHumidity (%RH)", points: [40, 50], v1: "38.5", unc: 2.5, tol: "± 10" }
+            { group: "fridge_temp", name: "Nhiệt độ ngăn mát\nFridge Temp (°C)", points: [2, 4, 8], values: ["2.3", "4.1", "8.2"], unc: "0.2", tol: "± 2", conf: "A" }
         ]
     };
 
     let currentId = '';
+    let fetchedEquipments = []; // Lưu trữ mảng thiết bị trả về từ API để map chính xác dữ liệu gốc
 
-    // Hàm vẽ bảng danh sách thiết bị dựa trên Mock và LocalStorage
-    function renderTable() {
-        const tbody = document.getElementById('eq-body');
-        if (!tbody) return;
-        tbody.innerHTML = '';
+    document.addEventListener("DOMContentLoaded", () => {
+        const user = localStorage.getItem('labmaster_user');
+        if (!user) {
+            alert("Hết phiên làm việc hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại!");
+            window.location.href = 'login.html';
+            return;
+        }
+        fetchEquipmentTemplates();
+    });
 
-        let db = {};
-        try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
-
-        // Lấy danh sách tên thiết bị duy nhất từ cả Mock và DB tùy chỉnh
-        const allNames = Array.from(new Set([...Object.keys(MockTemplates), ...Object.keys(db)]));
-
-        allNames.forEach((name, index) => {
-            const id = `EQ${String(index + 1).padStart(3, '0')}`;
-            const data = db[name] || {};
+    async function fetchEquipmentTemplates() {
+        try {
+            const response = await fetch(`${TARGET_URL}/api/equipment`);
+            if (!response.ok) throw new Error("Không thể kết nối API danh sách thiết bị");
             
-            // Ưu tiên lấy NSX và Ngày từ DB, nếu không có thì lấy giá trị mặc định tạm thời
-            const manu = data.manufacturer || (MockTemplates[name] ? "Default" : "---");
-            const due = data.nextDue || (MockTemplates[name] ? "2026-12-31" : "---");
+            fetchedEquipments = await response.json();
+            renderTable(fetchedEquipments, true);
+        } catch (error) {
+            console.error("Lỗi khi tải danh sách thiết bị từ Database API:", error);
+            renderFallbackLocalStorage();
+        }
+    }
 
-            const tr = document.createElement('tr');
-            tr.onclick = () => editEq(id);
+    function renderTable(equipments, isFromAPI) {
+        const tbody = document.getElementById("eq-body");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+
+        if (!equipments || equipments.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888; padding: 15px;">Chưa có mẫu thiết bị nào trong Database</td></tr>`;
+            return;
+        }
+
+        equipments.forEach((eq, index) => {
+            const tr = document.createElement("tr");
+            tr.style.cursor = "pointer";
+            
+            const eqCode = isFromAPI ? (eq.EQUIPMENT_ID || eq.equipment_id || eq.ID || eq.id) : `EQ${String(index + 1).padStart(3, '0')}`;
+            const eqName = isFromAPI ? (eq.STANDARD_NAME || eq.standard_name || eq.NAME || eq.name) : eq.name;
+            const eqManu = isFromAPI ? (eq.MANUFACTURER || eq.manufacturer || '-') : eq.manufacturer;
+            const eqDue = isFromAPI ? (eq.DUE_DATE || eq.due_date || eq.NEXT_DUE || eq.next_due || '-') : eq.nextDue;
+
+            // Truyền trực tiếp các chuỗi dữ liệu vào hàm để tránh việc gọi .innerText của phần tử null khi click
+            tr.onclick = () => editEq(eqCode, eqName, eqManu, eqDue);
+
             tr.innerHTML = `
-                <td>#${id}</td>
-                <td id="n-${id}">${name}</td>
-                <td id="m-${id}">${manu}</td>
-                <td id="d-${id}">${due}</td>
+                <td>#${eqCode}</td>
+                <td><strong>${eqName}</strong></td>
+                <td>${eqManu}</td>
+                <td><span class="badge" style="background: #edf2f7; color: #2d3748; padding: 4px 8px; border-radius: 4px;">${eqDue}</span></td>
             `;
             tbody.appendChild(tr);
         });
     }
 
-    // Hàm xử lý lưu thiết bị mới vào cơ sở dữ liệu trình duyệt
-    function saveNewEquipment() {
-        const name = document.getElementById('new-name').value.trim();
-        const manu = document.getElementById('new-manu').value.trim();
-        const due = document.getElementById('new-due').value;
-
-        if (!name) { alert("Vui lòng nhập tên thiết bị!"); return; }
-
+    function renderFallbackLocalStorage() {
         let db = {};
         try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
+        
+        const localList = [];
+        const allNames = Array.from(new Set([...Object.keys(MockTemplates), ...Object.keys(db)]));
 
-        // Khởi tạo mẫu mới với các điểm đo rỗng (Người dùng sẽ vào Edit để thêm điểm sau)
-        db[name] = { manufacturer: manu, nextDue: due, formPoints: [] };
-
-        localStorage.setItem('labmaster_equipment_db', JSON.stringify(db));
-        alert('Đã thêm mẫu thiết bị mới thành công!');
-        location.reload(); // Tải lại để cập nhật bảng và đóng view
+        allNames.forEach((name, index) => {
+            const data = db[name] || {};
+            localList.push({
+                name: name,
+                manufacturer: data.manufacturer || "Default",
+                nextDue: data.nextDue || "2026-12-31"
+            });
+        });
+        renderTable(localList, false);
     }
 
-    function editEq(id) {
+    function editEq(id, name, manufacturer, nextDue) {
         currentId = id;
-        const name = document.getElementById('n-' + id).innerText;
         showView('edit-view');
         
         document.getElementById('edit-title').innerText = "Detail: " + name;
-        // Đảm bảo ID in-nsx tồn tại trong HTML của bạn
-        if(document.getElementById('in-nsx')) {
-            document.getElementById('in-nsx').value = document.getElementById('m-' + id).innerText;
-        }
-        document.getElementById('in-due').value = document.getElementById('d-' + id).innerText;
+        if(document.getElementById('in-nsx')) document.getElementById('in-nsx').value = manufacturer;
+        if(document.getElementById('in-due')) document.getElementById('in-due').value = nextDue;
 
         const tbody = document.getElementById('calibration-table-rows');
         tbody.innerHTML = '';
 
-        // Kiểm tra xem có dữ liệu đã lưu trong localStorage chưa
         let db = {};
         try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
         
         const savedData = db[name];
+        
+        // Xác định template hiển thị (Ưu tiên LocalStorage -> Ưu tiên Mock đúng tên -> Mặc định Washing Machine)
         const template = savedData ? savedData.formPoints : (MockTemplates[name] || MockTemplates["Washing Machine"]);
 
         if (Array.isArray(template) && !savedData) {
-            // Render từ MockTemplates (Dữ liệu gốc)
             renderFromMock(template, tbody);
         } else if (savedData) {
-            // Render từ LocalStorage (Dữ liệu người dùng đã lưu)
             renderFromSaved(template, tbody);
         }
     }
@@ -346,13 +339,14 @@
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-group', item.group);
                 let html = '';
+                
+                // Gộp nhóm thông số đầu tiên bằng thuộc tính rowspan chuẩn chỉnh
                 if (idx === 0) {
                     html += `<td rowspan="${item.points.length}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">${item.name.replace('\n','<br><span style="font-weight:normal;font-style:italic;">')}</span></td>`;
                 }
-                // Tính toán giá trị đo thực tế dựa trên độ lệch (offset) của mẫu
-                const offset = parseFloat(item.v1) - item.points[0];
-                const displayVal = (p + offset).toFixed(1);
-                html += renderCells(p, displayVal, '', '', item.unc, item.tol, 'A');
+                
+                const displayVal = item.values && item.values[idx] ? item.values[idx] : "";
+                html += renderCells(p, displayVal, item.unc, item.tol, item.conf);
                 tr.innerHTML = html;
                 tbody.appendChild(tr);
             });
@@ -367,18 +361,17 @@
             if (pt.rowspan > 0) {
                 html += `<td rowspan="${pt.rowspan}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">${pt.paramName.replace('\n','<br><span style="font-weight:normal;font-style:italic;">')}</span></td>`;
             }
-            html += renderCells(pt.point, pt.v1, pt.v2, pt.v3, pt.uncertainty, pt.tolerance, pt.conformity);
+            html += renderCells(pt.point, pt.v1, pt.uncertainty, pt.tolerance, pt.conformity);
             tr.innerHTML = html;
             tbody.appendChild(tr);
         });
     }
 
-    function renderCells(p, v1, v2, v3, unc, tol, conf) {
+    // Rút gọn chỉ còn 1 ô input duy nhất cho cột As Found Value ứng với giao diện mẫu của bạn
+    function renderCells(p, v1, unc, tol, conf) {
         return `
             <td class="point-cell" style="border:1px solid #111;padding:10px;font-weight:bold;background:#fafafa;">${p}</td>
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${v1}" class="cell-input v1"></td>
-            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${v2}" class="cell-input v2"></td>
-            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${v3}" class="cell-input v3"></td>
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${unc}" class="cell-input unc"></td>
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${tol}" class="cell-input tol"></td>
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${conf}" class="cell-input conf" style="font-weight:bold;"></td>
@@ -386,48 +379,11 @@
         `;
     }
 
-    function resetDatabase() {
-        if (confirm("Bạn có chắc chắn muốn xóa toàn bộ dữ liệu tùy chỉnh trong localStorage và quay về mặc định? Hành động này không thể hoàn tác.")) {
-            localStorage.removeItem('labmaster_equipment_db');
-            alert("Đã xóa dữ liệu thành công! Trang sẽ được tải lại.");
-            location.reload();
-        }
-    }
-
-    function calculateCalibration() {
-        const inputs = document.querySelectorAll('.measure-input');
-        let sum = 0;
-        let count = 0;
-
-        inputs.forEach(input => {
-            if (input.value !== "") {
-                sum += parseFloat(input.value);
-                count++;
-            }
-        });
-
-        const average = count > 0 ? (sum / count).toFixed(3) : 0;
-        const avgDisplay = document.getElementById('res-average');
-        const conclusionDisplay = document.getElementById('res-conclusion');
-
-        avgDisplay.innerText = average;
-
-        if (count > 0) {
-            if (parseFloat(average) >= 10) {
-                conclusionDisplay.innerText = "PASS";
-                conclusionDisplay.className = "status-pass";
-            } else {
-                conclusionDisplay.innerText = "FAIL";
-                conclusionDisplay.className = "status-fail";
-            }
-        } else {
-            conclusionDisplay.innerText = "-";
-            conclusionDisplay.className = "";
-        }
-    }
-
     function saveEq() {
-        const name = document.getElementById('n-' + currentId).innerText;
+        // Lấy tên thiết bị từ tiêu đề chi tiết
+        const titleText = document.getElementById('edit-title').innerText;
+        const name = titleText.replace("Detail: ", "").trim();
+        
         const rows = document.querySelectorAll('#calibration-table-rows tr');
         const formPoints = [];
         let lastParamName = '';
@@ -442,15 +398,14 @@
                 rowspan: groupHeader ? parseInt(groupHeader.getAttribute('rowspan')) : 0,
                 point: row.querySelector('.point-cell').innerText,
                 v1: row.querySelector('.v1').value,
-                v2: row.querySelector('.v2').value,
-                v3: row.querySelector('.v3').value,
+                v2: "", 
+                v3: "", 
                 uncertainty: row.querySelector('.unc').value,
                 tolerance: row.querySelector('.tol').value,
                 conformity: row.querySelector('.conf').value
             });
         });
 
-        // Lưu vào LocalStorage
         let db = {};
         try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
         
@@ -461,221 +416,157 @@
         };
         
         localStorage.setItem('labmaster_equipment_db', JSON.stringify(db));
-
-        // Cập nhật UI danh sách
-        if(document.getElementById('m-' + currentId)) document.getElementById('m-' + currentId).innerText = db[name].manufacturer;
-        document.getElementById('d-' + currentId).innerText = document.getElementById('in-due').value;
-        
-        alert("Dữ liệu đã được lưu vào hệ thống!");
+        alert("Dữ liệu cấu hình đã được lưu thành công!");
+        fetchEquipmentTemplates();
         showView('list-view');
+    }
+
+    function deleteRow(button) {
+        const currentRow = button.closest('tr');
+        const groupName = currentRow.getAttribute('data-group');
+        const groupRows = Array.from(document.querySelectorAll(`tr[data-group="${groupName}"]`));
+        
+        if (groupRows.length === 1) {
+            currentRow.remove();
+            return;
+        }
+        
+        const headerCell = groupRows[0].querySelector('.group-header') || groupRows[0].querySelector('td:first-child');
+        
+        if (currentRow === groupRows[0]) {
+            const nextRow = groupRows[1];
+            const currentRowsSpan = parseInt(headerCell.getAttribute('rowspan'), 10);
+            headerCell.setAttribute('rowspan', currentRowsSpan - 1);
+            nextRow.insertBefore(headerCell, nextRow.firstChild);
+        } else {
+            const mainHeader = groupRows[0].querySelector('[rowspan]');
+            if (mainHeader) {
+                const currentRowsSpan = parseInt(mainHeader.getAttribute('rowspan'), 10);
+                mainHeader.setAttribute('rowspan', currentRowsSpan - 1);
+            }
+        }
+        currentRow.remove();
+    }
+
+    async function executeCreateEquipment() {
+        const nameInput = document.getElementById('new-name');
+        const idInput = document.getElementById('new-eq-id');
+        const manuInput = document.getElementById('new-manu');
+        const dueInput = document.getElementById('new-due');
+
+        if (!nameInput) return;
+
+        const name = nameInput.value.trim();
+        const eqId = idInput ? idInput.value.trim() : '';
+        const manu = manuInput ? manuInput.value.trim() : '';
+        const due = dueInput ? dueInput.value : '';
+
+        if (!name) {
+            alert('Vui lòng nhập tên thiết bị chuẩn bắt buộc!');
+            return;
+        }
+
+        const points = [];
+        const rows = document.querySelectorAll('#new-calibration-table-rows .add-eq-data-row');
+        rows.forEach(row => {
+            const pName = row.querySelector('.param-name')?.value.trim();
+            const pVal = row.querySelector('.param-value')?.value.trim();
+            if (pName || pVal) {
+                points.push({ parameter: pName, value: pVal });
+            }
+        });
+
+        const payload = {
+            equipment_id: eqId || `EQ-${Date.now().toString().slice(-5)}`, 
+            standard_name: name,
+            manufacturer: manu,
+            due_date: due,
+            points: points
+        };
+
+        try {
+            const response = await fetch(`${TARGET_URL}/api/equipment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const result = await response.json();
+            
+            alert('Đã lưu thiết bị chuẩn mới vào cơ sở dữ liệu thành công!');
+            closeEquipmentModal();
+            fetchEquipmentTemplates(); 
+        } catch (error) {
+            console.error("Lỗi kịch bản executeCreateEquipment:", error);
+            let db = {};
+            try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
+            db[name] = { manufacturer: manu, nextDue: due, formPoints: [] };
+            localStorage.setItem('labmaster_equipment_db', JSON.stringify(db));
+            
+            alert('Mất kết nối API Server. Thiết bị đã được lưu tạm vào LocalStorage!');
+            closeEquipmentModal();
+            fetchEquipmentTemplates();
+        }
+    }
+
+    function openAddView() {
+        const modal = document.getElementById('modal-create-equipment');
+        if (modal) modal.style.display = 'flex';
+
+        if (document.getElementById('new-name')) document.getElementById('new-name').value = '';
+        if (document.getElementById('new-eq-id')) document.getElementById('new-eq-id').value = '';
+        if (document.getElementById('new-manu')) document.getElementById('new-manu').value = '';
+        if (document.getElementById('new-due')) document.getElementById('new-due').value = '';
+
+        const tbody = document.getElementById('new-calibration-table-rows');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr class="add-eq-data-row">
+                    <td style="padding: 4px;"><input type="text" class="cell-input param-name" style="width:100%; padding:6px; border:1px solid #e2e8f0; border-radius:4px;" placeholder="Ví dụ: Nhiệt độ Temperature (°C)"></td>
+                    <td style="padding: 4px;"><input type="text" class="cell-input param-value" style="width:100%; padding:6px; border:1px solid #e2e8f0; border-radius:4px; text-align:center;" placeholder="30"></td>
+                    <td style="padding: 4px; text-align:center;"><button type="button" style="background:none; border:none; color:#c0392b; cursor:pointer; font-size:18px; line-height:1;" onclick="this.closest('tr').remove()">&times;</button></td>
+                </tr>
+            `;
+        }
+    }
+
+    function closeEquipmentModal() {
+        const modal = document.getElementById('modal-create-equipment');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function addNewRowToAddForm() {
+        const tbody = document.getElementById('new-calibration-table-rows');
+        if (!tbody) return;
+        const row = document.createElement('tr');
+        row.className = 'add-eq-data-row';
+        row.innerHTML = `
+            <td style="padding: 4px;"><input type="text" class="cell-input param-name" style="width:100%; padding:6px; border:1px solid #e2e8f0; border-radius:4px;" placeholder="Thông số mới"></td>
+            <td style="padding: 4px;"><input type="text" class="cell-input param-value" style="width:100%; padding:6px; border:1px solid #e2e8f0; border-radius:4px; text-align:center;" placeholder="Giá trị"></td>
+            <td style="padding: 4px; text-align:center;"><button type="button" style="background:none; border:none; color:#c0392b; cursor:pointer; font-size:18px; line-height:1;" onclick="this.closest('tr').remove()">&times;</button></td>
+        `;
+        tbody.appendChild(row);
+    }
+
+    function resetDatabase() {
+        if (confirm("Xóa toàn bộ dữ liệu tùy chỉnh trong localStorage?")) {
+            localStorage.removeItem('labmaster_equipment_db');
+            location.reload();
+        }
     }
 
     function showView(viewId) {
         const listView = document.getElementById('list-view');
         const editView = document.getElementById('edit-view');
-        const addBtn = document.getElementById('add-btn-container');
-
         if (viewId === 'edit-view') {
             listView.style.display = 'none';
             editView.style.display = 'block';
-            if (addBtn) addBtn.style.display = 'none';
         } else {
             listView.style.display = 'block';
             editView.style.display = 'none';
-            if (addBtn) addBtn.style.display = 'block';
-            document.getElementById('add-eq-view').style.display = 'none';
         }
     }
-
-    function initCalibrationRows() {
-        const tbody = document.getElementById('calibration-body');
-        tbody.innerHTML = '';
-        for (let i = 1; i <= 8; i++) {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${i}</td>
-                <td><input type="number" class="measure-input" style="width: 70px;" value="${i*10}"></td>
-                ${Array(10).fill('<td><input type="number" class="measure-input" oninput="calculateRow(this)"></td>').join('')}
-                <td style="font-weight: bold; color: var(--primary-teal);">0.00</td>
-                <td><input type="text" value="0.01" class="measure-input" style="width: 40px;"></td>
-                <td><input type="text" value="±0.05" class="measure-input" style="width: 45px;"></td>
-                <td style="font-weight: bold; color: #999;">-</td>
-            `;
-            tbody.appendChild(row);
-        }
-    }
-    function deleteRow(button) {
-    // Tìm hàng (tr) chứa nút bấm
-    const currentRow = button.closest('tr');
-    const groupName = currentRow.getAttribute('data-group');
-    
-    // Tìm tất cả các hàng cùng thuộc nhóm thông số này
-    const groupRows = Array.from(document.querySelectorAll(`tr[data-group="${groupName}"]`));
-    
-    if (groupRows.length === 1) {
-        // Nếu nhóm chỉ còn duy nhất 1 hàng, tiến hành xóa toàn bộ hàng đó
-        currentRow.remove();
-        return;
-    }
-    
-    // Tìm ô tiêu đề thông số (ô có thuộc tính rowspan) của nhóm này
-    const headerCell = groupRows[0].querySelector('.group-header') || groupRows[0].querySelector('td:first-child');
-    
-    if (currentRow === groupRows[0]) {
-        // NẾU XÓA HÀNG ĐẦU TIÊN CỦA NHÓM:
-        // Cần di chuyển ô tiêu đề thông số sang hàng tiếp theo trước khi xóa
-        const nextRow = groupRows[1];
-        const currentRowsSpan = parseInt(headerCell.getAttribute('rowspan'), 10);
-        
-        // Cập nhật lại số lượng hàng gộp (trừ đi 1)
-        headerCell.setAttribute('rowspan', currentRowsSpan - 1);
-        
-        // Chèn ô tiêu đề này vào vị trí đầu tiên của hàng tiếp theo
-        nextRow.insertBefore(headerCell, nextRow.firstChild);
-    } else {
-        // NẾU XÓA HÀNG GIỮA HOẶC CUỐI NHÓM:
-        // Chỉ cần tìm ô tiêu đề ở hàng đầu tiên và giảm rowspan đi 1 đơn vị
-        const mainHeader = groupRows[0].querySelector('[rowspan]');
-        if (mainHeader) {
-            const currentRowsSpan = parseInt(mainHeader.getAttribute('rowspan'), 10);
-            mainHeader.setAttribute('rowspan', currentRowsSpan - 1);
-        }
-    }
-    
-    // Xóa hàng hiện tại khỏi bảng
-    currentRow.remove();
-}
-
-function openAddView() {
-    const modal = document.getElementById('modal-create-equipment');
-    if (modal) {
-        modal.style.display = 'flex';
-    } else {
-        console.error("Không tìm thấy thẻ HTML mang ID 'modal-create-equipment'");
-    }
-
-    // Làm sạch dữ liệu trong form trước khi nhập mới
-    if (document.getElementById('new-name')) document.getElementById('new-name').value = '';
-    if (document.getElementById('new-eq-id')) document.getElementById('new-eq-id').value = '';
-    if (document.getElementById('new-manu')) document.getElementById('new-manu').value = '';
-    if (document.getElementById('new-due')) document.getElementById('new-due').value = '';
-
-    // Khởi tạo hàng điểm chuẩn đầu tiên trong bảng của Modal
-    const tbody = document.getElementById('new-calibration-table-rows');
-    if (tbody) {
-        tbody.innerHTML = `
-            <tr class="add-eq-data-row">
-                <td style="padding: 4px;"><input type="text" class="cell-input param-name" style="width:100%; padding:6px; border:1px solid #e2e8f0; border-radius:4px;" placeholder="Ví dụ: Nhiệt độ Temperature (°C)"></td>
-                <td style="padding: 4px;"><input type="text" class="cell-input param-value" style="width:100%; padding:6px; border:1px solid #e2e8f0; border-radius:4px; text-align:center;" placeholder="30"></td>
-                <td style="padding: 4px; text-align:center;"><button type="button" style="background:none; border:none; color:#c0392b; cursor:pointer; font-size:18px; line-height:1;" onclick="this.closest('tr').remove()">&times;</button></td>
-            </tr>
-        `;
-    }
-}
-
-// 2. Hàm đóng Modal an toàn
-function closeEquipmentModal() {
-    const modal = document.getElementById('modal-create-equipment');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
-// 3. Hàm click thêm hàng thông số mẫu trong Modal
-function addNewRowToAddForm() {
-    const tbody = document.getElementById('new-calibration-table-rows');
-    if (!tbody) return;
-    
-    const row = document.createElement('tr');
-    row.className = 'add-eq-data-row';
-    row.innerHTML = `
-        <td style="padding: 4px;"><input type="text" class="cell-input param-name" style="width:100%; padding:6px; border:1px solid #e2e8f0; border-radius:4px;" placeholder="Thông số mới"></td>
-        <td style="padding: 4px;"><input type="text" class="cell-input param-value" style="width:100%; padding:6px; border:1px solid #e2e8f0; border-radius:4px; text-align:center;" placeholder="Giá trị"></td>
-        <td style="padding: 4px; text-align:center;"><button type="button" style="background:none; border:none; color:#c0392b; cursor:pointer; font-size:18px; line-height:1;" onclick="this.closest('tr').remove()">&times;</button></td>
-    `;
-    tbody.appendChild(row);
-}
-
-// HÀM LƯU THIẾT BỊ MỚI VÀ ĐẨY THẲNG LÊN MÀN HÌNH CHÍNH
-async function executeCreateEquipment() {
-    const name = document.getElementById('new-name')?.value || '';
-    const eqId = document.getElementById('new-eq-id')?.value || '';
-    const manu = document.getElementById('new-manu')?.value || '';
-    const due  = document.getElementById('new-due')?.value || '';
-
-    // 1. Kiểm tra dữ liệu đầu vào nghiêm ngặt
-    if (!name.trim() || !eqId.trim()) {
-        if (typeof showToast === 'function') {
-            showToast('Lỗi: Tên thiết bị chuẩn và Mã nhận diện không được để trống!', 'warning');
-        } else {
-            alert('Lỗi: Tên thiết bị chuẩn và Mã nhận diện không được để trống!');
-        }
-        return;
-    }
-
-    // 2. Quét động mảng thông số điểm chuẩn mẫu cài đặt trong bảng Modal
-    const points = [];
-    document.querySelectorAll('.add-eq-data-row').forEach(row => {
-        const pName = row.querySelector('.param-name')?.value || '';
-        const pVal  = row.querySelector('.param-value')?.value || '';
-        
-        if (pName.trim() || pVal.trim()) {
-            points.push({
-                parameter: pName.trim(),
-                value: pVal.trim()
-            });
-        }
-    });
-
-    const payload = {
-        equipment_id: eqId.trim(),
-        standard_name: name.trim(),
-        manufacturer: manu.trim(),
-        due_date: due,
-        points: points
-    };
-
-    // Xác định URL API (Sử dụng hằng số toàn cục hoặc fallback về cổng 18080)
-    const TARGET_URL = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:18080');
-
-    try {
-        if (typeof showToast === 'function') {
-            showToast('Đang tiến hành lưu thiết bị vào database...', 'info');
-        }
-
-        // 3. Thực hiện lệnh POST gửi dữ liệu lên Backend
-        const response = await fetch(`${TARGET_URL}/api/equipment`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-        const result = await response.json();
-        if (result.success) {
-            if (typeof showToast === 'function') {
-                showToast('Đã lưu thiết bị chuẩn mới và cập nhật giao diện!', 'success');
-            } else {
-                alert('Đã thêm thiết bị chuẩn mới thành công!');
-            }
-            closeEquipmentModal();
-            if (typeof init === 'function') {
-                init();
-            } else if (typeof fetchEquipmentList === 'function') {
-                fetchEquipmentList();
-            } else {
-                window.location.reload(); // Phương án dự phòng cuối cùng
-            }
-        } else {
-            alert(`Lỗi ghi nhận từ máy chủ: ${result.message}`);
-        }
-    } catch (error) {
-        console.error("Lỗi kịch bản executeCreateEquipment:", error);
-        alert('Không thể kết nối đến API hệ thống backend để lưu thiết bị!');
-    }
-}
 </script>
-
-
 </body>
+</html>
