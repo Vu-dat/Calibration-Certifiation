@@ -89,7 +89,8 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS EQUIPMENT_TEMPLATES (
         NAME TEXT PRIMARY KEY,
         MANUFACTURER TEXT,
-        NEXT_DUE TEXT
+        NEXT_DUE TEXT,
+        EQUIPMENT_ID TEXT
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS TEMPLATE_POINTS (
@@ -97,11 +98,16 @@ db.serialize(() => {
         TEMPLATE_NAME TEXT,
         PARAMETER_NAME TEXT,
         CAL_POINT TEXT,
+        AS_FOUND_VALUE TEXT,
         UNCERTAINTY TEXT,
         TOLERANCE TEXT,
         CONFORMITY TEXT,
         FOREIGN KEY(TEMPLATE_NAME) REFERENCES EQUIPMENT_TEMPLATES(NAME) ON DELETE CASCADE
     )`);
+
+    // Migration an toàn: thêm cột mới cho DB cũ đã tồn tại từ trước (bỏ qua lỗi nếu cột đã có)
+    db.run(`ALTER TABLE EQUIPMENT_TEMPLATES ADD COLUMN EQUIPMENT_ID TEXT`, () => {});
+    db.run(`ALTER TABLE TEMPLATE_POINTS ADD COLUMN AS_FOUND_VALUE TEXT`, () => {});
 });
 
 // Hàm tiện ích tự động ghi nhật ký hệ thống ngầm
@@ -255,13 +261,15 @@ app.post('/api/calibration/save', (req, res) => {
 
 // ================= API QUẢN LÝ MẪU THIẾT BỊ (DATABASE EQUIPMENT) =================
 
-app.get('/api/equipment-templates', (req, res) => {
+function getEquipmentTemplates(res) {
     db.all("SELECT * FROM EQUIPMENT_TEMPLATES", [], (err, rows) => {
         if (err) return res.status(500).json({ success: false, error: err.message });
-        
+
+        if (rows.length === 0) return res.json([]);
+
         const fetchPoints = rows.map(template => {
             return new Promise((resolve) => {
-                db.all("SELECT * FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ?", [template.NAME], (err, points) => {
+                db.all("SELECT * FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ? ORDER BY ID ASC", [template.NAME], (err, points) => {
                     template.formPoints = points || [];
                     resolve(template);
                 });
@@ -270,57 +278,93 @@ app.get('/api/equipment-templates', (req, res) => {
 
         Promise.all(fetchPoints).then(results => res.json(results));
     });
+}
+
+app.get('/api/equipment-templates', (req, res) => {
+    getEquipmentTemplates(res);
 });
+
+// Alias để khớp với các trang frontend gọi GET /api/equipment để lấy danh sách thiết bị
+app.get('/api/equipment', (req, res) => {
+    getEquipmentTemplates(res);
+});
+
 // ─────────────────────────────────────────────────────────────────────────
-// API TIẾP NHẬN THÊM MỚI THIẾT BỊ CHUẨN VÀ ĐỒNG BỘ LÊN GIAO DIỆN KHÔNG LỖI
-// ĐÃ SỬA TRIỆT ĐỂ: Khớp Schema CERTIFICATES gốc, chặn đứng crash SQLITE
+// API TIẾP NHẬN THÊM MỚI / CẬP NHẬT THIẾT BỊ CHUẨN (EQUIPMENT_TEMPLATES + TEMPLATE_POINTS)
+// Lưu đúng vào bảng mẫu thiết bị để Database Equipment & Project đều đọc được
 // ─────────────────────────────────────────────────────────────────────────
 app.post('/api/equipment', (req, res) => {
     // Sử dụng khối try-catch tối cao để bảo vệ Server không bao giờ bị tắt/sập bất ngờ
     try {
         const { equipment_id, standard_name, manufacturer, due_date, points } = req.body;
 
-        if (!equipment_id || !standard_name) {
-            return res.status(400).json({ success: false, message: "Thiếu mã nhận diện hoặc tên thiết bị chuẩn!" });
+        if (!standard_name) {
+            return res.status(400).json({ success: false, message: "Thiếu tên thiết bị chuẩn!" });
         }
 
         db.serialize(() => {
-            const stmtCert = db.prepare(`
-                INSERT OR REPLACE INTO CERTIFICATES (
-                    CERT_NO, EQUIPMENT_ID, INSTRUMENT_NAME, MANUFACTURER, MODEL
-                ) VALUES (?, ?, ?, ?, ?)
+            // 1. Lưu / cập nhật thông tin chung của mẫu thiết bị
+            const stmtTemplate = db.prepare(`
+                INSERT OR REPLACE INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID)
+                VALUES (?, ?, ?, ?)
             `);
 
-            stmtCert.run(equipment_id, equipment_id, standard_name, manufacturer, due_date, function(err) {
+            stmtTemplate.run([standard_name, manufacturer || '', due_date || '', equipment_id || ''], function(err) {
                 if (err) {
-                    console.error("❌ Lỗi SQLite chèn thông tin chung:", err.message);
+                    console.error("❌ Lỗi SQLite chèn mẫu thiết bị:", err.message);
                     return res.status(500).json({ success: false, message: "Lỗi cấu trúc SQLite: " + err.message });
                 }
 
-                // 2. Ghi nhận mảng thông số điểm chuẩn mẫu đi kèm vào bảng CALIBRATION_POINTS
-                if (points && points.length > 0) {
+                // 2. Xóa toàn bộ điểm đo cũ của mẫu này để ghi lại danh sách mới (cho phép cập nhật/sửa)
+                db.run("DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ?", [standard_name], (delErr) => {
+                    if (delErr) {
+                        console.error("❌ Lỗi xóa điểm đo cũ:", delErr.message);
+                        return res.status(500).json({ success: false, message: delErr.message });
+                    }
+
+                    const finish = () => {
+                        logActivity("Hệ thống / KTV", "CREATE", "EQUIPMENT_TEMPLATES", standard_name, `Thêm/Cập nhật mẫu thiết bị chuẩn: "${standard_name}"`);
+                        return res.json({
+                            success: true,
+                            message: `Thiết bị chuẩn "${standard_name}" đã được lưu trữ hoàn tất!`
+                        });
+                    };
+
+                    const pts = points || [];
+                    if (pts.length === 0) {
+                        return finish();
+                    }
+
+                    // 3. Ghi nhận mảng thông số điểm chuẩn mẫu đi kèm vào bảng TEMPLATE_POINTS
                     const stmtPoint = db.prepare(`
-                        INSERT INTO CALIBRATION_POINTS (
-                            CERT_NO, PARAMETER, STANDARD_VALUE, ACTUAL_VALUE, STATUS
-                        ) VALUES (?, ?, ?, ?, 'A')
+                        INSERT INTO TEMPLATE_POINTS (
+                            TEMPLATE_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
                     `);
 
-                    points.forEach(p => {
-                        const numValue = parseFloat(p.value) || 0;
-                        stmtPoint.run(equipment_id, p.parameter, numValue, numValue);
+                    pts.forEach(p => {
+                        stmtPoint.run([
+                            standard_name,
+                            p.parameter || p.parameterName || p.param || '',
+                            p.value || p.calPoint || p.point || '',
+                            p.asFoundValue || p.v1 || '',
+                            p.uncertainty || p.unc || '',
+                            p.tolerance || p.tol || '',
+                            p.conformity || p.conf || 'A'
+                        ]);
                     });
 
-                    stmtPoint.finalize();
-                }
-
-                // 3. PHẢN HỒI THÀNH CÔNG: Đóng Modal Frontend và re-render giao diện hiển thị lập tức
-                return res.json({ 
-                    success: true, 
-                    message: `Thiết bị chuẩn ${equipment_id} đã được lưu trữ hoàn tất!` 
+                    stmtPoint.finalize((finalErr) => {
+                        if (finalErr) {
+                            console.error("❌ Lỗi ghi điểm đo mẫu:", finalErr.message);
+                            return res.status(500).json({ success: false, message: finalErr.message });
+                        }
+                        finish();
+                    });
                 });
             });
 
-            stmtCert.finalize();
+            stmtTemplate.finalize();
         });
 
     } catch (criticalServerError) {

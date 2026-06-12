@@ -487,15 +487,73 @@ function getMockDatabaseEquipment() {
 // Alias để không phải sửa toàn bộ code bên dưới
 let MockDatabaseEquipment = getMockDatabaseEquipment();
 
-// Refresh DB mỗi khi tab được focus lại (người dùng vừa từ databasequipment về)
+// Tập hợp tên các mẫu thiết bị đang được đồng bộ trực tiếp từ Database SQL (qua API)
+let liveDbEquipmentKeys = new Set();
+
+// Chuyển đổi mảng TEMPLATE_POINTS (từ SQL) thành formPoints (group/rowspan) đúng định dạng bảng Washing Machine
+function groupTemplatePointsToFormPoints(points) {
+  const result = [];
+  let i = 0;
+  while (i < points.length) {
+    const paramName = points[i].PARAMETER_NAME || '';
+    let j = i;
+    while (j < points.length && (points[j].PARAMETER_NAME || '') === paramName) j++;
+    const groupSize = j - i;
+
+    for (let k = i; k < j; k++) {
+      const p = points[k];
+      result.push({
+        group: paramName,
+        paramName: paramName,
+        rowspan: k === i ? groupSize : 0,
+        point: p.CAL_POINT || '',
+        v1: p.AS_FOUND_VALUE || '',
+        v2: '',
+        v3: '',
+        uncertainty: p.UNCERTAINTY || '',
+        tolerance: p.TOLERANCE || '',
+        conformity: p.CONFORMITY || ''
+      });
+    }
+    i = j;
+  }
+  return result;
+}
+
+// Tải danh sách mẫu thiết bị từ Database SQL (EQUIPMENT_TEMPLATES + TEMPLATE_POINTS) và hợp nhất vào MockDatabaseEquipment
+// để có thể tìm kiếm/chọn ngay trong Project, sau đó in/xuất PDF như Washing Machine
+async function syncEquipmentDBFromAPI() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/equipment-templates`);
+    if (!response.ok) throw new Error('Không thể kết nối API danh sách thiết bị chuẩn');
+    const templates = await response.json();
+
+    liveDbEquipmentKeys = new Set();
+    templates.forEach(t => {
+      if (!t.NAME) return;
+      MockDatabaseEquipment[t.NAME] = {
+        manufacturer: t.MANUFACTURER || '',
+        model: MockDatabaseEquipment[t.NAME] ? (MockDatabaseEquipment[t.NAME].model || '') : '',
+        instEn: t.NAME,
+        equipmentId: t.EQUIPMENT_ID || '',
+        formPoints: groupTemplatePointsToFormPoints(t.formPoints || [])
+      };
+      liveDbEquipmentKeys.add(t.NAME);
+    });
+  } catch (error) {
+    console.error('Lỗi khi đồng bộ Database Equipment từ SQL:', error);
+  }
+}
+
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'visible') {
     MockDatabaseEquipment = getMockDatabaseEquipment();
-    showDbSyncBadge();
+    syncEquipmentDBFromAPI().then(() => showDbSyncBadge());
   }
 });
 window.addEventListener('focus', function() {
   MockDatabaseEquipment = getMockDatabaseEquipment();
+  syncEquipmentDBFromAPI();
 });
 window.addEventListener('storage', function(e) {
   if (e.key === 'labmaster_equipment_db') {
@@ -503,6 +561,9 @@ window.addEventListener('storage', function(e) {
     showDbSyncBadge();
   }
 });
+
+// Đồng bộ ngay khi tải trang lần đầu
+syncEquipmentDBFromAPI();
 
 function showDbSyncBadge() {
   let b = document.getElementById('db-sync-badge');
@@ -660,13 +721,13 @@ function handleEquipmentSearch(keyword) {
   if (keys.length === 0) {
     box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy mẫu thiết bị</div>`;
   } else {
-    // Lấy danh sách key từ localStorage để đánh dấu "đã đồng bộ"
+    // Lấy danh sách key từ localStorage + Database SQL để đánh dấu "đã đồng bộ"
     let storedKeys = [];
     try { storedKeys = Object.keys(JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}')); } catch(e) {}
 
     keys.forEach(key => {
       const eq = MockDatabaseEquipment[key];
-      const isLive = storedKeys.includes(key);
+      const isLive = storedKeys.includes(key) || liveDbEquipmentKeys.has(key);
       const d = document.createElement('div');
       d.className = 'suggestion-item';
       d.innerHTML = `🔍 <strong>${key}</strong> &nbsp;–&nbsp; ${eq.manufacturer} ${eq.model}

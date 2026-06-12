@@ -232,6 +232,7 @@
     };
 
     let currentId = '';
+    let currentEquipmentId = ''; // Mã nhận diện (EQUIPMENT_ID) của thiết bị đang xem/sửa
     let fetchedEquipments = []; // Lưu trữ mảng thiết bị trả về từ API để map chính xác dữ liệu gốc
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -246,7 +247,7 @@
 
     async function fetchEquipmentTemplates() {
         try {
-            const response = await fetch(`${TARGET_URL}/api/equipment`);
+            const response = await fetch(`${TARGET_URL}/api/equipment-templates`);
             if (!response.ok) throw new Error("Không thể kết nối API danh sách thiết bị");
             
             fetchedEquipments = await response.json();
@@ -262,6 +263,10 @@
         if (!tbody) return;
         tbody.innerHTML = "";
 
+        // Cập nhật ô thống kê "Mẫu thiết bị" theo dữ liệu thật từ Database SQL
+        const statEl = document.querySelector('.stat-card p');
+        if (statEl && isFromAPI) statEl.textContent = String(equipments ? equipments.length : 0).padStart(2, '0');
+
         if (!equipments || equipments.length === 0) {
             tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888; padding: 15px;">Chưa có mẫu thiết bị nào trong Database</td></tr>`;
             return;
@@ -271,19 +276,19 @@
             const tr = document.createElement("tr");
             tr.style.cursor = "pointer";
             
-            const eqCode = isFromAPI ? (eq.EQUIPMENT_ID || eq.equipment_id || eq.ID || eq.id) : `EQ${String(index + 1).padStart(3, '0')}`;
-            const eqName = isFromAPI ? (eq.STANDARD_NAME || eq.standard_name || eq.NAME || eq.name) : eq.name;
+            const eqCode = isFromAPI ? (eq.EQUIPMENT_ID || eq.NAME || eq.equipment_id || eq.ID || eq.id) : `EQ${String(index + 1).padStart(3, '0')}`;
+            const eqName = isFromAPI ? (eq.NAME || eq.standard_name) : eq.name;
             const eqManu = isFromAPI ? (eq.MANUFACTURER || eq.manufacturer || '-') : eq.manufacturer;
-            const eqDue = isFromAPI ? (eq.DUE_DATE || eq.due_date || eq.NEXT_DUE || eq.next_due || '-') : eq.nextDue;
+            const eqDue = isFromAPI ? (eq.NEXT_DUE || eq.next_due || '-') : eq.nextDue;
 
-            // Truyền trực tiếp các chuỗi dữ liệu vào hàm để tránh việc gọi .innerText của phần tử null khi click
-            tr.onclick = () => editEq(eqCode, eqName, eqManu, eqDue);
+            // Truyền chỉ số (index) trong fetchedEquipments để lấy đúng formPoints khi click
+            tr.onclick = () => isFromAPI ? editEqFromAPI(index) : editEq(eqCode, eqName, eqManu, eqDue);
 
             tr.innerHTML = `
                 <td>#${eqCode}</td>
                 <td><strong>${eqName}</strong></td>
                 <td>${eqManu}</td>
-                <td><span class="badge" style="background: #edf2f7; color: #2d3748; padding: 4px 8px; border-radius: 4px;">${eqDue}</span></td>
+                <td><span class="badge" style="background: #edf2f7; color: #2d3748; padding: 4px 8px; border-radius: 4px;">${eqDue || '-'}</span></td>
             `;
             tbody.appendChild(tr);
         });
@@ -307,8 +312,64 @@
         renderTable(localList, false);
     }
 
+    // Mở chi tiết thiết bị lấy trực tiếp từ Database SQL (API /api/equipment-templates)
+    function editEqFromAPI(index) {
+        const eq = fetchedEquipments[index];
+        if (!eq) return;
+
+        currentId = eq.NAME;
+        currentEquipmentId = eq.EQUIPMENT_ID || eq.NAME;
+        showView('edit-view');
+
+        document.getElementById('edit-title').innerText = "Detail: " + eq.NAME;
+        if (document.getElementById('in-nsx')) document.getElementById('in-nsx').value = eq.MANUFACTURER || '';
+        if (document.getElementById('in-due')) document.getElementById('in-due').value = eq.NEXT_DUE || '';
+
+        const tbody = document.getElementById('calibration-table-rows');
+        tbody.innerHTML = '';
+
+        const points = eq.formPoints || [];
+        if (points.length > 0) {
+            renderFromTemplatePoints(points, tbody);
+        } else {
+            // Chưa có thông số đo nào -> hiển thị bảng trống theo đúng cấu trúc bảng hiệu chuẩn
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#888;padding:15px;border:1px solid #111;">Chưa có thông số đo nào. Bấm "+ Thêm hàng" để bắt đầu cấu hình bảng đo hiệu chuẩn.</td></tr>`;
+        }
+    }
+
+    // Trình bày bảng đo hiệu chuẩn (theo đúng format Washing Machine: gộp nhóm thông số bằng rowspan)
+    // dựa trên dữ liệu TEMPLATE_POINTS lấy thẳng từ SQL Database
+    function renderFromTemplatePoints(points, tbody) {
+        let i = 0;
+        while (i < points.length) {
+            const groupName = points[i].PARAMETER_NAME || '';
+            let j = i;
+            while (j < points.length && (points[j].PARAMETER_NAME || '') === groupName) j++;
+            const groupSize = j - i;
+
+            for (let k = i; k < j; k++) {
+                const pt = points[k];
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-group', groupName);
+                let html = '';
+
+                if (k === i) {
+                    html += `<td rowspan="${groupSize}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
+                        <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${groupName}</textarea>
+                    </td>`;
+                }
+
+                html += renderCells(pt.CAL_POINT || '', pt.AS_FOUND_VALUE || '', pt.UNCERTAINTY || '', pt.TOLERANCE || '', pt.CONFORMITY || '');
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            }
+            i = j;
+        }
+    }
+
     function editEq(id, name, manufacturer, nextDue) {
         currentId = id;
+        currentEquipmentId = id;
         showView('edit-view');
         
         document.getElementById('edit-title').innerText = "Detail: " + name;
@@ -374,7 +435,7 @@
     // Rút gọn chỉ còn 1 ô input duy nhất cho cột As Found Value ứng với giao diện mẫu của bạn
     function renderCells(p, v1, unc, tol, conf) {
         return `
-            <td class="point-cell" style="border:1px solid #111;padding:10px;font-weight:bold;background:#fafafa;">${p}</td>
+            <td class="point-cell" style="border:1px solid #111;padding:4px;font-weight:bold;background:#fafafa;"><input type="text" value="${p}" class="cell-input point-input" style="font-weight:bold;text-align:center;"></td>
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${v1}" class="cell-input v1"></td>
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${unc}" class="cell-input unc"></td>
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${tol}" class="cell-input tol"></td>
@@ -383,13 +444,13 @@
         `;
     }
 
-    function saveEq() {
+    async function saveEq() {
         // Lấy tên thiết bị từ tiêu đề chi tiết
         const titleText = document.getElementById('edit-title').innerText;
         const name = titleText.replace("Detail: ", "").trim();
-        
+
         const rows = document.querySelectorAll('#calibration-table-rows tr');
-        const formPoints = [];
+        const points = [];
         let lastParamName = '';
 
         rows.forEach(row => {
@@ -399,33 +460,67 @@
                 lastParamName = textarea ? textarea.value : groupHeader.innerText;
             }
 
-            formPoints.push({
-                group: row.getAttribute('data-group'),
-                paramName: lastParamName,
-                rowspan: groupHeader ? parseInt(groupHeader.getAttribute('rowspan')) : 0,
-                point: row.querySelector('.point-cell').innerText,
-                v1: row.querySelector('.v1').value,
-                v2: "", 
-                v3: "", 
-                uncertainty: row.querySelector('.unc').value,
-                tolerance: row.querySelector('.tol').value,
-                conformity: row.querySelector('.conf').value
+            const pointInput = row.querySelector('.point-input');
+            const v1Input = row.querySelector('.v1');
+            if (!pointInput && !v1Input) return; // bỏ qua dòng trạng thái rỗng
+
+            points.push({
+                parameter: lastParamName,
+                value: pointInput ? pointInput.value : '',
+                asFoundValue: v1Input ? v1Input.value : '',
+                uncertainty: row.querySelector('.unc') ? row.querySelector('.unc').value : '',
+                tolerance: row.querySelector('.tol') ? row.querySelector('.tol').value : '',
+                conformity: row.querySelector('.conf') ? row.querySelector('.conf').value : ''
             });
         });
 
-        let db = {};
-        try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
-        
-        db[name] = {
-            manufacturer: document.getElementById('in-nsx') ? document.getElementById('in-nsx').value : '',
-            nextDue: document.getElementById('in-due').value,
-            formPoints: formPoints
+        const manufacturer = document.getElementById('in-nsx') ? document.getElementById('in-nsx').value : '';
+        const nextDue = document.getElementById('in-due') ? document.getElementById('in-due').value : '';
+
+        const payload = {
+            equipment_id: currentEquipmentId || name,
+            standard_name: name,
+            manufacturer: manufacturer,
+            due_date: nextDue,
+            points: points
         };
-        
-        localStorage.setItem('labmaster_equipment_db', JSON.stringify(db));
-        alert("Dữ liệu cấu hình đã được lưu thành công!");
-        fetchEquipmentTemplates();
-        showView('list-view');
+
+        try {
+            const response = await fetch(`${TARGET_URL}/api/equipment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const result = await response.json();
+            if (!result.success) throw new Error(result.message || 'Lỗi không xác định từ Server');
+
+            alert("Dữ liệu cấu hình đã được lưu thành công vào Database SQL!");
+            await fetchEquipmentTemplates();
+            showView('list-view');
+        } catch (error) {
+            console.error("Lỗi khi lưu thiết bị:", error);
+
+            // Phương án an toàn: lưu tạm vào LocalStorage nếu mất kết nối API
+            let db = {};
+            try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
+
+            db[name] = {
+                manufacturer: manufacturer,
+                nextDue: nextDue,
+                formPoints: points.map(p => ({
+                    group: p.parameter, paramName: p.parameter, rowspan: 1,
+                    point: p.value, v1: p.asFoundValue, v2: "", v3: "",
+                    uncertainty: p.uncertainty, tolerance: p.tolerance, conformity: p.conformity
+                }))
+            };
+            localStorage.setItem('labmaster_equipment_db', JSON.stringify(db));
+
+            alert('Mất kết nối API Server. Dữ liệu đã được lưu tạm vào LocalStorage!');
+            fetchEquipmentTemplates();
+            showView('list-view');
+        }
     }
 
     function deleteRow(button) {
