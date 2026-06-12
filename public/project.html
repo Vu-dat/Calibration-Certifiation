@@ -11,6 +11,25 @@
     body, table, input, select, textarea, button {
     font-family: "Arial", "Segoe UI", sans-serif !important;
 }
+
+/* Hiệu ứng loading spinner cho các ô tìm kiếm */
+.loader-inline {
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: none; /* Mặc định ẩn */
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 @media print {
     /* 1. Ép hệ thống dùng font chữ Arial / Segoe UI hỗ trợ Unicode tiếng Việt tốt nhất */
     * {
@@ -288,6 +307,7 @@
           <label>Tìm & thêm thiết bị chuẩn (gõ mã LAB- hoặc tên)</label>
           <div class="autocomplete-wrapper">
             <input type="text" id="input-standard-search" oninput="handleStandardSearch(this.value)" placeholder="Ví dụ: LAB-THER hoặc Thermo…" autocomplete="off">
+            <div id="standard-loader" class="loader-inline"></div>
             <div id="standard-suggestions" class="autocomplete-suggestions"></div>
           </div>
         </div>
@@ -415,77 +435,35 @@
 });
   // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
   const API_BASE_URL = 'http://localhost:18080';
-/* ====== DỮ LIỆU ====== */
-const standardEquipmentDB = [
-  { code:'LAB-THER_H.01', name:'Thermo-Hygrometer', link:'QUATEST III', validity:'04.09.2026', gcn:'KT3-1499BHL5/1' },
-  { code:'LAB-TACHO.01', name:'Digital Tachometer', link:'QUATEST III', validity:'08.09.2026', gcn:'KT3-1161BDE5/2' },
-  { code:'LAB-THERMO.01', name:'Digital Thermometer', link:'QUATEST III', validity:'10.09.2026', gcn:'KT3-5512BKL5/1' },
-  { code:'LAB-TIME.01', name:'Timer / Stopwatch', link:'QUATEST III', validity:'08.09.2026', gcn:'KT3-1161BDE5/3' },
-  { code:'LAB-BARO.01', name:'Thermo-hygro-barometer', link:'TECHMASTER', validity:'29.08.2026', gcn:'AC-1868' },
-  { code:'LAB-CALIPER.02', name:'Digital Caliper', link:'QUATEST 3', validity:'09.08.2026', gcn:'KT3-01293BDD5/1' },
-  { code:'LAB-THER_HUM.02', name:'Thermo-hygrometer 02', link:'QUATEST 3', validity:'04.09.2026', gcn:'KT3-01499BHL5/2' }
-];
+
+/* ====== LIVE DATABASE STANDARDS ====== */
+let liveStandardsDB = [];
+
+async function fetchLiveStandards() {
+  const loader = document.getElementById('standard-loader');
+  if (loader) loader.style.display = 'block'; // Hiển thị spinner khi bắt đầu tải
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/equipment`);
+    if (response.ok) {
+      liveStandardsDB = await response.json();
+    }
+  } catch (error) {
+    console.error("Lỗi khi tải thiết bị chuẩn từ Database:", error);
+  } finally {
+    if (loader) loader.style.display = 'none'; // Ẩn spinner dù thành công hay thất bại
+  }
+}
+
 
 /* ====== EQUIPMENT DATABASE – LIVE SYNC TỪ DATABASEQUIPMENT ====== */
-// Dữ liệu mặc định (fallback nếu chưa có gì trong localStorage)
-const DefaultEquipmentDB = {
-  "Washing Machine": {
-    manufacturer:"Electrolux Professional", model:"FOM 71CLS",
-    instEn:"Wascator",
-    formPoints:[
-      {group:"nhiet-do", paramName:"Nhiệt độ\nTemperature (°C)", rowspan:5, point:30, v1:"30.2", v2:"", v3:"", uncertainty:0.3, tolerance:"± 3", conformity:"A"},
-      {group:"nhiet-do", paramName:"Nhiệt độ\nTemperature (°C)", rowspan:0, point:40, v1:"39.5", v2:"", v3:"", uncertainty:0.3, tolerance:"± 3", conformity:"A"},
-      {group:"nhiet-do", paramName:"Nhiệt độ\nTemperature (°C)", rowspan:0, point:60, v1:"59.2", v2:"", v3:"", uncertainty:0.3, tolerance:"± 3", conformity:"A"},
-      {group:"nhiet-do", paramName:"Nhiệt độ\nTemperature (°C)", rowspan:0, point:80, v1:"78.9", v2:"", v3:"", uncertainty:0.3, tolerance:"± 3", conformity:"A"},
-      {group:"nhiet-do", paramName:"Nhiệt độ\nTemperature (°C)", rowspan:0, point:90, v1:"88.7", v2:"", v3:"", uncertainty:0.3, tolerance:"± 3", conformity:"A"},
-      {group:"toc-do", paramName:"Tốc độ giặt\nWashing Speed (rpm)", rowspan:1, point:52, v1:"52.6", v2:"", v3:"", uncertainty:0.8, tolerance:"± 2", conformity:"A"},
-      {group:"thoi-gian", paramName:"Thời gian\nTimer (second)", rowspan:1, point:100, v1:"100.0", v2:"", v3:"", uncertainty:0.1, tolerance:"--", conformity:"--"},
-      {group:"muc-nuoc", paramName:"Mực nước\nLevel Check (mm)", rowspan:4, point:100, v1:"100", v2:"", v3:"", uncertainty:0.5, tolerance:"± 5", conformity:"A"},
-      {group:"muc-nuoc", paramName:"Mực nước\nLevel Check (mm)", rowspan:0, point:130, v1:"131", v2:"", v3:"", uncertainty:0.5, tolerance:"± 5", conformity:"A"},
-      {group:"muc-nuoc", paramName:"Mực nước\nLevel Check (mm)", rowspan:0, point:160, v1:"162", v2:"", v3:"", uncertainty:0.5, tolerance:"± 5", conformity:"A"},
-      {group:"muc-nuoc", paramName:"Mực nước\nLevel Check (mm)", rowspan:0, point:200, v1:"201", v2:"", v3:"", uncertainty:0.5, tolerance:"± 5", conformity:"A"},
-      {group:"toc-do-vat", paramName:"Tốc độ vắt\nSpin Speed (rpm)", rowspan:4, point:500, v1:"501.8", v2:"", v3:"", uncertainty:0.8, tolerance:"± 50", conformity:"A"},
-      {group:"toc-do-vat", paramName:"Tốc độ vắt\nSpin Speed (rpm)", rowspan:0, point:775, v1:"776.2", v2:"", v3:"", uncertainty:0.8, tolerance:"± 50", conformity:"A"},
-      {group:"toc-do-vat", paramName:"Tốc độ vắt\nSpin Speed (rpm)", rowspan:0, point:950, v1:"953.5", v2:"", v3:"", uncertainty:0.8, tolerance:"± 50", conformity:"A"},
-      {group:"toc-do-vat", paramName:"Tốc độ vắt\nSpin Speed (rpm)", rowspan:0, point:1100, v1:"1103", v2:"", v3:"", uncertainty:0.8, tolerance:"± 50", conformity:"A"}
-    ]
-  },
-  "Dryer": {
-    manufacturer:"Whirlpool", model:"3LWED4705FW", instEn:"Dryer Machine",
-    formPoints:[
-      {group:"nhiet-do", paramName:"Nhiệt độ sấy\nTemperature (°C)", rowspan:5, point:45, v1:"44.8", v2:"", v3:"", uncertainty:0.4, tolerance:"± 5", conformity:"A"},
-      {group:"nhiet-do", paramName:"Nhiệt độ sấy\nTemperature (°C)", rowspan:0, point:50, v1:"49.9", v2:"", v3:"", uncertainty:0.4, tolerance:"± 5", conformity:"A"},
-      {group:"nhiet-do", paramName:"Nhiệt độ sấy\nTemperature (°C)", rowspan:0, point:55, v1:"54.9", v2:"", v3:"", uncertainty:0.4, tolerance:"± 5", conformity:"A"},
-      {group:"nhiet-do", paramName:"Nhiệt độ sấy\nTemperature (°C)", rowspan:0, point:60, v1:"60.1", v2:"", v3:"", uncertainty:0.4, tolerance:"± 5", conformity:"A"},
-      {group:"nhiet-do", paramName:"Nhiệt độ sấy\nTemperature (°C)", rowspan:0, point:70, v1:"70.2", v2:"", v3:"", uncertainty:0.4, tolerance:"± 5", conformity:"A"},
-      {group:"toc-do", paramName:"Tốc độ lồng sấy\nRotation Speed (rpm)", rowspan:1, point:50, v1:"50.3", v2:"", v3:"", uncertainty:0.5, tolerance:"± 2", conformity:"A"},
-      {group:"thoi-gian", paramName:"Thời gian\nTime (s)", rowspan:1, point:600, v1:"600.2", v2:"", v3:"", uncertainty:0.1, tolerance:"± 2", conformity:"A"},
-      {group:"luu-luong", paramName:"Lưu lượng khí\nAir Flow (m/s)", rowspan:1, point:15, v1:"15.1", v2:"", v3:"", uncertainty:0.2, tolerance:"± 2", conformity:"A"}
-    ]
-  },
-  "Refrigerator": {
-    manufacturer:"102", model:"RT20", instEn:"Refrigerator",
-    formPoints:[
-      {group:"ngan-mat", paramName:"Nhiệt độ ngăn mát\nFridge Temp (°C)", rowspan:3, point:2, v1:"2.3", v2:"", v3:"", uncertainty:0.2, tolerance:"± 2", conformity:"A"},
-      {group:"ngan-mat", paramName:"Nhiệt độ ngăn mát\nFridge Temp (°C)", rowspan:0, point:4, v1:"4.1", v2:"", v3:"", uncertainty:0.2, tolerance:"± 2", conformity:"A"},
-      {group:"ngan-mat", paramName:"Nhiệt độ ngăn mát\nFridge Temp (°C)", rowspan:0, point:8, v1:"7.8", v2:"", v3:"", uncertainty:0.2, tolerance:"± 2", conformity:"A"},
-      {group:"ngan-dong", paramName:"Nhiệt độ ngăn đông\nFreezer Temp (°C)", rowspan:3, point:-18, v1:"-17.5", v2:"", v3:"", uncertainty:0.5, tolerance:"± 3", conformity:"A"},
-      {group:"ngan-dong", paramName:"Nhiệt độ ngăn đông\nFreezer Temp (°C)", rowspan:0, point:-15, v1:"-14.9", v2:"", v3:"", uncertainty:0.5, tolerance:"± 3", conformity:"A"},
-      {group:"ngan-dong", paramName:"Nhiệt độ ngăn đông\nFreezer Temp (°C)", rowspan:0, point:-12, v1:"-12.1", v2:"", v3:"", uncertainty:0.5, tolerance:"± 3", conformity:"A"},
-      {group:"do-am", paramName:"Độ ẩm ngăn mát\nHumidity (%RH)", rowspan:1, point:60, v1:"61.2", v2:"", v3:"", uncertainty:2.0, tolerance:"± 10", conformity:"A"},
-      {group:"do-am", paramName:"Độ ẩm ngăn đông\nHumidity (%RH)", rowspan:1, point:60, v1:"62.5", v2:"", v3:"", uncertainty:2.0, tolerance:"± 10", conformity:"A"}
-    ]
-  }
-};
+// Không còn dữ liệu hardcode — toàn bộ lấy từ SQL qua API /api/equipment-templates
+let MockDatabaseEquipment = {};
 
-// Hàm đọc DB động — merge default + localStorage (localStorage ghi đè default)
+// Hàm đọc DB — chỉ trả về dữ liệu đang có trong bộ nhớ (từ SQL sync)
 function getMockDatabaseEquipment() {
-  let stored = {};
-  try { stored = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
-  return Object.assign({}, DefaultEquipmentDB, stored);
+  return MockDatabaseEquipment;
 }
-// Alias để không phải sửa toàn bộ code bên dưới
-let MockDatabaseEquipment = getMockDatabaseEquipment();
+
 
 // Tập hợp tên các mẫu thiết bị đang được đồng bộ trực tiếp từ Database SQL (qua API)
 let liveDbEquipmentKeys = new Set();
@@ -528,38 +506,34 @@ async function syncEquipmentDBFromAPI() {
     if (!response.ok) throw new Error('Không thể kết nối API danh sách thiết bị chuẩn');
     const templates = await response.json();
 
+    // Xây dựng lại hoàn toàn từ SQL — không còn hardcode
+    const freshDB = {};
     liveDbEquipmentKeys = new Set();
     templates.forEach(t => {
       if (!t.NAME) return;
-      MockDatabaseEquipment[t.NAME] = {
+      freshDB[t.NAME] = {
         manufacturer: t.MANUFACTURER || '',
-        model: MockDatabaseEquipment[t.NAME] ? (MockDatabaseEquipment[t.NAME].model || '') : '',
+        model: t.MODEL || '',
         instEn: t.NAME,
         equipmentId: t.EQUIPMENT_ID || '',
         formPoints: groupTemplatePointsToFormPoints(t.formPoints || [])
       };
       liveDbEquipmentKeys.add(t.NAME);
     });
+    MockDatabaseEquipment = freshDB;
   } catch (error) {
     console.error('Lỗi khi đồng bộ Database Equipment từ SQL:', error);
   }
 }
 
+// Re-sync từ SQL khi tab được focus lại (đảm bảo thiết bị mới thêm ở databasequipment sẽ xuất hiện ở đây)
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'visible') {
-    MockDatabaseEquipment = getMockDatabaseEquipment();
     syncEquipmentDBFromAPI().then(() => showDbSyncBadge());
   }
 });
 window.addEventListener('focus', function() {
-  MockDatabaseEquipment = getMockDatabaseEquipment();
   syncEquipmentDBFromAPI();
-});
-window.addEventListener('storage', function(e) {
-  if (e.key === 'labmaster_equipment_db') {
-    MockDatabaseEquipment = getMockDatabaseEquipment();
-    showDbSyncBadge();
-  }
 });
 
 // Đồng bộ ngay khi tải trang lần đầu
@@ -681,6 +655,9 @@ async function openCalibrationWorkspace() {
   const certNo = currentProjectId.replace('PRJ-', '');
   document.getElementById('f-certno').value = certNo;
 
+  // Tải mới danh sách thiết bị chuẩn từ DB mỗi khi mở Workspace để đảm bảo dữ liệu mới nhất
+  await fetchLiveStandards();
+
   // 1. Cố gắng load dữ liệu từ Database
   const hasData = await loadExistingCalibration(certNo);
   
@@ -711,29 +688,21 @@ async function openCalibrationWorkspace() {
 
 /* ====== EQUIPMENT SEARCH ====== */
 function handleEquipmentSearch(keyword) {
-  // Refresh DB từ localStorage mỗi lần search
-  MockDatabaseEquipment = getMockDatabaseEquipment();
-
+  // Dữ liệu luôn từ SQL — không cần localStorage nữa
   const box = document.getElementById('equipment-suggestions');
   box.innerHTML = '';
   if (!keyword || keyword.trim() === '') { box.style.display='none'; return; }
   const keys = Object.keys(MockDatabaseEquipment).filter(k => k.toLowerCase().includes(keyword.toLowerCase()));
   if (keys.length === 0) {
-    box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy mẫu thiết bị</div>`;
+    box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy mẫu thiết bị trong Database</div>`;
   } else {
-    // Lấy danh sách key từ localStorage + Database SQL để đánh dấu "đã đồng bộ"
-    let storedKeys = [];
-    try { storedKeys = Object.keys(JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}')); } catch(e) {}
-
     keys.forEach(key => {
       const eq = MockDatabaseEquipment[key];
-      const isLive = storedKeys.includes(key) || liveDbEquipmentKeys.has(key);
       const d = document.createElement('div');
       d.className = 'suggestion-item';
-      d.innerHTML = `🔍 <strong>${key}</strong> &nbsp;–&nbsp; ${eq.manufacturer} ${eq.model}
-        <span style="margin-left:auto;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;
-          background:${isLive?'#c6f6d5':'#feebc8'};color:${isLive?'#22543d':'#7b4a00'};">
-          ${isLive ? '🔗 Live DB' : '📦 Default'}
+      d.innerHTML = `🔍 <strong>${key}</strong> &nbsp;–&nbsp; ${eq.manufacturer || ''} ${eq.model || ''}
+        <span style="margin-left:auto;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:#c6f6d5;color:#22543d;">
+          🔗 Live DB
         </span>`;
       d.onclick = () => selectEquipmentTemplate(key);
       box.appendChild(d);
@@ -749,6 +718,7 @@ function selectEquipmentTemplate(key) {
   if (!eq) return;
   document.getElementById('f-mfr').value = eq.manufacturer || '';
   document.getElementById('f-model').value = eq.model || '';
+  document.getElementById('f-id').value = eq.equipmentId || ''; // Thêm dòng này để điền Mã nhận diện (ID)
   if (eq.instEn) document.getElementById('f-inst-en').value = eq.instEn;
 
   const tbody = document.getElementById('calibration-table-body');
@@ -809,17 +779,23 @@ function handleStandardSearch(keyword) {
   const box = document.getElementById('standard-suggestions');
   box.innerHTML = '';
   if (!keyword || keyword.trim().length < 1) { box.style.display='none'; return; }
-  const filtered = standardEquipmentDB.filter(eq =>
-    eq.code.toLowerCase().includes(keyword.toLowerCase()) ||
-    eq.name.toLowerCase().includes(keyword.toLowerCase())
+  
+  // Truy vấn từ liveStandardsDB được tải từ SQL thay vì mảng cứng
+  const filtered = liveStandardsDB.filter(eq =>
+    (eq.EQUIPMENT_ID && eq.EQUIPMENT_ID.toLowerCase().includes(keyword.toLowerCase())) ||
+    (eq.NAME && eq.NAME.toLowerCase().includes(keyword.toLowerCase()))
   );
+
   if (filtered.length === 0) {
     box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy thiết bị chuẩn</div>`;
   } else {
     filtered.forEach(eq => {
+      const code = eq.EQUIPMENT_ID || 'N/A';
+      const name = eq.NAME || 'N/A';
+      const due = eq.NEXT_DUE || '---';
       const d = document.createElement('div');
       d.className = 'suggestion-item';
-      d.innerHTML = `🏷 <strong>${eq.code}</strong> – ${eq.name} <span style="margin-left:auto;color:var(--muted);font-size:12px;">Đến ${eq.validity}</span>`;
+      d.innerHTML = `🏷 <strong>${code}</strong> – ${name} <span style="margin-left:auto;color:var(--muted);font-size:12px;">Hạn: ${due}</span>`;
       d.onclick = () => addStandardTag(eq);
       box.appendChild(d);
     });
@@ -828,9 +804,16 @@ function handleStandardSearch(keyword) {
 }
 
 function addStandardTag(eq) {
-  if (selectedStandards.find(s => s.code === eq.code)) return;
-  selectedStandards.push(eq);
-  renderStandardTags();
+  // Map dữ liệu từ SQL Template sang định dạng bảng Standard trong Project
+  const standardEntry = {
+    name: eq.NAME || '',
+    id: eq.EQUIPMENT_ID || '',
+    trace: eq.MANUFACTURER || '---',
+    due: eq.NEXT_DUE || '---'
+  };
+
+  standards.push(standardEntry);
+  renderStandardsForm();
   document.getElementById('input-standard-search').value = '';
   document.getElementById('standard-suggestions').style.display = 'none';
 }
@@ -1288,35 +1271,118 @@ function deleteProject(id) {
 }
 
 async function loadExistingCalibration(projectId) {
-    currentActiveCertNo = projectId; 
+    currentActiveCertNo = projectId;
     currentProjectId = projectId;
-    
+
     try {
         const response = await fetch(`${API_BASE_URL}/api/calibration/${projectId}`);
-        
+
         if (response.status === 404) {
             console.log("Dự án mới, chưa có dữ liệu hiệu chuẩn cũ.");
             resetWorkspaceForm();
-            return;
+            return false; // ← trả false để workspace biết chưa có dữ liệu
         }
 
         if (!response.ok) throw new Error("Lỗi kết nối API lấy dữ liệu hiệu chuẩn");
 
         const result = await response.json();
-        if (result && result.hasData) {
-            // Trường hợp ĐÃ CÓ dữ liệu cũ: Gọi hàm đổ mảng kết quả vào bảng của bạn
-            if (typeof fillCalibrationTableRows === 'function') {
-                fillCalibrationTableRows(result.points);
-                showToast("Đã khôi phục thành công tiến trình hiệu chuẩn cũ từ hệ thống.", "success");
-            } else {
-                console.warn("Chưa định nghĩa hàm fillCalibrationTableRows để hiển thị điểm đo cũ.");
+
+        // API /api/calibration/:certNo trả về { cert, points, standards }
+        // Coi là có dữ liệu nếu cert tồn tại và có ít nhất 1 điểm đo
+        const hasSavedData = result && result.cert && result.points && result.points.length > 0;
+
+        if (hasSavedData) {
+            // Điền thông tin thiết bị vào form
+            const c = result.cert;
+            const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+            setVal('f-inst-vi',   c.INSTRUMENT_NAME);
+            setVal('f-inst-en',   c.INSTRUMENT_NAME);
+            setVal('f-mfr',       c.MANUFACTURER);
+            setVal('f-model',     c.MODEL);
+            setVal('f-id',        c.EQUIPMENT_ID);
+            setVal('f-sn',        c.SERIAL_NUMBER);
+            setVal('f-cust',      c.CUSTOMER_NAME);
+            setVal('f-caldate',   c.CAL_DATE);
+            setVal('f-recaldate', c.RE_CAL_DATE);
+            setVal('f-proc',      c.PROCEDURE);
+            setVal('f-ref',       c.REF_STANDARD);
+            setVal('f-temp',      c.TEMP_ENV);
+            setVal('f-humi',      c.HUMI_ENV);
+            setVal('f-sign1',     c.HEAD_OF_LAB);
+            setVal('f-sign2',     c.DIRECTOR);
+
+            // Render bảng kết quả đo từ dữ liệu đã lưu
+            fillCalibrationTableRows(result.points);
+
+            // Khôi phục danh sách thiết bị chuẩn đã chọn
+            if (result.standards && result.standards.length > 0) {
+                standards = result.standards.map(s => ({
+                    name:  s.EQ_NAME  || '',
+                    id:    s.EQ_CODE  || '',
+                    trace: s.LINK     || '',
+                    due:   s.VALIDITY || ''
+                }));
+                renderStandardsForm();
             }
+
+            return true; // ← báo workspace đã khôi phục dữ liệu cũ
         }
+
+        resetWorkspaceForm();
+        return false;
+
     } catch (error) {
         console.error("Lỗi kiểm tra lịch sử hiệu chuẩn:", error);
-        // Nếu kẹt mạng hoặc lỗi bất ngờ, vẫn dọn sạch form để người dùng nhập mới
         resetWorkspaceForm();
+        return false;
     }
+}
+
+// Render bảng kết quả đo từ mảng CALIBRATION_POINTS trả về từ SQL
+function fillCalibrationTableRows(points) {
+    const tbody = document.getElementById('calibration-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    // Gộp các hàng cùng PARAMETER_NAME thành nhóm rowspan
+    const groups = [];
+    let i = 0;
+    while (i < points.length) {
+        const pName = points[i].PARAMETER_NAME || '';
+        let j = i;
+        while (j < points.length && (points[j].PARAMETER_NAME || '') === pName) j++;
+        groups.push({ name: pName, rows: points.slice(i, j) });
+        i = j;
+    }
+
+    groups.forEach(group => {
+        group.rows.forEach((pt, idx) => {
+            const row = document.createElement('tr');
+            row.dataset.parameterName = group.name.replace(/ /g, ' ');
+            let html = '';
+
+            if (idx === 0) {
+                const parts = group.name.split('\n');
+                const displayName = parts[0] + (parts[1] ? `<br><span style="font-weight:400;font-style:italic;color:var(--muted);font-size:12px;">${parts[1]}</span>` : '');
+                html += `<td rowspan="${group.rows.length}" class="group-header">${displayName}</td>`;
+            }
+
+            html += `
+              <td><input type="text" class="lab-input-cell cal-point" value="${pt.CAL_POINT || ''}" style="font-weight:700;"></td>
+              <td><input type="text" class="lab-input-cell measured-active as-found-1" value="${pt.AS_FOUND_VALUE || ''}" placeholder="Lần 1"></td>
+              <td><input type="text" class="lab-input-cell as-found-2" value="" placeholder="Lần 2"></td>
+              <td><input type="text" class="lab-input-cell as-found-3" value="" placeholder="Lần 3"></td>
+              <td><input type="text" class="lab-input-cell uncertainty" value="${pt.UNCERTAINTY || ''}"></td>
+              <td><input type="text" class="lab-input-cell tolerance" value="${pt.TOLERANCE || ''}" style="font-weight:500;"></td>
+              <td><input type="text" class="lab-input-cell conformity" value="${pt.CONFORMITY || ''}" style="font-weight:700;color:var(--teal);"></td>
+              <td style="text-align:center;"><button onclick="this.closest('tr').remove();updateRowCount();" class="btn-rm">×</button></td>
+            `;
+            row.innerHTML = html;
+            tbody.appendChild(row);
+        });
+    });
+
+    updateRowCount();
 }
 
 /* ====== CLOSE DROPDOWNS ON OUTSIDE CLICK ====== */
