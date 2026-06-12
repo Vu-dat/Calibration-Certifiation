@@ -342,7 +342,9 @@
                 
                 // Gộp nhóm thông số đầu tiên bằng thuộc tính rowspan chuẩn chỉnh
                 if (idx === 0) {
-                    html += `<td rowspan="${item.points.length}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">${item.name.replace('\n','<br><span style="font-weight:normal;font-style:italic;">')}</span></td>`;
+                    html += `<td rowspan="${item.points.length}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
+                        <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${item.name}</textarea>
+                    </td>`;
                 }
                 
                 const displayVal = item.values && item.values[idx] ? item.values[idx] : "";
@@ -359,7 +361,9 @@
             tr.setAttribute('data-group', pt.group);
             let html = '';
             if (pt.rowspan > 0) {
-                html += `<td rowspan="${pt.rowspan}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">${pt.paramName.replace('\n','<br><span style="font-weight:normal;font-style:italic;">')}</span></td>`;
+                html += `<td rowspan="${pt.rowspan}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
+                    <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${pt.paramName}</textarea>
+                </td>`;
             }
             html += renderCells(pt.point, pt.v1, pt.uncertainty, pt.tolerance, pt.conformity);
             tr.innerHTML = html;
@@ -390,7 +394,10 @@
 
         rows.forEach(row => {
             const groupHeader = row.querySelector('.group-header');
-            if (groupHeader) lastParamName = groupHeader.innerText;
+            if (groupHeader) {
+                const textarea = groupHeader.querySelector('textarea');
+                lastParamName = textarea ? textarea.value : groupHeader.innerText;
+            }
 
             formPoints.push({
                 group: row.getAttribute('data-group'),
