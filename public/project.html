@@ -358,6 +358,7 @@
             </thead>
             <tbody id="calibration-table-body">
               <tr><td colspan="9" class="cal-empty-state">🔍 Gõ tên thiết bị ở mục 2 để hệ thống tự tải dữ liệu, hoặc dùng nút bên dưới để nhập thủ công</td></tr>
+              <!-- Rows will be dynamically added by JavaScript -->
             </tbody>
           </table>
         </div>
@@ -438,6 +439,36 @@
 
 /* ====== LIVE DATABASE STANDARDS ====== */
 let liveStandardsDB = [];
+
+// Dữ liệu thiết bị chuẩn tĩnh (Trích xuất từ equipment.html)
+const staticEquipmentData = {
+    '1': { code: 'LAB-BARO.01', name: 'Thermo-hygro-barometer', nsx: 'LUTRON', model: 'MHB-382SD', gcn: 'AC-1868', nextDate: '2026-08-29' },
+    '2': { code: 'LAB-WATERFLOW.01', name: 'Water Flow Meter', nsx: 'N/A', model: 'N/A', gcn: 'KT3-00042BDT5', nextDate: '2026-08-27' },
+    '3': { code: 'LAB-TIMER.01', name: 'Stopwatch', nsx: 'CASIO', model: 'HS-70W', gcn: 'KT3-01161BDE5/1', nextDate: '2026-08-09' },
+    '4': { code: 'LAB-TACHO.03', name: 'Digital Tachometer', nsx: 'FLUKE', model: '931', gcn: 'KT3-01161BDE5/2', nextDate: '2026-08-09' },
+    '5': { code: 'LAB-TACHO.02', name: 'Digital Tachometer', nsx: 'TENMARS', model: 'TM-4100N', gcn: 'KT3-01161BDE5/3', nextDate: '2026-08-09' },
+    '6': { code: 'LAB-TIMER.02', name: 'STOPWATCH', nsx: 'Extech', model: '365510', gcn: 'TSG-0-554097', nextDate: '2026-09-17' },
+    '7': { code: 'LAB-10M1WEIGHT.01', name: 'Weight M1-10', nsx: 'CHINA', model: '', gcn: 'KT3-0122BKL5', nextDate: '2026-03-07' },
+    '13': { code: 'LAB-CALIPER.02', name: 'Digital caliper', nsx: 'Mitutoyo', model: 'CD-20APX', gcn: 'KT3-01293BDD5/1', nextDate: '2026-08-09' },
+    '14': { code: 'LAB-PANME.01', name: 'Venier micrometer', nsx: 'MITUTOYO', model: '293-240-30', gcn: 'KT3-01293BDD5/2', nextDate: '1900-12-31' },
+    '15': { code: 'LAB-FEELER.01', name: 'Feeler gauge', nsx: 'NIGATA SEIKI', model: 'NO.150ML', gcn: 'KT3-01293BDD5/3', nextDate: '2026-08-09' },
+    '18': { code: 'LAB-THER_HUM.02', name: 'Thermo-hygrometer', nsx: 'TESTO', model: '174H', gcn: 'KT3-01499BHL5/1', nextDate: '2026-04-09' },
+    '19': { code: 'LAB-AIRFLOW.02', name: 'Air Flow Meter', nsx: 'TENMARS', model: 'TM-4001', gcn: 'KT3-01499BHL5/2', nextDate: '2026-04-09' },
+    '20': { code: 'LAB-BALANCE.03', name: 'Digital Balance', nsx: 'OHAUS', model: 'PA214', gcn: 'KT3-01514BKL5/1', nextDate: '2026-08-22' },
+    '21': { code: 'LAB-BALANCE.02', name: 'Digital Balance', nsx: 'VIBRA SHINKO', model: 'AB623', gcn: 'KT3-01514BKL5/2', nextDate: '2026-08-22' },
+    '22': { code: 'LAB-WEIGHTSET.02', name: 'F1 Standard Weight Set', nsx: 'METTLER TOLEDO', model: 'F1', gcn: 'KT3-01514BKL5/3', nextDate: '2026-08-29' },
+    '23': { code: 'LAB-PRESSURE.02', name: 'Pressure Gauge', nsx: 'LUTRON', model: 'PS-9302', gcn: 'KT3-01858BCO5/1', nextDate: '2026-04-09' },
+    '24': { code: 'LAB-MINIFORCE.02', name: 'Pressure Gauge', nsx: 'CHINA', model: 'L400C', gcn: 'KT3-01858BCO5/2', nextDate: '2026-08-25' },
+    '25': { code: 'LAB-CAL_TOOL_26', name: 'Infrared thermomter', nsx: 'FLUKE 572-2', model: '572-2', gcn: 'KT3-02187BNH5/1', nextDate: '2026-05-09' },
+    '26': { code: 'LAB-THERMO.03', name: 'Digital Thermometer', nsx: 'Extech', model: '', gcn: 'KT3-02187BNH5/2', nextDate: '2026-10-09' },
+    '27': { code: 'LAB-PRESSURE.01', name: 'Pressure Gauge', nsx: 'BAROLI', model: 'RAISOVA 547', gcn: 'KT3-02205BCO4/2', nextDate: '2026-05-12' },
+    '29': { code: 'LAB-THERMO.04', name: 'Digital Thermometer', nsx: 'Extech', model: '', gcn: 'KT3-02443BNH4/2', nextDate: '2026-05-12' },
+    '30': { code: 'LAB-THICKNESS.01', name: 'Digital Indicator', nsx: 'INSIZE', model: '2103-05', gcn: 'TSG-0-554096', nextDate: '2026-09-17' },
+    '52': { code: 'LAB-MINIFORCE.05', name: 'Miniloadcell - indicator 200kg', nsx: 'BONGSHIN', model: 'BS-32', gcn: 'TSG-0-554093', nextDate: '2026-09-17' },
+    '55': { code: 'LAB-PINSET.01', name: 'Pin gauge set', nsx: 'CHINA', model: '4.98 - 5.02', gcn: 'TSG-0-554094', nextDate: '2026-09-17' },
+    '56': { code: 'LAB-RULER.01', name: 'Steel Ruler', nsx: 'SHINWA', model: '', gcn: 'TSG-0-554095', nextDate: '2026-09-17' },
+    '72': { code: 'LAB-LINEAR.01', name: 'LINEAR SCALE', nsx: '', model: '', gcn: 'KT3-01596BDD5', nextDate: '2026-10-28' }
+};
 
 async function fetchLiveStandards() {
   const loader = document.getElementById('standard-loader');
@@ -779,23 +810,52 @@ function handleStandardSearch(keyword) {
   const box = document.getElementById('standard-suggestions');
   box.innerHTML = '';
   if (!keyword || keyword.trim().length < 1) { box.style.display='none'; return; }
+
+  const keyLower = keyword.toLowerCase();
   
-  // Truy vấn từ liveStandardsDB được tải từ SQL thay vì mảng cứng
-  const filtered = liveStandardsDB.filter(eq =>
-    (eq.EQUIPMENT_ID && eq.EQUIPMENT_ID.toLowerCase().includes(keyword.toLowerCase())) ||
-    (eq.NAME && eq.NAME.toLowerCase().includes(keyword.toLowerCase()))
+  // 1. Kết hợp dữ liệu từ API và Dữ liệu tĩnh
+  const combinedDB = [...liveStandardsDB];
+  Object.values(staticEquipmentData).forEach(s => {
+    // Tránh trùng lặp nếu API đã có mã này
+    if (!combinedDB.find(item => (item.EQUIPMENT_ID || item.code) === s.code)) {
+        combinedDB.push({
+            EQUIPMENT_ID: s.code,
+            NAME: s.name,
+            MANUFACTURER: s.nsx,
+            NEXT_DUE: s.nextDate,
+            isStatic: true
+        });
+    }
+  });
+  
+  // 2. Logic tìm kiếm "Mã đầu" (Prefix Search) tương tự YouTube/Google Search
+  const filtered = combinedDB.filter(eq =>
+    (eq.EQUIPMENT_ID && eq.EQUIPMENT_ID.toLowerCase().includes(keyLower)) ||
+    (eq.NAME && eq.NAME.toLowerCase().includes(keyLower))
   );
+
+  // 3. Sắp xếp: Ưu tiên những kết quả bắt đầu bằng keyword lên trên đầu
+  filtered.sort((a, b) => {
+    const aCode = (a.EQUIPMENT_ID || '').toLowerCase();
+    const bCode = (b.EQUIPMENT_ID || '').toLowerCase();
+    const aStarts = aCode.startsWith(keyLower);
+    const bStarts = bCode.startsWith(keyLower);
+    if (aStarts && !bStarts) return -1;
+    if (!aStarts && bStarts) return 1;
+    return aCode.localeCompare(bCode);
+  });
 
   if (filtered.length === 0) {
     box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy thiết bị chuẩn</div>`;
   } else {
-    filtered.forEach(eq => {
+    filtered.slice(0, 10).forEach(eq => { // Giới hạn 10 kết quả cho sạch giao diện
       const code = eq.EQUIPMENT_ID || 'N/A';
       const name = eq.NAME || 'N/A';
       const due = eq.NEXT_DUE || '---';
       const d = document.createElement('div');
       d.className = 'suggestion-item';
-      d.innerHTML = `🏷 <strong>${code}</strong> – ${name} <span style="margin-left:auto;color:var(--muted);font-size:12px;">Hạn: ${due}</span>`;
+      d.innerHTML = `🏷 <strong>${code}</strong> – ${name} 
+                     <span style="margin-left:auto;color:var(--muted);font-size:11px;">${eq.isStatic ? '📌 File' : '🌐 SQL'} | Hạn: ${due}</span>`;
       d.onclick = () => addStandardTag(eq);
       box.appendChild(d);
     });
@@ -1464,6 +1524,11 @@ function resetWorkspaceForm() {
     const tableBody = document.getElementById('calibration-table-body');
     if (tableBody) {
         tableBody.innerHTML = '<tr><td colspan="9" class="cal-empty-state" style="text-align:center; padding: 20px; color:#9e9c96;">🔍 Dự án mới: Chọn thiết bị chuẩn và nhập kết quả điểm đo thực tế của bạn</td></tr>';
+        tableBody.innerHTML = ''; // Xóa nội dung hiện có
+        // Thêm một vài dòng mặc định để nhập liệu thủ công
+        for (let i = 0; i < 3; i++) { // Thêm 3 dòng trống mặc định
+            addCalResultRow();
+        }
     }
     
     renderStandardTags();

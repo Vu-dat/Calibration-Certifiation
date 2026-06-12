@@ -190,17 +190,22 @@
                 <thead>
                     <tr>
                         <th style="border: 1px solid #111111; padding: 10px; width: 22%;">Thông số<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Parameters</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 15%;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Calibration Points</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 15%;">Giá trị đo được<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">As Found Value</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 12%;">Độ KĐBD<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Uncertainty</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 12%;">Dung sai<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Tolerance</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 12%;">Sự phù hợp<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Conformity</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 12%;">Thao tác<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Action</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 12%;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Calibration Points</span></th>
+                        <th colspan="3" style="border: 1px solid #111111; padding: 10px; width: 24%;">Giá trị đo được<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">As Found Value (lần 1 / 2 / 3)</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Độ KĐBD<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Uncertainty</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Dung sai<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Tolerance</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Sự phù hợp<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Conformity</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 6%;">Thao tác<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Action</span></th>
                     </tr>
                 </thead>
                 <tbody id="calibration-table-rows"></tbody>
             </table>
         </div>
+
+        <div style="margin: 15px 0;">
+            <button type="button" class="btn-shiny" style="background: #3182ce; padding: 8px 20px; font-size: 13px;" onclick="addCalibrationRow()">+ Thêm hàng (Add Row)</button>
+        </div>
+
         <div style="text-align:right; margin-top: 30px;">
             <button class="btn-save" onclick="saveEq()" style="padding: 10px 30px; cursor: pointer;">Save Changes</button>
         </div>
@@ -332,8 +337,8 @@
         if (points.length > 0) {
             renderFromTemplatePoints(points, tbody);
         } else {
-            // Chưa có thông số đo nào -> hiển thị bảng trống theo đúng cấu trúc bảng hiệu chuẩn
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#888;padding:15px;border:1px solid #111;">Chưa có thông số đo nào. Bấm "+ Thêm hàng" để bắt đầu cấu hình bảng đo hiệu chuẩn.</td></tr>`;
+            // Tự động thêm sẵn 3 dòng trắng để người dùng nhập liệu ngay khi tạo mẫu mới hoặc mẫu chưa có điểm đo
+            for (let k = 0; k < 3; k++) addCalibrationRow();
         }
     }
 
@@ -434,14 +439,47 @@
 
     // Rút gọn chỉ còn 1 ô input duy nhất cho cột As Found Value ứng với giao diện mẫu của bạn
     function renderCells(p, v1, unc, tol, conf) {
+        // Phân tách chuỗi composite "v1 / v2 / v3" nếu có từ Database
+        let val1 = v1 || '', val2 = '', val3 = '';
+        if (typeof v1 === 'string' && v1.includes(' / ')) {
+            const parts = v1.split(' / ');
+            val1 = parts[0] || '';
+            val2 = parts[1] || '';
+            val3 = parts[2] || '';
+        }
+
+        const displayUnc = unc || '0.3';
+        const displayTol = tol || '± 3';
+
         return `
             <td class="point-cell" style="border:1px solid #111;padding:4px;font-weight:bold;background:#fafafa;"><input type="text" value="${p}" class="cell-input point-input" style="font-weight:bold;text-align:center;"></td>
-            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${v1}" class="cell-input v1"></td>
-            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${unc}" class="cell-input unc"></td>
-            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${tol}" class="cell-input tol"></td>
+            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${val1}" class="cell-input v1" placeholder="Lần 1"></td>
+            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${val2}" class="cell-input v2" placeholder="Lần 2"></td>
+            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${val3}" class="cell-input v3" placeholder="Lần 3"></td>
+            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${displayUnc}" class="cell-input unc"></td>
+            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${displayTol}" class="cell-input tol"></td>
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${conf}" class="cell-input conf" style="font-weight:bold;"></td>
             <td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>
         `;
+    }
+
+    // Hàm thêm một dòng mới vào bảng hiệu chuẩn trong Edit View
+    function addCalibrationRow() {
+        const tbody = document.getElementById('calibration-table-rows');
+        // Xóa thông báo trống nếu có
+        const emptyState = tbody.querySelector('td[colspan="7"]');
+        if (emptyState) tbody.innerHTML = '';
+
+        const tr = document.createElement('tr');
+        // Gán data-group duy nhất để hàm deleteRow hiện tại có thể xóa chính xác dòng này
+        tr.setAttribute('data-group', 'manual-row-' + Date.now() + Math.random().toString(36).substr(2, 5));
+        tr.innerHTML = `
+            <td class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
+                <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;" placeholder="Tên thông số (Parameter)"></textarea>
+            </td>
+            ${renderCells('', '', '', '', '')}
+        `;
+        tbody.appendChild(tr);
     }
 
     async function saveEq() {
@@ -462,12 +500,20 @@
 
             const pointInput = row.querySelector('.point-input');
             const v1Input = row.querySelector('.v1');
-            if (!pointInput && !v1Input) return; // bỏ qua dòng trạng thái rỗng
+            const v2Input = row.querySelector('.v2');
+            const v3Input = row.querySelector('.v3');
+
+            if (!pointInput && !v1Input) return; 
+
+            const val1 = v1Input ? v1Input.value.trim() : '';
+            const val2 = v2Input ? v2Input.value.trim() : '';
+            const val3 = v3Input ? v3Input.value.trim() : '';
+            const mergedAsFound = [val1, val2, val3].filter(Boolean).join(' / ') || val1;
 
             points.push({
                 parameter: lastParamName,
                 value: pointInput ? pointInput.value : '',
-                asFoundValue: v1Input ? v1Input.value : '',
+                asFoundValue: mergedAsFound,
                 uncertainty: row.querySelector('.unc') ? row.querySelector('.unc').value : '',
                 tolerance: row.querySelector('.tol') ? row.querySelector('.tol').value : '',
                 conformity: row.querySelector('.conf') ? row.querySelector('.conf').value : ''
