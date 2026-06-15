@@ -63,6 +63,10 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
     if (err) { console.error('Không thể kết nối SQLite:', err.message); process.exit(1); }
 });
 
+// ĐỒNG BỘ CẤU HÌNH VỚI SERVER CHÍNH ĐỂ TRÁNH TRANH CHẤP KHI ĐỌC DỮ LIỆU
+db.run("PRAGMA journal_mode = WAL");
+db.configure("busyTimeout", 5000);
+
 function dbGet(sql, params) {
     return new Promise((resolve, reject) => db.get(sql, params, (err, row) => err ? reject(err) : resolve(row)));
 }

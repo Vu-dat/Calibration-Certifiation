@@ -198,14 +198,26 @@
         <div class="display-value" id="view-proj-tech">-</div>
     </div>
     <div class="info-group">
-      <label>Khách hàng</label>
-      <div class="display-value" id="view-proj-customer">-</div>
+      <label>Khách hàng (Tìm kiếm YouTube style)</label>
+      <div class="autocomplete-wrapper">
+          <input type="text" id="cust-search-detail" class="lab-input-cell" placeholder="Gõ tên khách hàng để gợi ý..." oninput="handleCustomerSearch(this.value)" autocomplete="off">
+          <div id="cust-loader" class="loader-inline"></div>
+          <div id="cust-suggestions" class="autocomplete-suggestions"></div>
+      </div>
     </div>
-    <div class="info-group">
+    <div class="info-group">  
         <label>Trạng thái</label>
         <div class="display-value" id="view-proj-status">-</div>
     </div>
 </div>
+      </div>
+      <!-- Vùng hiển thị thông tin chi tiết khách hàng sau khi chọn từ gợi ý -->
+      <div id="selected-cust-details" class="admin-grid" style="display:none; margin-top: 15px; background: #f0fdfa; border: 1px dashed var(--teal); grid-template-columns: repeat(2, 1fr);">
+          <div class="info-group"><label>Công ty / Tổ chức</label><div class="display-value" id="det-cust-company">-</div></div>
+          <div class="info-group"><label>Mã số thuế</label><div class="display-value" id="det-cust-tax">-</div></div>
+          <div class="info-group"><label>Số điện thoại</label><div class="display-value" id="det-cust-phone">-</div></div>
+          <div class="info-group"><label>Email</label><div class="display-value" id="det-cust-email">-</div></div>
+          <div class="info-group" style="grid-column: span 2;"><label>Địa chỉ xuất hóa đơn</label><div class="display-value" id="det-cust-addr">-</div></div>
       </div>
       <div class="section-divider"></div>
       <p style="padding:16px 24px; color:var(--muted); font-size:13.5px;">
@@ -441,9 +453,14 @@
         alert("Hết phiên làm việc hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại!");
         window.location.href = 'login.html'; // Hoặc đường dẫn '/'
     }
+
+    // Tải danh sách khách hàng từ Database
+    fetchLiveCustomers();
 });
   // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
-  const API_BASE_URL = 'http://localhost:18080';
+  const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:18080' 
+    : window.location.origin;
 
 /* ====== LIVE DATABASE STANDARDS ====== */
 let liveStandardsDB = [];
@@ -491,6 +508,79 @@ async function fetchLiveStandards() {
   } finally {
     if (loader) loader.style.display = 'none'; // Ẩn spinner dù thành công hay thất bại
   }
+}
+
+/* ====== LIVE CUSTOMERS DATABASE ====== */
+let liveCustomersDB = [];
+async function fetchLiveCustomers() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/customers`);
+    if (response.ok) {
+      liveCustomersDB = await response.json();
+    }
+  } catch (error) {
+    console.error("Lỗi khi tải danh sách khách hàng:", error);
+  }
+}
+
+/* ====== CUSTOMER SEARCH (YouTube Style) ====== */
+function handleCustomerSearch(keyword) {
+  const box = document.getElementById('cust-suggestions');
+  const loader = document.getElementById('cust-loader');
+  box.innerHTML = '';
+  if (!keyword || keyword.trim().length < 1) { box.style.display='none'; return; }
+
+  if (loader) loader.style.display = 'block';
+  const keyLower = keyword.toLowerCase();
+  
+  // Lọc theo tên hoặc công ty
+  const filtered = liveCustomersDB.filter(c =>
+    (c.NAME && c.NAME.toLowerCase().includes(keyLower)) ||
+    (c.COMPANY && c.COMPANY.toLowerCase().includes(keyLower))
+  );
+
+  // Thuật toán sắp xếp YouTube-style: Ưu tiên các kết quả bắt đầu bằng từ khóa lên đầu
+  filtered.sort((a, b) => {
+    const aName = (a.NAME || '').toLowerCase();
+    const bName = (b.NAME || '').toLowerCase();
+    const aStarts = aName.startsWith(keyLower);
+    const bStarts = bName.startsWith(keyLower);
+    if (aStarts && !bStarts) return -1;
+    if (!aStarts && bStarts) return 1;
+    return aName.localeCompare(bName);
+  });
+
+  if (filtered.length === 0) {
+    box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy khách hàng</div>`;
+  } else {
+    filtered.slice(0, 10).forEach(c => {
+      const d = document.createElement('div');
+      d.className = 'suggestion-item';
+      d.innerHTML = `👤 <strong>${c.NAME}</strong> – ${c.COMPANY || 'Cá nhân'} 
+                     <span style="margin-left:auto;color:var(--muted);font-size:11px;">#${c.ID}</span>`;
+      d.onclick = () => selectCustomerInDetail(c);
+      box.appendChild(d);
+    });
+  }
+  if (loader) loader.style.display = 'none';
+  box.style.display = 'block';
+}
+
+function selectCustomerInDetail(cust) {
+  document.getElementById('cust-search-detail').value = cust.NAME;
+  document.getElementById('cust-suggestions').style.display = 'none';
+  
+  // Hiển thị và đổ thông tin chi tiết vào bảng phụ
+  document.getElementById('det-cust-company').innerText = cust.COMPANY || '-';
+  document.getElementById('det-cust-tax').innerText = cust.TAX || '-';
+  document.getElementById('det-cust-phone').innerText = cust.PHONE || '-';
+  document.getElementById('det-cust-email').innerText = cust.EMAIL || '-';
+  document.getElementById('det-cust-addr').innerText = cust.ADDRESS || '-';
+  document.getElementById('selected-cust-details').style.display = 'grid';
+
+  // Đồng bộ thông tin này sang Workspace (nếu đang mở Workspace)
+  if (document.getElementById('f-cust')) document.getElementById('f-cust').value = cust.COMPANY || cust.NAME;
+  if (document.getElementById('f-cust-addr')) document.getElementById('f-cust-addr').value = cust.ADDRESS || '';
 }
 
 
@@ -613,6 +703,10 @@ function showProjectList() {
   document.getElementById('editor-header-actions').style.display='none';
   document.getElementById('preview-header-actions').style.display='none';
   document.getElementById('main-header-actions').style.display='flex';
+  
+  // Xóa nội dung tìm kiếm khách hàng khi quay lại danh sách
+  document.getElementById('cust-search-detail').value = '';
+  document.getElementById('selected-cust-details').style.display = 'none';
   fetchProjects();
 }
 
@@ -639,6 +733,11 @@ function viewProjectDetail(id) {
   if(document.getElementById('pd-name')) document.getElementById('pd-name').textContent = proj.TITLE;
   if(document.getElementById('pd-title-crumb')) document.getElementById('pd-title-crumb').textContent = `${proj.ID} - ${proj.TITLE}`;
   
+  // Xóa dữ liệu cũ trong ô tìm kiếm khi xem dự án mới
+  document.getElementById('cust-search-detail').value = '';
+  document.getElementById('selected-cust-details').style.display = 'none';
+
+
   // --- Đổ dữ liệu đồng bộ vào vùng proj-info-grid (Nếu bạn có dùng) ---
   if(document.getElementById('view-proj-id')) document.getElementById('view-proj-id').innerText = proj.ID;
   if(document.getElementById('view-proj-title')) document.getElementById('view-proj-title').innerText = proj.TITLE;
@@ -1641,4 +1740,4 @@ async function executeCreateEquipment() {
 }
 </script>
 </body>
-</html>
+</html

@@ -2,51 +2,470 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Customer Management - LabMaster</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Management – LabMaster Enterprise</title>
     <link rel="stylesheet" href="index.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
-        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #edf2f7; }
-        .section-header h2 { margin: 0; color: #2d3748; font-size: 1.5rem; }
-        
-        .admin-grid {
+        /* ══════════════════════════════════════════
+           DESIGN TOKENS
+        ══════════════════════════════════════════ */
+        :root {
+            --teal:         #008080;
+            --teal-dark:    #005f5f;
+            --teal-mid:     #007070;
+            --teal-light:   #e0f2f1;
+            --teal-glow:    rgba(0,128,128,0.18);
+            --navy:         #1e293b;
+            --slate:        #475569;
+            --slate-light:  #94a3b8;
+            --border:       #e2e8f0;
+            --bg:           #f1f5f9;
+            --card:         #ffffff;
+            --radius-lg:    14px;
+            --radius-md:    10px;
+            --radius-sm:    6px;
+            --shadow-card:  0 4px 20px rgba(0,0,0,0.06);
+            --shadow-modal: 0 25px 60px rgba(0,0,0,0.22);
+            --transition:   0.22s cubic-bezier(.4,0,.2,1);
+        }
+
+        /* ══════════════════════════════════════════
+           RESET & BASE
+        ══════════════════════════════════════════ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--navy);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        .container { max-width: 1280px; margin: 28px auto; padding: 0 24px; }
+
+        /* ══════════════════════════════════════════
+           STATS ROW
+        ══════════════════════════════════════════ */
+        .stats-row {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            margin-bottom: 30px;
-            background: #f8fafc;
-            padding: 20px;
-            border-radius: 12px;
+            gap: 18px;
+            margin-bottom: 32px;
         }
-        .info-group {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        .info-group label {
-            font-weight: 700;
-            color: #4a5568;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .display-value {
-            padding: 12px;
-            background: #f7fafc;
-            border-radius: 8px;
-            border: 1px solid #edf2f7;
-            color: #2d3748;
-            min-height: 20px;
-        }
-        .profile-header {
+        .stat-card {
+            background: var(--card);
+            border-radius: var(--radius-lg);
+            padding: 22px 24px;
+            box-shadow: var(--shadow-card);
+            border-left: 4px solid var(--teal);
             display: flex;
             align-items: center;
-            gap: 20px;
-            margin-bottom: 30px;
+            gap: 18px;
+            transition: transform var(--transition), box-shadow var(--transition);
+        }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,128,128,0.13); }
+        .stat-card.blue  { border-color: #3b82f6; }
+        .stat-card.green { border-color: #10b981; }
+        .stat-icon {
+            width: 52px; height: 52px; border-radius: 12px;
+            background: var(--teal-light);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.35rem; color: var(--teal); flex-shrink: 0;
+        }
+        .stat-card.blue  .stat-icon { background: #eff6ff; color: #3b82f6; }
+        .stat-card.green .stat-icon { background: #ecfdf5; color: #10b981; }
+        .stat-info h4 {
+            font-size: 0.76rem; font-weight: 600; color: var(--slate);
+            text-transform: uppercase; letter-spacing: .6px;
+        }
+        .stat-info p { margin: 5px 0 0; font-size: 2rem; font-weight: 800; color: var(--navy); line-height: 1; }
+        .stat-info .sub-label {
+            font-size: 0.78rem; font-weight: 600; color: #10b981; margin-top: 6px; display: block;
+        }
+
+        /* ══════════════════════════════════════════
+           SECTION HEADER
+        ══════════════════════════════════════════ */
+        .section-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; padding-bottom: 14px;
+            border-bottom: 2px solid var(--border);
+        }
+        .section-header h2 {
+            font-size: 1.3rem; font-weight: 700; color: var(--navy);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .section-header h2 i { color: var(--teal); }
+        .header-actions { display: flex; gap: 10px; align-items: center; }
+
+        /* ══════════════════════════════════════════
+           SEARCH BAR
+        ══════════════════════════════════════════ */
+        .search-bar-wrap { position: relative; margin-bottom: 18px; }
+        .search-bar-wrap i {
+            position: absolute; left: 14px; top: 50%;
+            transform: translateY(-50%); color: var(--slate-light); pointer-events: none;
+        }
+        #cust-search-input {
+            width: 100%; padding: 11px 44px 11px 42px;
+            border: 1.5px solid var(--border); border-radius: var(--radius-md);
+            font-size: 0.95rem; font-family: 'Inter', sans-serif;
+            background: var(--card); color: var(--navy);
+            transition: border-color var(--transition), box-shadow var(--transition);
+        }
+        #cust-search-input:focus {
+            outline: none; border-color: var(--teal);
+            box-shadow: 0 0 0 4px var(--teal-glow);
+        }
+        #search-clear-btn {
+            position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer;
+            color: var(--slate-light); font-size: 0.9rem; padding: 4px;
+            display: none;
+            transition: color var(--transition);
+        }
+        #search-clear-btn:hover { color: var(--navy); }
+
+        /* ══════════════════════════════════════════
+           TABLE
+        ══════════════════════════════════════════ */
+        .card-table {
+            background: var(--card); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card); overflow: hidden; margin-bottom: 30px;
+        }
+        .card-table table { width: 100%; border-collapse: collapse; }
+        .card-table thead th {
+            background: var(--teal); color: white; padding: 13px 16px;
+            font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: .5px; text-align: left; white-space: nowrap;
+        }
+        .card-table thead th:last-child { text-align: center; }
+        .card-table tbody tr {
+            border-bottom: 1px solid #f1f5f9;
+            transition: background var(--transition);
+        }
+        .card-table tbody tr:hover { background: #f8fafc; }
+        .card-table tbody tr:last-child { border-bottom: none; }
+        .card-table td { padding: 13px 16px; font-size: 0.91rem; vertical-align: middle; }
+
+        .cust-id-badge {
+            display: inline-block; padding: 3px 10px;
+            background: var(--teal-light); color: var(--teal-dark);
+            border-radius: 20px; font-size: 0.76rem; font-weight: 700;
+            letter-spacing: .4px; font-family: monospace;
+        }
+        .tier-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 10px; border-radius: 20px; font-size: 0.74rem; font-weight: 600;
+        }
+        .tier-vip { background: #fef3c7; color: #b45309; }
+        .tier-std { background: #f1f5f9; color: var(--slate); }
+
+        .contact-cell .primary   { font-weight: 500; }
+        .contact-cell .secondary { font-size: 0.8rem; color: var(--slate); margin-top: 2px; }
+        .contact-cell i          { font-size: 0.72rem; margin-right: 4px; }
+
+        .row-actions { display: flex; gap: 8px; justify-content: center; }
+        .btn-icon {
+            width: 32px; height: 32px; border: none; border-radius: 8px; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 0.85rem; transition: all var(--transition); flex-shrink: 0;
+        }
+        .btn-icon.view   { background: #eff6ff; color: #3b82f6; }
+        .btn-icon.view:hover   { background: #3b82f6; color: white; transform: scale(1.1); }
+        .btn-icon.edit   { background: #f0fdf4; color: #16a34a; }
+        .btn-icon.edit:hover   { background: #16a34a; color: white; transform: scale(1.1); }
+        .btn-icon.delete { background: #fef2f2; color: #ef4444; }
+        .btn-icon.delete:hover { background: #ef4444; color: white; transform: scale(1.1); }
+
+        .empty-state { text-align: center; padding: 52px 20px !important; color: var(--slate); }
+        .empty-state i { font-size: 2.5rem; color: #cbd5e1; margin-bottom: 14px; display: block; }
+        .empty-state p { font-weight: 500; }
+        .empty-state small { display: block; margin-top: 4px; font-size: 0.83rem; color: var(--slate-light); }
+
+        /* ══════════════════════════════════════════
+           BUTTONS
+        ══════════════════════════════════════════ */
+        .btn-primary {
+            padding: 10px 20px; border: none; border-radius: var(--radius-md);
+            background: var(--teal); color: white; font-weight: 600; font-size: 0.9rem;
+            cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+            transition: all var(--transition); font-family: 'Inter', sans-serif;
+            white-space: nowrap;
+        }
+        .btn-primary:hover {
+            background: var(--teal-dark);
+            box-shadow: 0 4px 16px rgba(0,128,128,0.38);
+            transform: translateY(-1px);
+        }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-primary:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        .btn-secondary {
+            padding: 10px 20px; border: 1.5px solid var(--border); border-radius: var(--radius-md);
+            background: var(--card); color: var(--slate); font-weight: 600; font-size: 0.9rem;
+            cursor: pointer; font-family: 'Inter', sans-serif;
+            display: inline-flex; align-items: center; gap: 8px;
+            transition: all var(--transition); white-space: nowrap;
+        }
+        .btn-secondary:hover { border-color: var(--slate); background: #f8fafc; }
+
+        .btn-danger {
+            padding: 10px 20px; border: none; border-radius: var(--radius-md);
+            background: #ef4444; color: white; font-weight: 600; font-size: 0.9rem;
+            cursor: pointer; font-family: 'Inter', sans-serif;
+            display: inline-flex; align-items: center; gap: 8px;
+            transition: all var(--transition); white-space: nowrap;
+        }
+        .btn-danger:hover { background: #dc2626; box-shadow: 0 4px 14px rgba(239,68,68,0.35); }
+
+        /* ══════════════════════════════════════════
+           DETAIL VIEW
+        ══════════════════════════════════════════ */
+        #customer-item-detail { display: none; }
+
+        .profile-hero {
+            background: linear-gradient(135deg, var(--teal-dark) 0%, var(--teal) 100%);
+            border-radius: var(--radius-lg); padding: 28px 32px;
+            margin-bottom: 24px; color: white;
+            display: flex; align-items: center; gap: 24px;
+            box-shadow: 0 8px 24px rgba(0,128,128,0.28);
+        }
+        .profile-avatar {
+            width: 72px; height: 72px; border-radius: 16px;
+            background: rgba(255,255,255,0.2); backdrop-filter: blur(8px);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; flex-shrink: 0;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        .profile-meta h2 { margin: 0 0 8px; font-size: 1.55rem; font-weight: 700; }
+        .profile-meta .tag-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .profile-tag {
+            background: rgba(255,255,255,0.2); padding: 3px 12px;
+            border-radius: 20px; font-size: 0.8rem; font-weight: 500;
+        }
+        .profile-tag.vip-tag { background: rgba(253,224,71,0.25); border: 1px solid rgba(253,224,71,0.5); }
+
+        .detail-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 18px; margin-bottom: 24px;
+        }
+        .detail-card {
+            background: var(--card); border-radius: var(--radius-lg);
+            padding: 18px 20px; box-shadow: var(--shadow-card);
+            border: 1px solid #f1f5f9; transition: border-color var(--transition);
+        }
+        .detail-card.span-2 { grid-column: span 2; }
+        .detail-card.span-3 { grid-column: span 3; }
+
+        .field-label {
+            font-size: 0.73rem; font-weight: 700; color: var(--slate-light);
+            text-transform: uppercase; letter-spacing: .7px;
+            margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+        }
+        .field-label i { color: var(--teal); }
+
+        .field-value {
+            font-size: 0.93rem; color: var(--navy); font-weight: 500;
+            padding: 10px 12px; background: #f8fafc;
+            border-radius: 8px; border: 1.5px solid transparent;
+            min-height: 40px; word-break: break-word; line-height: 1.5;
+        }
+        .field-value.empty-val { color: var(--slate-light); font-style: italic; }
+
+        .field-input {
+            width: 100%; font-size: 0.93rem; color: var(--navy); font-weight: 500;
+            padding: 10px 12px; background: var(--card);
+            border-radius: 8px; border: 1.5px solid var(--teal);
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 0 0 3px var(--teal-glow);
+            display: none; transition: border-color var(--transition);
+        }
+        .field-input:focus { outline: none; border-color: var(--teal-dark); }
+        textarea.field-input { resize: vertical; min-height: 80px; }
+
+        .detail-actions-bar {
+            display: flex; align-items: center; gap: 10px;
+            margin-top: 4px; flex-wrap: wrap;
+        }
+        .detail-actions-bar .spacer { flex-grow: 1; }
+
+        /* ══════════════════════════════════════════
+           MODAL OVERLAY
+        ══════════════════════════════════════════ */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,0.6); backdrop-filter: blur(6px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 2000; opacity: 0; visibility: hidden;
+            transition: opacity 0.25s ease, visibility 0.25s ease;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+
+        .modal-box {
+            background: var(--card); width: calc(100% - 32px); max-width: 700px;
+            border-radius: 18px; box-shadow: var(--shadow-modal);
+            transform: translateY(18px) scale(0.97);
+            transition: transform 0.25s cubic-bezier(.4,0,.2,1);
+            overflow: hidden;
+        }
+        .modal-overlay.active .modal-box { transform: translateY(0) scale(1); }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--teal-dark), var(--teal));
+            padding: 20px 28px; color: white;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-header h3 {
+            font-size: 1.1rem; font-weight: 700;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .modal-close-btn {
+            background: rgba(255,255,255,0.15); border: none; color: white;
+            width: 34px; height: 34px; border-radius: 8px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; transition: background var(--transition); flex-shrink: 0;
+        }
+        .modal-close-btn:hover { background: rgba(255,255,255,0.3); }
+
+        .modal-body { padding: 28px; max-height: 74vh; overflow-y: auto; }
+        .modal-footer {
+            padding: 16px 28px; background: #f8fafc;
+            border-top: 1px solid var(--border);
+            display: flex; justify-content: flex-end; gap: 12px;
+        }
+
+        /* FORM */
+        .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-group { display: flex; flex-direction: column; gap: 7px; }
+        .form-group.span-2 { grid-column: span 2; }
+        .form-label { font-size: 0.82rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 5px; }
+        .form-label .req { color: #ef4444; font-weight: 800; }
+        .form-input {
+            padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 9px;
+            font-size: 0.93rem; color: var(--navy); font-family: 'Inter', sans-serif;
+            background: #f8fafc; transition: all var(--transition);
+        }
+        .form-input:focus {
+            outline: none; border-color: var(--teal);
+            background: var(--card); box-shadow: 0 0 0 4px var(--teal-glow);
+        }
+        textarea.form-input { resize: none; height: 80px; }
+
+        .id-preview-box {
+            padding: 10px 14px; border-radius: 9px;
+            background: var(--teal-light); color: var(--teal-dark);
+            font-family: monospace; font-size: 0.98rem; font-weight: 700;
+            border: 1.5px dashed var(--teal); letter-spacing: .5px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .id-preview-box i { opacity: 0.7; font-size: 0.85rem; }
+
+        /* PASSWORD MODAL */
+        #password-modal .modal-box { max-width: 420px; }
+        .pwd-modal-body { padding: 32px 28px; text-align: center; }
+        .pwd-icon-wrap {
+            width: 64px; height: 64px; border-radius: 50%;
+            background: var(--teal-light); color: var(--teal);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.8rem; margin: 0 auto 16px;
+        }
+        .pwd-modal-body h4 { font-size: 1.05rem; font-weight: 700; margin-bottom: 6px; }
+        .pwd-modal-body p  { font-size: 0.88rem; color: var(--slate); margin-bottom: 22px; }
+        .pwd-input-wrap input {
+            width: 100%; padding: 12px 16px;
+            border: 1.5px solid var(--border); border-radius: 10px;
+            font-size: 1rem; text-align: center; letter-spacing: 4px;
+            font-family: 'Inter', sans-serif; transition: all var(--transition);
+        }
+        .pwd-input-wrap input:focus {
+            outline: none; border-color: var(--teal);
+            box-shadow: 0 0 0 4px var(--teal-glow);
+        }
+        #pwd-error { color: #ef4444; font-size: 0.82rem; margin-top: 8px; min-height: 20px; font-weight: 600; }
+        .pwd-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .pwd-actions button { flex: 1; justify-content: center; }
+
+        /* CONFIRM DELETE MODAL */
+        #confirm-delete-modal .modal-box { max-width: 440px; }
+        .confirm-body { padding: 32px 28px; text-align: center; }
+        .confirm-icon {
+            width: 66px; height: 66px; border-radius: 50%;
+            background: #fef2f2; color: #ef4444;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.9rem; margin: 0 auto 16px;
+        }
+        .confirm-body h4 { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+        .confirm-body p  { font-size: 0.88rem; color: var(--slate); line-height: 1.6; }
+        .confirm-body .target-badge {
+            display: inline-block; margin-top: 12px; padding: 6px 16px;
+            background: #fef2f2; border: 1px solid #fecaca;
+            border-radius: 8px; font-weight: 700; color: #dc2626; font-size: 0.9rem;
+        }
+        .confirm-actions { display: flex; gap: 12px; margin-top: 24px; }
+        .confirm-actions button { flex: 1; justify-content: center; }
+
+        /* ══════════════════════════════════════════
+           LOADING SPINNER
+        ══════════════════════════════════════════ */
+        .loading-state { text-align: center; padding: 50px 20px !important; color: var(--slate); }
+        .loading-state .spin-icon { font-size: 2rem; color: var(--teal); display: block; margin-bottom: 12px; }
+
+        /* ══════════════════════════════════════════
+           TOAST
+        ══════════════════════════════════════════ */
+        #toast-container {
+            position: fixed; top: 22px; right: 22px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            padding: 13px 20px; border-radius: 10px; color: white;
+            font-weight: 600; font-size: 0.87rem;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.16);
+            display: flex; align-items: center; gap: 10px;
+            transform: translateX(130%);
+            transition: transform 0.35s cubic-bezier(.68,-.55,.265,1.55);
+            min-width: 260px; max-width: 360px; pointer-events: auto;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.success { background: linear-gradient(135deg, #10b981, #059669); }
+        .toast.danger  { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .toast.info    { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .toast i { font-size: 1rem; flex-shrink: 0; }
+
+        /* ══════════════════════════════════════════
+           SCROLLBAR
+        ══════════════════════════════════════════ */
+        .modal-body::-webkit-scrollbar { width: 6px; }
+        .modal-body::-webkit-scrollbar-track { background: #f1f5f9; }
+        .modal-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+        /* ══════════════════════════════════════════
+           RESPONSIVE
+        ══════════════════════════════════════════ */
+        @media (max-width: 900px) {
+            .stats-row { grid-template-columns: 1fr 1fr; }
+            .detail-grid { grid-template-columns: 1fr 1fr; }
+            .detail-card.span-3 { grid-column: span 2; }
+            .form-grid-2 { grid-template-columns: 1fr; }
+            .form-group.span-2 { grid-column: span 1; }
+        }
+        @media (max-width: 600px) {
+            .stats-row { grid-template-columns: 1fr; }
+            .detail-grid { grid-template-columns: 1fr; }
+            .detail-card.span-2, .detail-card.span-3 { grid-column: span 1; }
+            .section-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+            .header-actions { width: 100%; }
+            .header-actions .btn-primary { flex: 1; justify-content: center; }
         }
     </style>
 </head>
 <body>
+
 <header class="header">
     <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer; display: flex; align-items: center;">
         <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
@@ -64,375 +483,877 @@
     </div>
 </header>
 
+<!-- ════════════════════════════════════════════ -->
+<!--   TOAST CONTAINER                           -->
+<!-- ════════════════════════════════════════════ -->
+<div id="toast-container"></div>
+
+<!-- ════════════════════════════════════════════ -->
+<!--   MAIN                                      -->
+<!-- ════════════════════════════════════════════ -->
 <main class="container">
-    <!-- Dashboard Thống kê Khách hàng -->
-    <div class="dashboard-grid" style="margin-bottom: 40px;">
-        <div class="stat-card total" style="border-bottom: 4px solid #008080;">
-            <h4>Đối tác hệ thống</h4>
-            <p id="stat-cust-total">4</p>
+
+    <!-- STATS ROW -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-building"></i></div>
+            <div class="stat-info">
+                <h4>Tổng Khách Hàng</h4>
+                <p id="stat-total">–</p>
+            </div>
         </div>
-        <div class="stat-card" style="border-bottom: 4px solid #3182ce;">
-            <h4>VIP Partners</h4>
-            <p id="stat-cust-vip">4</p>
+        <div class="stat-card blue">
+            <div class="stat-icon"><i class="fas fa-crown"></i></div>
+            <div class="stat-info">
+                <h4>Đối Tác VIP</h4>
+                <p id="stat-vip">–</p>
+            </div>
         </div>
-        <div class="stat-card" style="border-bottom: 4px solid #17a2b8;">
-            <h4>Mới (30 ngày)</h4>
-            <p>+2</p>
+        <div class="stat-card green">
+            <div class="stat-icon"><i class="fas fa-database"></i></div>
+            <div class="stat-info">
+                <h4>Hệ Thống Dữ Liệu</h4>
+                <span class="sub-label"><i class="fas fa-circle" style="font-size:.55rem;"></i> SQLite WAL Active</span>
+            </div>
         </div>
     </div>
 
-    <section id="customer-list-view" class="detail-section">
+    <!-- ═══════════════════════════════════ -->
+    <!--   LIST VIEW                         -->
+    <!-- ═══════════════════════════════════ -->
+    <section id="customer-list-view">
         <div class="section-header">
-            <h2>Customer Database</h2>
-            <button class="btn-shiny" onclick="showAddCustomerForm()">+ Thêm Khách hàng Mới</button>
+            <h2><i class="fas fa-users"></i> Cơ Sở Dữ Liệu Khách Hàng Doanh Nghiệp</h2>
+            <div class="header-actions">
+                <button class="btn-primary" id="btn-open-add" onclick="openAddModal()">
+                    <i class="fas fa-user-plus"></i> Thêm Khách Hàng Mới
+                </button>
+            </div>
         </div>
 
-        <!-- Bộ lọc và Tìm kiếm -->
-        <div class="search-container" style="margin-bottom: 20px; display: flex; gap: 10px;">
-            <input type="text" id="cust-search-input" placeholder="Tìm tên khách hàng, công ty hoặc số điện thoại..." onkeyup="filterCustomers()" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <select id="filter-rank" onchange="filterCustomers()" style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                <option value="all">Tất cả hạng</option>
-                <option value="VIP">Hạng VIP</option>
-                <option value="Standard">Hạng Thường</option>
-            </select>
+        <div class="search-bar-wrap">
+            <i class="fas fa-search"></i>
+            <input type="text" id="cust-search-input"
+                placeholder="Tìm theo Tên, Công ty, Điện thoại, Mã KH..."
+                oninput="handleSearch(this.value)" autocomplete="off">
+            <button id="search-clear-btn" onclick="clearSearch()" title="Xóa tìm kiếm">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
 
-        <table class="detail-table">
-            <thead>
-                <tr>
-                    <th width="80">ID</th><th>Người đại diện</th><th>Công ty / Tổ chức</th><th>Liên hệ</th><th>Phân hạng</th><th style="text-align: center;">Thao tác</th>
-                </tr>
-            </thead>
-            <tbody id="customer-table-body">
-            </tbody>
-        </table>
+        <div class="card-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:150px">Mã Đối Tác</th>
+                        <th>Người Đại Diện</th>
+                        <th>Công Ty / Tổ Chức</th>
+                        <th>Thông Tin Liên Hệ</th>
+                        <th style="width:130px">Phân Hạng</th>
+                        <th style="width:120px; text-align:center">Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody id="customer-table-body">
+                    <tr>
+                        <td colspan="6" class="loading-state">
+                            <i class="fas fa-spinner fa-spin spin-icon"></i>
+                            <p>Đang kết nối cơ sở dữ liệu LabMaster SQL...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </section>
 
-    <section id="customer-item-detail" class="detail-section" style="display: none;">
+    <!-- ═══════════════════════════════════ -->
+    <!--   DETAIL VIEW                       -->
+    <!-- ═══════════════════════════════════ -->
+    <section id="customer-item-detail">
         <div class="section-header">
-            <h2 id="display-name-header">Hồ sơ khách hàng</h2>
-            <button class="btn-shiny" style="background: #4a5568;" onclick="showCustomerList()"><b>🔙 Trở lại</b></button>
+            <h2><i class="fas fa-id-card"></i> Hồ Sơ Chi Tiết Đối Tác</h2>
+            <button class="btn-secondary" onclick="showList()">
+                <i class="fas fa-arrow-left"></i> Quay Lại Danh Sách
+            </button>
         </div>
 
-        <div class="profile-header">
-            <div style="width: 80px; height: 80px; border-radius: 12px; background: var(--primary-teal); display: flex; align-items: center; justify-content: center; font-size: 30px; color: white;">🏢</div>
-            <div>
-                <h2 id="display-name-title" style="margin: 0; color: #2d3748;">---</h2>
-                <span id="display-id-tag" class="status-tag status-finished">ID: #---</span>
-            </div>
-        </div>
-
-        <div class="admin-grid">
-            <div class="info-group">
-                <label>🏢 Tên công ty / Tổ chức</label>
-                <div id="display-company" class="display-value"></div>
-                <input type="text" id="edit-company" class="form-input" style="display:none;">
-            </div>
-            <div class="info-group">
-                <label>🧾 Mã số thuế</label>
-                <div id="display-tax" class="display-value"></div>
-                <input type="text" id="edit-tax" class="form-input" style="display:none;">
-            </div>
-            <div class="info-group">
-                <label>👤 Người đại diện liên hệ</label>
-                <div id="display-contact" class="display-value"></div>
-                <input type="text" id="edit-contact" class="form-input" style="display:none;">
-            </div>
-            <div class="info-group">
-                <label>📧 Địa chỉ Email</label>
-                <div id="display-email" class="display-value"></div>
-                <input type="email" id="edit-email" class="form-input" style="display:none;">
-            </div>
-            <div class="info-group">
-                <label>📍 Địa chỉ xuất hóa đơn</label>
-                <div id="display-billing-address" class="display-value"></div>
-                <input type="text" id="edit-billing-address" class="form-input" style="display:none;">
-            </div>
-            <div class="info-group">
-                <label>🏅 Phân hạng</label>
-                <div class="display-value"><span style="color: #b45309; font-weight: bold;">★ VIP PARTNER</span></div>
+        <!-- Hero -->
+        <div class="profile-hero">
+            <div class="profile-avatar">🏢</div>
+            <div class="profile-meta">
+                <h2 id="d-name-title">–</h2>
+                <div class="tag-row">
+                    <span class="profile-tag" id="d-id-tag">ID: –</span>
+                    <span class="profile-tag" id="d-company-tag">–</span>
+                    <span class="profile-tag" id="d-tier-tag">Standard</span>
+                </div>
             </div>
         </div>
 
-        <div style="margin-top: 20px;">
-            <label style="font-weight: 700; color: #4a5568; font-size: 0.85rem; text-transform: uppercase;">📝 Ghi chú nội bộ</label>
-            <div id="display-note" class="display-value" style="margin-top: 10px; min-height: 80px;"></div>
-            <textarea id="edit-note" class="form-input" style="display:none; width: 100%; height: 80px; margin-top: 10px;"></textarea>
-        </div>
-
-        <div style="margin-top: 30px; display: flex; justify-content: flex-end;">
-            <button id="btn-edit" class="btn-shiny" onclick="enableEdit()" style="background: #2d3748;">✏️ Chỉnh sửa hồ sơ</button>
-        </div>
-
-        <div id="edit-actions" style="display: none; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-                <button class="btn-cancel" onclick="cancelEdit()">Cancel</button>
-                <button class="btn-save" onclick="saveCustomerChanges()">Save & Overwrite</button>
+        <!-- Fields -->
+        <div class="detail-grid">
+            <!-- Người đại diện -->
+            <div class="detail-card">
+                <div class="field-label"><i class="fas fa-user"></i> Người Đại Diện</div>
+                <div class="field-value" id="dv-name">–</div>
+                <input type="text" class="field-input" id="di-name" placeholder="Họ và tên">
             </div>
+            <!-- Công ty -->
+            <div class="detail-card">
+                <div class="field-label"><i class="fas fa-building"></i> Tên Công Ty</div>
+                <div class="field-value" id="dv-company">–</div>
+                <input type="text" class="field-input" id="di-company" placeholder="Tên công ty / tổ chức">
+            </div>
+            <!-- Điện thoại -->
+            <div class="detail-card">
+                <div class="field-label"><i class="fas fa-phone-alt"></i> Số Điện Thoại</div>
+                <div class="field-value" id="dv-phone">–</div>
+                <input type="tel" class="field-input" id="di-phone" placeholder="0900000000">
+            </div>
+            <!-- Mã số thuế -->
+            <div class="detail-card">
+                <div class="field-label"><i class="fas fa-file-invoice"></i> Mã Số Thuế</div>
+                <div class="field-value" id="dv-tax">–</div>
+                <input type="text" class="field-input" id="di-tax" placeholder="0100000000">
+            </div>
+            <!-- Email -->
+            <div class="detail-card">
+                <div class="field-label"><i class="fas fa-envelope"></i> Hòm Thư Điện Tử</div>
+                <div class="field-value" id="dv-email">–</div>
+                <input type="email" class="field-input" id="di-email" placeholder="partner@company.com">
+            </div>
+            <!-- Liên hệ phụ -->
+            <div class="detail-card">
+                <div class="field-label"><i class="fas fa-address-book"></i> Đầu Mối Liên Hệ Phụ</div>
+                <div class="field-value" id="dv-contact">–</div>
+                <input type="text" class="field-input" id="di-contact" placeholder="Phòng mua hàng – Ms. B">
+            </div>
+            <!-- Billing Address -->
+            <div class="detail-card span-3">
+                <div class="field-label"><i class="fas fa-map-marker-alt"></i> Địa Chỉ Xuất Hóa Đơn (Billing Address)</div>
+                <div class="field-value" id="dv-billing_address">–</div>
+                <textarea class="field-input" id="di-billing_address" rows="2" placeholder="Số X, Đường Y, Quận Z, TP. HCM"></textarea>
+            </div>
+            <!-- Ghi chú -->
+            <div class="detail-card span-3">
+                <div class="field-label"><i class="fas fa-sticky-note"></i> Ghi Chú Nội Bộ (Điền "VIP" để thăng hạng đối tác chiến lược)</div>
+                <div class="field-value" id="dv-note">–</div>
+                <textarea class="field-input" id="di-note" rows="2" placeholder="Nhập ghi chú, tag VIP..."></textarea>
+            </div>
+        </div>
+
+        <!-- Action bar -->
+        <div class="detail-actions-bar">
+            <button class="btn-danger" onclick="triggerDetailDelete()">
+                <i class="fas fa-trash-alt"></i> Xóa Hồ Sơ
+            </button>
+            <div class="spacer"></div>
+            <button class="btn-secondary" id="btn-edit-toggle" onclick="enterEditMode()">
+                <i class="fas fa-lock-open"></i> Mở Khóa Chỉnh Sửa
+            </button>
+            <button class="btn-primary" id="btn-save-action" style="display:none" onclick="saveCustomerEdit()">
+                <i class="fas fa-save"></i> Lưu & Đồng Bộ SQL
+            </button>
+        </div>
     </section>
 
-    <div id="customer-add-view" style="display: none;">
-    <div class="create-project-form">
-        <h1 style="text-align: center;">Add New Customer</h1>
-        <div class="form-grid">
-            <input type="text" id="add-cust-name" placeholder="Full Name">
-            <input type="text" id="add-cust-company" placeholder="Company Name">
-            <input type="text" id="add-cust-phone" placeholder="Phone Number">
-            <textarea id="add-cust-note" placeholder="Customer notes..."></textarea>
-            
-            <div class="card-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button class="btn-cancel" onclick="showCustomerList()">Cancel</button>
-                <button class="btn-save" onclick="saveNewCustomer()">Save Customer</button>
+</main>
+
+<!-- ════════════════════════════════════════════ -->
+<!--   MODAL: THÊM KHÁCH HÀNG MỚI               -->
+<!-- ════════════════════════════════════════════ -->
+<div id="add-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 id="add-modal-title"><i class="fas fa-user-plus"></i> Khởi Tạo Đối Tác Doanh Nghiệp Mới</h3>
+            <button class="modal-close-btn" onclick="closeAddModal()" title="Đóng"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <!-- ID Preview -->
+            <div class="form-group" style="margin-bottom:22px;">
+                <div class="form-label"><i class="fas fa-barcode" style="color:var(--teal);"></i> Mã Đối Tác (Dự Kiến – Tịnh Tiến Tự Động)</div>
+                <div class="id-preview-box">
+                    <i class="fas fa-hashtag"></i>
+                    <span id="next-id-preview">Đang tính toán…</span>
+                </div>
+            </div>
+
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label class="form-label" for="add-name">
+                        <i class="fas fa-user" style="color:var(--teal);font-size:.8rem;"></i>
+                        Người Đại Diện <span class="req">*</span>
+                    </label>
+                    <input type="text" class="form-input" id="add-name" placeholder="Nguyễn Văn A" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="add-company">
+                        <i class="fas fa-building" style="color:var(--teal);font-size:.8rem;"></i>
+                        Tên Công Ty / Tổ Chức <span class="req">*</span>
+                    </label>
+                    <input type="text" class="form-input" id="add-company" placeholder="Công ty TNHH LabMaster" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="add-phone">
+                        <i class="fas fa-phone-alt" style="color:var(--teal);font-size:.8rem;"></i>
+                        Số Điện Thoại <span class="req">*</span>
+                    </label>
+                    <input type="tel" class="form-input" id="add-phone" placeholder="090XXXXXXX" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="add-tax">
+                        <i class="fas fa-file-invoice" style="color:var(--teal);font-size:.8rem;"></i>
+                        Mã Số Thuế
+                    </label>
+                    <input type="text" class="form-input" id="add-tax" placeholder="010XXXXXXX" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="add-email">
+                        <i class="fas fa-envelope" style="color:var(--teal);font-size:.8rem;"></i>
+                        Hòm Thư Điện Tử
+                    </label>
+                    <input type="email" class="form-input" id="add-email" placeholder="partner@company.com" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="add-contact">
+                        <i class="fas fa-address-book" style="color:var(--teal);font-size:.8rem;"></i>
+                        Đầu Mối Liên Hệ Phụ
+                    </label>
+                    <input type="text" class="form-input" id="add-contact" placeholder="Phòng Mua Hàng – Ms. B" autocomplete="off">
+                </div>
+                <div class="form-group span-2">
+                    <label class="form-label" for="add-billing">
+                        <i class="fas fa-map-marker-alt" style="color:var(--teal);font-size:.8rem;"></i>
+                        Địa Chỉ Xuất Hóa Đơn
+                    </label>
+                    <input type="text" class="form-input" id="add-billing" placeholder="Số X, Đường Y, Quận Z, TP. HCM" autocomplete="off">
+                </div>
+                <div class="form-group span-2">
+                    <label class="form-label" for="add-note">
+                        <i class="fas fa-sticky-note" style="color:var(--teal);font-size:.8rem;"></i>
+                        Ghi Chú Đặc Thù (Nhập "VIP" để đánh dấu đối tác chiến lược)
+                    </label>
+                    <textarea class="form-input" id="add-note" placeholder="Yêu cầu hiệu chuẩn gấp, khách VIP..."></textarea>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeAddModal()">Hủy Bỏ</button>
+            <button class="btn-primary" id="btn-submit-add" onclick="submitNewCustomer()">
+                <i class="fas fa-check-circle"></i> Xác Nhận Lưu Dữ Liệu
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!--   MODAL: XÁC NHẬN MẬT KHẨU (EDIT)         -->
+<!-- ════════════════════════════════════════════ -->
+<div id="password-modal" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-box">
+        <div class="pwd-modal-body">
+            <div class="pwd-icon-wrap"><i class="fas fa-shield-alt"></i></div>
+            <h4>Xác Thực Quản Trị Viên</h4>
+            <p>Nhập mã PIN an toàn để mở quyền chỉnh sửa cơ sở dữ liệu SQL.</p>
+            <div class="pwd-input-wrap">
+                <input type="password" id="edit-password-input" maxlength="6" placeholder="••••••"
+                       onkeydown="if(event.key==='Enter') verifyEditPassword()">
+            </div>
+            <div id="pwd-error"></div>
+            <div class="pwd-actions">
+                <button class="btn-secondary" onclick="closePwdModal()">Hủy</button>
+                <button class="btn-primary" onclick="verifyEditPassword()">
+                    <i class="fas fa-unlock"></i> Xác Nhận
+                </button>
             </div>
         </div>
     </div>
 </div>
-</main>
 
+<!-- ════════════════════════════════════════════ -->
+<!--   MODAL: XÁC NHẬN XÓA                      -->
+<!-- ════════════════════════════════════════════ -->
+<div id="confirm-delete-modal" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-box">
+        <div class="confirm-body">
+            <div class="confirm-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <h4>Xác Nhận Xóa Hồ Sơ Khách Hàng</h4>
+            <p>Hành động này sẽ <strong>xóa vĩnh viễn</strong> hồ sơ khỏi cơ sở dữ liệu và không thể khôi phục.</p>
+            <div class="target-badge" id="confirm-delete-label">–</div>
+            <div class="confirm-actions">
+                <button class="btn-secondary" onclick="closeConfirmDeleteModal()">Hủy Bỏ</button>
+                <button class="btn-danger" id="btn-confirm-delete-exec" onclick="executeConfirmedDeletion()">
+                    <i class="fas fa-trash-alt"></i> Xóa Vĩnh Viễn
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!--   JAVASCRIPT ENGINE                         -->
+<!-- ════════════════════════════════════════════ -->
 <script>
-    document.addEventListener("DOMContentLoaded", () => {
-    const user = localStorage.getItem('labmaster_user');
-    if (!user) {
-        alert("Hết phiên làm việc hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại!");
-        window.location.href = 'login.html'; // Hoặc đường dẫn '/'
-    }
-});
-    // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
-    const API_BASE_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:18080' 
-    : window.location.origin;
-    let customerData = {
-        '1': { id: '1', name: 'Nguyen Van A', company: 'Samsung Vina', phone: '0123456789', tax: '0101010101', contact: 'Mr. An', email: 'an.nv@samsung.com', billingAddress: 'KCN Yên Phong, Bắc Ninh', note: 'Đã hiệu chuẩn 5 thiết bị...' },
-        '2': { id: '2', name: 'Tran Thi B', company: 'LG Electronics', phone: '0987654321', tax: '0202020202', contact: 'Ms. Bình', email: 'binh.tt@lg.com', billingAddress: 'KCN Tràng Duệ, Hải Phòng', note: 'Đã hiệu chuẩn 3 thiết bị...' },
-        '3': { id: '3', name: 'Le Van C', company: 'Apple Vietnam', phone: '0912345678', tax: '0303030303', contact: 'Mr. Cường', email: 'cuong.lv@apple.com', billingAddress: 'KCN Phú Mỹ, Bà Rịa - Vũng Tàu', note: 'Đã hiệu chuẩn 2 thiết bị...' },
-        '4': { id: '4', name: 'Pham Thi D', company: 'Sony Vietnam', phone: '0901234567', tax: '0404040404', contact: 'Ms. Dung', email: 'dung.pt@sony.com', billingAddress: 'KCN Sóng Thần, Bà Rịa - Vũng Tàu', note: 'Đã hiệu chuẩn 1 thiết bị...' }
-    };
+'use strict';
 
-    let currentId = null;
+/* ──────────────────────────────────────────────
+   CONFIG
+────────────────────────────────────────────── */
+const API_BASE_URL = (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1'
+) ? 'http://localhost:18080' : window.location.origin;
 
-    function renderCustomerTable(data = customerData) {
-        const tableBody = document.getElementById('customer-table-body');
-        tableBody.innerHTML = '';
-        Object.values(data).forEach(cust => {
-            const row = document.createElement('tr');
-            row.id = `customer-row-${cust.id}`;
-            row.innerHTML = `
-                <td onclick="viewCustomer('${cust.id}')"><strong>#${cust.id}</strong></td>
-                <td class="name-cell" onclick="viewCustomer('${cust.id}')">
-                    <div style="font-weight: 600;">${cust.name}</div>
-                    <div style="font-size: 0.75rem; color: #718096;">${cust.contact || 'Chưa cập nhật'}</div>
-                </td>
-                <td class="company-cell" onclick="viewCustomer('${cust.id}')">
-                    <div style="color: var(--primary-teal); font-weight: 500;">${cust.company}</div>
-                    <div style="font-size: 0.75rem; color: #a0aec0;">MST: ${cust.tax || '---'}</div>
-                </td>
-                <td>
-                    <div>📞 ${cust.phone}</div>
-                    <div style="font-size: 0.8rem;">📧 ${cust.email || '---'}</div>
-                </td>
-                <td><span class="status-tag" style="background: #fef3c7; color: #b45309; font-size: 0.7rem;">★ VIP PARTNER</span></td>
-                <td style="text-align: center;">
-                    <button class="btn-delete" onclick="deleteCustomer('${cust.id}')" title="Xóa hồ sơ">🗑️</button>
-                </td>
-            `;
-            tableBody.appendChild(row);
+const EDIT_PASSWORD = '123456';
+
+/* ──────────────────────────────────────────────
+   STATE
+────────────────────────────────────────────── */
+let globalCustomersList = [];   // Full dataset from server
+let filteredList        = [];   // After search filter
+let currentViewingId    = null; // ID of customer in detail view
+let isEditModeActive    = false;
+let pendingDeleteId     = null; // ID queued for deletion
+let pendingDeleteLabel  = '';
+
+/* ──────────────────────────────────────────────
+   BOOTSTRAP
+────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+    loadCustomers();
+
+    // Close modals on outside click
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', e => {
+            if (e.target === overlay) {
+                overlay.classList.remove('active');
+            }
         });
-        document.getElementById('stat-cust-total').textContent = Object.keys(customerData).length;
-        document.getElementById('stat-cust-vip').textContent = Object.keys(customerData).length;
-    }
-
-    function filterCustomers() {
-        const query = document.getElementById('cust-search-input').value.toLowerCase();
-        const filtered = Object.values(customerData).filter(c => 
-            c.name.toLowerCase().includes(query) || 
-            c.company.toLowerCase().includes(query) || 
-            c.phone.includes(query)
-        );
-        const filteredObj = {};
-        filtered.forEach(c => filteredObj[c.id] = c);
-        renderCustomerTable(filteredObj);
-    }
-
-    function viewCustomer(id) {
-        currentId = id;
-        const customer = customerData[id];
-        if (customer) {
-            document.getElementById('customer-list-view').style.display = 'none';
-            document.getElementById('customer-item-detail').style.display = 'block';
-            document.getElementById('display-name-title').textContent = customer.name;
-            document.getElementById('display-id-tag').innerText = "ID: #" + customer.id;
-            document.getElementById('display-company').textContent = customer.company || "N/A";
-            document.getElementById('display-tax').textContent = customer.tax || "N/A";
-            document.getElementById('display-contact').textContent = customer.contact || "N/A";
-            document.getElementById('display-email').textContent = customer.email || "N/A";
-            document.getElementById('display-billing-address').textContent = customer.billingAddress || "N/A";
-            document.getElementById('display-note').textContent = customer.note || "N/A";
-            toggleUI(false);
-        }
-    }
-
-    // Quay lại danh sách
-    function showCustomerList() {
-        document.getElementById('customer-list-view').style.display = 'block';
-        document.getElementById('customer-item-detail').style.display = 'none';
-    }
-
-    // Kích hoạt chế độ Edit
-    function enableEdit() {
-    const pass = prompt("Nhập mật khẩu (123) để sửa:");
-    if (pass === "123") {
-        const customer = customerData[currentId];
-        if (document.getElementById('edit-company')) document.getElementById('edit-company').value = customer.company || "";
-        if (document.getElementById('edit-tax')) document.getElementById('edit-tax').value = customer.tax || "";
-        if (document.getElementById('edit-contact')) document.getElementById('edit-contact').value = customer.contact || "";
-        if (document.getElementById('edit-email')) document.getElementById('edit-email').value = customer.email || "";
-        if (document.getElementById('edit-billing-address')) document.getElementById('edit-billing-address').value = customer.billingAddress || "";
-        if (document.getElementById('edit-note')) document.getElementById('edit-note').value = customer.note || "";
-        toggleUI(true);
-    } else {
-        alert("Sai mật khẩu!");
-    }
-}
-
-    // Hủy chỉnh sửa
-    function cancelEdit() {
-        toggleUI(false);
-    }
-
-    // Lưu thay đổi (Overwrite)
-    function saveCustomerChanges() {
-    const newCompany = document.getElementById('edit-company').value;
-    const newTax = document.getElementById('edit-tax').value;
-    const newContact = document.getElementById('edit-contact').value;
-    const newEmail = document.getElementById('edit-email').value;
-    const newAddress = document.getElementById('edit-billing-address').value;
-    const newNote = document.getElementById('edit-note').value;
-    customerData[currentId].company = newCompany;
-    customerData[currentId].tax = newTax;
-    customerData[currentId].contact = newContact;
-    customerData[currentId].email = newEmail;
-    customerData[currentId].billingAddress = newAddress;
-    customerData[currentId].note = newNote;
-    document.getElementById('display-company').textContent = newCompany;
-    document.getElementById('display-tax').textContent = newTax;
-    document.getElementById('display-contact').textContent = newContact;
-    document.getElementById('display-email').textContent = newEmail;
-    document.getElementById('display-billing-address').textContent = newAddress;
-    document.getElementById('display-note').textContent = newNote;
-    renderCustomerTable();
-    toggleUI(false);
-    alert("Đã cập nhật thông tin khách hàng thành công!");
-}
-
-    // Hàm bổ trợ ẩn/hiện các thành phần Edit
-    function toggleUI(isEdit) {
-    // Danh sách các trường cần chuyển đổi
-    const fields = ['company', 'tax', 'contact', 'email', 'billing-address', 'note'];   
-    fields.forEach(field => {
-        const displayElem = document.getElementById(`display-${field}`);
-        const editElem = document.getElementById(`edit-${field}`);
-        if (editElem) editElem.style.display = isEdit ? 'block' : 'none';
     });
-    const editActions = document.getElementById('edit-actions');
-    const btnEdit = document.getElementById('btn-edit');
-    
-    if (editActions) editActions.style.display = isEdit ? 'flex' : 'none';
-    if (btnEdit) btnEdit.style.display = isEdit ? 'none' : 'block';
-}
 
-    function deleteCustomer(id) {
-        if(confirm("Xóa khách hàng này?")) {
-            document.getElementById(`customer-row-${id}`).remove();
-            delete customerData[id];
-            renderCustomerTable();
+    // ESC key closes any open modal
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-overlay.active')
+                    .forEach(m => m.classList.remove('active'));
         }
-    }
+    });
+});
 
-    // Hàm hiển thị Form thêm mới
-function showAddCustomerForm() {
-    document.getElementById('customer-list-view').style.display = 'none';
-    document.getElementById('customer-add-view').style.display = 'block';
-    document.getElementById('customer-item-detail').style.display = 'none';
+/* ──────────────────────────────────────────────
+   DATA: LOAD
+────────────────────────────────────────────── */
+async function loadCustomers() {
+    const tbody = document.getElementById('customer-table-body');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="loading-state">
+                <i class="fas fa-spinner fa-spin spin-icon"></i>
+                <p>Đang đồng bộ từ SQL Server…</p>
+            </td>
+        </tr>`;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/customers`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        globalCustomersList = Array.isArray(data) ? data : [];
+        filteredList = [...globalCustomersList];
+
+        renderTable(filteredList);
+        updateStats(globalCustomersList);
+        computeNextId(globalCustomersList);
+
+    } catch (err) {
+        console.error('❌ loadCustomers:', err);
+        showToast('Không thể kết nối đến máy chủ SQL!', 'danger');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="empty-state">
+                    <i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>
+                    <p>Lỗi kết nối: ${sanitize(err.message)}</p>
+                    <small>Kiểm tra server đang chạy tại cổng 18080</small>
+                </td>
+            </tr>`;
+    }
 }
 
-// Hàm lưu khách hàng mới
-function saveNewCustomer() {
-    const name = document.getElementById('add-cust-name').value;
-    const company = document.getElementById('add-cust-company').value;
-    const phone = document.getElementById('add-cust-phone').value;
-    const note = document.getElementById('add-cust-note').value;
+/* ──────────────────────────────────────────────
+   DATA: RENDER TABLE
+────────────────────────────────────────────────── */
+function renderTable(list) {
+    const tbody = document.getElementById('customer-table-body');
+    if (!tbody) return;
 
-    if (!name || !company) {
-        alert("Vui lòng nhập tên và công ty!");
+    if (!list || list.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="empty-state">
+                    <i class="fas fa-folder-open"></i>
+                    <p>Không có dữ liệu khách hàng phù hợp</p>
+                    <small>Thử thay đổi từ khóa tìm kiếm hoặc thêm khách hàng mới</small>
+                </td>
+            </tr>`;
         return;
     }
 
-    const newId = Date.now().toString().slice(-3); 
+    tbody.innerHTML = list.map(c => {
+        // Sử dụng giá trị gốc (raw) để truyền vào hàm JavaScript an toàn hơn
+        const rawId   = c.ID || '';
+        const id      = sanitize(rawId || '–');
+        const rawName = c.NAME || '–';
+        const name    = sanitize(rawName);
+        const company = sanitize(c.COMPANY || '–');
+        const phone   = sanitize(c.PHONE   || '–');
+        const email   = sanitize(c.EMAIL   || '');
+        const note    = c.NOTE || '';
+        const isVip   = note.toUpperCase().includes('VIP');
+        
+        // Xử lý dấu ngoặc đơn trong tên để tránh lỗi cú pháp khi truyền vào onclick
+        const escapedName = rawName.replace(/'/g, "\\'");
 
-    // Lưu vào biến dữ liệu
-    customerData[newId] = {
-        id: newId,
-        name: name,
-        company: company,
-        phone: phone,
-        note: note
-    };
-
-    // Thêm vào bảng HTML
-    const tableBody = document.getElementById('customer-table-body');
-    const newRow = document.createElement('tr');
-    newRow.id = `customer-row-${newId}`;
-    newRow.innerHTML = `
-        <td onclick="viewCustomer('${newId}')">${newId}</td>
-        <td class="name-cell" onclick="viewCustomer('${newId}')">${name}</td>
-        <td class="company-cell" onclick="viewCustomer('${newId}')">${company}</td>
-        <td>${phone}</td>
-        <td class="note-cell">${note}</td>
-        <td><button class="btn-delete" onclick="deleteCustomer('${newId}')">🗑️</button></td>
-    `;
-    tableBody.appendChild(newRow);
-
-    alert("Thêm khách hàng thành công!");
-    // Reset form
-    document.getElementById('add-cust-name').value = '';
-    document.getElementById('add-cust-company').value = '';
-    document.getElementById('add-cust-phone').value = '';
-    document.getElementById('add-cust-note').value = '';
-    
-    showCustomerList();
+        return `
+            <tr>
+                <td><span class="cust-id-badge">${id}</span></td>
+                <td style="font-weight:600;">${name}</td>
+                <td>${company}</td>
+                <td class="contact-cell">
+                    <div class="primary"><i class="fas fa-phone-alt"></i>${phone}</div>
+                    ${email ? `<div class="secondary"><i class="fas fa-envelope"></i>${email}</div>` : ''}
+                </td>
+                <td>
+                    <span class="tier-badge ${isVip ? 'tier-vip' : 'tier-std'}">
+                        ${isVip ? '👑 VIP Partner' : 'Standard'}
+                    </span>
+                </td>
+                <td>
+                    <div class="row-actions">
+                        <button class="btn-icon view" title="Xem hồ sơ chi tiết"
+                                onclick="viewCustomerDetail('${rawId}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn-icon delete" title="Xóa hồ sơ"
+                                onclick="triggerRowDelete('${rawId}', '${escapedName}')">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+    }).join('');
 }
-// Lưu trữ dữ liệu đo lường riêng cho từng thiết bị
-let calibrationData = {
-    'EQ001': { measures: [], average: 0, conclusion: '-', color: '' }
-};
-function editEq(id) {
-    currentId = id;
-    showView('edit-view');
-    
-    // Đổ tên và hãng sản xuất
-    document.getElementById('edit-title').innerText = "Detail: " + document.getElementById('n-' + id).innerText;
-    document.getElementById('in-manu').value = document.getElementById('m-' + id).innerText;
 
-    // Lấy dữ liệu đã lưu của thiết bị này
-    const data = calibrationData[id] || { measures: [], average: 0, conclusion: '-', color: '' };
-    const inputs = document.querySelectorAll('.measure-input');
-    
-    // Đổ 10 giá trị Measured vào ô input
-    inputs.forEach((input, index) => {
-        input.value = data.measures[index] || "";
+/* ──────────────────────────────────────────────
+   DATA: STATS + NEXT ID
+────────────────────────────────────────────── */
+function updateStats(list) {
+    document.getElementById('stat-total').textContent = list.length;
+    const vipCount = list.filter(c => (c.NOTE || '').toUpperCase().includes('VIP')).length;
+    document.getElementById('stat-vip').textContent = vipCount;
+}
+
+function computeNextId(list) {
+    let maxNum = 0;
+    list.forEach(c => {
+        if (c.ID) {
+            const match = c.ID.match(/^CUST-(\d+)$/);
+            if (match) {
+                const n = parseInt(match, 10);
+                if (n > maxNum) maxNum = n;
+            }
+        }
+    });
+    const nextId = `CUST-${String(maxNum + 1).padStart(6, '0')}`;
+    const el = document.getElementById('next-id-preview');
+    if (el) el.textContent = `${nextId}  ·  Sẵn sàng cấp phát`;
+    return nextId;
+}
+
+/* ──────────────────────────────────────────────
+   SEARCH
+────────────────────────────────────────────── */
+function handleSearch(query) {
+    const clearBtn = document.getElementById('search-clear-btn');
+    const q = (query || '').trim().toLowerCase();
+
+    clearBtn.style.display = q ? 'block' : 'none';
+
+    if (!q) {
+        filteredList = [...globalCustomersList];
+    } else {
+        filteredList = globalCustomersList.filter(c =>
+            (c.ID      || '').toLowerCase().includes(q) ||
+            (c.NAME    || '').toLowerCase().includes(q) ||
+            (c.COMPANY || '').toLowerCase().includes(q) ||
+            (c.PHONE   || '').toLowerCase().includes(q) ||
+            (c.EMAIL   || '').toLowerCase().includes(q)
+        );
+    }
+    renderTable(filteredList);
+}
+
+function clearSearch() {
+    const input = document.getElementById('cust-search-input');
+    input.value = '';
+    input.focus();
+    handleSearch('');
+}
+
+/* ──────────────────────────────────────────────
+   DETAIL VIEW
+────────────────────────────────────────────── */
+const SCHEMA_FIELDS = ['name', 'company', 'phone', 'tax', 'email', 'contact', 'billing_address', 'note'];
+
+function viewCustomerDetail(id) {
+    const c = globalCustomersList.find(item => item.ID === id);
+    if (!c) return;
+
+    currentViewingId = id;
+
+    // Hero
+    document.getElementById('d-name-title').textContent = c.NAME || '–';
+    document.getElementById('d-id-tag').textContent     = `ID: ${c.ID}`;
+    document.getElementById('d-company-tag').textContent = c.COMPANY || '–';
+
+    const isVip = (c.NOTE || '').toUpperCase().includes('VIP');
+    const tierEl = document.getElementById('d-tier-tag');
+    tierEl.textContent = isVip ? '👑 VIP Partner' : 'Standard';
+    tierEl.className   = isVip ? 'profile-tag vip-tag' : 'profile-tag';
+
+    // Fields
+    SCHEMA_FIELDS.forEach(field => {
+        const dbKey  = field.toUpperCase();
+        const val    = c[dbKey] || '';
+        const dispEl = document.getElementById(`dv-${field}`);
+        const editEl = document.getElementById(`di-${field}`);
+
+        if (dispEl) {
+            dispEl.textContent = val || '–';
+            dispEl.className   = val ? 'field-value' : 'field-value empty-val';
+        }
+        if (editEl) editEl.value = val;
     });
 
-    // Hiển thị Average và Conclusion đã lưu
-    const avgBox = document.getElementById('res-average');
-    const conBox = document.getElementById('res-conclusion');
-    
-    avgBox.innerText = data.average;
-    conBox.innerText = data.conclusion;
-    conBox.style.color = data.color;
+    setEditState(false);
+
+    document.getElementById('customer-list-view').style.display   = 'none';
+    document.getElementById('customer-item-detail').style.display = 'block';
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function showList() {
+    document.getElementById('customer-item-detail').style.display = 'none';
+    document.getElementById('customer-list-view').style.display   = 'block';
+    currentViewingId = null;
+    setEditState(false);
+    loadCustomers();
+}
 
-    // Tự động render danh sách ngay khi load trang để có thể cuộn thủ công
-    renderCustomerTable();
+/* ──────────────────────────────────────────────
+   EDIT MODE
+────────────────────────────────────────────── */
+function setEditState(active) {
+    isEditModeActive = active;
+
+    SCHEMA_FIELDS.forEach(f => {
+        const dispEl = document.getElementById(`dv-${f}`);
+        const editEl = document.getElementById(`di-${f}`);
+        if (dispEl) dispEl.style.display = active ? 'none'  : 'block';
+        if (editEl) editEl.style.display = active ? 'block' : 'none';
+    });
+
+    const toggleBtn = document.getElementById('btn-edit-toggle');
+    const saveBtn   = document.getElementById('btn-save-action');
+
+    if (active) {
+        toggleBtn.innerHTML = '<i class="fas fa-times"></i> Hủy Chỉnh Sửa';
+        toggleBtn.style.borderColor = '#ef4444';
+        toggleBtn.style.color       = '#ef4444';
+    } else {
+        toggleBtn.innerHTML = '<i class="fas fa-lock-open"></i> Mở Khóa Chỉnh Sửa';
+        toggleBtn.style.borderColor = '';
+        toggleBtn.style.color       = '';
+    }
+
+    if (saveBtn) saveBtn.style.display = active ? 'inline-flex' : 'none';
+
+    // Focus first field on activate
+    if (active) {
+        const firstEdit = document.getElementById('di-name');
+        if (firstEdit) { firstEdit.focus(); firstEdit.select(); }
+    }
+}
+
+function enterEditMode() {
+    if (isEditModeActive) {
+        setEditState(false);
+    } else {
+        openPwdModal();
+    }
+}
+
+/* ──────────────────────────────────────────────
+   API: ADD CUSTOMER
+────────────────────────────────────────────── */
+async function submitNewCustomer() {
+    const fields = {
+        name:            document.getElementById('add-name').value.trim(),
+        company:         document.getElementById('add-company').value.trim(),
+        phone:           document.getElementById('add-phone').value.trim(),
+        tax:             document.getElementById('add-tax').value.trim(),
+        email:           document.getElementById('add-email').value.trim(),
+        contact:         document.getElementById('add-contact').value.trim(),
+        billing_address: document.getElementById('add-billing').value.trim(),
+        note:            document.getElementById('add-note').value.trim(),
+    };
+
+    if (!fields.name || !fields.company || !fields.phone) {
+        showToast('⚠️ Vui lòng điền đủ các trường bắt buộc (*)', 'danger');
+        // Highlight missing
+        ['add-name', 'add-company', 'add-phone'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el.value.trim()) {
+                el.style.borderColor = '#ef4444';
+                el.style.boxShadow   = '0 0 0 3px rgba(239,68,68,0.15)';
+                el.addEventListener('input', () => {
+                    el.style.borderColor = '';
+                    el.style.boxShadow   = '';
+                }, { once: true });
+            }
+        });
+        return;
+    }
+
+    const submitBtn = document.getElementById('btn-submit-add');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu…';
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/customers`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(fields),
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+            showToast(`✅ Đã khởi tạo thành công: ${result.id}`, 'success');
+            closeAddModal();
+            await loadCustomers();
+        } else {
+            throw new Error(result.error || 'Lỗi không xác định từ server');
+        }
+    } catch (err) {
+        showToast(`❌ Thất bại: ${err.message}`, 'danger');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Xác Nhận Lưu Dữ Liệu';
+    }
+}
+
+/* ──────────────────────────────────────────────
+   API: UPDATE CUSTOMER
+────────────────────────────────────────────── */
+async function saveCustomerEdit() {
+    if (!currentViewingId) return;
+
+    const payload = { id: currentViewingId };
+    SCHEMA_FIELDS.forEach(f => {
+        const editEl = document.getElementById(`di-${f}`);
+        payload[f] = editEl ? editEl.value.trim() : '';
+    });
+
+    if (!payload.name || !payload.company || !payload.phone) {
+        showToast('⚠️ Không được để trống Tên, Công ty và Số điện thoại!', 'danger');
+        return;
+    }
+
+    const saveBtn = document.getElementById('btn-save-action');
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang đồng bộ…';
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/customers`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload),
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+            showToast('✅ Đồng bộ SQL hoàn tất!', 'success');
+
+            // Update local state
+            globalCustomersList = globalCustomersList.map(item => {
+                if (item.ID !== currentViewingId) return item;
+                return {
+                    ID: currentViewingId,
+                    NAME:            payload.name,
+                    COMPANY:         payload.company,
+                    PHONE:           payload.phone,
+                    TAX:             payload.tax,
+                    EMAIL:           payload.email,
+                    CONTACT:         payload.contact,
+                    BILLING_ADDRESS: payload.billing_address,
+                    NOTE:            payload.note,
+                };
+            });
+
+            setEditState(false);
+            viewCustomerDetail(currentViewingId); // Re-render detail with new data
+        } else {
+            throw new Error(result.error || 'Cập nhật thất bại');
+        }
+    } catch (err) {
+        showToast(`❌ Cập nhật thất bại: ${err.message}`, 'danger');
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu & Đồng Bộ SQL';
+    }
+}
+
+/* ──────────────────────────────────────────────
+   API: DELETE CUSTOMER
+────────────────────────────────────────────── */
+function triggerRowDelete(id, name) {
+    pendingDeleteId    = id;
+    pendingDeleteLabel = `${id} — ${name}`;
+    document.getElementById('confirm-delete-label').textContent = pendingDeleteLabel;
+    document.getElementById('confirm-delete-modal').classList.add('active');
+}
+
+function triggerDetailDelete() {
+    if (!currentViewingId) return;
+    const c = globalCustomersList.find(item => item.ID === currentViewingId);
+    const name = c ? (c.NAME || '–') : '–';
+    triggerRowDelete(currentViewingId, name);
+}
+
+function closeConfirmDeleteModal() {
+    document.getElementById('confirm-delete-modal').classList.remove('active');
+    pendingDeleteId    = null;
+    pendingDeleteLabel = '';
+}
+
+async function executeConfirmedDeletion() {
+    if (!pendingDeleteId) return;
+
+    const execBtn = document.getElementById('btn-confirm-delete-exec');
+    execBtn.disabled = true;
+    execBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xóa…';
+
+    const idToDelete = pendingDeleteId;
+    closeConfirmDeleteModal();
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/customers/${encodeURIComponent(idToDelete)}`, {
+            method: 'DELETE',
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+            showToast(`🗑️ Đã xóa hồ sơ ${idToDelete} khỏi SQL.`, 'success');
+            
+            // Cập nhật state cục bộ ngay lập tức để giao diện phản hồi nhanh
+            globalCustomersList = globalCustomersList.filter(c => c.ID !== idToDelete);
+            filteredList        = filteredList.filter(c => c.ID !== idToDelete);
+            updateStats(globalCustomersList);
+            computeNextId(globalCustomersList);
+
+            // Nếu đang xem chi tiết khách hàng vừa xóa, quay lại danh sách
+            if (currentViewingId === idToDelete) {
+                showList();
+            } else {
+                renderTable(filteredList);
+            }
+        } else {
+            throw new Error(result.error || 'Xóa thất bại');
+        }
+    } catch (err) {
+        showToast(`❌ Lỗi xóa: ${err.message}`, 'danger');
+    } finally {
+        execBtn.disabled = false;
+        execBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Xóa Vĩnh Viễn';
+    }
+}
+
+/* ──────────────────────────────────────────────
+   MODAL CONTROLS
+────────────────────────────────────────────── */
+function openAddModal() {
+    // Clear all fields
+    ['add-name','add-company','add-phone','add-tax','add-email','add-contact','add-billing','add-note']
+        .forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.value = ''; el.style.borderColor = ''; el.style.boxShadow = ''; }
+        });
+    computeNextId(globalCustomersList);
+    document.getElementById('add-modal').classList.add('active');
+    setTimeout(() => document.getElementById('add-name')?.focus(), 120);
+}
+function closeAddModal() {
+    document.getElementById('add-modal').classList.remove('active');
+}
+
+function openPwdModal() {
+    const input = document.getElementById('edit-password-input');
+    const err   = document.getElementById('pwd-error');
+    if (input) { input.value = ''; }
+    if (err)   { err.textContent = ''; }
+    document.getElementById('password-modal').classList.add('active');
+    setTimeout(() => input?.focus(), 120);
+}
+function closePwdModal() {
+    document.getElementById('password-modal').classList.remove('active');
+}
+
+function verifyEditPassword() {
+    const entered = document.getElementById('edit-password-input').value;
+    const errEl   = document.getElementById('pwd-error');
+    if (entered === EDIT_PASSWORD) {
+        closePwdModal();
+        setEditState(true);
+        showToast('🔓 Xác thực thành công! Chế độ chỉnh sửa đã mở.', 'info');
+    } else {
+        errEl.textContent = '❌ Mật khẩu không chính xác!';
+        document.getElementById('edit-password-input').value = '';
+        document.getElementById('edit-password-input').focus();
+    }
+}
+
+/* ──────────────────────────────────────────────
+   TOAST
+────────────────────────────────────────────── */
+const TOAST_ICONS = { success: 'fa-check-circle', danger: 'fa-exclamation-circle', info: 'fa-info-circle' };
+
+function showToast(msg, type = 'success') {
+    const container = document.getElementById('toast-container');
+    const toast     = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `<i class="fas ${TOAST_ICONS[type] || 'fa-info-circle'}"></i><span>${msg}</span>`;
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => toast.classList.add('show'));
+    });
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 420);
+    }, 4200);
+}
+
+/* ──────────────────────────────────────────────
+   UTILITY: XSS-SAFE TEXT
+────────────────────────────────────────────── */
+function sanitize(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
 </script>
-
 </body>
+</html>

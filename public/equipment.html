@@ -188,7 +188,7 @@
 
 <script>
     // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
-    const API_BASE_URL = window.location.hostname === 'localhost' 
+    const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:18080' 
     : window.location.origin;
     // Dữ liệu đối tượng trích xuất nguyên vẹn 100% từ file gốc TBC.csv (Không tự ý sửa đổi từ viết hoa/ô trống)

@@ -18,6 +18,11 @@ app.get('/', (req, res) => {
 
 // Khởi tạo và kết nối Database SQLite
 const db = new sqlite3.Database(path.join(__dirname, 'labmaster_enterprise.db'));
+
+// CẤU HÌNH TỐI ƯU CHỐNG KHÓA DATABASE (SQLITE_BUSY)
+db.run("PRAGMA journal_mode = WAL"); // Bật chế độ ghi nhật ký trước (tăng hiệu năng đa luồng)
+db.configure("busyTimeout", 5000);   // Chờ tối đa 5 giây nếu DB đang bị khóa trước khi báo lỗi
+
 db.serialize(() => {
     // 1. Bảng quản lý tiến độ Dự án
     db.run(`CREATE TABLE IF NOT EXISTS PROJECTS (
@@ -30,7 +35,7 @@ db.serialize(() => {
 
     // 2. Bảng quản lý thông tin khách hàng (Bổ sung bảng bị thiếu)
     db.run(`CREATE TABLE IF NOT EXISTS CUSTOMERS (
-        ID TEXT PRIMARY KEY, NAME TEXT, COMPANY TEXT, PHONE TEXT, TAX TEXT, EMAIL TEXT, ADDRESS TEXT, NOTE TEXT
+        ID TEXT PRIMARY KEY, NAME TEXT, COMPANY TEXT, PHONE TEXT, TAX TEXT, EMAIL TEXT, BILLING_ADDRESS TEXT, CONTACT TEXT, NOTE TEXT
     )`);
 
     // 3. Bảng thông tin chung của Giấy Chứng Nhận
@@ -108,6 +113,13 @@ db.serialize(() => {
     // Migration an toàn: thêm cột mới cho DB cũ đã tồn tại từ trước (bỏ qua lỗi nếu cột đã có)
     db.run(`ALTER TABLE EQUIPMENT_TEMPLATES ADD COLUMN EQUIPMENT_ID TEXT`, () => {});
     db.run(`ALTER TABLE TEMPLATE_POINTS ADD COLUMN AS_FOUND_VALUE TEXT`, () => {});
+
+    // Migration bảng CUSTOMERS — bổ sung các cột bị thiếu trên DB cũ (bỏ qua lỗi nếu cột đã có)
+    db.run(`ALTER TABLE CUSTOMERS ADD COLUMN BILLING_ADDRESS TEXT`, () => {});
+    db.run(`ALTER TABLE CUSTOMERS ADD COLUMN CONTACT TEXT`,         () => {});
+    db.run(`ALTER TABLE CUSTOMERS ADD COLUMN TAX TEXT`,             () => {});
+    db.run(`ALTER TABLE CUSTOMERS ADD COLUMN EMAIL TEXT`,           () => {});
+    db.run(`ALTER TABLE CUSTOMERS ADD COLUMN NOTE TEXT`,            () => {});
 });
 
 // Hàm tiện ích tự động ghi nhật ký hệ thống ngầm
@@ -152,7 +164,7 @@ app.post('/api/projects', (req, res) => {
 
     if (!id) {
         // Thuật toán tịnh tiến: Tìm mã PRJ-XXXXXX cao nhất trong DB
-        db.get("SELECT ID FROM PROJECTS WHERE ID LIKE 'PRJ-%' ORDER BY ID DESC LIMIT 1", (err, row) => {
+        db.get("SELECT ID FROM PROJECTS WHERE ID LIKE 'PRJ-%' ORDER BY CAST(SUBSTR(ID, 5) AS INTEGER) DESC LIMIT 1", (err, row) => {
             let nextNum = 1;
             if (row && row.ID) {
                 const lastNum = parseInt(row.ID.split('-')[1]);
@@ -387,30 +399,123 @@ app.delete('/api/equipment-templates/:name', (req, res) => {
     });
 });
 
-// ================= API QUẢN LÝ KHÁCH HÀNG =================
+// ================= API QUẢN LÝ KHÁCH HÀNG (CUSTOMERS) - OPTIMIZED =================
 
+// 1. Lấy danh sách
 app.get('/api/customers', (req, res) => {
-    db.all("SELECT * FROM CUSTOMERS", [], (err, rows) => {
-        if (err) return res.status(500).json(err);
+    db.all("SELECT * FROM CUSTOMERS ORDER BY ID DESC", [], (err, rows) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
         res.json(rows);
     });
 });
 
+// 2. Thêm mới / Cập nhật (Tối ưu hóa sâu, loại bỏ hiện tượng Race Condition và lồng trùng lặp lệnh)
 app.post('/api/customers', (req, res) => {
-    const c = req.body;
-    const stmt = db.prepare(`INSERT OR REPLACE INTO CUSTOMERS (ID, NAME, COMPANY, PHONE, TAX, EMAIL, ADDRESS, NOTE) VALUES (?,?,?,?,?,?,?,?)`);
-    stmt.run([c.id, c.name, c.company, c.phone, c.tax, c.email, c.address, c.note]);
-    stmt.finalize();
-    res.json({ success: true });
+    let { id, name, company, phone, tax, email, billing_address, contact, note } = req.body;
+
+    console.log("👉 Đang xử lý đồng bộ khách hàng:", { id, name, company, phone });
+
+    if (!name || !company || !phone) {
+        return res.status(400).json({ 
+            success: false, 
+            error: "Thiếu thông tin bắt buộc: Tên đại diện, Công ty, Số điện thoại" 
+        });
+    }
+
+    // Hàm lõi thực thi ghi dữ liệu dứt điểm vào SQL
+    const executeInsert = (finalId) => {
+        const isNew = (!id); // Nếu ban đầu không truyền id vào thì tức là tạo mới hoàn toàn
+        const action = isNew ? "CREATE" : "UPDATE";
+        const desc = isNew 
+            ? `Thêm mới đối tác: "${name.trim()}" (${company.trim()})` 
+            : `Cập nhật thông tin đối tác: "${name.trim()}" (${finalId})`;
+
+        // Dùng INSERT OR REPLACE: Tự động ghi đè nếu trùng PRIMARY KEY, không cần SELECT kiểm tra trước
+        const stmt = db.prepare(`
+            INSERT OR REPLACE INTO CUSTOMERS 
+            (ID, NAME, COMPANY, PHONE, TAX, EMAIL, BILLING_ADDRESS, CONTACT, NOTE) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        
+        stmt.run([
+            finalId, 
+            name.trim(), 
+            company.trim(), 
+            phone.trim(), 
+            (tax || '').trim(), 
+            (email || '').trim(), 
+            (billing_address || '').trim(), 
+            (contact || '').trim(), 
+            (note || '').trim()
+        ], function(err) {
+            // Giải phóng câu lệnh ngay lập tức để mở khóa Database cho các Request khác
+            stmt.finalize(); 
+
+            if (err) {
+                console.error("❌ Thất bại tại SQLite tầng ghi:", err.message);
+                return res.status(500).json({ success: false, error: err.message });
+            }
+            
+            // Ghi nhật ký hệ thống ngầm và trả kết quả cho khách hàng
+            logActivity("Hệ thống / KTV", action, "CUSTOMERS", finalId, desc);
+            return res.json({ 
+                success: true, 
+                id: finalId,
+                message: isNew ? "Thêm khách hàng thành công" : "Cập nhật thành công"
+            });
+        });
+    };
+
+    // Kiểm tra định tuyến ID dữ liệu
+    if (!id) {
+        // Thuật toán tịnh tiến mã ID tự động (Quét bản ghi lớn nhất theo luồng tuần tự)
+        db.get("SELECT ID FROM CUSTOMERS WHERE ID LIKE 'CUST-%' ORDER BY CAST(SUBSTR(ID, 6) AS INTEGER) DESC LIMIT 1", (err, row) => {
+            if (err) {
+                console.error("❌ Lỗi quét mã định danh tịnh tiến:", err.message);
+                return res.status(500).json({ success: false, error: err.message });
+            }
+            
+            let nextNum = 1;
+            if (row && row.ID) {
+                const match = row.ID.match(/CUST-(\d+)/);
+                if (match) nextNum = parseInt(match[1]) + 1;
+            }
+            const nextId = `CUST-${String(nextNum).padStart(6, '0')}`;
+            executeInsert(nextId);
+        });
+    } else {
+        // Trường hợp cập nhật hồ sơ khách hàng đã có sẵn ID
+        executeInsert(id);
+    }
 });
 
+// 3. Xóa khách hàng
 app.delete('/api/customers/:id', (req, res) => {
     const id = req.params.id;
-    db.run("DELETE FROM CUSTOMERS WHERE ID = ?", [id], (err) => {
+    
+    db.get("SELECT NAME, COMPANY FROM CUSTOMERS WHERE ID = ?", [id], (err, row) => {
         if (err) return res.status(500).json({ success: false, error: err.message });
-        res.json({ success: true });
+        
+        const info = row ? `${row.NAME || ''} - ${row.COMPANY || ''}` : id;
+
+        db.run("DELETE FROM CUSTOMERS WHERE ID = ?", [id], function(err) {
+            if (err) {
+                return res.status(500).json({ success: false, error: err.message });
+            }
+            
+            if (this.changes === 0) {
+                return res.status(404).json({ success: false, error: "Không tìm thấy khách hàng" });
+            }
+
+            logActivity("Quản trị viên", "DELETE", "CUSTOMERS", id, `Đã xóa hồ sơ: ${info}`);
+            res.json({ 
+                success: true, 
+                message: `Đã xóa thành công khách hàng ${id}` 
+            });
+        });
     });
 });
+
 
 // API lấy lịch sử chỉnh sửa hệ thống (Audit Logs)
 app.get('/api/audit-logs', (req, res) => {
