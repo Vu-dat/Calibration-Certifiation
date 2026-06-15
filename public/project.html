@@ -198,6 +198,10 @@
         <div class="display-value" id="view-proj-tech">-</div>
     </div>
     <div class="info-group">
+      <label>Khách hàng</label>
+      <div class="display-value" id="view-proj-customer">-</div>
+    </div>
+    <div class="info-group">
         <label>Trạng thái</label>
         <div class="display-value" id="view-proj-status">-</div>
     </div>
@@ -412,11 +416,15 @@
         <h3 style="margin-bottom:16px;">Khởi tạo dự án mới</h3>
         <div class="field">
             <label>Tên dự án hiệu chuẩn</label>
-            <input type="text" id="m-proj-name" placeholder="Ví dụ: Hiệu chuẩn máy giặt Wascator FOM 71CLS...">
+            <input type="text" id="m-proj-name" >
         </div>
         <div class="field" style="margin-top:12px;">
             <label>Kỹ thuật viên phụ trách</label>
-            <input type="text" id="m-proj-tech" placeholder="Ví dụ: Nguyễn Văn A...">
+            <input type="text" id="m-proj-tech">
+        </div>
+        <div class="field" style="margin-top:12px;">
+            <label>Tên khách hàng</label>
+            <input type="text" id="m-proj-customer">
         </div>
         <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
             <button class="btn btn-secondary btn-sm" onclick="closeModal('modal-create-project')">Hủy</button>
@@ -1554,6 +1562,26 @@ function confirmCreateProject() {
         tech:   newTech || 'Chưa phân công',
         status: 'In Progress'
     });
+}
+
+async function executeCreateProject(payload) {
+    try {
+        const response = await fetch(`${API_URL}/projects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (result.success) {
+            showToast("Khởi tạo dự án thành công!");
+            fetchProjects(); // Cập nhật lại danh sách hiển thị
+        } else {
+            showToast("Lỗi: " + result.message, "danger");
+        }
+    } catch (error) {
+        console.error("Lỗi khi tạo dự án:", error);
+        showToast("Lỗi kết nối máy chủ!", "danger");
+    }
 }
 
 // Hàm gửi dữ liệu POST lên Backend để ghi vào SQLite
