@@ -113,6 +113,7 @@ db.serialize(() => {
     // Migration an toàn: thêm cột mới cho DB cũ đã tồn tại từ trước (bỏ qua lỗi nếu cột đã có)
     db.run(`ALTER TABLE EQUIPMENT_TEMPLATES ADD COLUMN EQUIPMENT_ID TEXT`, () => {});
     db.run(`ALTER TABLE TEMPLATE_POINTS ADD COLUMN AS_FOUND_VALUE TEXT`, () => {});
+    db.run(`ALTER TABLE CALIBRATION_POINTS ADD COLUMN REF_EQUIPMENT TEXT`, () => {});
 
     // Migration bảng CUSTOMERS — bổ sung các cột bị thiếu trên DB cũ (bỏ qua lỗi nếu cột đã có)
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN BILLING_ADDRESS TEXT`, () => {});
@@ -240,13 +241,13 @@ app.post('/api/calibration/save', (req, res) => {
             // 3. Ghi đè loạt điểm đo mới gửi từ Workspace
             const pointStmt = db.prepare(`
                 INSERT INTO CALIBRATION_POINTS 
-                (CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY) 
-                VALUES (?,?,?,?,?,?,?)
+                (CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT) 
+                VALUES (?,?,?,?,?,?,?,?)
             `);
             
             if (data.points && Array.from(data.points).length > 0) {
                 data.points.forEach(p => {
-                    pointStmt.run(data.certNo, p.parameterName, p.calPoint, p.asFoundValue, p.uncertainty, p.tolerance, p.conformity);
+                    pointStmt.run(data.certNo, p.parameterName, p.calPoint, p.asFoundValue, p.uncertainty, p.tolerance, p.conformity, p.refEq || '');
                 });
             }
             
@@ -592,8 +593,8 @@ app.post('/api/calibration/export-pdf', (req, res) => {
         if (points.length > 0) {
             const ptStmt = db.prepare(`
                 INSERT INTO CALIBRATION_POINTS
-                (CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY)
-                VALUES (?,?,?,?,?,?,?)
+                (CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT)
+                VALUES (?,?,?,?,?,?,?,?)
             `);
             points.forEach(p => {
                 ptStmt.run([
@@ -603,7 +604,8 @@ app.post('/api/calibration/export-pdf', (req, res) => {
                     p.asFoundValue  || p.found    || '',
                     p.uncertainty   || p.unc      || '',
                     p.tolerance     || p.tol      || '',
-                    p.conformity    || p.conf     || ''
+                    p.conformity    || p.conf     || '',
+                    p.refEq         || ''
                 ]);
             });
             ptStmt.finalize();

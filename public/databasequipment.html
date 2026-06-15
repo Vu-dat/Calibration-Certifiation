@@ -6,8 +6,8 @@
     <link rel="stylesheet" href="index.css">
     <style>
     @keyframes modalFadeIn {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
     }
         .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
         .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
@@ -189,12 +189,13 @@
             <table id="calibration-table" style="width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Times New Roman', Times, serif; font-size: 14px; text-align: center; border: 1px solid #111;">
                 <thead>
                     <tr>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 22%;">Thông số<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Parameters</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 12%;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Calibration Points</span></th>
-                        <th colspan="3" style="border: 1px solid #111111; padding: 10px; width: 24%;">Giá trị đo được<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">As Found Value (lần 1 / 2 / 3)</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Độ KĐBD<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Uncertainty</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Dung sai<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Tolerance</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 18%;">Thông số<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Parameters</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Calibration Points</span></th>
+                        <th colspan="3" style="border: 1px solid #111111; padding: 10px; width: 22%;">Giá trị đo được<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">As Found Value (lần 1 / 2 / 3)</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 9%;">Độ KĐBD<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Uncertainty</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 9%;">Dung sai<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Tolerance</span></th>
                         <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Sự phù hợp<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Conformity</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 16%;">Thiết bị chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Standard Equipment</span></th>
                         <th style="border: 1px solid #111111; padding: 10px; width: 6%;">Thao tác<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Action</span></th>
                     </tr>
                 </thead>
@@ -219,7 +220,6 @@
 
     const TARGET_URL = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:18080');
 
-    // Dữ liệu Mock cấu trúc chuẩn xác theo đúng hình ảnh bạn cung cấp
     const MockTemplates = {
         "Washing Machine": [
             { group: "temp", name: "Nhiệt độ\nTemperature (°C)", points: [30, 40, 60, 80, 90], values: ["30.2", "39.5", "59.2", "78.9", "88.7"], unc: "0.3", tol: "± 3", conf: "A" },
@@ -237,8 +237,8 @@
     };
 
     let currentId = '';
-    let currentEquipmentId = ''; // Mã nhận diện (EQUIPMENT_ID) của thiết bị đang xem/sửa
-    let fetchedEquipments = []; // Lưu trữ mảng thiết bị trả về từ API để map chính xác dữ liệu gốc
+    let currentEquipmentId = ''; 
+    let fetchedEquipments = []; 
 
     document.addEventListener("DOMContentLoaded", () => {
         const user = localStorage.getItem('labmaster_user');
@@ -248,7 +248,45 @@
             return;
         }
         fetchEquipmentTemplates();
+
+        const rowsContainer = document.getElementById('calibration-table-rows');
+        if (rowsContainer) {
+            rowsContainer.addEventListener('input', (e) => {
+                if (e.target.classList.contains('param-input')) {
+                    updateStandardEqOptions(e.target);
+                }
+            });
+        }
     });
+
+    // Cải tiến: Ban đầu ẩn hoàn toàn, chỉ hiển thị dropdown khi gõ từ khóa đúng
+    function updateStandardEqOptions(textarea, savedValue = '') {
+        const text = textarea.value.toLowerCase();
+        const tr = textarea.closest('tr');
+        const select = tr.querySelector('.standard-eq-select');
+        if (!select) return;
+
+        const currentValue = savedValue || select.value;
+        select.innerHTML = '';
+
+        if (text.includes('nhiệt độ') || text.includes('temperature')) {
+            select.innerHTML = `
+                <option value="">-- Chọn thiết bị chuẩn --</option>
+                <option value="Fluke 1524">Đồng hồ đo nhiệt độ chuẩn Fluke 1524</option>
+                <option value="Additel 875">Lò khô chuẩn nhiệt độ Additel 875</option>
+                <option value="PT100 Chino">Cảm biến nhiệt điện trở chuẩn PT100 Chino</option>
+            `;
+            select.disabled = false;
+            select.style.display = 'block'; // Hiện thẻ select
+            if (currentValue) {
+                select.value = currentValue;
+            }
+        } else {
+            select.innerHTML = '';
+            select.disabled = true;
+            select.style.display = 'none'; // Ẩn hoàn toàn để cột rỗng hoàn toàn
+        }
+    }
 
     async function fetchEquipmentTemplates() {
         try {
@@ -268,7 +306,6 @@
         if (!tbody) return;
         tbody.innerHTML = "";
 
-        // Cập nhật ô thống kê "Mẫu thiết bị" theo dữ liệu thật từ Database SQL
         const statEl = document.querySelector('.stat-card p');
         if (statEl && isFromAPI) statEl.textContent = String(equipments ? equipments.length : 0).padStart(2, '0');
 
@@ -286,7 +323,6 @@
             const eqManu = isFromAPI ? (eq.MANUFACTURER || eq.manufacturer || '-') : eq.manufacturer;
             const eqDue = isFromAPI ? (eq.NEXT_DUE || eq.next_due || '-') : eq.nextDue;
 
-            // Truyền chỉ số (index) trong fetchedEquipments để lấy đúng formPoints khi click
             tr.onclick = () => isFromAPI ? editEqFromAPI(index) : editEq(eqCode, eqName, eqManu, eqDue);
 
             tr.innerHTML = `
@@ -317,7 +353,6 @@
         renderTable(localList, false);
     }
 
-    // Mở chi tiết thiết bị lấy trực tiếp từ Database SQL (API /api/equipment-templates)
     function editEqFromAPI(index) {
         const eq = fetchedEquipments[index];
         if (!eq) return;
@@ -337,13 +372,11 @@
         if (points.length > 0) {
             renderFromTemplatePoints(points, tbody);
         } else {
-            // Tự động thêm sẵn 3 dòng trắng để người dùng nhập liệu ngay khi tạo mẫu mới hoặc mẫu chưa có điểm đo
             for (let k = 0; k < 3; k++) addCalibrationRow();
         }
     }
 
-    // Trình bày bảng đo hiệu chuẩn (theo đúng format Washing Machine: gộp nhóm thông số bằng rowspan)
-    // dựa trên dữ liệu TEMPLATE_POINTS lấy thẳng từ SQL Database
+    // Render dữ liệu và đảo thứ tự cột thiết bị chuẩn xuống kế cuối
     function renderFromTemplatePoints(points, tbody) {
         let i = 0;
         while (i < points.length) {
@@ -362,11 +395,22 @@
                     html += `<td rowspan="${groupSize}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
                         <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${groupName}</textarea>
                     </td>`;
+                    html += renderCells(pt.CAL_POINT || '', pt.AS_FOUND_VALUE || '', pt.UNCERTAINTY || '', pt.TOLERANCE || '', pt.CONFORMITY || '');
+                    html += `<td rowspan="${groupSize}" class="standard-eq-cell" style="border:1px solid #111;padding:10px;vertical-align:middle;">
+                        <select class="cell-input standard-eq-select" style="width:100%; border:1px solid #cbd5e0; border-radius:4px; padding:4px; font-weight:600; color:#008080; display:none;"></select>
+                    </td>`;
+                } else {
+                    html += renderCells(pt.CAL_POINT || '', pt.AS_FOUND_VALUE || '', pt.UNCERTAINTY || '', pt.TOLERANCE || '', pt.CONFORMITY || '');
                 }
 
-                html += renderCells(pt.CAL_POINT || '', pt.AS_FOUND_VALUE || '', pt.UNCERTAINTY || '', pt.TOLERANCE || '', pt.CONFORMITY || '');
+                html += `<td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>`;
                 tr.innerHTML = html;
                 tbody.appendChild(tr);
+
+                if (k === i) {
+                    const ta = tr.querySelector('.param-input');
+                    updateStandardEqOptions(ta, pt.STANDARD_EQUIPMENT || pt.standardEquipment || '');
+                }
             }
             i = j;
         }
@@ -388,8 +432,6 @@
         try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
         
         const savedData = db[name];
-        
-        // Xác định template hiển thị (Ưu tiên LocalStorage -> Ưu tiên Mock đúng tên -> Mặc định Washing Machine)
         const template = savedData ? savedData.formPoints : (MockTemplates[name] || MockTemplates["Washing Machine"]);
 
         if (Array.isArray(template) && !savedData) {
@@ -406,17 +448,28 @@
                 tr.setAttribute('data-group', item.group);
                 let html = '';
                 
-                // Gộp nhóm thông số đầu tiên bằng thuộc tính rowspan chuẩn chỉnh
+                const displayVal = item.values && item.values[idx] ? item.values[idx] : "";
+
                 if (idx === 0) {
                     html += `<td rowspan="${item.points.length}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
                         <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${item.name}</textarea>
                     </td>`;
+                    html += renderCells(p, displayVal, item.unc, item.tol, item.conf);
+                    html += `<td rowspan="${item.points.length}" class="standard-eq-cell" style="border:1px solid #111;padding:10px;vertical-align:middle;">
+                        <select class="cell-input standard-eq-select" style="width:100%; border:1px solid #cbd5e0; border-radius:4px; padding:4px; font-weight:600; color:#008080; display:none;"></select>
+                    </td>`;
+                } else {
+                    html += renderCells(p, displayVal, item.unc, item.tol, item.conf);
                 }
                 
-                const displayVal = item.values && item.values[idx] ? item.values[idx] : "";
-                html += renderCells(p, displayVal, item.unc, item.tol, item.conf);
+                html += `<td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>`;
                 tr.innerHTML = html;
                 tbody.appendChild(tr);
+
+                if (idx === 0) {
+                    const ta = tr.querySelector('.param-input');
+                    updateStandardEqOptions(ta, item.standardEquipment || '');
+                }
             });
         });
     }
@@ -430,16 +483,26 @@
                 html += `<td rowspan="${pt.rowspan}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
                     <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${pt.paramName}</textarea>
                 </td>`;
+                html += renderCells(pt.point, pt.v1, pt.uncertainty, pt.tolerance, pt.conformity);
+                html += `<td rowspan="${pt.rowspan}" class="standard-eq-cell" style="border:1px solid #111;padding:10px;vertical-align:middle;">
+                    <select class="cell-input standard-eq-select" style="width:100%; border:1px solid #cbd5e0; border-radius:4px; padding:4px; font-weight:600; color:#008080; display:none;"></select>
+                </td>`;
+            } else {
+                html += renderCells(pt.point, pt.v1, pt.uncertainty, pt.tolerance, pt.conformity);
             }
-            html += renderCells(pt.point, pt.v1, pt.uncertainty, pt.tolerance, pt.conformity);
+            html += `<td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>`;
             tr.innerHTML = html;
             tbody.appendChild(tr);
+
+            if (pt.rowspan > 0) {
+                const ta = tr.querySelector('.param-input');
+                updateStandardEqOptions(ta, pt.standardEquipment || '');
+            }
         });
     }
 
-    // Rút gọn chỉ còn 1 ô input duy nhất cho cột As Found Value ứng với giao diện mẫu của bạn
+    // Hàm render các cột giá trị trung gian
     function renderCells(p, v1, unc, tol, conf) {
-        // Phân tách chuỗi composite "v1 / v2 / v3" nếu có từ Database
         let val1 = v1 || '', val2 = '', val3 = '';
         if (typeof v1 === 'string' && v1.includes(' / ')) {
             const parts = v1.split(' / ');
@@ -459,43 +522,57 @@
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${displayUnc}" class="cell-input unc"></td>
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${displayTol}" class="cell-input tol"></td>
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${conf}" class="cell-input conf" style="font-weight:bold;"></td>
-            <td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>
         `;
     }
 
-    // Hàm thêm một dòng mới vào bảng hiệu chuẩn trong Edit View
+    // Thêm dòng mới thủ công, giữ đúng cấu trúc cột thiết bị chuẩn ở kế cuối
     function addCalibrationRow() {
         const tbody = document.getElementById('calibration-table-rows');
-        // Xóa thông báo trống nếu có
-        const emptyState = tbody.querySelector('td[colspan="7"]');
+        const emptyState = tbody.querySelector('td[colspan="8"]') || tbody.querySelector('td[colspan="7"]');
         if (emptyState) tbody.innerHTML = '';
 
         const tr = document.createElement('tr');
-        // Gán data-group duy nhất để hàm deleteRow hiện tại có thể xóa chính xác dòng này
         tr.setAttribute('data-group', 'manual-row-' + Date.now() + Math.random().toString(36).substr(2, 5));
-        tr.innerHTML = `
+        
+        let html = `
             <td class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
                 <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;" placeholder="Tên thông số (Parameter)"></textarea>
             </td>
-            ${renderCells('', '', '', '', '')}
         `;
+        html += renderCells('', '', '', '', '');
+        html += `
+            <td class="standard-eq-cell" style="border:1px solid #111;padding:10px;vertical-align:middle;">
+                <select class="cell-input standard-eq-select" style="width:100%; border:1px solid #cbd5e0; border-radius:4px; padding:4px; font-weight:600; color:#008080; display:none;"></select>
+            </td>
+            <td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>
+        `;
+        tr.innerHTML = html;
         tbody.appendChild(tr);
+
+        const ta = tr.querySelector('.param-input');
+        updateStandardEqOptions(ta, '');
     }
 
     async function saveEq() {
-        // Lấy tên thiết bị từ tiêu đề chi tiết
         const titleText = document.getElementById('edit-title').innerText;
         const name = titleText.replace("Detail: ", "").trim();
 
         const rows = document.querySelectorAll('#calibration-table-rows tr');
         const points = [];
         let lastParamName = '';
+        let lastStandardEq = '';
 
         rows.forEach(row => {
             const groupHeader = row.querySelector('.group-header');
             if (groupHeader) {
                 const textarea = groupHeader.querySelector('textarea');
                 lastParamName = textarea ? textarea.value : groupHeader.innerText;
+            }
+            
+            // Tìm select thiết bị chuẩn kế cuối trong hàng chứa tiêu đề nhóm
+            const select = row.querySelector('.standard-eq-select');
+            if (select) {
+                lastStandardEq = select.value;
             }
 
             const pointInput = row.querySelector('.point-input');
@@ -512,6 +589,7 @@
 
             points.push({
                 parameter: lastParamName,
+                standardEquipment: lastStandardEq,
                 value: pointInput ? pointInput.value : '',
                 asFoundValue: mergedAsFound,
                 uncertainty: row.querySelector('.unc') ? row.querySelector('.unc').value : '',
@@ -548,7 +626,6 @@
         } catch (error) {
             console.error("Lỗi khi lưu thiết bị:", error);
 
-            // Phương án an toàn: lưu tạm vào LocalStorage nếu mất kết nối API
             let db = {};
             try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
 
@@ -557,6 +634,7 @@
                 nextDue: nextDue,
                 formPoints: points.map(p => ({
                     group: p.parameter, paramName: p.parameter, rowspan: 1,
+                    standardEquipment: p.standardEquipment,
                     point: p.value, v1: p.asFoundValue, v2: "", v3: "",
                     uncertainty: p.uncertainty, tolerance: p.tolerance, conformity: p.conformity
                 }))
@@ -569,6 +647,7 @@
         }
     }
 
+    // Cải tiến hàm xóa dòng để dịch chuyển ô thiết bị chuẩn (rowspan) về đúng cột kế cuối của hàng tiếp theo
     function deleteRow(button) {
         const currentRow = button.closest('tr');
         const groupName = currentRow.getAttribute('data-group');
@@ -579,19 +658,27 @@
             return;
         }
         
-        const headerCell = groupRows[0].querySelector('.group-header') || groupRows[0].querySelector('td:first-child');
-        
         if (currentRow === groupRows[0]) {
             const nextRow = groupRows[1];
+            const headerCell = groupRows[0].querySelector('.group-header');
+            const selectCell = groupRows[0].querySelector('.standard-eq-cell');
+            
             const currentRowsSpan = parseInt(headerCell.getAttribute('rowspan'), 10);
             headerCell.setAttribute('rowspan', currentRowsSpan - 1);
+            if (selectCell) selectCell.setAttribute('rowspan', currentRowsSpan - 1);
+            
+            // Đẩy ô thông số vào đầu dòng tiếp theo
             nextRow.insertBefore(headerCell, nextRow.firstChild);
+            
+            // Đẩy ô thiết bị chuẩn vào trước ô Thao tác (ô cuối cùng) của dòng tiếp theo
+            const lastCell = nextRow.querySelector('td:last-child');
+            nextRow.insertBefore(selectCell, lastCell);
         } else {
-            const mainHeader = groupRows[0].querySelector('[rowspan]');
-            if (mainHeader) {
-                const currentRowsSpan = parseInt(mainHeader.getAttribute('rowspan'), 10);
-                mainHeader.setAttribute('rowspan', currentRowsSpan - 1);
-            }
+            const rowspans = groupRows[0].querySelectorAll('[rowspan]');
+            rowspans.forEach(cell => {
+                const currentRowsSpan = parseInt(cell.getAttribute('rowspan'), 10);
+                cell.setAttribute('rowspan', currentRowsSpan - 1);
+            });
         }
         currentRow.remove();
     }

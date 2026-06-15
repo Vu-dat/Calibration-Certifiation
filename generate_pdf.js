@@ -238,6 +238,7 @@ async function main() {
         doc.text('KĐBĐ ±\nUncert.',           rX[3],   rY+3, { width: rW6[3], align: 'center' });
         doc.text('Dung sai\nTolerance',        rX[4],   rY+3, { width: rW6[4], align: 'center' });
         doc.text('Phù hợp\nConform.',          rX[5],   rY+3, { width: rW6[5], align: 'center' });
+        doc.text('Chuẩn sử dụng\nRef. Std',     rX[6],   rY+3, { width: rW6[6], align: 'center' });
         doc.moveTo(rx, rY+rRowH).lineTo(rx+475, rY+rRowH).stroke();
         rY += rRowH;
 
@@ -264,6 +265,7 @@ async function main() {
                 const unc      = String(p.UNCERTAINTY      || p.uncertainty      || '–');
                 const tol      = String(p.TOLERANCE        || p.tolerance        || '–');
                 const conf     = String(p.CONFORMITY       || p.conformity       || '–');
+                const refEq    = String(p.REF_EQUIPMENT    || p.ref_equipment    || '–');
 
                 doc.text(param,   rX[0]+4, rY+7, { width: rW6[0]-4 });
                 doc.text(calPt,   rX[1],   rY+7, { width: rW6[1], align: 'center' });
@@ -271,6 +273,7 @@ async function main() {
                 doc.text(unc,     rX[3],   rY+7, { width: rW6[3], align: 'center' });
                 doc.text(tol,     rX[4],   rY+7, { width: rW6[4], align: 'center' });
                 doc.text(conf,    rX[5],   rY+7, { width: rW6[5], align: 'center' });
+                doc.text(refEq,   rX[6],   rY+7, { width: rW6[6], align: 'center' });
 
                 doc.moveTo(rx, rY+rRowH).lineTo(rx+475, rY+rRowH).stroke();
                 rY += rRowH;

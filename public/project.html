@@ -369,6 +369,7 @@
                 <th style="width:10%">KĐBĐ ±<br><span style="font-style:italic;font-weight:400;font-size:11px;opacity:.85;">Uncertainty</span></th>
                 <th style="width:10%">Dung sai<br><span style="font-style:italic;font-weight:400;font-size:11px;opacity:.85;">Tolerance</span></th>
                 <th style="width:10%">Phù hợp<br><span style="font-style:italic;font-weight:400;font-size:11px;opacity:.85;">Conformity</span></th>
+                <th style="width:15%">Thiết bị chuẩn<br><span style="font-style:italic;font-weight:400;font-size:11px;opacity:.85;">Ref. Equipment</span></th>
                 <th style="width:6%">Xóa</th>
               </tr>
             </thead>
@@ -868,6 +869,7 @@ function selectEquipmentTemplate(key) {
     if (pt.rowspan > 0) {
       const parts = pt.paramName.split('\n');
       html += `<td rowspan="${pt.rowspan}" class="group-header">${parts[0]}${parts[1]?`<br><span style="font-weight:400;font-style:italic;color:var(--muted);font-size:12px;">${parts[1]}</span>`:''}
+        <input type="hidden" class="group-param-name" value="${pt.paramName}">
       </td>`;
     }
     html += `
@@ -878,6 +880,12 @@ function selectEquipmentTemplate(key) {
       <td><input type="text" class="lab-input-cell uncertainty" value="${pt.uncertainty}"></td>
       <td><input type="text" class="lab-input-cell tolerance" value="${pt.tolerance}" style="font-weight:500;"></td>
       <td><input type="text" class="lab-input-cell conformity" value="${pt.conformity}" style="font-weight:700;color:var(--teal);"></td>
+    `;
+    if (pt.rowspan > 0) {
+      const isTemp = pt.paramName.toLowerCase().includes('nhiệt độ') || pt.paramName.toLowerCase().includes('temperature');
+      html += `<td rowspan="${pt.rowspan}" class="ref-eq-col">${renderRefEqCell(isTemp)}</td>`;
+    }
+    html += `
       <td style="text-align:center;"><button onclick="this.closest('tr').remove();updateRowCount();" class="btn-rm">×</button></td>
     `;
     row.innerHTML = html;
@@ -893,7 +901,7 @@ function addCalResultRow() {
   if (empty) empty.parentElement.remove();
   const row = document.createElement('tr');
   row.innerHTML = `
-    <td><input type="text" class="lab-input-cell" placeholder="Thông số"></td>
+    <td><input type="text" class="lab-input-cell param-input" placeholder="Thông số" oninput="checkParamForRefEq(this)"></td>
     <td><input type="text" class="lab-input-cell cal-point" placeholder="Điểm"></td>
     <td><input type="text" class="lab-input-cell measured-active as-found-1" placeholder="Lần 1"></td>
     <td><input type="text" class="lab-input-cell as-found-2" placeholder="Lần 2"></td>
@@ -901,6 +909,7 @@ function addCalResultRow() {
     <td><input type="text" class="lab-input-cell uncertainty" placeholder="KĐB"></td>
     <td><input type="text" class="lab-input-cell tolerance" placeholder="Dung sai"></td>
     <td><select class="lab-input-cell conformity"><option>A</option><option>B</option><option>C</option><option>D</option><option>--</option></select></td>
+    <td class="ref-eq-col"><input type="text" class="lab-input-cell ref-eq-val" placeholder="Thiết bị"></td>
     <td style="text-align:center;"><button onclick="this.closest('tr').remove();updateRowCount();" class="btn-rm">×</button></td>
   `;
   tbody.appendChild(row);
@@ -1090,13 +1099,30 @@ function collectCalibrationResults() {
     const v2 = (row.querySelector('.as-found-2')||{}).value || '';
     const v3 = (row.querySelector('.as-found-3')||{}).value || '';
     const foundStr = [v1,v2,v3].filter(Boolean).join(' / ') || v1;
+    let refEq = '';
+    const refEqEl = row.querySelector('.ref-eq-val');
+    if (refEqEl) {
+      refEq = refEqEl.value;
+    } else {
+      let prev = row.previousElementSibling;
+      while (prev) {
+        const prevRefCol = prev.querySelector('td.ref-eq-col');
+        if (prevRefCol && prevRefCol.hasAttribute('rowspan')) {
+          refEq = prevRefCol.querySelector('.ref-eq-val').value;
+          break;
+        }
+        prev = prev.previousElementSibling;
+      }
+    }
+
     res.push({
-          param: (paramName || '').replace(/\n/g, ' '),
+      param: (paramName || '').replace(/\n/g, ' '),
       point: calPoint.value,
       found: foundStr,
       unc: (row.querySelector('.uncertainty')||{}).value || '',
       tol: (row.querySelector('.tolerance')||{}).value || '',
-      conf: (row.querySelector('.conformity')||{}).value || ''
+      conf: (row.querySelector('.conformity')||{}).value || '',
+      refEq: refEq
     });
   });
   // Fallback to simple mode if advanced is empty
@@ -1377,7 +1403,7 @@ async function exportPDFAndFinish() {
         humiEnv:        txt('f-humi'),
         headOfLab:      txt('f-sign1'),
         director:       txt('f-sign2'),
-        points:         pointRecords,
+        points:         pointRecords.map((p, idx) => ({ ...p, refEq: collectCalibrationResults()[idx].refEq })),
         standards:      standardRecords
     };
 
@@ -1413,7 +1439,7 @@ async function saveCalibrationData() {
         headOfLab: txt('f-sign1'), director: txt('f-sign2'),
         points: collectCalibrationResults().map(p => ({
             parameterName: p.param, calPoint: p.point, asFoundValue: p.found,
-            uncertainty: p.unc, tolerance: p.tol, conformity: p.conf
+            uncertainty: p.unc, tolerance: p.tol, conformity: p.conf, refEq: p.refEq
         })),
         currentUser: user?.fullName || "KTV",
         standards: collectAllStandards() // Send selected standards to backend
@@ -1531,7 +1557,10 @@ function fillCalibrationTableRows(points) {
             if (idx === 0) {
                 const parts = group.name.split('\n');
                 const displayName = parts[0] + (parts[1] ? `<br><span style="font-weight:400;font-style:italic;color:var(--muted);font-size:12px;">${parts[1]}</span>` : '');
-                html += `<td rowspan="${group.rows.length}" class="group-header">${displayName}</td>`;
+                html += `<td rowspan="${group.rows.length}" class="group-header">
+                    <div class="param-display">${displayName}</div>
+                    <input type="hidden" class="group-param-name" value="${group.name}">
+                </td>`;
             }
 
             html += `
@@ -1542,6 +1571,14 @@ function fillCalibrationTableRows(points) {
               <td><input type="text" class="lab-input-cell uncertainty" value="${pt.UNCERTAINTY || ''}"></td>
               <td><input type="text" class="lab-input-cell tolerance" value="${pt.TOLERANCE || ''}" style="font-weight:500;"></td>
               <td><input type="text" class="lab-input-cell conformity" value="${pt.CONFORMITY || ''}" style="font-weight:700;color:var(--teal);"></td>
+            `;
+
+            if (idx === 0) {
+                const isTemp = group.name.toLowerCase().includes('nhiệt độ') || group.name.toLowerCase().includes('temperature');
+                html += `<td rowspan="${group.rows.length}" class="ref-eq-col">${renderRefEqCell(isTemp, pt.REF_EQUIPMENT)}</td>`;
+            }
+
+            html += `
               <td style="text-align:center;"><button onclick="this.closest('tr').remove();updateRowCount();" class="btn-rm">×</button></td>
             `;
             row.innerHTML = html;
@@ -1550,6 +1587,32 @@ function fillCalibrationTableRows(points) {
     });
 
     updateRowCount();
+}
+
+function renderRefEqCell(isTemp, value = '') {
+  if (isTemp) {
+    const options = [
+      { val: 'LAB-THERMO.01', text: 'LAB-THERMO.01 (Chuẩn MK2)' },
+      { val: 'LAB-THERMO.03', text: 'LAB-THERMO.03 (Extech Digital)' },
+      { val: 'LAB-THERMO.05', text: 'LAB-THERMO.05 (Extech Digital)' }
+    ];
+    let html = `<select class="lab-input-cell ref-eq-val">`;
+    html += `<option value="">-- Chọn đồng hồ --</option>`;
+    options.forEach(opt => html += `<option value="${opt.val}" ${value === opt.val ? 'selected' : ''}>${opt.text}</option>`);
+    html += `</select>`;
+    return html;
+  }
+  return `<input type="text" class="lab-input-cell ref-eq-val" value="${value || ''}" placeholder="Thiết bị">`;
+}
+
+function checkParamForRefEq(input) {
+  const row = input.closest('tr');
+  const isTemp = input.value.toLowerCase().includes('nhiệt độ') || input.value.toLowerCase().includes('temperature');
+  const refCol = row.querySelector('.ref-eq-col');
+  if (refCol) {
+    const currentVal = refCol.querySelector('.ref-eq-val').value;
+    refCol.innerHTML = renderRefEqCell(isTemp, currentVal);
+  }
 }
 
 /* ====== CLOSE DROPDOWNS ON OUTSIDE CLICK ====== */
