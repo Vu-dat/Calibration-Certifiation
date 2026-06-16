@@ -256,7 +256,7 @@ app.post('/api/calibration/save', (req, res) => {
                 
                 // GHI LOG THÀNH CÔNG VÀO DATABASE
                 logActivity(
-                    "KTV. Nhật Quang", 
+                    currentWorker, 
                     "UPDATE", 
                     "CERTIFICATES", 
                     data.certNo, 
