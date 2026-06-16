@@ -7,14 +7,15 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const app = express();
 const port = process.env.PORT || 18080;
+
 app.use(cors());
 app.use(express.json());
 app.use('/static', express.static(path.join(__dirname, 'static')));
 app.use(express.static(path.join(__dirname, 'public')));
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
-
 
 // Khởi tạo và kết nối Database SQLite
 const db = new sqlite3.Database(path.join(__dirname, 'labmaster_enterprise.db'));
@@ -33,7 +34,7 @@ db.serialize(() => {
         CREATED_AT DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // 2. Bảng quản lý thông tin khách hàng (Bổ sung bảng bị thiếu)
+    // 2. Bảng quản lý thông tin khách hàng
     db.run(`CREATE TABLE IF NOT EXISTS CUSTOMERS (
         ID TEXT PRIMARY KEY, NAME TEXT, COMPANY TEXT, PHONE TEXT, TAX TEXT, EMAIL TEXT, BILLING_ADDRESS TEXT, CONTACT TEXT, NOTE TEXT
     )`);
@@ -56,6 +57,7 @@ db.serialize(() => {
         UNCERTAINTY TEXT,
         TOLERANCE TEXT,
         CONFORMITY TEXT,
+        REF_EQUIPMENT TEXT, -- Hoặc STANDARD_EQUIPMENT tùy thuộc vào cấu trúc của generate_pdf.js
         FOREIGN KEY(CERT_NO) REFERENCES CERTIFICATES(CERT_NO) ON DELETE CASCADE
     )`);
 
@@ -81,13 +83,13 @@ db.serialize(() => {
         TIMESTAMP DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // 7. Bảng quản lý tài khoản nhân viên (Bổ sung cho phần Đăng nhập)
+    // 7. Bảng quản lý tài khoản nhân viên
     db.run(`CREATE TABLE IF NOT EXISTS USERS (
         ID INTEGER PRIMARY KEY AUTOINCREMENT,
         USERNAME TEXT UNIQUE,
-        PASSWORD TEXT,          -- Trong thực tế sẽ mã hóa bằng thư viện bcrypt
+        PASSWORD TEXT,
         FULL_NAME TEXT,
-        ROLE TEXT               -- 'admin', 'head_of_lab', 'technician'
+        ROLE TEXT
     )`);
 
     // 8. Bảng lưu trữ mẫu thiết bị (Database Equipment)
@@ -110,12 +112,23 @@ db.serialize(() => {
         FOREIGN KEY(TEMPLATE_NAME) REFERENCES EQUIPMENT_TEMPLATES(NAME) ON DELETE CASCADE
     )`);
 
+    // YÊU CẦU 1: Khởi tạo bảng CLOCK quản lý danh sách thiết bị chuẩn/đồng hồ mẫu
+    db.run(`CREATE TABLE IF NOT EXISTS CLOCK (
+        ID TEXT PRIMARY KEY,
+        NAME TEXT NOT NULL,
+        MANUFACTURER TEXT,
+        SERIAL_NUMBER TEXT,
+        VALIDITY TEXT,
+        TYPE TEXT DEFAULT 'temperature' -- Loại thiết bị nhằm phục vụ việc ẩn/hiện lọc theo tính chất ở Frontend
+    )`);
+
     // Migration an toàn: thêm cột mới cho DB cũ đã tồn tại từ trước (bỏ qua lỗi nếu cột đã có)
     db.run(`ALTER TABLE EQUIPMENT_TEMPLATES ADD COLUMN EQUIPMENT_ID TEXT`, () => {});
     db.run(`ALTER TABLE TEMPLATE_POINTS ADD COLUMN AS_FOUND_VALUE TEXT`, () => {});
     db.run(`ALTER TABLE CALIBRATION_POINTS ADD COLUMN REF_EQUIPMENT TEXT`, () => {});
+    db.run(`ALTER TABLE CALIBRATION_POINTS ADD COLUMN STANDARD_EQUIPMENT TEXT`, () => {}); // Bổ sung cột đồng bộ theo Yêu cầu số 4
 
-    // Migration bảng CUSTOMERS — bổ sung các cột bị thiếu trên DB cũ (bỏ qua lỗi nếu cột đã có)
+    // Migration bảng CUSTOMERS
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN BILLING_ADDRESS TEXT`, () => {});
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN CONTACT TEXT`,         () => {});
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN TAX TEXT`,             () => {});
@@ -134,6 +147,77 @@ function logActivity(userName, actionType, targetTable, targetId, description) {
     });
     stmt.finalize();
 }
+
+// ================= YÊU CẦU 1: API CRUD CHO BẢNG CLOCK =================
+
+// Lấy danh sách thiết bị chuẩn (Phục vụ Yêu cầu 2 & Yêu cầu 3 tại frontend)
+app.get('/api/clock', (req, res) => {
+    db.all("SELECT * FROM CLOCK ORDER BY ID ASC", [], (err, rows) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        res.json(rows);
+    });
+});
+
+// Thêm mới hoặc Cập nhật thiết bị chuẩn vào bảng CLOCK
+app.post('/api/clock', (req, res) => {
+    const { id, name, manufacturer, serial_number, validity, type } = req.body;
+    
+    if (!id || !name) {
+        return res.status(400).json({ success: false, message: "Thiếu mã định danh (ID) hoặc tên thiết bị!" });
+    }
+
+    const stmt = db.prepare(`
+        INSERT OR REPLACE INTO CLOCK (ID, NAME, MANUFACTURER, SERIAL_NUMBER, VALIDITY, TYPE)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run([id, name, manufacturer || '', serial_number || '', validity || '', type || 'temperature'], function(err) {
+        stmt.finalize();
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        
+        logActivity("Hệ thống / KTV", "UPDATE", "CLOCK", id, `Cập nhật thiết bị chuẩn trong bảng CLOCK: ${name}`);
+        res.json({ success: true, message: "Lưu thông tin thiết bị chuẩn thành công!" });
+    });
+});
+
+// Thêm API import hàng loạt dữ liệu từ equipmentData vào bảng CLOCK
+app.post('/api/clock/bulk', (req, res) => {
+    const items = req.body; // Mảng các đối tượng thiết bị
+    if (!Array.isArray(items)) {
+        return res.status(400).json({ success: false, message: "Dữ liệu gửi lên không phải là mảng!" });
+    }
+
+    db.serialize(() => {
+        const stmt = db.prepare(`
+            INSERT OR REPLACE INTO CLOCK (ID, NAME, MANUFACTURER, SERIAL_NUMBER, VALIDITY, TYPE)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `);
+
+        items.forEach(item => {
+            // Mapping: ID = code (nếu trống dùng stt), Name = name, Manufacturer = nsx, Serial = serial, Validity = nextDate
+            const finalId = item.code || `EQ-${item.stt}`;
+            const type = (item.name.toLowerCase().includes('nhiệt') || item.name.toLowerCase().includes('temp')) ? 'temperature' : 'standard';
+            stmt.run([finalId, item.name, item.nsx || '', item.serial || '', item.nextDate || '', type]);
+        });
+
+        stmt.finalize((err) => {
+            if (err) return res.status(500).json({ success: false, error: err.message });
+            logActivity("Hệ thống", "IMPORT", "CLOCK", "ALL", `Đã import hàng loạt ${items.length} thiết bị vào bảng CLOCK`);
+            res.json({ success: true, message: `Đã đồng bộ ${items.length} thiết bị vào Database thành công!` });
+        });
+    });
+});
+
+// Xóa thiết bị chuẩn khỏi bảng CLOCK
+app.delete('/api/clock/:id', (req, res) => {
+    const id = req.params.id;
+    db.run("DELETE FROM CLOCK WHERE ID = ?", [id], function(err) {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        logActivity("Quản trị viên", "DELETE", "CLOCK", id, `Đã xóa thiết bị chuẩn ID: ${id}`);
+        res.json({ success: true, message: "Xóa thiết bị chuẩn thành công!" });
+    });
+});
+
 
 // ================= API QUẢN LÝ DỰ ÁN =================
 
@@ -164,7 +248,6 @@ app.post('/api/projects', (req, res) => {
     };
 
     if (!id) {
-        // Thuật toán tịnh tiến: Tìm mã PRJ-XXXXXX cao nhất trong DB
         db.get("SELECT ID FROM PROJECTS WHERE ID LIKE 'PRJ-%' ORDER BY CAST(SUBSTR(ID, 5) AS INTEGER) DESC LIMIT 1", (err, row) => {
             let nextNum = 1;
             if (row && row.ID) {
@@ -200,8 +283,8 @@ app.get('/api/calibration/:certNo', (req, res) => {
     db.get("SELECT * FROM CERTIFICATES WHERE CERT_NO = ?", [certNo], (err, cert) => {
         if (err || !cert) return res.status(404).json({ success: false, message: "Không tìm thấy số GCN" });
 
-        db.all("SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ?", [certNo], (err, points) => { // Fetch points
-            db.all("SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ?", [certNo], (err, standards) => { // Fetch standards
+        db.all("SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ?", [certNo], (err, points) => {
+            db.all("SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ?", [certNo], (err, standards) => {
                 res.json({ cert, points, standards });
             });
         });
@@ -210,14 +293,10 @@ app.get('/api/calibration/:certNo', (req, res) => {
 
 app.post('/api/calibration/save', (req, res) => {
     const data = req.body;
-    const standards = data.standards || [];
-    // Lấy thông tin người thực hiện từ body do frontend gửi lên
     const currentWorker = req.body.currentUser || "Hệ thống / KTV"; 
 
-    // Kích hoạt ghi log với tên người dùng thực tế
     logActivity(currentWorker, "UPDATE", "CERTIFICATES", data.certNo, `Cập nhật số liệu đo...`);
     db.serialize(() => {
-        // 1. Lưu thông tin chung giấy chứng nhận (Đã điền đầy đủ cấu trúc tham số)
         const certStmt = db.prepare(`
             INSERT OR REPLACE INTO CERTIFICATES 
             (CERT_NO, INSTRUMENT_NAME, MANUFACTURER, MODEL, EQUIPMENT_ID, SERIAL_NUMBER, CUSTOMER_NAME, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV, HEAD_OF_LAB, DIRECTOR) 
@@ -233,28 +312,27 @@ app.post('/api/calibration/save', (req, res) => {
         });
         certStmt.finalize();
         
-        // 2. Xóa các điểm đo cũ để tránh trùng rác dữ liệu
-        db.run("DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ?", [data.certNo]); // Delete old standards
+        db.run("DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ?", [data.certNo]);
         db.run("DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ?", [data.certNo], (err) => {
             if (err) return res.status(500).json({ success: false, error: err.message });
             
-            // 3. Ghi đè loạt điểm đo mới gửi từ Workspace
             const pointStmt = db.prepare(`
                 INSERT INTO CALIBRATION_POINTS 
-                (CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT) 
-                VALUES (?,?,?,?,?,?,?,?)
+                (CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT) 
+                VALUES (?,?,?,?,?,?,?,?,?)
             `);
             
             if (data.points && Array.from(data.points).length > 0) {
                 data.points.forEach(p => {
-                    pointStmt.run(data.certNo, p.parameterName, p.calPoint, p.asFoundValue, p.uncertainty, p.tolerance, p.conformity, p.refEq || '');
+                    // Đảm bảo đồng bộ lưu cả hai trường tương đương phòng ngừa
+                    const refEqValue = p.refEq || p.standardEquipment || p.refEquipment || '';
+                    pointStmt.run(data.certNo, p.parameterName, p.calPoint, p.asFoundValue, p.uncertainty, p.tolerance, p.conformity, refEqValue, refEqValue);
                 });
             }
             
             pointStmt.finalize((finalErr) => {
                 if (finalErr) return res.status(500).json({ success: false, error: finalErr.message });
                 
-                // GHI LOG THÀNH CÔNG VÀO DATABASE
                 logActivity(
                     currentWorker, 
                     "UPDATE", 
@@ -267,10 +345,7 @@ app.post('/api/calibration/save', (req, res) => {
             });
         });
     });
-
 });
-
-
 
 // ================= API QUẢN LÝ MẪU THIẾT BỊ (DATABASE EQUIPMENT) =================
 
@@ -297,17 +372,11 @@ app.get('/api/equipment-templates', (req, res) => {
     getEquipmentTemplates(res);
 });
 
-// Alias để khớp với các trang frontend gọi GET /api/equipment để lấy danh sách thiết bị
 app.get('/api/equipment', (req, res) => {
     getEquipmentTemplates(res);
 });
 
-// ─────────────────────────────────────────────────────────────────────────
-// API TIẾP NHẬN THÊM MỚI / CẬP NHẬT THIẾT BỊ CHUẨN (EQUIPMENT_TEMPLATES + TEMPLATE_POINTS)
-// Lưu đúng vào bảng mẫu thiết bị để Database Equipment & Project đều đọc được
-// ─────────────────────────────────────────────────────────────────────────
 app.post('/api/equipment', (req, res) => {
-    // Sử dụng khối try-catch tối cao để bảo vệ Server không bao giờ bị tắt/sập bất ngờ
     try {
         const { equipment_id, standard_name, manufacturer, due_date, points } = req.body;
 
@@ -316,7 +385,6 @@ app.post('/api/equipment', (req, res) => {
         }
 
         db.serialize(() => {
-            // 1. Lưu / cập nhật thông tin chung của mẫu thiết bị
             const stmtTemplate = db.prepare(`
                 INSERT OR REPLACE INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID)
                 VALUES (?, ?, ?, ?)
@@ -328,7 +396,6 @@ app.post('/api/equipment', (req, res) => {
                     return res.status(500).json({ success: false, message: "Lỗi cấu trúc SQLite: " + err.message });
                 }
 
-                // 2. Xóa toàn bộ điểm đo cũ của mẫu này để ghi lại danh sách mới (cho phép cập nhật/sửa)
                 db.run("DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ?", [standard_name], (delErr) => {
                     if (delErr) {
                         console.error("❌ Lỗi xóa điểm đo cũ:", delErr.message);
@@ -348,7 +415,6 @@ app.post('/api/equipment', (req, res) => {
                         return finish();
                     }
 
-                    // 3. Ghi nhận mảng thông số điểm chuẩn mẫu đi kèm vào bảng TEMPLATE_POINTS
                     const stmtPoint = db.prepare(`
                         INSERT INTO TEMPLATE_POINTS (
                             TEMPLATE_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY
@@ -400,9 +466,8 @@ app.delete('/api/equipment-templates/:name', (req, res) => {
     });
 });
 
-// ================= API QUẢN LÝ KHÁCH HÀNG (CUSTOMERS) - OPTIMIZED =================
+// ================= API QUẢN LÝ KHÁCH HÀNG (CUSTOMERS) =================
 
-// 1. Lấy danh sách
 app.get('/api/customers', (req, res) => {
     db.all("SELECT * FROM CUSTOMERS ORDER BY ID DESC", [], (err, rows) => {
         if (err) return res.status(500).json({ success: false, error: err.message });
@@ -410,11 +475,8 @@ app.get('/api/customers', (req, res) => {
     });
 });
 
-// 2. Thêm mới / Cập nhật (Tối ưu hóa sâu, loại bỏ hiện tượng Race Condition và lồng trùng lặp lệnh)
 app.post('/api/customers', (req, res) => {
     let { id, name, company, phone, tax, email, billing_address, contact, note } = req.body;
-
-    console.log("👉 Đang xử lý đồng bộ khách hàng:", { id, name, company, phone });
 
     if (!name || !company || !phone) {
         return res.status(400).json({ 
@@ -423,15 +485,13 @@ app.post('/api/customers', (req, res) => {
         });
     }
 
-    // Hàm lõi thực thi ghi dữ liệu dứt điểm vào SQL
     const executeInsert = (finalId) => {
-        const isNew = (!id); // Nếu ban đầu không truyền id vào thì tức là tạo mới hoàn toàn
+        const isNew = (!id);
         const action = isNew ? "CREATE" : "UPDATE";
         const desc = isNew 
             ? `Thêm mới đối tác: "${name.trim()}" (${company.trim()})` 
             : `Cập nhật thông tin đối tác: "${name.trim()}" (${finalId})`;
 
-        // Dùng INSERT OR REPLACE: Tự động ghi đè nếu trùng PRIMARY KEY, không cần SELECT kiểm tra trước
         const stmt = db.prepare(`
             INSERT OR REPLACE INTO CUSTOMERS 
             (ID, NAME, COMPANY, PHONE, TAX, EMAIL, BILLING_ADDRESS, CONTACT, NOTE) 
@@ -439,25 +499,12 @@ app.post('/api/customers', (req, res) => {
         `);
         
         stmt.run([
-            finalId, 
-            name.trim(), 
-            company.trim(), 
-            phone.trim(), 
-            (tax || '').trim(), 
-            (email || '').trim(), 
-            (billing_address || '').trim(), 
-            (contact || '').trim(), 
-            (note || '').trim()
+            finalId, name.trim(), company.trim(), phone.trim(), (tax || '').trim(), 
+            (email || '').trim(), (billing_address || '').trim(), (contact || '').trim(), (note || '').trim()
         ], function(err) {
-            // Giải phóng câu lệnh ngay lập tức để mở khóa Database cho các Request khác
             stmt.finalize(); 
-
-            if (err) {
-                console.error("❌ Thất bại tại SQLite tầng ghi:", err.message);
-                return res.status(500).json({ success: false, error: err.message });
-            }
+            if (err) return res.status(500).json({ success: false, error: err.message });
             
-            // Ghi nhật ký hệ thống ngầm và trả kết quả cho khách hàng
             logActivity("Hệ thống / KTV", action, "CUSTOMERS", finalId, desc);
             return res.json({ 
                 success: true, 
@@ -467,14 +514,9 @@ app.post('/api/customers', (req, res) => {
         });
     };
 
-    // Kiểm tra định tuyến ID dữ liệu
     if (!id) {
-        // Thuật toán tịnh tiến mã ID tự động (Quét bản ghi lớn nhất theo luồng tuần tự)
         db.get("SELECT ID FROM CUSTOMERS WHERE ID LIKE 'CUST-%' ORDER BY CAST(SUBSTR(ID, 6) AS INTEGER) DESC LIMIT 1", (err, row) => {
-            if (err) {
-                console.error("❌ Lỗi quét mã định danh tịnh tiến:", err.message);
-                return res.status(500).json({ success: false, error: err.message });
-            }
+            if (err) return res.status(500).json({ success: false, error: err.message });
             
             let nextNum = 1;
             if (row && row.ID) {
@@ -485,40 +527,27 @@ app.post('/api/customers', (req, res) => {
             executeInsert(nextId);
         });
     } else {
-        // Trường hợp cập nhật hồ sơ khách hàng đã có sẵn ID
         executeInsert(id);
     }
 });
 
-// 3. Xóa khách hàng
 app.delete('/api/customers/:id', (req, res) => {
     const id = req.params.id;
-    
     db.get("SELECT NAME, COMPANY FROM CUSTOMERS WHERE ID = ?", [id], (err, row) => {
         if (err) return res.status(500).json({ success: false, error: err.message });
-        
         const info = row ? `${row.NAME || ''} - ${row.COMPANY || ''}` : id;
 
         db.run("DELETE FROM CUSTOMERS WHERE ID = ?", [id], function(err) {
-            if (err) {
-                return res.status(500).json({ success: false, error: err.message });
-            }
-            
-            if (this.changes === 0) {
-                return res.status(404).json({ success: false, error: "Không tìm thấy khách hàng" });
-            }
+            if (err) return res.status(500).json({ success: false, error: err.message });
+            if (this.changes === 0) return res.status(404).json({ success: false, error: "Không tìm thấy khách hàng" });
 
             logActivity("Quản trị viên", "DELETE", "CUSTOMERS", id, `Đã xóa hồ sơ: ${info}`);
-            res.json({ 
-                success: true, 
-                message: `Đã xóa thành công khách hàng ${id}` 
-            });
+            res.json({ success: true, message: `Đã xóa thành công khách hàng ${id}` });
         });
     });
 });
 
-
-// API lấy lịch sử chỉnh sửa hệ thống (Audit Logs)
+// API lấy lịch sử hệ thống & Thống kê
 app.get('/api/audit-logs', (req, res) => {
     db.all("SELECT * FROM ACTIVITY_LOGS ORDER BY TIMESTAMP DESC LIMIT 200", [], (err, rows) => {
         if (err) return res.status(500).json({ success: false, error: err.message });
@@ -533,18 +562,11 @@ app.get('/api/stats/summary', (req, res) => {
     });
 });
 
-// Tạo thư mục static nếu chưa tồn tại để tránh lỗi kẹt file
+// Tạo thư mục static nếu chưa tồn tại
 const staticDir = path.join(__dirname, 'static');
 if (!fs.existsSync(staticDir)) fs.mkdirSync(staticDir, { recursive: true });
 
-/**
- * POST /api/calibration/export-pdf
- * Nhận toàn bộ dữ liệu workspace từ frontend, lưu vào DB, sau đó gọi generate_pdf.js để xuất file.
- * Body: { cert_no, instrumentName, manufacturer, model, equipmentId, serialNumber,
- *         customerName, calDate, reCalDate, procedure, refStandard, tempEnv, humiEnv,
- *         headOfLab, director, points: [{parameterName, calPoint, asFoundValue, uncertainty, tolerance, conformity}],
- *         standards: [{name, id, trace, due}] }
- */
+// ================= YÊU CẦU 4: XUẤT FILE PDF & ĐỒNG BỘ CỘT STANDARD_EQUIPMENT =================
 app.post('/api/calibration/export-pdf', (req, res) => {
     const data = req.body;
     const cert_no = data.cert_no || data.certNo;
@@ -555,69 +577,47 @@ app.post('/api/calibration/export-pdf', (req, res) => {
 
     const scriptPath = path.join(__dirname, 'generate_pdf.js');
 
-    // Hàm lưu dữ liệu vào DB rồi mới gọi script sinh PDF
     db.serialize(() => {
-        // 1. Lưu / cập nhật bảng CERTIFICATES
         const certStmt = db.prepare(`
             INSERT OR REPLACE INTO CERTIFICATES 
             (CERT_NO, INSTRUMENT_NAME, MANUFACTURER, MODEL, EQUIPMENT_ID, SERIAL_NUMBER,
-             CUSTOMER_NAME, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV,
-             HEAD_OF_LAB, DIRECTOR)
+             CUSTOMER_NAME, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV, HEAD_OF_LAB, DIRECTOR)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `);
         certStmt.run([
-            cert_no,
-            data.instrumentName || data.instrument_name || '',
-            data.manufacturer   || '',
-            data.model          || '',
-            data.equipmentId    || data.equipment_id    || '',
-            data.serialNumber   || data.serial_number   || '',
-            data.customerName   || data.customer_name   || '',
-            data.calDate        || data.cal_date         || '',
-            data.reCalDate      || data.re_cal_date      || '',
-            data.procedure      || '',
-            data.refStandard    || data.ref_standard     || '',
-            data.tempEnv        || data.temp_env         || '',
-            data.humiEnv        || data.humi_env         || '',
-            data.headOfLab      || data.head_of_lab      || '',
-            data.director       || ''
+            cert_no, data.instrumentName || data.instrument_name || '', data.manufacturer || '', data.model || '',
+            data.equipmentId || data.equipment_id || '', data.serialNumber || data.serial_number || '',
+            data.customerName || data.customer_name || '', data.calDate || data.cal_date || '', data.reCalDate || data.re_cal_date || '',
+            data.procedure || '', data.refStandard || data.ref_standard || '', data.tempEnv || data.temp_env || '',
+            data.humiEnv || data.humi_env || '', data.headOfLab || data.head_of_lab || '', data.director || ''
         ]);
         certStmt.finalize();
 
-        // 2. Xóa điểm đo cũ và thiết bị chuẩn cũ
         db.run("DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ?", [cert_no]);
         db.run("DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ?", [cert_no]);
 
-        // 3. Ghi điểm đo mới — map đúng tên field gửi từ frontend
         const points = data.points || [];
         if (points.length > 0) {
+            // YÊU CẦU 4: Đảm bảo điền dữ liệu đồng bộ vào STANDARD_EQUIPMENT
             const ptStmt = db.prepare(`
                 INSERT INTO CALIBRATION_POINTS
-                (CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT)
-                VALUES (?,?,?,?,?,?,?,?)
+                (CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT)
+                VALUES (?,?,?,?,?,?,?,?,?)
             `);
             points.forEach(p => {
+                const standardVal = p.refEq || p.standardEquipment || p.standard_equipment || '';
                 ptStmt.run([
-                    cert_no,
-                    p.parameterName || p.param    || '',
-                    p.calPoint      || p.point    || '',
-                    p.asFoundValue  || p.found    || '',
-                    p.uncertainty   || p.unc      || '',
-                    p.tolerance     || p.tol      || '',
-                    p.conformity    || p.conf     || '',
-                    p.refEq         || ''
+                    cert_no, p.parameterName || p.param || '', p.calPoint || p.point || '', p.asFoundValue || p.found || '',
+                    p.uncertainty || p.unc || '', p.tolerance || p.tol || '', p.conformity || p.conf || '', standardVal, standardVal
                 ]);
             });
             ptStmt.finalize();
         }
 
-        // 4. Ghi thiết bị chuẩn mới — map đúng field gửi từ frontend
-        // 5. Sau khi finalize() của bước cuối xác nhận DB ghi xong, mới gọi generate_pdf.js
         const runExec = () => {
             exec(`node "${scriptPath}" "${cert_no}"`, (error, stdout, stderr) => {
                 if (error) {
                     console.error(`Lỗi thực thi generate_pdf.js: ${error.message}`);
-                    if (stderr) console.error(`Chi tiết: ${stderr}`);
                     return res.status(500).json({ success: false, message: "Lỗi hệ thống khi sinh PDF." });
                 }
 
@@ -641,13 +641,11 @@ app.post('/api/calibration/export-pdf', (req, res) => {
             stds.forEach(s => {
                 stdStmt.run([cert_no, s.id || s.code || '', s.name || '', s.trace || s.link || '', s.due || s.validity || '']);
             });
-            // Chờ finalize hoàn tất (tất cả INSERT đã flush vào DB) rồi mới sinh PDF
             stdStmt.finalize((err) => {
                 if (err) return res.status(500).json({ success: false, error: err.message });
                 runExec();
             });
         } else {
-            // Không có standards — chờ bước serialize kết thúc rồi sinh PDF
             db.run("SELECT 1", [], () => runExec());
         }
     });
@@ -658,48 +656,31 @@ app.listen(port, () => {
     console.log(`[LabMaster Enterprise OS] Backend API đang chạy mượt mà tại cổng: http://localhost:${port}`);
 });
 
-// API xử lý đăng nhập tài khoản nhân viên
+// API xử lý đăng nhập
 app.post('/api/auth/login', (req, res) => {
     const { username, password } = req.body;
-    
     db.get("SELECT * FROM USERS WHERE USERNAME = ? AND PASSWORD = ?", [username, password], (err, user) => {
         if (err) return res.status(500).json({ success: false, error: err.message });
+        if (!user) return res.status(401).json({ success: false, message: "Tài khoản hoặc mật khẩu không chính xác!" });
         
-        if (!user) {
-            return res.status(401).json({ success: false, message: "Tài khoản hoặc mật khẩu không chính xác!" });
-        }
-        
-        // Trả về thông tin đăng nhập thành công (Trong thực tế chuyên nghiệp sẽ dùng mã Token JWT)
         res.json({
             success: true,
-            user: {
-                username: user.USERNAME,
-                fullName: user.FULL_NAME,
-                role: user.ROLE
-            }
+            user: { username: user.USERNAME, fullName: user.FULL_NAME, role: user.ROLE }
         });
     });
 });
 
-
 app.get('/api/projects/:id', (req, res) => {
     const projectId = req.params.id;
-    
-    // Sử dụng LEFT JOIN để lấy thêm trường STANDARD_NAME (hoặc NAME) từ bảng EQUIPMENT
     const sql = `
-        SELECT p.*, e.STANDARD_NAME as EQUIPMENT_NAME 
+        SELECT p.*, e.NAME as EQUIPMENT_NAME 
         FROM PROJECTS p
-        LEFT JOIN EQUIPMENT e ON p.EQUIPMENT_ID = e.ID
+        LEFT JOIN EQUIPMENT_TEMPLATES e ON p.ID = e.EQUIPMENT_ID
         WHERE p.ID = ?
     `;
-
     db.get(sql, [projectId], (err, row) => {
-        if (err) {
-            return res.status(500).json({ success: false, error: err.message });
-        }
-        if (!row) {
-            return res.status(404).json({ success: false, message: "Không tìm thấy dự án!" });
-        }
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        if (!row) return res.status(404).json({ success: false, message: "Không tìm thấy dự án!" });
         res.json({ success: true, data: row });
     });
 });

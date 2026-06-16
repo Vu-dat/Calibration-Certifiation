@@ -105,7 +105,10 @@
     <section id="equipment-list-view" class="detail-section">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h1 class="text-center-aligned" style="margin: 0; padding: 0;">Standard Equipment</h1>
-            <button class="btn-shiny" onclick="showAddEquipmentForm()">+ Add New Equipment</button>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-shiny" style="background:#2e7d32;" onclick="syncToClockDatabase()">🔄 Sync to Clock DB</button>
+                <button class="btn-shiny" onclick="showAddEquipmentForm()">+ Add New Equipment</button>
+            </div>
         </div>
 
         <div class="search-container">
@@ -361,16 +364,27 @@
         showEquipmentList();
     }
 
-    function deleteEquipment(stt) {
-        if (confirm("Xác nhận gỡ bỏ thiết bị này khỏi danh sách hoạt động?")) {
-            delete equipmentData[stt];
-            const row = document.getElementById(`row-${stt}`);
-            if (row) row.remove();
-            updateStats();
+    // Hàm xóa thiết bị chuẩn
+    async function deleteEquipment(id) {
+        if (confirm(`Xác nhận xóa thiết bị chuẩn ID: ${id}?`)) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/clock/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (result.success) {
+                    alert("Xóa thiết bị thành công!");
+                    fetchClockEquipment(); // Tải lại dữ liệu để cập nhật bảng
+                } else {
+                    alert("Lỗi khi xóa thiết bị: " + result.error);
+                }
+            } catch (error) {
+                console.error("Lỗi khi xóa thiết bị:", error);
+                alert("Không thể kết nối đến Server để xóa thiết bị!");
+            }
         }
     }
 
-    function updateStats() {
+    // Hàm cập nhật thống kê
+    function updateStats(data) {
         const items = Object.values(equipmentData);
         const today = new Date();
         
@@ -386,41 +400,55 @@
         document.getElementById('stat-expired').textContent = expired;
     }
 
+    // Hàm lọc thiết bị
     function filterEquipment() {
         let input = document.getElementById('search-input').value.toUpperCase();
         let filterStatus = document.getElementById('filter-status').value;
-        let table = document.getElementById('equipment-table-body');
-        let tr = table.getElementsByTagName('tr');
+        
+        let filteredData = liveClockData.filter(eq => {
+            const idMatch = (eq.ID || '').toUpperCase().includes(input);
+            const nameMatch = (eq.NAME || '').toUpperCase().includes(input);
+            const manufacturerMatch = (eq.MANUFACTURER || '').toUpperCase().includes(input);
+            const serialMatch = (eq.SERIAL_NUMBER || '').toUpperCase().includes(input);
 
-        for (let i = 0; i < tr.length; i++) {
-            let tdCode = tr[i].getElementsByTagName('td')[2]; // Cột CODE
-            let tdName = tr[i].getElementsByTagName('td')[3]; // Cột NAME
-            let tdStatus = tr[i].getElementsByTagName('td')[11]; // Cột Trạng thái mới
-            
-            if (tdCode || tdName) {
-                let txtValueCode = tdCode.textContent || tdCode.innerText;
-                let txtValueName = tdName.textContent || tdName.innerText;
-                let isStatusMatch = true;
+            let statusMatch = true;
+            if (filterStatus !== 'all') {
+                const today = new Date();
+                const expireDate = new Date(eq.VALIDITY);
+                const isExpired = (!eq.VALIDITY || eq.VALIDITY === '1900-12-31' || eq.VALIDITY === '' || expireDate < today);
 
-                if (filterStatus === 'valid' && !tdStatus.innerHTML.includes('status-valid')) isStatusMatch = false;
-                if (filterStatus === 'expired' && !tdStatus.innerHTML.includes('status-expired')) isStatusMatch = false;
-
-                if ((txtValueCode.toUpperCase().indexOf(input) > -1 || txtValueName.toUpperCase().indexOf(input) > -1) && isStatusMatch) {
-                    tr[i].style.display = "";
-                } else {
-                    tr[i].style.display = "none";
+                if (filterStatus === 'valid') {
+                    // Nếu đang lọc "Còn hạn" và thiết bị đã hết hạn, thì không khớp
+                    if (isExpired) statusMatch = false;
+                } else if (filterStatus === 'expired') {
+                    // Nếu đang lọc "Hết hạn" và thiết bị chưa hết hạn, thì không khớp
+                    if (!isExpired) statusMatch = false;
                 }
             }
-        }
+            return (idMatch || nameMatch || manufacturerMatch || serialMatch) && statusMatch;
+        });
+
+        displayEquipmentTable(filteredData);
     }
 
     function viewEquipmentDetail(identifier) {
         console.log("Chi tiết thiết bị chuẩn: " + identifier);
     }
 
-    // Chạy tải bảng ngay khi load trang
-    window.onload = function() {
-        renderEquipmentTable();
-    };
+    // Chạy tải bảng ngay khi DOM được load
+    document.addEventListener('DOMContentLoaded', fetchClockEquipment);
+
+    function fetchClockEquipment() {
+        fetch(`${API_BASE_URL}/api/clock`)
+            .then(response => response.json())
+            .then(data => {
+                liveClockData = data;
+                renderEquipmentTable();
+            })
+            .catch(error => {
+                console.error("Lỗi khi tải dữ liệu thiết bị chuẩn:", error);
+                alert("Không thể kết nối đến Server để tải dữ liệu thiết bị chuẩn!");
+            });
+    }
 </script>
 </body>
