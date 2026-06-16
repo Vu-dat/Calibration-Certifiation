@@ -513,6 +513,7 @@ async function fetchLiveStandards() {
   if (loader) loader.style.display = 'block'; // Hiển thị spinner khi bắt đầu tải
   try {
     const response = await fetch(`${API_BASE_URL}/api/equipment`);
+    // const response = await fetch(`${API_BASE_URL}/api/clock`);
     if (response.ok) {
       liveStandardsDB = await response.json();
     }
@@ -521,6 +522,25 @@ async function fetchLiveStandards() {
   } finally {
     if (loader) loader.style.display = 'none'; // Ẩn spinner dù thành công hay thất bại
   }
+}
+
+/* Hợp nhất dữ liệu thiết bị chuẩn từ file tĩnh và Database SQL (Bảng CLOCK) */
+function getCombinedStandardsDB() {
+  const staticList = Object.values(staticEquipmentData).map(eq => ({
+    EQUIPMENT_ID: eq.code || '',
+    NAME: eq.name || '',
+    MANUFACTURER: eq.nsx || '',
+    NEXT_DUE: eq.nextDate || '',
+    isStatic: true
+  }));
+  const liveList = (liveStandardsDB || []).map(eq => ({
+    EQUIPMENT_ID: eq.ID || '',
+    NAME: eq.NAME || '',
+    MANUFACTURER: eq.MANUFACTURER || '',
+    NEXT_DUE: eq.VALIDITY || '',
+    isStatic: false
+  }));
+  return [...staticList, ...liveList];
 }
 
 /* ====== LIVE CUSTOMERS DATABASE ====== */
@@ -1069,7 +1089,7 @@ function handleStandardSearch(keyword) {
   if (!keyword || keyword.trim().length < 1) { box.style.display='none'; return; }
 
   const keyLower = keyword.toLowerCase();
-  const combinedDB = getCombinedStandardsDB(); // Use the new helper function
+  const combinedDB = getCombinedStandardsDB();
   
   // 2. Logic tìm kiếm "Mã đầu" (Prefix Search) tương tự YouTube/Google Search
   const filtered = combinedDB.filter(eq =>
@@ -1077,6 +1097,8 @@ function handleStandardSearch(keyword) {
     (eq.NAME && eq.NAME.toLowerCase().includes(keyLower))
   );
   // 3. Sắp xếp: Ưu tiên những kết quả bắt đầu bằng keyword lên trên đầu
+
+  // 3. Thuật toán sắp xếp thông minh: Ưu tiên kết quả bắt đầu bằng từ khóa (Mã hoặc Tên)
   filtered.sort((a, b) => {
     const aCode = (a.EQUIPMENT_ID || '').toLowerCase();
     const bCode = (b.EQUIPMENT_ID || '').toLowerCase();
@@ -1085,6 +1107,17 @@ function handleStandardSearch(keyword) {
     if (aStarts && !bStarts) return -1;
     if (!aStarts && bStarts) return 1;
     return aCode.localeCompare(bCode);
+    const aID = (a.EQUIPMENT_ID || '').toLowerCase();
+    const aName = (a.NAME || '').toLowerCase();
+    const bID = (b.EQUIPMENT_ID || '').toLowerCase();
+    const bName = (b.NAME || '').toLowerCase();
+    
+    const aMatch = aID.startsWith(keyLower) || aName.startsWith(keyLower);
+    const bMatch = bID.startsWith(keyLower) || bName.startsWith(keyLower);
+    
+    if (aMatch && !bMatch) return -1;
+    if (!aMatch && bMatch) return 1;
+    return aID.localeCompare(bID);
   });
 
   if (filtered.length === 0) {
@@ -1711,7 +1744,8 @@ function fillCalibrationTableRows(points) {
 // từ API /api/equipment — cùng nguồn dữ liệu SQL với databasequipment.html), không còn hardcode nữa.
 function buildRefEqOptionsHtml(value = '') {
   let html = `<option value="">-- Chọn thiết bị chuẩn --</option>`;
-  (liveStandardsDB || []).forEach(eq => {
+  const combinedDB = getCombinedStandardsDB();
+  (combinedDB || []).forEach(eq => {
     const val = eq.EQUIPMENT_ID || eq.NAME || '';
     if (!val) return;
     const label = `${eq.EQUIPMENT_ID ? eq.EQUIPMENT_ID + ' - ' : ''}${eq.NAME || ''}${eq.MANUFACTURER ? ' (' + eq.MANUFACTURER + ')' : ''}`;
@@ -1731,9 +1765,23 @@ function checkParamForRefEq(input) {
   const row = input.closest('tr');
   const isTemp = input.value.toLowerCase().includes('nhiệt độ') || input.value.toLowerCase().includes('temperature');
   const refCol = row.querySelector('.ref-eq-col');
+  const currentParamText = input.value.toLowerCase();
+
   if (refCol) {
-    const currentVal = refCol.querySelector('.ref-eq-val').value;
-    refCol.innerHTML = renderRefEqCell(isTemp, currentVal);
+    let selectedValue = '';
+    // Giữ giá trị đang có nếu đã được chọn
+    const existingSelect = refCol.querySelector('.ref-eq-val');
+    if (existingSelect) {
+        selectedValue = existingSelect.value;
+    }
+
+    // Nếu chưa có giá trị và có keyword trùng, tự động gán
+    if (!selectedValue) {
+        for (const keyword in autoAssignStandardMap) {
+            if (currentParamText.includes(keyword)) { selectedValue = autoAssignStandardMap[keyword]; break; }
+        }
+    }
+    refCol.innerHTML = renderRefEqCell(isTemp, selectedValue);
   }
 }
 
@@ -1743,6 +1791,18 @@ document.addEventListener('click', function(e) {
     document.querySelectorAll('.autocomplete-suggestions').forEach(b=>b.style.display='none');
   }
 });
+
+// Bản đồ các thông số với thiết bị chuẩn ưu tiên tự động gán
+const autoAssignStandardMap = {
+    'nhiệt độ': 'LAB-THERMO.03',
+    'temperature': 'LAB-THERMO.03',
+    'độ ẩm': 'LAB-THER_HUM.02',
+    'humidity': 'LAB-THER_HUM.02',
+    'áp suất': 'LAB-PRESSURE.02',
+    'pressure': 'LAB-PRESSURE.02',
+    'thời gian': 'LAB-TIMER.01',
+    'timer': 'LAB-TIMER.01',
+};
 
 /* ====== INIT ====== */
 fetchProjects();
