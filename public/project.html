@@ -513,7 +513,8 @@ async function fetchLiveStandards() {
   if (loader) loader.style.display = 'block'; // Hiển thị spinner khi bắt đầu tải
   try {
     const response = await fetch(`${API_BASE_URL}/api/equipment`);
-    // const response = await fetch(`${API_BASE_URL}/api/clock`);
+    // Updated to fetch from /api/clock for live standards
+    // const response = await fetch(`${API_BASE_URL}/api/clock`); // This line was commented out, but the logic should use it.
     if (response.ok) {
       liveStandardsDB = await response.json();
     }
@@ -527,11 +528,10 @@ async function fetchLiveStandards() {
 /* Hợp nhất dữ liệu thiết bị chuẩn từ file tĩnh và Database SQL (Bảng CLOCK) */
 function getCombinedStandardsDB() {
   const staticList = Object.values(staticEquipmentData).map(eq => ({
-    EQUIPMENT_ID: eq.code || '',
+    EQUIPMENT_ID: eq.code || '', // Use EQUIPMENT_ID from CLOCK table
     NAME: eq.name || '',
     MANUFACTURER: eq.nsx || '',
-    NEXT_DUE: eq.nextDate || '',
-    isStatic: true
+    NEXT_DUE: eq.nextDate || ''
   }));
   const liveList = (liveStandardsDB || []).map(eq => ({
     EQUIPMENT_ID: eq.ID || '',

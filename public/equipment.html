@@ -319,7 +319,7 @@
         updateStats();
     }
 
-    function showAddEquipmentForm() {
+    function showAddEquipmentForm() { // Renamed from showAddEquipmentForm
         document.getElementById('equipment-list-view').style.display = 'none';
         document.getElementById('equipment-create-view').style.display = 'block';
     }
@@ -329,7 +329,7 @@
         document.getElementById('equipment-list-view').style.display = 'block';
     }
 
-    function saveNewEquipment() {
+    async function saveNewEquipment() {
         const code = document.getElementById('new-eq-code').value.trim();
         const name = document.getElementById('new-eq-name').value.trim();
         const nsx = document.getElementById('new-eq-nsx').value.trim();
@@ -337,31 +337,50 @@
         const serial = document.getElementById('new-eq-serial').value.trim();
         const calDate = document.getElementById('new-eq-caldate').value;
         const nextDate = document.getElementById('new-eq-nextdate').value || '1900-12-31';
+        const gcn = document.getElementById('new-eq-gcn').value.trim();
+        const lienKet = ''; // Not directly available in the form, can be added or left empty
 
-        if (!name) {
-            alert("Vui lòng điền tên thiết bị!");
+        if (!code || !name) { // Code is now primary key, so it's essential
+            alert("Vui lòng điền Mã thiết bị và Tên thiết bị!");
             return;
         }
 
-        const nextStt = String(Object.keys(equipmentData).length + 1);
-
-        equipmentData[nextStt] = {
-            stt: nextStt,
-            key: 'manual_input',
-            code: code,
-            name: name,
-            nsx: nsx,
-            model: model,
-            serial: serial,
-            gcn: '',
-            lienKet: '',
-            calDate: calDate,
-            nextDate: nextDate
+        const newEquipment = {
+            EQUIPMENT_ID: code,
+            KEY_FIELD: '', // No input for KEY_FIELD, leave empty or derive if needed
+            NAME: name,
+            MANUFACTURER: nsx,
+            MODEL: model,
+            SERIAL_NUMBER: serial,
+            GCN: gcn,
+            LINK: lienKet,
+            CAL_DATE: calDate,
+            VALIDITY: nextDate
         };
-        
-        renderEquipmentTable();
-        alert("Thêm mới thiết bị chuẩn thành công!");
-        showEquipmentList();
+
+        // Send to backend
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/clock/add`, { // New API endpoint for adding single equipment
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(newEquipment),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert("Thêm mới thiết bị chuẩn thành công!");
+                fetchClockEquipment(); // Refresh the table
+                showEquipmentList(); // Go back to list view
+            } else {
+                alert("Lỗi khi thêm thiết bị: " + result.message);
+            }
+        } catch (error) {
+            console.error("Lỗi khi thêm thiết bị:", error);
+            alert("Không thể kết nối đến Server để thêm thiết bị!");
+        }
     }
 
     // Hàm xóa thiết bị chuẩn
@@ -371,7 +390,7 @@
                 const response = await fetch(`${API_BASE_URL}/api/clock/${id}`, { method: 'DELETE' });
                 const result = await response.json();
                 if (result.success) {
-                    alert("Xóa thiết bị thành công!");
+                    alert("Xóa thiết bị thành công!"); // Changed from result.error to result.message
                     fetchClockEquipment(); // Tải lại dữ liệu để cập nhật bảng
                 } else {
                     alert("Lỗi khi xóa thiết bị: " + result.error);
@@ -401,7 +420,7 @@
     }
 
     // Hàm lọc thiết bị
-    function filterEquipment() {
+    function filterEquipment() { // Now filters liveClockData
         let input = document.getElementById('search-input').value.toUpperCase();
         let filterStatus = document.getElementById('filter-status').value;
         
@@ -431,19 +450,115 @@
         displayEquipmentTable(filteredData);
     }
 
-    function viewEquipmentDetail(identifier) {
-        console.log("Chi tiết thiết bị chuẩn: " + identifier);
+    function viewEquipmentDetail(equipment_id) {
+        console.log("Chi tiết thiết bị chuẩn: " + equipment_id);
+        // Implement detail view logic here if needed
     }
 
     // Chạy tải bảng ngay khi DOM được load
     document.addEventListener('DOMContentLoaded', fetchClockEquipment);
 
+    // Global variable to store live data from CLOCK table
+    let liveClockData = [];
+
+    // Function to send equipmentData to the backend
+    async function syncToClockDatabase() {
+        if (!confirm("Bạn có chắc chắn muốn đồng bộ toàn bộ dữ liệu thiết bị chuẩn hiện tại vào Database CLOCK? Thao tác này sẽ GHI ĐÈ dữ liệu cũ.")) {
+            return;
+        }
+
+        const equipmentArray = Object.values(equipmentData).map(eq => ({
+            code: eq.code || '',
+            key: eq.key || '', // Map 'key' from original data
+            name: eq.name || '',
+            nsx: eq.nsx || '',
+            model: eq.model || '',
+            serial: eq.serial || '',
+            gcn: eq.gcn || '',
+            lienKet: eq.lienKet || '',
+            calDate: eq.calDate || '',
+            nextDate: eq.nextDate || ''
+        }));
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/sync-clock-equipment`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(equipmentArray),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert(result.message);
+                fetchClockEquipment(); // Refresh the table with new data from DB
+            } else {
+                alert("Lỗi đồng bộ: " + result.message);
+            }
+        } catch (error) {
+            console.error("Lỗi khi gửi dữ liệu đồng bộ:", error);
+            alert("Không thể kết nối đến Server để đồng bộ dữ liệu!");
+        }
+    }
+
+    // Function to display equipment data in the table
+    function displayEquipmentTable(dataToDisplay) {
+        const tableBody = document.getElementById('equipment-table-body');
+        tableBody.innerHTML = '';
+        const today = new Date();
+
+        dataToDisplay.forEach((eq, index) => {
+            let statusClass = 'status-valid';
+            let statusText = 'Còn hạn';
+            
+            // Use VALIDITY from CLOCK table
+            if (eq.VALIDITY === '1900-12-31' || eq.VALIDITY === '') {
+                statusClass = 'status-expired';
+                statusText = 'Chưa hiệu chuẩn';
+            } else {
+                const expireDate = new Date(eq.VALIDITY);
+                if (expireDate < today) {
+                    statusClass = 'status-expired';
+                    statusText = 'Hết hạn / Cần HC';
+                }
+            }
+
+            const row = document.createElement('tr');
+            // Use EQUIPMENT_ID from CLOCK table for unique identification
+            row.id = `row-${eq.EQUIPMENT_ID}`;
+            row.setAttribute('onclick', `viewEquipmentDetail('${eq.EQUIPMENT_ID}')`);
+            
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${eq.KEY_FIELD || '--'}</td> <!-- Use KEY_FIELD -->
+                <td><strong>${eq.EQUIPMENT_ID || '--'}</strong></td>
+                <td>${eq.NAME || '--'}</td>
+                <td>${eq.MANUFACTURER || '--'}</td>
+                <td>${eq.MODEL || '--'}</td>
+                <td>${eq.SERIAL_NUMBER || '--'}</td>
+                <td>${eq.GCN || '--'}</td>
+                <td>${eq.LINK || '--'}</td>
+                <td>${eq.CAL_DATE || '--'}</td> <!-- Use CAL_DATE -->
+                <td>${eq.VALIDITY || '--'}</td>
+                <td><span class="status-tag ${statusClass}">${statusText}</span></td>
+                <td style="text-align: center;">
+                    <button class="btn-delete" onclick="event.stopPropagation(); deleteEquipment('${eq.EQUIPMENT_ID}')">🗑️</button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+
+        updateStats(dataToDisplay);
+    }
+
     function fetchClockEquipment() {
         fetch(`${API_BASE_URL}/api/clock`)
             .then(response => response.json())
             .then(data => {
-                liveClockData = data;
-                renderEquipmentTable();
+                liveClockData = data; // Store the fetched data
+                displayEquipmentTable(liveClockData); // Display the fetched data
             })
             .catch(error => {
                 console.error("Lỗi khi tải dữ liệu thiết bị chuẩn:", error);
