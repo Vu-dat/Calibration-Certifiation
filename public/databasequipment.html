@@ -247,7 +247,6 @@
             window.location.href = 'login.html';
             return;
         }
-        fetchEquipmentTemplates();
 
         const rowsContainer = document.getElementById('calibration-table-rows');
         if (rowsContainer) {
@@ -257,7 +256,64 @@
                 }
             });
         }
+
+        // --- TỰ ĐỘNG MỞ CHẾ ĐỘ NHẬP LIỆU HIỆU CHUẨN KHI ĐƯỢC GỌI TỪ PROJECT ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const calibrateTarget = urlParams.get('calibrate');
+        const fromProjectId = urlParams.get('projectId');
+
+        if (calibrateTarget) {
+            // Hiển thị banner thông báo đang ở chế độ hiệu chuẩn
+            showCalibrationModeBanner(calibrateTarget, fromProjectId);
+            // Tải dữ liệu rồi tự động mở form nhập liệu cho thiết bị được chọn
+            fetchEquipmentTemplates().then(() => {
+                openCalibrationByName(calibrateTarget);
+            });
+        } else {
+            fetchEquipmentTemplates();
+        }
     });
+
+    function showCalibrationModeBanner(equipmentName, projectId) {
+        const banner = document.createElement('div');
+        banner.style.cssText = `
+            background: linear-gradient(135deg, #008080, #005f5f);
+            color: white;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 9998;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        `;
+        banner.innerHTML = `
+            <span>📋 Chế độ Nhập Liệu Hiệu Chuẩn &nbsp;|&nbsp; Thiết bị: <strong>${equipmentName}</strong>${projectId ? `&nbsp;|&nbsp; Dự án: <strong>${projectId}</strong>` : ''}</span>
+            <button onclick="window.close()" style="background:rgba(255,255,255,0.2); color:white; border:1px solid rgba(255,255,255,0.4); padding:6px 16px; border-radius:6px; cursor:pointer; font-weight:600;">✕ Đóng trang</button>
+        `;
+        document.body.insertBefore(banner, document.body.firstChild);
+    }
+
+    async function openCalibrationByName(name) {
+        // Tìm thiết bị trong danh sách đã tải
+        const eq = fetchedEquipments.find(e =>
+            (e.NAME || '').toLowerCase() === name.toLowerCase() ||
+            (e.EQUIPMENT_ID || '').toLowerCase() === name.toLowerCase()
+        );
+        if (eq) {
+            const idx = fetchedEquipments.indexOf(eq);
+            editEqFromAPI(idx);
+        } else {
+            // Nếu không tìm thấy chính xác, tìm gần đúng
+            const idx = fetchedEquipments.findIndex(e =>
+                (e.NAME || '').toLowerCase().includes(name.toLowerCase())
+            );
+            if (idx >= 0) editEqFromAPI(idx);
+        }
+    }
 
     // Cải tiến: Ban đầu ẩn hoàn toàn, chỉ hiển thị dropdown khi gõ từ khóa đúng
     function updateStandardEqOptions(textarea, savedValue = '') {
@@ -299,6 +355,7 @@
             console.error("Lỗi khi tải danh sách thiết bị từ Database API:", error);
             renderFallbackLocalStorage();
         }
+        return fetchedEquipments; // Trả về để .then() hoạt động
     }
 
     function renderTable(equipments, isFromAPI) {

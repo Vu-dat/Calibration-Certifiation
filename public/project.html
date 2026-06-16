@@ -216,7 +216,8 @@
               <th style="width:80px">STT</th>
               <th>Tên thiết bị</th>
               <th style="width:130px">Trạng thái</th>
-              <th style="width:180px">Người phụ trách</th> <th style="width:130px">Ngày hiệu chuẩn</th>
+              <th style="width:180px">Người phụ trách</th>
+              <th style="width:130px">Ngày hiệu chuẩn</th>
               <th style="width:180px; text-align:center;">Thao tác</th>
             </tr>
           </thead>
@@ -818,7 +819,6 @@ function addMachineToProjectList(proj = null) {
     const rowCount = tbody.querySelectorAll('tr').length + 1;
     const machineLabel = `Máy ${rowCount}`;
     
-    // Nếu không truyền proj, lấy thông tin từ dự án hiện tại đang xem
     const currentProj = proj || projectsList.find(p => p.ID === currentProjectId);
     const statusClass = currentProj?.STATUS === 'Finished' ? 'finished' : 'progress';
     const calDate = currentProj?.CREATED_AT ? new Date(currentProj.CREATED_AT).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN');
@@ -826,18 +826,76 @@ function addMachineToProjectList(proj = null) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
         <td style="font-weight:600; color:var(--accent);">${machineLabel}</td>
-        <td><strong>${currentEquipmentName || 'Thiết bị hiệu chuẩn'}</strong></td>
+        <td>
+            <div class="autocomplete-wrapper">
+                <input type="text" class="lab-input-cell device-search-input" placeholder="Tìm tên thiết bị (YouTube style)..." oninput="handleDeviceSearch(this)" autocomplete="off" style="font-weight:600; min-width:220px;">
+                <div class="autocomplete-suggestions"></div>
+            </div>
+        </td>
         <td><span class="badge badge-${statusClass}">${currentProj?.STATUS || 'In Progress'}</span></td>
-        <td>${currentProj?.TECH || 'Chưa phân công'}</td>
+        <td><input type="text" class="lab-input-cell" placeholder="Nhập người phụ trách..." value="${currentProj?.TECH || ''}" style="min-width:140px;"></td>
         <td>${calDate}</td>
         <td>
             <div style="display:flex; gap:6px; justify-content:center;">
-                <button class="btn btn-teal btn-sm" onclick="openCalibrationWorkspace()" title="Bắt đầu hiệu chuẩn">Calibrate</button>
+                <button class="btn btn-teal btn-sm" onclick="openCalibrationForRow(this)" title="Bắt đầu hiệu chuẩn">Calibration</button>
                 <button class="btn btn-secondary btn-sm" onclick="openCalibrationWorkspace(); setTimeout(switchToPreview, 500);" title="Xem bản in">Print</button>
             </div>
         </td>
     `;
     tbody.appendChild(tr);
+
+    const input = tr.querySelector('.device-search-input');
+    if (currentEquipmentName && MockDatabaseEquipment[currentEquipmentName]) {
+        input.value = currentEquipmentName;
+        tr.dataset.equipmentName = currentEquipmentName;
+    }
+}
+
+function handleDeviceSearch(input) {
+    const wrapper = input.closest('.autocomplete-wrapper');
+    const box = wrapper.querySelector('.autocomplete-suggestions');
+    const keyword = input.value.trim().toLowerCase();
+    box.innerHTML = '';
+    if (!keyword) { box.style.display = 'none'; return; }
+
+    // Thuật toán tìm kiếm thông minh: lọc và sắp xếp ưu tiên khớp từ đầu chữ
+    const keys = Object.keys(MockDatabaseEquipment).filter(k => k.toLowerCase().includes(keyword));
+    keys.sort((a, b) => {
+        const aLower = a.toLowerCase();
+        const bLower = b.toLowerCase();
+        const aStarts = aLower.startsWith(keyword);
+        const bStarts = bLower.startsWith(keyword);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return aLower.localeCompare(bLower);
+    });
+
+    if (keys.length === 0) {
+        box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy mẫu thiết bị</div>`;
+    } else {
+        keys.slice(0, 8).forEach(key => {
+            const div = document.createElement('div');
+            div.className = 'suggestion-item';
+            div.innerHTML = `🔍 <strong>${key}</strong>`;
+            div.onclick = () => {
+                input.value = key;
+                box.style.display = 'none';
+                input.closest('tr').dataset.equipmentName = key;
+            };
+            box.appendChild(div);
+        });
+    }
+    box.style.display = 'block';
+}
+
+function openCalibrationForRow(btn) {
+    const tr = btn.closest('tr');
+    const equipmentName = tr?.dataset?.equipmentName || tr?.querySelector('.device-search-input')?.value || '';
+    if (!equipmentName) {
+        showToast('Vui lòng chọn thiết bị trước khi hiệu chuẩn!', 'warning');
+        return;
+    }
+    openCalibrationWorkspace(equipmentName);
 }
 
 function backToProjectDetail() {
@@ -848,7 +906,7 @@ function backToProjectDetail() {
   document.getElementById('main-header-actions').style.display='none';
 }
 
-async function openCalibrationWorkspace() {
+async function openCalibrationWorkspace(equipmentNameFromRow = null) {
   document.getElementById('project-detail-view').style.display='none';
   document.getElementById('calibration-editor-view').style.display='block';
   document.getElementById('editor-view').style.display='block';
@@ -865,19 +923,32 @@ async function openCalibrationWorkspace() {
   const hasData = await loadExistingCalibration(certNo);
   
   if (!hasData) {
-      // 2. Nếu không có dữ liệu cũ, mới dùng Auto-match template
-      const titleLower = currentTitle.toLowerCase();
-      const templateMapping = {
-        'wascator':'Washing Machine', 'máy giặt':'Washing Machine',
-        'lò sấy':'Dryer', 'dryer':'Dryer',
-        'tủ lạnh':'Refrigerator', 'refrigerator':'Refrigerator'
-      };
-      for (const [kw, tpl] of Object.entries(templateMapping)) {
-        if (titleLower.includes(kw) && MockDatabaseEquipment[tpl]) {
-          selectEquipmentTemplate(tpl);
-          showToast("Đã tải mẫu thông số tự động từ tiêu chuẩn thiết bị.");
-          break;
-        }
+      // Nếu chưa có dữ liệu đã lưu, ưu tiên load mẫu từ thiết bị đã chọn ở hàng
+      let targetTemplate = null;
+      
+      if (equipmentNameFromRow && MockDatabaseEquipment[equipmentNameFromRow]) {
+          targetTemplate = equipmentNameFromRow;
+      } else {
+          // Nếu hàng chưa chọn, thử tìm theo tên dự án (Auto-match)
+          const titleLower = currentTitle.toLowerCase();
+          const mapping = {
+            'wascator':'Washing Machine', 'máy giặt':'Washing Machine', 'sij':'Washing Machine',
+            'lò sấy':'Dryer', 'dryer':'Dryer',
+            'tủ lạnh':'Refrigerator', 'refrigerator':'Refrigerator'
+          };
+          for (const [kw, tpl] of Object.entries(mapping)) {
+            if (titleLower.includes(kw) && MockDatabaseEquipment[tpl]) {
+                targetTemplate = tpl;
+                break;
+            }
+          }
+      }
+
+      if (targetTemplate) {
+          selectEquipmentTemplate(targetTemplate);
+          showToast(`Đã tải cấu hình mẫu cho: ${targetTemplate}`);
+      } else {
+          showToast("Dự án mới: Vui lòng chọn mẫu hoặc nhập tay kết quả.", "info");
       }
   } else {
       showToast("Đã khôi phục dữ liệu đã lưu từ Database SQL.");
