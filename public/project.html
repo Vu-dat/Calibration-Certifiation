@@ -115,6 +115,12 @@
     th {
         background-color: #f2f2f2 !important; /* Màu nền xám nhẹ cho tiêu đề bảng */
     }
+    .ref-eq-col select, .ref-eq-col input {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+        }
 }
     </style>
 </head>
@@ -1063,28 +1069,13 @@ function handleStandardSearch(keyword) {
   if (!keyword || keyword.trim().length < 1) { box.style.display='none'; return; }
 
   const keyLower = keyword.toLowerCase();
-  
-  // 1. Kết hợp dữ liệu từ API và Dữ liệu tĩnh
-  const combinedDB = [...liveStandardsDB];
-  Object.values(staticEquipmentData).forEach(s => {
-    // Tránh trùng lặp nếu API đã có mã này
-    if (!combinedDB.find(item => (item.EQUIPMENT_ID || item.code) === s.code)) {
-        combinedDB.push({
-            EQUIPMENT_ID: s.code,
-            NAME: s.name,
-            MANUFACTURER: s.nsx,
-            NEXT_DUE: s.nextDate,
-            isStatic: true
-        });
-    }
-  });
+  const combinedDB = getCombinedStandardsDB(); // Use the new helper function
   
   // 2. Logic tìm kiếm "Mã đầu" (Prefix Search) tương tự YouTube/Google Search
   const filtered = combinedDB.filter(eq =>
     (eq.EQUIPMENT_ID && eq.EQUIPMENT_ID.toLowerCase().includes(keyLower)) ||
     (eq.NAME && eq.NAME.toLowerCase().includes(keyLower))
   );
-
   // 3. Sắp xếp: Ưu tiên những kết quả bắt đầu bằng keyword lên trên đầu
   filtered.sort((a, b) => {
     const aCode = (a.EQUIPMENT_ID || '').toLowerCase();
@@ -1129,41 +1120,27 @@ function addStandardTag(eq) {
   document.getElementById('standard-suggestions').style.display = 'none';
 }
 
-function renderStandardTags() {
-    // Tìm kiếm thông minh dựa trên mọi khả năng ID có thể có trong HTML của bạn
-    const container = document.getElementById('selected-standards-list') 
-                   || document.getElementById('standards-tags-container')
-                   || document.querySelector('.selected-standards-container');
-    
-    // PHÒNG VỆ TRIỆT ĐỂ: Nếu chưa mở tab hoặc không tìm thấy container, lưu log và thoát an toàn
-    if (!container) {
-        console.log("Hệ thống ẩn hoặc chưa nạp vùng hiển thị Tag thiết bị chuẩn. Bỏ qua để chống crash.");
-        return;
-    }
-
-    container.innerHTML = '';
-    
-    // Đảm bảo biến selectedStandards có tồn tại và là mảng
-    if (typeof selectedStandards !== 'undefined' && Array.isArray(selectedStandards)) {
-        selectedStandards.forEach((std, index) => {
-            const tag = document.createElement('span');
-            tag.className = 'standard-tag';
-            tag.style = "display: inline-block; background: #e6f2f2; color: #007a78; padding: 4px 8px; margin: 2px; border-radius: 4px; font-size: 13px;";
-            tag.innerHTML = `${std} <span class="remove-tag" style="cursor:pointer; margin-left: 5px; color: #c0392b;" onclick="removeStandardTag(${index})">&times;</span>`;
-            container.appendChild(tag);
-        });
-    }
-}
-function removeStandardTag(i) { selectedStandards.splice(i,1); renderStandardTags(); }
+// Removed unused selectedStandards variable and related functions
+// function renderStandardTags() { ... }
+// function removeStandardTag(i) { ... }
 
 /* ====== SIMPLE MODE TABLES ====== */
 function renderStandardsForm() {
   const c = document.getElementById('std-form-body');
   
-  // Kiểm tra xem thẻ có tồn tại trên giao diện không, nếu không tồn tại thì dừng lại, không chạy tiếp để tránh lỗi
   if (!c) {
     console.warn("Cảnh báo: Không tìm thấy phần tử 'std-form-body' trên giao diện HTML.");
     return;
+  }
+
+  // Hiển thị wrapper nếu có ít nhất một thiết bị chuẩn được chọn
+  const wrapper = document.getElementById('selected-standards-wrapper');
+  if (wrapper) {
+    if (standards.length > 0) {
+      wrapper.style.display = 'block';
+    } else {
+      wrapper.style.display = 'none';
+    }
   }
 
   c.innerHTML = standards.map((s, i) => `
@@ -1175,7 +1152,10 @@ function renderStandardsForm() {
       <td><button class="btn-rm" onclick="standards.splice(${i},1);renderStandardsForm()">×</button></td>
     </tr>
   `).join('');
+  // Nếu không có hàng nào, hiển thị thông báo trống
+  if (standards.length === 0) c.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--hint);padding:10px;">Chưa có thiết bị chuẩn nào được chọn.</td></tr>';
 }
+
 function addStandardRow() { standards.push({name:'',id:'',trace:'',due:''}); renderStandardsForm(); }
 
 function renderResultsForm() {
@@ -1267,10 +1247,8 @@ function collectCalibrationResults() {
 
 function collectAllStandards() {
   // Merge selected tags + manual table
-  const merged = [];
-  selectedStandards.forEach(s => merged.push({name:s.name, id:s.code, trace:s.link+' / '+s.gcn, due:s.validity}));
-  // standards.forEach(s => { if(s.name) merged.push(s); }); // Removed hardcoded standards from print preview
-  return merged;
+  // The 'standards' array already holds the correctly formatted objects
+  return standards.filter(s => s.name || s.id); // Filter out any empty entries
 }
 
 function buildPrintTemplate() {
@@ -1729,18 +1707,22 @@ function fillCalibrationTableRows(points) {
     updateRowCount();
 }
 
+// Đồng bộ: build danh sách <option> trực tiếp từ liveStandardsDB (tải qua fetchLiveStandards()
+// từ API /api/equipment — cùng nguồn dữ liệu SQL với databasequipment.html), không còn hardcode nữa.
+function buildRefEqOptionsHtml(value = '') {
+  let html = `<option value="">-- Chọn thiết bị chuẩn --</option>`;
+  (liveStandardsDB || []).forEach(eq => {
+    const val = eq.EQUIPMENT_ID || eq.NAME || '';
+    if (!val) return;
+    const label = `${eq.EQUIPMENT_ID ? eq.EQUIPMENT_ID + ' - ' : ''}${eq.NAME || ''}${eq.MANUFACTURER ? ' (' + eq.MANUFACTURER + ')' : ''}`;
+    html += `<option value="${val}" ${value === val ? 'selected' : ''}>${label}</option>`;
+  });
+  return html;
+}
+
 function renderRefEqCell(isTemp, value = '') {
   if (isTemp) {
-    const options = [
-      { val: 'LAB-THERMO.01', text: 'LAB-THERMO.01 (Chuẩn MK2)' },
-      { val: 'LAB-THERMO.03', text: 'LAB-THERMO.03 (Extech Digital)' },
-      { val: 'LAB-THERMO.05', text: 'LAB-THERMO.05 (Extech Digital)' }
-    ];
-    let html = `<select class="lab-input-cell ref-eq-val">`;
-    html += `<option value="">-- Chọn đồng hồ --</option>`;
-    options.forEach(opt => html += `<option value="${opt.val}" ${value === opt.val ? 'selected' : ''}>${opt.text}</option>`);
-    html += `</select>`;
-    return html;
+    return `<select class="lab-input-cell ref-eq-val">${buildRefEqOptionsHtml(value)}</select>`;
   }
   return `<input type="text" class="lab-input-cell ref-eq-val" value="${value || ''}" placeholder="Thiết bị">`;
 }
@@ -1938,6 +1920,45 @@ async function executeCreateEquipment() {
         console.error("Lỗi kết nối máy chủ:", error);
         alert('Không thể kết nối đến API hệ thống để lưu thiết bị mới!');
     }
+}
+
+// Hàm lấy danh sách thiết bị chuẩn từ localStorage và tạo các thẻ <option>
+function generateEquipmentOptions() {
+    let optionsHtml = '<option value="">-- Chọn thiết bị chuẩn --</option>';
+    try {
+        const localData = localStorage.getItem('labmaster_equipment_db');
+        if (localData) {
+            const equipmentList = JSON.parse(localData);
+            equipmentList.forEach(eq => {
+                // Kết hợp Mã - Tên - Hãng để hiển thị cho kỹ thuật viên dễ chọn
+                const displayText = `${eq.equipment_id} - ${eq.standard_name} (${eq.manufacturer})`;
+                optionsHtml += `<option value="${eq.equipment_id}">${displayText}</option>`;
+            });
+        }
+    } catch (e) {
+        console.error("Lỗi khi đọc dữ liệu thiết bị chuẩn từ localStorage:", e);
+    }
+    return optionsHtml;
+}
+
+function addCalibrationRow() {
+    const tbody = document.getElementById('calibration-table-body'); // Thay bằng ID thực tế của bạn
+    const equipmentOptions = generateEquipmentOptions(); // Lấy options đồng bộ
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td><input type="text" class="cell-input" placeholder="Điểm kiểm tra"></td>
+        <td><input type="text" class="cell-input" placeholder="Giá trị chuẩn"></td>
+        <td><input type="text" class="cell-input" placeholder="Giá trị thực tế"></td>
+        <td>
+            <select class="cell-input standard-equipment-select" style="width: 100%;">
+                ${equipmentOptions}
+            </select>
+        </td>
+        <td><input type="text" class="cell-input" placeholder="Sai số"></td>
+        <td style="text-align:center;"><button type="button" class="btn-delete" onclick="this.closest('tr').remove()">&times;</button></td>
+    `;
+    tbody.appendChild(row);
 }
 </script>
 </body>

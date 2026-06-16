@@ -315,6 +315,24 @@
         }
     }
 
+    // Đồng bộ: build danh sách <option> trực tiếp từ dữ liệu thiết bị chuẩn đã tải về từ SQL
+    // (fetchedEquipments — lấy qua fetchEquipmentTemplates() / API /api/equipment-templates),
+    // không còn hardcode 3 thiết bị cố định nữa.
+    function buildStandardEqOptionsHtml(currentValue) {
+        let html = '<option value="">-- Chọn thiết bị chuẩn --</option>';
+        (fetchedEquipments || []).forEach(eq => {
+            const val = eq.EQUIPMENT_ID || eq.NAME || '';
+            if (!val) return;
+            // Không cho thiết bị tự chọn chính nó làm thiết bị chuẩn tham chiếu
+            if (currentId && eq.NAME === currentId) return;
+
+            const label = `${eq.EQUIPMENT_ID ? eq.EQUIPMENT_ID + ' - ' : ''}${eq.NAME || ''}${eq.MANUFACTURER ? ' (' + eq.MANUFACTURER + ')' : ''}`;
+            const selected = currentValue === val ? 'selected' : '';
+            html += `<option value="${val}" ${selected}>${label}</option>`;
+        });
+        return html;
+    }
+
     // Cải tiến: Ban đầu ẩn hoàn toàn, chỉ hiển thị dropdown khi gõ từ khóa đúng
     function updateStandardEqOptions(textarea, savedValue = '') {
         const text = textarea.value.toLowerCase();
@@ -323,20 +341,11 @@
         if (!select) return;
 
         const currentValue = savedValue || select.value;
-        select.innerHTML = '';
 
         if (text.includes('nhiệt độ') || text.includes('temperature')) {
-            select.innerHTML = `
-                <option value="">-- Chọn thiết bị chuẩn --</option>
-                <option value="Fluke 1524">Đồng hồ đo nhiệt độ chuẩn Fluke 1524</option>
-                <option value="Additel 875">Lò khô chuẩn nhiệt độ Additel 875</option>
-                <option value="PT100 Chino">Cảm biến nhiệt điện trở chuẩn PT100 Chino</option>
-            `;
+            select.innerHTML = buildStandardEqOptionsHtml(currentValue);
             select.disabled = false;
             select.style.display = 'block'; // Hiện thẻ select
-            if (currentValue) {
-                select.value = currentValue;
-            }
         } else {
             select.innerHTML = '';
             select.disabled = true;
