@@ -216,17 +216,14 @@
               <th style="width:80px">STT</th>
               <th>Tên thiết bị</th>
               <th style="width:130px">Trạng thái</th>
-              <th style="width:150px">Người phụ trách</th>
-              <th style="width:130px">Ngày hiệu chuẩn</th>
+              <th style="width:180px">Người phụ trách</th> <th style="width:130px">Ngày hiệu chuẩn</th>
               <th style="width:180px; text-align:center;">Thao tác</th>
             </tr>
           </thead>
           <tbody id="project-items-body">
-            <!-- Dữ liệu được đổ tự động từ JavaScript -->
-          </tbody>
+            </tbody>
         </table>
       </div>
-
       <div style="padding: 0 24px 10px; margin-top: -10px;">
         <button class="btn btn-secondary btn-sm" onclick="addMachineToProjectList()">+ Thêm máy mới (Add Machine)</button>
       </div>
@@ -696,6 +693,7 @@ let projectsList = [];
 let currentActiveCertNo = null; 
 let currentProjectId = null;
 let currentTitle = '';
+let currentEquipmentName = ''; 
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:18080/api'
     : 'https://labmaster-backend.onrender.com/api'; 
@@ -727,6 +725,26 @@ function viewProjectDetail(id) {
 
   currentTitle = proj.TITLE;
 
+  // --- LOGIC MỚI: Tìm tên thiết bị chuẩn từ Database Equipment dựa trên tên dự án ---
+  const titleLower = proj.TITLE.toLowerCase();
+  const templateMapping = {
+    'wascator': 'Washing Machine', 'máy giặt': 'Washing Machine', 'sij': 'Washing Machine',
+    'lò sấy': 'Dryer', 'dryer': 'Dryer',
+    'tủ lạnh': 'Refrigerator', 'refrigerator': 'Refrigerator'
+  };
+
+  // Mặc định ban đầu nếu không khớp mẫu nào thì dùng tên dự án hiện tại
+  currentEquipmentName = proj.TITLE; 
+
+  // Kiểm tra từ khóa ánh xạ sang tên thiết bị chuẩn trong DB
+  for (const [kw, tpl] of Object.entries(templateMapping)) {
+    if (titleLower.includes(kw) && MockDatabaseEquipment[tpl]) {
+      currentEquipmentName = tpl; // Gán bằng tên thiết bị lấy từ databasequipment
+      break;
+    }
+  }
+  // --------------------------------------------------------------------------------
+
   // --- Bọc an toàn cho phần ẩn/hiện giao diện (Tránh lỗi sập style) ---
   const listView = document.getElementById('project-list-view');
   const detailView = document.getElementById('project-detail-view');
@@ -747,7 +765,6 @@ function viewProjectDetail(id) {
   document.getElementById('cust-search-detail').value = '';
   document.getElementById('selected-cust-details').style.display = 'none';
 
-
   // --- Đổ dữ liệu đồng bộ vào vùng proj-info-grid (Nếu bạn có dùng) ---
   if(document.getElementById('view-proj-id')) document.getElementById('view-proj-id').innerText = proj.ID;
   if(document.getElementById('view-proj-title')) document.getElementById('view-proj-title').innerText = proj.TITLE;
@@ -757,8 +774,8 @@ function viewProjectDetail(id) {
   const pdStatus = document.getElementById('pd-status');
   if(pdStatus) {
     const statusClass = proj.STATUS === 'Finished' ? 'finished' : 'progress';
-  document.getElementById('view-proj-status').innerHTML = 
-    `<span class="badge badge-${statusClass}">${proj.STATUS}</span>`;
+    document.getElementById('view-proj-status').innerHTML = 
+      `<span class="badge badge-${statusClass}">${proj.STATUS}</span>`;
   }
   
   if(document.getElementById('view-proj-status')) {
@@ -809,7 +826,7 @@ function addMachineToProjectList(proj = null) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
         <td style="font-weight:600; color:var(--accent);">${machineLabel}</td>
-        <td><strong>${currentProj?.TITLE || 'Thiết bị hiệu chuẩn'}</strong></td>
+        <td><strong>${currentEquipmentName || 'Thiết bị hiệu chuẩn'}</strong></td>
         <td><span class="badge badge-${statusClass}">${currentProj?.STATUS || 'In Progress'}</span></td>
         <td>${currentProj?.TECH || 'Chưa phân công'}</td>
         <td>${calDate}</td>
@@ -1697,14 +1714,12 @@ async function loadProjectDetail() {
     }
 
     try {
-        // Dùng chung biến API_BASE_URL tổng ở đầu file
         const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`);
         const result = await response.json();
 
         if (result.success) {
             const project = result.project;
             
-            // Tìm các thẻ trong proj-info-grid bằng ID để gán giá trị thật từ DB
             if (document.getElementById('view-proj-id')) 
                 document.getElementById('view-proj-id').innerText = project.ID || '-';
             

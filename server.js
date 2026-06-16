@@ -681,16 +681,25 @@ app.post('/api/auth/login', (req, res) => {
     });
 });
 
-// API lấy thông tin chi tiết của một dự án theo ID
+
 app.get('/api/projects/:id', (req, res) => {
     const projectId = req.params.id;
-    db.get("SELECT * FROM PROJECTS WHERE ID = ?", [projectId], (err, row) => {
+    
+    // Sử dụng LEFT JOIN để lấy thêm trường STANDARD_NAME (hoặc NAME) từ bảng EQUIPMENT
+    const sql = `
+        SELECT p.*, e.STANDARD_NAME as EQUIPMENT_NAME 
+        FROM PROJECTS p
+        LEFT JOIN EQUIPMENT e ON p.EQUIPMENT_ID = e.ID
+        WHERE p.ID = ?
+    `;
+
+    db.get(sql, [projectId], (err, row) => {
         if (err) {
             return res.status(500).json({ success: false, error: err.message });
         }
         if (!row) {
             return res.status(404).json({ success: false, message: "Không tìm thấy dự án!" });
         }
-        res.json({ success: true, project: row });
+        res.json({ success: true, data: row });
     });
 });
