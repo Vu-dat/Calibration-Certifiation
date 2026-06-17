@@ -38,6 +38,8 @@
         .btn-shiny:hover { background: var(--primary-dark); box-shadow: 0 6px 12px rgba(0,128,128,0.3); }
         .btn-delete { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #ccc; }
         .btn-delete:hover { color: var(--danger); }
+        .btn-edit { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #ccc; }
+        .btn-edit:hover { color: var(--primary-teal); }
         .btn-back { background: none; border: 1px solid #ddd; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: 600; margin-bottom: 20px; color: #666; }
         .btn-back:hover { background: #eee; }
         
@@ -146,7 +148,7 @@
     </section>
 
     <section id="equipment-create-view" class="detail-section" style="display:none;">
-        <h2 style="text-align: center; color: var(--primary-teal); margin-bottom: 25px;">Add New Standard Equipment</h2>
+        <h2 id="form-title" style="text-align: center; color: var(--primary-teal); margin-bottom: 25px;">Add New Standard Equipment</h2>
         <div class="form-grid">
             <div class="form-group">
                 <label>Mã thiết bị (Equipment Code)*</label>
@@ -195,13 +197,49 @@
     : window.location.origin;
     // Dữ liệu đối tượng trích xuất nguyên vẹn 100% từ file gốc TBC.csv (Không tự ý sửa đổi từ viết hoa/ô trống)
     let equipmentData = {};
+    let isEditMode = false;
 
     // Hàm tự động kết xuất danh sách toàn bộ các cột, không trộn lẫn dữ liệu
     function renderEquipmentTable() {
         // Đã chuyển sang chế độ tải dữ liệu động từ SQL
     }
 
-    function showAddEquipmentForm() { // Renamed from showAddEquipmentForm
+    function showAddEquipmentForm() { 
+        isEditMode = false;
+        document.getElementById('form-title').innerText = "Add New Standard Equipment";
+        document.getElementById('new-eq-code').disabled = false;
+
+        // Reset toàn bộ các ô nhập liệu
+        document.getElementById('new-eq-code').value = '';
+        document.getElementById('new-eq-name').value = '';
+        document.getElementById('new-eq-nsx').value = '';
+        document.getElementById('new-eq-model').value = '';
+        document.getElementById('new-eq-serial').value = '';
+        document.getElementById('new-eq-caldate').value = '';
+        document.getElementById('new-eq-nextdate').value = '';
+        document.getElementById('new-eq-gcn').value = '';
+
+        document.getElementById('equipment-list-view').style.display = 'none';
+        document.getElementById('equipment-create-view').style.display = 'block';
+    }
+
+    function editEquipment(id) {
+        const eq = liveClockData.find(item => item.ID === id);
+        if (!eq) return;
+
+        isEditMode = true;
+        document.getElementById('form-title').innerText = "Edit Standard Equipment";
+        document.getElementById('new-eq-code').disabled = true; // Không cho sửa ID (Khóa chính)
+
+        document.getElementById('new-eq-code').value = eq.ID || '';
+        document.getElementById('new-eq-name').value = eq.NAME || '';
+        document.getElementById('new-eq-nsx').value = eq.MANUFACTURER || '';
+        document.getElementById('new-eq-model').value = eq.MODEL || '';
+        document.getElementById('new-eq-serial').value = eq.SERIAL_NUMBER || '';
+        document.getElementById('new-eq-caldate').value = eq.CAL_DATE || '';
+        document.getElementById('new-eq-nextdate').value = eq.VALIDITY || '';
+        document.getElementById('new-eq-gcn').value = eq.GCN || '';
+
         document.getElementById('equipment-list-view').style.display = 'none';
         document.getElementById('equipment-create-view').style.display = 'block';
     }
@@ -253,7 +291,7 @@
             const result = await response.json();
 
             if (result.success) {
-                alert("Thêm mới thiết bị chuẩn thành công!");
+                alert(isEditMode ? "Cập nhật thiết bị thành công!" : "Thêm mới thiết bị chuẩn thành công!");
                 fetchClockEquipment(); // Refresh the table
                 showEquipmentList(); // Go back to list view
             } else {
@@ -389,8 +427,9 @@
                 <td>${eq.CAL_DATE || '--'}</td>
                 <td>${validityRaw || '--'}</td>
                 <td><span class="status-tag ${statusClass}">${statusText}</span></td>
-                <td style="text-align: center;">
-                    <button class="btn-delete" onclick="event.stopPropagation(); deleteEquipment('${equipId}')">🗑️</button>
+                <td style="text-align: center; white-space: nowrap;">
+                    <button class="btn-edit" onclick="event.stopPropagation(); editEquipment('${equipId}')" title="Chỉnh sửa">✏️</button>
+                    <button class="btn-delete" onclick="event.stopPropagation(); deleteEquipment('${equipId}')" title="Xóa">🗑️</button>
                 </td>
             `;
             tableBody.appendChild(row);
