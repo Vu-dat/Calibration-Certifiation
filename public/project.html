@@ -532,6 +532,7 @@ function handleCustomerSearch(keyword) {
   if (loader) loader.style.display = 'block';
   const keyLower = keyword.toLowerCase();
   
+  // Lọc và sắp xếp theo độ liên quan (Smart Search)
   const filtered = liveCustomersDB
     .map(c => {
       const name = (c.NAME || '').toLowerCase();

@@ -91,6 +91,45 @@
         }
         .std-dropdown-item .item-badge.expired { background: #fff5f5; color: #c53030; }
         .std-dropdown-empty { padding: 12px 14px; color: #a0aec0; font-size: 13px; text-align: center; }
+        /* ===== ĐỊNH DẠNG KHUNG AUTOCOMPLETE TRÊN DÒNG BẢNG ===== */
+.param-autocomplete-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.param-suggestions-box {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-height: 180px;
+    overflow-y: auto;
+    z-index: 99999; /* Luôn nổi lên trên các thành phần khác của bảng */
+    display: none;
+}
+
+.param-suggestion-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    border-bottom: 1px solid #edf2f7;
+    text-align: left;
+    color: #2d3748;
+    transition: background 0.15s ease;
+}
+
+.param-suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.param-suggestion-item:hover {
+    background: #ebf8ff;
+    color: #2b6cb0;
+}
     </style>
 </head>
 <body>
@@ -421,12 +460,11 @@
 
         const dropdown = document.createElement('div');
         dropdown.className = 'std-dropdown';
-        dropdown._stdWrapper = wrapper; // dùng cho listener mousedown chung (BUGFIX rò rỉ listener)
+        dropdown._stdWrapper = wrapper; 
 
         wrapper.appendChild(input);
         wrapper.appendChild(dropdown);
 
-        // Focus → hiện gợi ý ngay (bôi đen text cũ để gõ đè nhanh)
         input.addEventListener('focus', () => {
             input.select();
             renderDropdown(input, dropdown, '');
@@ -1164,6 +1202,8 @@
             editView.style.display = 'none';
         }
     }
+
+    
 </script>
 </body>
 </html>
