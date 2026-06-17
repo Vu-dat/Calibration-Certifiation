@@ -70,7 +70,7 @@
         }
         .std-search-input.has-value { background: #e6fffa; border-color: #38a169; color: #276749; }
         .std-dropdown {
-            position: fixed; /* fixed để thoát khỏi overflow:hidden của table */
+            position: fixed;
             background: #fff; border: 1px solid #cbd5e0; border-radius: 8px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.18); z-index: 99999;
             max-height: 240px; overflow-y: auto; display: none; min-width: 260px;
@@ -78,18 +78,10 @@
         .std-dropdown.open { display: block; }
         .std-dropdown-item {
             padding: 9px 14px; cursor: pointer; font-size: 13px;
-            display: flex; align-items: center; gap: 8px;
-            border-bottom: 1px solid #f7fafc; transition: background 0.12s;
+            display: block; border-bottom: 1px solid #f7fafc; transition: background 0.12s;
         }
         .std-dropdown-item:last-child { border-bottom: none; }
         .std-dropdown-item:hover, .std-dropdown-item.active { background: #e6fffa; }
-        .std-dropdown-item .item-id { font-weight: 700; color: #008080; min-width: 95px; font-size: 12px; flex-shrink: 0; }
-        .std-dropdown-item .item-name { color: #2d3748; flex: 1; }
-        .std-dropdown-item .item-badge {
-            font-size: 11px; padding: 2px 7px; border-radius: 10px;
-            background: #e8f5e9; color: #276749; font-weight: 600; flex-shrink: 0;
-        }
-        .std-dropdown-item .item-badge.expired { background: #fff5f5; color: #c53030; }
         .std-dropdown-empty { padding: 12px 14px; color: #a0aec0; font-size: 13px; text-align: center; }
     </style>
 </head>
@@ -116,7 +108,7 @@
     <div class="dashboard-grid">
         <div class="stat-card" style="border-color: #3182ce;">
             <h4>Mẫu thiết bị</h4>
-            <p>128</p>
+            <p id="stat-equipment-count">0</p>
         </div>
         <div class="stat-card" style="border-color: #38a169;">
             <h4>Đã đồng bộ PDF</h4>
@@ -137,10 +129,9 @@
             </div>
         </div>
 
-        <!-- Thanh tìm kiếm nhanh mẫu thiết bị (Templates) -->
         <div class="search-container" style="margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #edf2f7; display: flex; align-items: center; gap: 12px;">
             <div style="font-size: 1.2rem;">🔍</div>
-            <input type="text" id="template-search-input" class="lab-input" placeholder="Tìm nhanh theo tên thiết bị, mã mẫu hoặc hãng sản xuất..." oninput="filterTemplates()" style="flex: 1; border: none; background: transparent; outline: none; font-size: 0.95rem;">
+            <input type="text" id="template-search-input" class="lab-input" placeholder="Tìm nhanh theo tên thiết bị, mã mẫu hoặc hãng sản xuất..." oninput="filterTemplates()" style="margin: 0;">
         </div>
 
         <table class="detail-table">
@@ -156,7 +147,7 @@
             </tbody>
         </table>
 
-        <div id="modal-create-equipment" class="modal-backdrop" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
+        <div id="modal-create-equipment" class="modal-backdrop" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
             <div class="modal-content" style="background: #ffffff; padding: 24px; border-radius: 8px; width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); font-family: Arial, sans-serif;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #edf2f7;">
                     <h3 style="margin: 0; color: #2d3748; font-size: 1.25rem; font-weight: 600;">🛠️ Thêm Thiết Bị Chuẩn Mới</h3>
@@ -165,19 +156,19 @@
                 <div style="display: flex; flex-direction: column; gap: 14px; max-height: 450px; overflow-y: auto; padding-right: 5px;">
                     <div>
                         <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Tên thiết bị chuẩn (Standard Name)</label>
-                        <input type="text" id="new-name" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;" placeholder="Ví dụ: Thermo-Hygrometer">
+                        <input type="text" id="new-name" class="lab-input" placeholder="Ví dụ: Thermo-Hygrometer">
                     </div>
                     <div>
                         <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Mã nhận diện (Equipment ID)</label>
-                        <input type="text" id="new-eq-id" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;" placeholder="Ví dụ: LAB-THER_H.01">
+                        <input type="text" id="new-eq-id" class="lab-input" placeholder="Ví dụ: LAB-THERMO-001">
                     </div>
                     <div>
                         <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Nhà sản xuất (Manufacturer)</label>
-                        <input type="text" id="new-manu" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;" placeholder="Ví dụ: Fluke Corporation">
+                        <input type="text" id="new-manu" class="lab-input" placeholder="Ví dụ: Fluke Corporation">
                     </div>
                     <div>
                         <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Hạn hiệu chuẩn (Due Date)</label>
-                        <input type="date" id="new-due" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                        <input type="date" id="new-due" class="lab-input">
                     </div>
                     <div style="margin-top: 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -230,16 +221,16 @@
         </div>
 
         <div style="overflow-x: auto; margin: 20px 0;">
-            <table id="calibration-table" style="width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Times New Roman', Times, serif; font-size: 14px; text-align: center; border: 1px solid #111;">
+            <table id="calibration-table" style="width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Times New Roman', Times, serif; font-size: 14px; text-align: center; border: 1px solid #111111;">
                 <thead>
                     <tr>
                         <th style="border: 1px solid #111111; padding: 10px; width: 18%;">Thông số<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Parameters</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Calibration Points</span></th>
-                        <th colspan="3" style="border: 1px solid #111111; padding: 10px; width: 22%;">Giá trị đo được<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">As Found Value (lần 1 / 2 / 3)</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Cal. Point</span></th>
+                        <th colspan="3" style="border: 1px solid #111111; padding: 10px; width: 22%;">Giá trị đo được<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Measured Value</span></th>
                         <th style="border: 1px solid #111111; padding: 10px; width: 9%;">Độ KĐBD<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Uncertainty</span></th>
                         <th style="border: 1px solid #111111; padding: 10px; width: 9%;">Dung sai<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Tolerance</span></th>
                         <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Sự phù hợp<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Conformity</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 16%;">Thiết bị chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Standard Equipment</span></th>
+                        <th style="border: 1px solid #111111; padding: 10px; width: 16%;">Thiết bị chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Standard Eq.</span></th>
                         <th style="border: 1px solid #111111; padding: 10px; width: 6%;">Thao tác<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Action</span></th>
                     </tr>
                 </thead>
@@ -285,28 +276,27 @@
     let fetchedEquipments = []; 
 
     document.addEventListener("DOMContentLoaded", () => {
-    const user = localStorage.getItem('labmaster_user');
-    if (!user) {
-        alert("Hết phiên làm việc hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại!");
-        window.location.href = 'login.html';
-        return;
-    }
+        const user = localStorage.getItem('labmaster_user');
+        if (!user) {
+            alert("Hết phiên làm việc hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại!");
+            window.location.href = 'login.html';
+            return;
+        }
 
-    // GỌI HÀM NÀY ĐỂ TẢI DỮ LIỆU TỪ SQL LÊN BIẾN TOÀN CỤC
-    loadClockEquipmentForSearch(); 
+        loadClockEquipmentForSearch(); 
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const calibrateTarget = urlParams.get('calibrate');
-    const fromProjectId = urlParams.get('projectId');
+        const urlParams = new URLSearchParams(window.location.search);
+        const calibrateTarget = urlParams.get('calibrate');
+        const fromProjectId = urlParams.get('projectId');
 
-    if (calibrateTarget) {
-        showCalibrationModeBanner(calibrateTarget, fromProjectId);
-        fetchEquipmentTemplates().then(() => {
-            openCalibrationByName(calibrateTarget);
-        });
-    } else {
-        fetchEquipmentTemplates();
-    }
+        if (calibrateTarget) {
+            showCalibrationModeBanner(calibrateTarget, fromProjectId);
+            fetchEquipmentTemplates().then(() => {
+                openCalibrationByName(calibrateTarget);
+            });
+        } else {
+            fetchEquipmentTemplates();
+        }
     });
 
     function showCalibrationModeBanner(equipmentName, projectId) {
@@ -327,7 +317,7 @@
         `;
         banner.innerHTML = `
             <span>📋 Chế độ Nhập Liệu Hiệu Chuẩn &nbsp;|&nbsp; Thiết bị: <strong>${equipmentName}</strong>${projectId ? `&nbsp;|&nbsp; Dự án: <strong>${projectId}</strong>` : ''}</span>
-            <button onclick="window.close()" style="background:rgba(255,255,255,0.2); color:white; border:1px solid rgba(255,255,255,0.4); padding:6px 16px; border-radius:6px; cursor:pointer; font-weight:600;">✕ Đóng trang</button>
+            <button onclick="window.close()" style="background:rgba(255,255,255,0.2); color:white; border:1px solid rgba(255,255,255,0.4); padding:6px 16px; border-radius:6px; cursor:pointer; font-weight:600;">Đóng</button>
         `;
         document.body.insertBefore(banner, document.body.firstChild);
     }
@@ -341,7 +331,6 @@
             const idx = fetchedEquipments.indexOf(eq);
             editEqFromAPI(idx);
         } else {
-            // Nếu không tìm thấy chính xác, tìm gần đúng
             const idx = fetchedEquipments.findIndex(e =>
                 (e.NAME || '').toLowerCase().includes(name.toLowerCase())
             );
@@ -349,28 +338,25 @@
         }
     }
 
-    // ===== CLOCK DATA: tải 1 lần, dùng cho toàn bộ các ô Thiết bị chuẩn =====
-    let clockEquipmentList = []; // [{ID, NAME, MANUFACTURER, VALIDITY}, ...]
-    let activeDropdown = null;   // dropdown đang mở
+    let clockEquipmentList = [];
+    let activeDropdown = null;
 
     async function loadClockEquipmentForSearch() {
         try {
             const res = await fetch(`${TARGET_URL}/api/clock`);
             if (!res.ok) throw new Error('Không tải được danh sách CLOCK');
             clockEquipmentList = await res.json();
+            console.log('✅ Đã tải dữ liệu CLOCK thành công:', clockEquipmentList.length, 'thiết bị');
         } catch(e) {
-            console.warn('Không load được CLOCK, dropdown sẽ rỗng:', e.message);
+            console.warn('❌ Không load được CLOCK:', e.message);
             clockEquipmentList = [];
         }
     }
 
-    // Tạo widget tìm kiếm YouTube-style cho 1 ô "Thiết bị chuẩn"
-    // savedValue: giá trị đã lưu (ID của thiết bị chuẩn), để hiển thị lại khi render
     function createStdSearchWidget(savedValue = '') {
         const wrapper = document.createElement('div');
         wrapper.className = 'std-search-wrapper';
 
-        // Tìm label để hiển thị trong ô input
         const defaultClocks = [
             { ID: 'DH1', NAME: 'Đồng hồ nhiệt độ DH1' },
             { ID: 'DH2', NAME: 'Đồng hồ nhiệt độ DH2' },
@@ -383,7 +369,6 @@
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'std-search-input' + (savedValue ? ' has-value' : '');
-
         input.value = displayText;
         input.dataset.selectedId = savedValue; 
 
@@ -393,28 +378,24 @@
         wrapper.appendChild(input);
         wrapper.appendChild(dropdown);
 
-        // Hiện dropdown khi focus
         input.addEventListener('focus', () => {
             renderDropdown(input, dropdown, input.value);
             openDropdown(input, dropdown);
         });
 
-        // Lọc realtime khi gõ (kiểu YouTube)
         input.addEventListener('input', () => {
-            input.dataset.selectedId = ''; // xoá lựa chọn cũ
+            input.dataset.selectedId = '';
             input.classList.remove('has-value');
             renderDropdown(input, dropdown, input.value);
             openDropdown(input, dropdown);
         });
 
-        // Đóng dropdown khi click ra ngoài
         document.addEventListener('mousedown', (e) => {
             if (!wrapper.contains(e.target) && e.target !== dropdown) {
                 closeDropdown(dropdown);
             }
         }, { capture: true });
 
-        // Phím tắt: ESC đóng, Enter chọn item đang active
         input.addEventListener('keydown', (e) => {
             const items = dropdown.querySelectorAll('.std-dropdown-item');
             let activeIdx = Array.from(items).findIndex(i => i.classList.contains('active'));
@@ -441,105 +422,91 @@
     }
 
     function renderDropdown(input, dropdown, query) {
-    const q = (query || '').toLowerCase().trim();
-    const today = new Date();
+        const q = (query || '').toLowerCase().trim();
+        const today = new Date();
 
-    // 1. Định nghĩa 3 tùy chọn đồng hồ mặc định cho nhiệt độ
-    const defaultClocks = [
-        { ID: 'DH1', NAME: 'Đồng hồ nhiệt độ DH1', MANUFACTURER: 'Hệ thống', VALIDITY: '2099-12-31' },
-        { ID: 'DH2', NAME: 'Đồng hồ nhiệt độ DH2', MANUFACTURER: 'Hệ thống', VALIDITY: '2099-12-31' },
-        { ID: 'DH3', NAME: 'Đồng hồ nhiệt độ DH3', MANUFACTURER: 'Hệ thống', VALIDITY: '2099-12-31' }
-    ];
+        const defaultClocks = [
+            { ID: 'DH1', NAME: 'Đồng hồ nhiệt độ DH1', MANUFACTURER: 'Hệ thống', VALIDITY: '2099-12-31' },
+            { ID: 'DH2', NAME: 'Đồng hồ nhiệt độ DH2', MANUFACTURER: 'Hệ thống', VALIDITY: '2099-12-31' },
+            { ID: 'DH3', NAME: 'Đồng hồ nhiệt độ DH3', MANUFACTURER: 'Hệ thống', VALIDITY: '2099-12-31' }
+        ];
 
-    let filtered = [];
+        let filtered = [];
 
-    // 2. Đọc tên thông số (Parameter) từ hàng chứa ô input này
-    // Tìm textarea .param-input trong cùng nhóm hàng (data-group) với ô thiết bị chuẩn
-    function getParamNameForInput(inp) {
-        const row = inp.closest('tr');
-        if (!row) return '';
-        const groupName = row.getAttribute('data-group') || '';
-        // Tìm trong tất cả hàng cùng nhóm
-        const groupRows = groupName
-            ? Array.from(document.querySelectorAll(`tr[data-group="${CSS.escape(groupName)}"]`))
-            : [row];
-        for (const gr of groupRows) {
-            const ta = gr.querySelector('.param-input');
-            if (ta) return ta.value.trim();
-            const gh = gr.querySelector('.group-header');
-            if (gh) return gh.innerText.trim();
-        }
-        return '';
-    }
-
-    const paramName = getParamNameForInput(input).toLowerCase();
-
-    // 3. PHÂN LUỒNG LOGIC: dựa trên tên thông số của hàng đó
-    if (paramName.includes('nhiệt độ') || paramName.includes('nhiet do')) {
-        // Thông số là nhiệt độ → CHỈ hiển thị cố định 3 đồng hồ DH1/DH2/DH3
-        filtered = defaultClocks;
-    } else {
-        // Thông số KHÁC nhiệt độ → Tìm kiếm realtime trong danh sách CLOCK từ SQL
-        // Nếu chưa gõ gì → hiển thị toàn bộ; nếu đã gõ → lọc theo ID / tên / hãng
-        filtered = q === '' ? clockEquipmentList : clockEquipmentList.filter(c => {
-            return (c.ID || '').toLowerCase().includes(q) ||
-                   (c.NAME || '').toLowerCase().includes(q) ||
-                   (c.MANUFACTURER || '').toLowerCase().includes(q);
-        });
-    }
-
-    // 3. XÓA DROPDOWN CŨ VÀ TIẾN HÀNH RENDER HTML
-    dropdown.innerHTML = '';
-
-    if (filtered.length === 0) {
-        const noResult = document.createElement('div');
-        noResult.className = 'std-dropdown-no-result';
-        noResult.innerText = 'Không tìm thấy thiết bị chuẩn nào';
-        dropdown.appendChild(noResult);
-        return;
-    }
-
-    // Vòng lặp hiển thị kết quả ra dropdown
-    filtered.forEach((item, index) => {
-        const div = document.createElement('div');
-        div.className = 'std-dropdown-item';
-        if (index === 0) div.classList.add('active'); // Mặc định active dòng đầu tiên để ấn Enter là chọn
-
-        // Kiểm tra hạn hiệu chuẩn (nếu có dữ liệu ngày tháng hợp lệ)
-        let statusHtml = '';
-        if (item.VALIDITY) {
-            const valDate = new Date(item.VALIDITY);
-            if (valDate < today) {
-                statusHtml = `<span class="badge badge-expired" style="background:#e74c3c; color:white; padding:2px 6px; border-radius:4px; font-size:11px; margin-left:8px;">Hết hạn</span>`;
-            } else {
-                statusHtml = `<span class="badge badge-valid" style="background:#2ecc71; color:white; padding:2px 6px; border-radius:4px; font-size:11px; margin-left:8px;">Còn hạn</span>`;
+        function getParamNameForInput(inp) {
+            const row = inp.closest('tr');
+            if (!row) return '';
+            const groupName = row.getAttribute('data-group') || '';
+            const groupRows = groupName
+                ? Array.from(document.querySelectorAll(`tr[data-group="${CSS.escape(groupName)}"]`))
+                : [row];
+            for (const gr of groupRows) {
+                const ta = gr.querySelector('.param-input');
+                if (ta) return ta.value.trim();
+                const gh = gr.querySelector('.group-header');
+                if (gh) return gh.innerText.trim();
             }
+            return '';
         }
 
-        // Nội dung hiển thị của từng dòng gợi ý giống Youtube (mã - tên - hãng sản xuất)
-        div.innerHTML = `
-            <div style="font-weight:600; color:#2c3e50;">${item.ID} – ${item.NAME}</div>
-            <div style="font-size:12px; color:#7f8c8d; margin-top:2px;">
-                Hãng: ${item.MANUFACTURER || 'N/A'} | Hạn: ${item.VALIDITY || 'N/A'}
-                ${statusHtml}
-            </div>
-        `;
+        const paramName = getParamNameForInput(input).toLowerCase();
 
-        // Sự kiện khi click chọn 1 thiết bị trong danh sách gợi ý
-        div.addEventListener('click', () => {
-            input.value = `${item.ID} – ${item.NAME}`;
-            input.dataset.selectedId = item.ID;
-            input.classList.add('has-value');
-            closeDropdown(dropdown);
+        if (paramName.includes('nhiệt độ') || paramName.includes('nhiet do')) {
+            filtered = defaultClocks;
+        } else {
+            filtered = q === '' ? clockEquipmentList : clockEquipmentList.filter(c => {
+                return (c.ID || '').toLowerCase().includes(q) ||
+                       (c.NAME || '').toLowerCase().includes(q) ||
+                       (c.MANUFACTURER || '').toLowerCase().includes(q);
+            });
+        }
 
-            // Tự động điền thông tin Hạn hiệu chuẩn sang ô bên cạnh (nếu có)
-            const row = input.closest('tr');
-            if (row) {
-                const dateInput = row.querySelector('.cal-date-input');
-                if (dateInput && item.VALIDITY) {
-                    dateInput.value = item.VALIDITY;
+        dropdown.innerHTML = '';
+
+        if (filtered.length === 0) {
+            const noResult = document.createElement('div');
+            noResult.className = 'std-dropdown-empty';
+            noResult.innerText = 'Không tìm thấy thiết bị chuẩn nào';
+            dropdown.appendChild(noResult);
+            return;
+        }
+
+        filtered.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'std-dropdown-item';
+            if (index === 0) div.classList.add('active');
+
+            let statusHtml = '';
+            if (item.VALIDITY) {
+                const valDate = new Date(item.VALIDITY);
+                if (valDate < today) {
+                    statusHtml = `<span style="background:#e74c3c; color:white; padding:2px 6px; border-radius:4px; font-size:11px; margin-left:8px; display:inline-block;">Hết hạn</span>`;
+                } else {
+                    statusHtml = `<span style="background:#2ecc71; color:white; padding:2px 6px; border-radius:4px; font-size:11px; margin-left:8px; display:inline-block;">Còn hạn</span>`;
                 }
             }
+
+            div.innerHTML = `
+                <div style="font-weight:600; color:#2c3e50;">${item.ID} – ${item.NAME}</div>
+                <div style="font-size:12px; color:#7f8c8d; margin-top:2px;">
+                    Hãng: ${item.MANUFACTURER || 'N/A'} | Hạn: ${item.VALIDITY || 'N/A'}
+                    ${statusHtml}
+                </div>
+            `;
+
+            div.addEventListener('click', () => {
+                input.value = `${item.ID} – ${item.NAME}`;
+                input.dataset.selectedId = item.ID;
+                input.classList.add('has-value');
+                closeDropdown(dropdown);
+
+                const row = input.closest('tr');
+                if (row) {
+                    const dateInput = row.querySelector('.cal-date-input');
+                    if (dateInput && item.VALIDITY) {
+                        dateInput.value = item.VALIDITY;
+                    }
+                }
             });
 
             dropdown.appendChild(div);
@@ -547,17 +514,14 @@
     }
 
     function openDropdown(input, dropdown) {
-        // Đóng dropdown cũ nếu có
         if (activeDropdown && activeDropdown !== dropdown) closeDropdown(activeDropdown);
         activeDropdown = dropdown;
 
-        // Đặt vị trí dropdown theo vị trí ô input (fixed-position để thoát overflow table)
         const rect = input.getBoundingClientRect();
         dropdown.style.top    = (rect.bottom + window.scrollY + 2) + 'px';
         dropdown.style.left   = rect.left + 'px';
         dropdown.style.width  = Math.max(rect.width, 280) + 'px';
         dropdown.classList.add('open');
-        // Đưa vào body để thoát stacking context của table
         document.body.appendChild(dropdown);
     }
 
@@ -569,34 +533,16 @@
         if (activeDropdown === dropdown) activeDropdown = null;
     }
 
-    // Hàm render ô standard-eq-cell dùng widget mới (gọi thay cho buildStandardEqOptionsHtml)
-    function createStdSearchCell(savedValue = '') {
-        const td = document.createElement('td');
-        td.className = 'standard-eq-cell';
-        td.style.cssText = 'border:1px solid #111; padding:8px; vertical-align:middle; min-width:200px;';
-        td.appendChild(createStdSearchWidget(savedValue));
-        return td;
-    }
-
-    // Đọc giá trị đã chọn từ widget (thay thế select.value)
     function getStdSearchValue(cell) {
         const input = cell.querySelector('.std-search-input');
         return input ? (input.dataset.selectedId || '') : '';
     }
 
-    // Tương thích ngược: hàm cũ updateStandardEqOptions không còn dùng nữa
-    // (giữ lại để không gây lỗi nếu còn chỗ gọi)
-    function updateStandardEqOptions(textarea, savedValue = '') {
-        // Không làm gì — đã thay bằng widget YouTube-style
-    }
-    function buildStandardEqOptionsHtml(currentValue) { return ''; } // stub
-
     async function fetchEquipmentTemplates() {
-        // Load song song: danh sách thiết bị (equipment-templates) + thiết bị chuẩn từ CLOCK
         try {
             const [equipRes] = await Promise.all([
                 fetch(`${TARGET_URL}/api/equipment-templates`),
-                loadClockEquipmentForSearch() // load CLOCK cho dropdown
+                loadClockEquipmentForSearch()
             ]);
             if (!equipRes.ok) throw new Error("Không thể kết nối API danh sách thiết bị");
 
@@ -604,13 +550,12 @@
             renderTable(fetchedEquipments, true);
         } catch (error) {
             console.error("Lỗi khi tải danh sách thiết bị từ Database API:", error);
-            await loadClockEquipmentForSearch(); // vẫn load CLOCK dù API equipment lỗi
+            await loadClockEquipmentForSearch();
             renderFallbackLocalStorage();
         }
         return fetchedEquipments;
     }
 
-    // Hàm lọc danh sách mẫu thiết bị (Templates) ngay tại trình duyệt
     function filterTemplates() {
         const query = document.getElementById('template-search-input').value.toLowerCase().trim();
         const filtered = fetchedEquipments.filter(eq => {
@@ -626,7 +571,7 @@
         if (!tbody) return;
         tbody.innerHTML = "";
 
-        const statEl = document.querySelector('.stat-card p');
+        const statEl = document.getElementById('stat-equipment-count');
         if (statEl && isFromAPI) statEl.textContent = String(equipments ? equipments.length : 0).padStart(2, '0');
 
         if (!equipments || equipments.length === 0) {
@@ -696,7 +641,6 @@
         }
     }
 
-    // Render dữ liệu từ DB — cột Thiết bị chuẩn dùng widget YouTube-style
     function renderFromTemplatePoints(points, tbody) {
         let i = 0;
         while (i < points.length) {
@@ -716,7 +660,6 @@
                         <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${groupName}</textarea>
                     </td>`;
                     html += renderCells(pt.CAL_POINT || '', pt.AS_FOUND_VALUE || '', pt.UNCERTAINTY || '', pt.TOLERANCE || '', pt.CONFORMITY || '');
-                    // placeholder rowspan cho standard-eq-cell
                     html += `<td rowspan="${groupSize}" class="standard-eq-cell" style="border:1px solid #111;padding:8px;vertical-align:middle;min-width:200px;"></td>`;
                 } else {
                     html += renderCells(pt.CAL_POINT || '', pt.AS_FOUND_VALUE || '', pt.UNCERTAINTY || '', pt.TOLERANCE || '', pt.CONFORMITY || '');
@@ -726,7 +669,6 @@
                 tr.innerHTML = html;
                 tbody.appendChild(tr);
 
-                // Gắn widget vào ô standard-eq-cell của hàng đầu nhóm
                 if (k === i) {
                     const stdCell = tr.querySelector('.standard-eq-cell');
                     const savedVal = pt.STANDARD_EQUIPMENT || pt.standardEquipment || '';
@@ -818,7 +760,6 @@
         });
     }
 
-    // Hàm render các cột giá trị trung gian
     function renderCells(p, v1, unc, tol, conf) {
         let val1 = v1 || '', val2 = '', val3 = '';
         if (typeof v1 === 'string' && v1.includes(' / ')) {
@@ -832,7 +773,7 @@
         const displayTol = tol || '± 3';
 
         return `
-            <td class="point-cell" style="border:1px solid #111;padding:4px;font-weight:bold;background:#fafafa;"><input type="text" value="${p}" class="cell-input point-input" style="font-weight:bold;text-align:center;"></td>
+            <td class="point-cell" style="border:1px solid #111;padding:4px;font-weight:bold;background:#fafafa;"><input type="text" value="${p}" class="cell-input point-input" style="font-weight:bold;"></td>
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${val1}" class="cell-input v1" placeholder="Lần 1"></td>
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${val2}" class="cell-input v2" placeholder="Lần 2"></td>
             <td style="border:1px solid #111;padding:4px;"><input type="text" value="${val3}" class="cell-input v3" placeholder="Lần 3"></td>
@@ -842,7 +783,6 @@
         `;
     }
 
-    // Thêm dòng mới thủ công — cột Thiết bị chuẩn dùng widget YouTube-style
     function addCalibrationRow() {
         const tbody = document.getElementById('calibration-table-rows');
         const emptyState = tbody.querySelector('td[colspan="8"]') || tbody.querySelector('td[colspan="7"]') || tbody.querySelector('td[colspan="9"]');
@@ -853,18 +793,16 @@
 
         let html = `
             <td class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
-                <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;" placeholder="Tên thông số (Parameter)"></textarea>
+                <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;" placeholder="Nhập tên thông số"></textarea>
             </td>
         `;
         html += renderCells('', '', '', '', '');
-        // placeholder cho ô standard-eq-cell (sẽ được gắn sau)
         html += `<td class="standard-eq-cell" style="border:1px solid #111;padding:8px;vertical-align:middle;min-width:200px;"></td>`;
         html += `<td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>`;
 
         tr.innerHTML = html;
         tbody.appendChild(tr);
 
-        // Gắn widget vào ô standard-eq-cell
         const stdCell = tr.querySelector('.standard-eq-cell');
         stdCell.appendChild(createStdSearchWidget(''));
     }
@@ -885,7 +823,6 @@
                 lastParamName = textarea ? textarea.value : groupHeader.innerText;
             }
 
-            // Đọc giá trị từ widget YouTube-style
             const stdCell = row.querySelector('.standard-eq-cell');
             if (stdCell) {
                 lastStandardEq = getStdSearchValue(stdCell);
@@ -936,7 +873,7 @@
             const result = await response.json();
             if (!result.success) throw new Error(result.message || 'Lỗi không xác định từ Server');
 
-            alert("Dữ liệu cấu hình đã được lưu thành công vào Database SQL!");
+            alert("✅ Dữ liệu cấu hình đã được lưu thành công vào Database SQL!");
             await fetchEquipmentTemplates();
             showView('list-view');
         } catch (error) {
@@ -957,13 +894,12 @@
             };
             localStorage.setItem('labmaster_equipment_db', JSON.stringify(db));
 
-            alert('Mất kết nối API Server. Dữ liệu đã được lưu tạm vào LocalStorage!');
+            alert('⚠️ Mất kết nối API Server. Dữ liệu đã được lưu tạm vào LocalStorage!');
             fetchEquipmentTemplates();
             showView('list-view');
         }
     }
 
-    // Cải tiến hàm xóa dòng để dịch chuyển ô thiết bị chuẩn (rowspan) về đúng cột kế cuối của hàng tiếp theo
     function deleteRow(button) {
         const currentRow = button.closest('tr');
         const groupName = currentRow.getAttribute('data-group');
@@ -983,10 +919,8 @@
             headerCell.setAttribute('rowspan', currentRowsSpan - 1);
             if (selectCell) selectCell.setAttribute('rowspan', currentRowsSpan - 1);
             
-            // Đẩy ô thông số vào đầu dòng tiếp theo
             nextRow.insertBefore(headerCell, nextRow.firstChild);
             
-            // Đẩy ô thiết bị chuẩn vào trước ô Thao tác (ô cuối cùng) của dòng tiếp theo
             const lastCell = nextRow.querySelector('td:last-child');
             nextRow.insertBefore(selectCell, lastCell);
         } else {
@@ -999,125 +933,103 @@
         currentRow.remove();
     }
 
+    function showView(viewName) {
+        document.getElementById('list-view').style.display = viewName === 'list-view' ? 'block' : 'none';
+        document.getElementById('edit-view').style.display = viewName === 'edit-view' ? 'block' : 'none';
+    }
+
+    function openAddView() {
+        document.getElementById('new-name').value = '';
+        document.getElementById('new-eq-id').value = '';
+        document.getElementById('new-manu').value = '';
+        document.getElementById('new-due').value = '';
+        document.getElementById('new-calibration-table-rows').innerHTML = '';
+        addNewRowToAddForm();
+        document.getElementById('modal-create-equipment').style.display = 'flex';
+    }
+
+    function closeEquipmentModal() {
+        document.getElementById('modal-create-equipment').style.display = 'none';
+    }
+
+    function addNewRowToAddForm() {
+        const tbody = document.getElementById('new-calibration-table-rows');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="padding:6px;"><input type="text" class="param-name" placeholder="Ví dụ: Nhiệt độ" style="width:100%; padding:4px; border:1px solid #cbd5e0; border-radius:4px;"></td>
+            <td style="padding:6px; width:140px;"><input type="text" class="param-value" placeholder="Ví dụ: 25.5" style="width:100%; padding:4px; border:1px solid #cbd5e0; border-radius:4px;"></td>
+            <td style="padding:6px; width:40px; text-align:center;"><button type="button" onclick="this.closest('tr').remove()" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+
     async function executeCreateEquipment() {
-        const nameInput = document.getElementById('new-name');
-        const idInput = document.getElementById('new-eq-id');
-        const manuInput = document.getElementById('new-manu');
-        const dueInput = document.getElementById('new-due');
+        const name = document.getElementById('new-name').value.trim();
+        const eqId = document.getElementById('new-eq-id').value.trim();
+        const manu = document.getElementById('new-manu').value.trim();
+        const due = document.getElementById('new-due').value.trim();
 
-        if (!nameInput) return;
-
-        const name = nameInput.value.trim();
-        const eqId = idInput ? idInput.value.trim() : '';
-        const manu = manuInput ? manuInput.value.trim() : '';
-        const due = dueInput ? dueInput.value : '';
-
-        if (!name) {
-            alert('Vui lòng nhập tên thiết bị chuẩn bắt buộc!');
+        if (!name || !eqId) {
+            alert('❌ Vui lòng nhập Tên thiết bị và Mã định danh!');
             return;
         }
 
+        const rows = document.querySelectorAll('#new-calibration-table-rows tr');
         const points = [];
-        const rows = document.querySelectorAll('#new-calibration-table-rows .add-eq-data-row');
+
         rows.forEach(row => {
-            const pName = row.querySelector('.param-name')?.value.trim();
-            const pVal = row.querySelector('.param-value')?.value.trim();
-            if (pName || pVal) {
-                points.push({ parameter: pName, value: pVal });
+            const paramName = row.querySelector('.param-name')?.value.trim() || '';
+            const paramValue = row.querySelector('.param-value')?.value.trim() || '';
+            if (paramName || paramValue) {
+                points.push({
+                    parameter_name: paramName,
+                    cal_point: paramValue,
+                    as_found_value: paramValue,
+                    uncertainty: '0.5',
+                    tolerance: '± 5',
+                    conformity: 'A',
+                    standard_equipment: ''
+                });
             }
         });
 
         const payload = {
-            equipment_id: eqId || `EQ-${Date.now().toString().slice(-5)}`, 
-            standard_name: name,
-            manufacturer: manu,
-            due_date: due,
-            points: points
+            NAME: name,
+            EQUIPMENT_ID: eqId,
+            MANUFACTURER: manu,
+            NEXT_DUE: due,
+            formPoints: points
         };
 
         try {
-            const response = await fetch(`${TARGET_URL}/api/equipment`, {
+            const response = await fetch(`${TARGET_URL}/api/equipment-templates`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const result = await response.json();
-            
-            alert('Đã lưu thiết bị chuẩn mới vào cơ sở dữ liệu thành công!');
-            closeEquipmentModal();
-            fetchEquipmentTemplates(); 
+            if (response.ok || result.success) {
+                alert('✅ Thiết bị mẫu đã được thêm thành công!');
+                closeEquipmentModal();
+                await fetchEquipmentTemplates();
+            } else {
+                throw new Error(result.message || 'Lỗi thêm thiết bị');
+            }
         } catch (error) {
-            console.error("Lỗi kịch bản executeCreateEquipment:", error);
-            let db = {};
-            try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
-            db[name] = { manufacturer: manu, nextDue: due, formPoints: [] };
-            localStorage.setItem('labmaster_equipment_db', JSON.stringify(db));
-            
-            alert('Mất kết nối API Server. Thiết bị đã được lưu tạm vào LocalStorage!');
-            closeEquipmentModal();
-            fetchEquipmentTemplates();
+            console.error('Lỗi:', error);
+            alert('⚠️ Không thể tạo thiết bị. Lỗi: ' + error.message);
         }
-    }
-
-    function openAddView() {
-        const modal = document.getElementById('modal-create-equipment');
-        if (modal) modal.style.display = 'flex';
-
-        if (document.getElementById('new-name')) document.getElementById('new-name').value = '';
-        if (document.getElementById('new-eq-id')) document.getElementById('new-eq-id').value = '';
-        if (document.getElementById('new-manu')) document.getElementById('new-manu').value = '';
-        if (document.getElementById('new-due')) document.getElementById('new-due').value = '';
-
-        const tbody = document.getElementById('new-calibration-table-rows');
-        if (tbody) {
-            tbody.innerHTML = `
-                <tr class="add-eq-data-row">
-                    <td style="padding: 4px;"><input type="text" class="cell-input param-name" style="width:100%; padding:6px; border:1px solid #e2e8f0; border-radius:4px;" placeholder="Ví dụ: Nhiệt độ Temperature (°C)"></td>
-                    <td style="padding: 4px;"><input type="text" class="cell-input param-value" style="width:100%; padding:6px; border:1px solid #e2e8f0; border-radius:4px; text-align:center;" placeholder="30"></td>
-                    <td style="padding: 4px; text-align:center;"><button type="button" style="background:none; border:none; color:#c0392b; cursor:pointer; font-size:18px; line-height:1;" onclick="this.closest('tr').remove()">&times;</button></td>
-                </tr>
-            `;
-        }
-    }
-
-    function closeEquipmentModal() {
-        const modal = document.getElementById('modal-create-equipment');
-        if (modal) modal.style.display = 'none';
-    }
-
-    function addNewRowToAddForm() {
-        const tbody = document.getElementById('new-calibration-table-rows');
-        if (!tbody) return;
-        const row = document.createElement('tr');
-        row.className = 'add-eq-data-row';
-        row.innerHTML = `
-            <td style="padding: 4px;"><input type="text" class="cell-input param-name" style="width:100%; padding:6px; border:1px solid #e2e8f0; border-radius:4px;" placeholder="Thông số mới"></td>
-            <td style="padding: 4px;"><input type="text" class="cell-input param-value" style="width:100%; padding:6px; border:1px solid #e2e8f0; border-radius:4px; text-align:center;" placeholder="Giá trị"></td>
-            <td style="padding: 4px; text-align:center;"><button type="button" style="background:none; border:none; color:#c0392b; cursor:pointer; font-size:18px; line-height:1;" onclick="this.closest('tr').remove()">&times;</button></td>
-        `;
-        tbody.appendChild(row);
     }
 
     function resetDatabase() {
-        if (confirm("Xóa toàn bộ dữ liệu tùy chỉnh trong localStorage?")) {
+        if (confirm('🗑️ Bạn có chắc chắn muốn xóa toàn bộ dữ liệu tùy chỉnh không?')) {
             localStorage.removeItem('labmaster_equipment_db');
-            location.reload();
-        }
-    }
-
-    function showView(viewId) {
-        const listView = document.getElementById('list-view');
-        const editView = document.getElementById('edit-view');
-        if (viewId === 'edit-view') {
-            listView.style.display = 'none';
-            editView.style.display = 'block';
-        } else {
-            listView.style.display = 'block';
-            editView.style.display = 'none';
+            alert('✅ Dữ liệu đã được xóa!');
+            fetchEquipmentTemplates();
         }
     }
 </script>
+
 </body>
 </html>
