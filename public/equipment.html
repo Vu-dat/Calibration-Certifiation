@@ -106,7 +106,6 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h1 class="text-center-aligned" style="margin: 0; padding: 0;">Standard Equipment</h1>
             <div style="display:flex; gap:10px;">
-                <button class="btn-shiny" style="background:#2e7d32;" onclick="syncToClockDatabase()">🔄 Sync to Clock DB</button>
                 <button class="btn-shiny" onclick="showAddEquipmentForm()">+ Add New Equipment</button>
             </div>
         </div>
@@ -402,17 +401,17 @@
         }
     }
 
-    // Hàm cập nhật thống kê
+    // Hàm cập nhật thống kê — đọc từ dữ liệu CLOCK thực tế truyền vào
     function updateStats(data) {
-        const items = Object.values(equipmentData);
         const today = new Date();
-        
-        let total = items.length;
-        let expired = items.filter(i => {
-            if (i.nextDate === '1900-12-31' || i.calDate === '') return true;
-            return new Date(i.nextDate) < today;
+        const total = data.length;
+        const expired = data.filter(eq => {
+            const v = eq.VALIDITY || '';
+            if (!v || v === '1900-12-31') return true;
+            const d = new Date(v);
+            return !isNaN(d) && d < today;
         }).length;
-        let active = total - expired;
+        const active = total - expired;
 
         document.getElementById('stat-total').textContent = total;
         document.getElementById('stat-active').textContent = active;
@@ -456,52 +455,13 @@
     }
 
     // Chạy tải bảng ngay khi DOM được load
-    document.addEventListener('DOMContentLoaded', fetchClockEquipment);
+    document.addEventListener('DOMContentLoaded', () => {
+        renderEquipmentTable(); // "Đổ" toàn bộ 72 thiết bị mẫu từ code ra trước
+        fetchClockEquipment();  // Sau đó cập nhật dữ liệu mới nhất từ SQL Database
+    });
 
     // Global variable to store live data from CLOCK table
-    let liveClockData = [];
-
-    // Function to send equipmentData to the backend
-    async function syncToClockDatabase() {
-        if (!confirm("Bạn có chắc chắn muốn đồng bộ toàn bộ dữ liệu thiết bị chuẩn hiện tại vào Database CLOCK? Thao tác này sẽ GHI ĐÈ dữ liệu cũ.")) {
-            return;
-        }
-
-        const equipmentArray = Object.values(equipmentData).map(eq => ({
-            code: eq.code || '',
-            key: eq.key || '', // Map 'key' from original data
-            name: eq.name || '',
-            nsx: eq.nsx || '',
-            model: eq.model || '',
-            serial: eq.serial || '',
-            gcn: eq.gcn || '',
-            lienKet: eq.lienKet || '',
-            calDate: eq.calDate || '',
-            nextDate: eq.nextDate || ''
-        }));
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/sync-clock-equipment`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(equipmentArray),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                alert(result.message);
-                fetchClockEquipment(); // Refresh the table with new data from DB
-            } else {
-                alert("Lỗi đồng bộ: " + result.message);
-            }
-        } catch (error) {
-            console.error("Lỗi khi gửi dữ liệu đồng bộ:", error);
-            alert("Không thể kết nối đến Server để đồng bộ dữ liệu!");
-        }
-    }
+    let liveClockData = [];    
 
     // Function to display equipment data in the table
     function displayEquipmentTable(dataToDisplay) {
@@ -512,39 +472,41 @@
         dataToDisplay.forEach((eq, index) => {
             let statusClass = 'status-valid';
             let statusText = 'Còn hạn';
-            
-            // Use VALIDITY from CLOCK table
-            if (eq.VALIDITY === '1900-12-31' || eq.VALIDITY === '') {
+
+            const validityRaw = eq.VALIDITY || '';
+            if (!validityRaw || validityRaw === '1900-12-31' || validityRaw === '') {
                 statusClass = 'status-expired';
                 statusText = 'Chưa hiệu chuẩn';
             } else {
-                const expireDate = new Date(eq.VALIDITY);
-                if (expireDate < today) {
+                const expireDate = new Date(validityRaw);
+                if (!isNaN(expireDate) && expireDate < today) {
                     statusClass = 'status-expired';
                     statusText = 'Hết hạn / Cần HC';
                 }
             }
 
+            // Bảng CLOCK dùng cột ID là mã định danh chính
+            const equipId = eq.ID || '--';
+
             const row = document.createElement('tr');
-            // Use EQUIPMENT_ID from CLOCK table for unique identification
-            row.id = `row-${eq.EQUIPMENT_ID}`;
-            row.setAttribute('onclick', `viewEquipmentDetail('${eq.EQUIPMENT_ID}')`);
-            
+            row.id = `row-${equipId}`;
+            row.setAttribute('onclick', `viewEquipmentDetail('${equipId}')`);
+
             row.innerHTML = `
                 <td>${index + 1}</td>
-                <td>${eq.KEY_FIELD || '--'}</td> <!-- Use KEY_FIELD -->
-                <td><strong>${eq.EQUIPMENT_ID || '--'}</strong></td>
+                <td>${eq.KEY_FIELD || '--'}</td>
+                <td><strong>${equipId}</strong></td>
                 <td>${eq.NAME || '--'}</td>
                 <td>${eq.MANUFACTURER || '--'}</td>
                 <td>${eq.MODEL || '--'}</td>
                 <td>${eq.SERIAL_NUMBER || '--'}</td>
                 <td>${eq.GCN || '--'}</td>
                 <td>${eq.LINK || '--'}</td>
-                <td>${eq.CAL_DATE || '--'}</td> <!-- Use CAL_DATE -->
-                <td>${eq.VALIDITY || '--'}</td>
+                <td>${eq.CAL_DATE || '--'}</td>
+                <td>${validityRaw || '--'}</td>
                 <td><span class="status-tag ${statusClass}">${statusText}</span></td>
                 <td style="text-align: center;">
-                    <button class="btn-delete" onclick="event.stopPropagation(); deleteEquipment('${eq.EQUIPMENT_ID}')">🗑️</button>
+                    <button class="btn-delete" onclick="event.stopPropagation(); deleteEquipment('${equipId}')">🗑️</button>
                 </td>
             `;
             tableBody.appendChild(row);
@@ -557,8 +519,11 @@
         fetch(`${API_BASE_URL}/api/clock`)
             .then(response => response.json())
             .then(data => {
-                liveClockData = data; // Store the fetched data
-                displayEquipmentTable(liveClockData); // Display the fetched data
+                if (data && data.length > 0) {
+                    liveClockData = data; 
+                    displayEquipmentTable(liveClockData); // Ghi đè bằng dữ liệu thực tế từ SQL
+                    console.log("Dữ liệu thiết bị chuẩn đã được đồng bộ từ SQL Server.");
+                }
             })
             .catch(error => {
                 console.error("Lỗi khi tải dữ liệu thiết bị chuẩn:", error);

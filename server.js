@@ -150,7 +150,7 @@ function logActivity(userName, actionType, targetTable, targetId, description) {
 
 // ================= YÊU CẦU 1: API CRUD CHO BẢNG CLOCK =================
 
-// Lấy danh sách thiết bị chuẩn (Phục vụ Yêu cầu 2 & Yêu cầu 3 tại frontend)
+// Lấy danh sách thiết bị chuẩn — trả về đầy đủ cột kể cả các cột mở rộng
 app.get('/api/clock', (req, res) => {
     db.all("SELECT * FROM CLOCK ORDER BY ID ASC", [], (err, rows) => {
         if (err) return res.status(500).json({ success: false, error: err.message });
@@ -204,6 +204,96 @@ app.post('/api/clock/bulk', (req, res) => {
             if (err) return res.status(500).json({ success: false, error: err.message });
             logActivity("Hệ thống", "IMPORT", "CLOCK", "ALL", `Đã import hàng loạt ${items.length} thiết bị vào bảng CLOCK`);
             res.json({ success: true, message: `Đã đồng bộ ${items.length} thiết bị vào Database thành công!` });
+        });
+    });
+});
+
+// Thêm mới 1 thiết bị chuẩn từ form equipment.html
+// Hỗ trợ các cột mở rộng: KEY_FIELD, MODEL, GCN, LINK, CAL_DATE
+app.post('/api/clock/add', (req, res) => {
+    const { EQUIPMENT_ID, KEY_FIELD, NAME, MANUFACTURER, MODEL, SERIAL_NUMBER, GCN, LINK, CAL_DATE, VALIDITY } = req.body;
+
+    if (!EQUIPMENT_ID || !NAME) {
+        return res.status(400).json({ success: false, message: "Thiếu Mã thiết bị (EQUIPMENT_ID) hoặc Tên thiết bị!" });
+    }
+
+    // Migration an toàn: đảm bảo các cột mở rộng tồn tại trước khi ghi
+    db.serialize(() => {
+        db.run(`ALTER TABLE CLOCK ADD COLUMN KEY_FIELD TEXT DEFAULT ''`, () => {});
+        db.run(`ALTER TABLE CLOCK ADD COLUMN MODEL TEXT DEFAULT ''`, () => {});
+        db.run(`ALTER TABLE CLOCK ADD COLUMN GCN TEXT DEFAULT ''`, () => {});
+        db.run(`ALTER TABLE CLOCK ADD COLUMN LINK TEXT DEFAULT ''`, () => {});
+        db.run(`ALTER TABLE CLOCK ADD COLUMN CAL_DATE TEXT DEFAULT ''`, () => {});
+
+        const stmt = db.prepare(`
+            INSERT OR REPLACE INTO CLOCK
+            (ID, KEY_FIELD, NAME, MANUFACTURER, MODEL, SERIAL_NUMBER, GCN, LINK, CAL_DATE, VALIDITY, TYPE)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        const type = (NAME.toLowerCase().includes('nhiệt') || NAME.toLowerCase().includes('temp') || NAME.toLowerCase().includes('thermo'))
+            ? 'temperature' : 'standard';
+
+        stmt.run(
+            [EQUIPMENT_ID, KEY_FIELD || '', NAME, MANUFACTURER || '', MODEL || '',
+             SERIAL_NUMBER || '', GCN || '', LINK || '', CAL_DATE || '', VALIDITY || '1900-12-31', type],
+            function(err) {
+                stmt.finalize();
+                if (err) return res.status(500).json({ success: false, error: err.message });
+                logActivity("Hệ thống / KTV", "CREATE", "CLOCK", EQUIPMENT_ID, `Thêm mới thiết bị chuẩn: ${NAME}`);
+                res.json({ success: true, message: `Đã thêm thiết bị chuẩn "${NAME}" thành công!` });
+            }
+        );
+    });
+});
+
+// Sync hàng loạt toàn bộ equipmentData từ equipment.html → bảng CLOCK
+// (Nút "🔄 Sync to Clock DB") — ghi đè INSERT OR REPLACE
+app.post('/api/sync-clock-equipment', (req, res) => {
+    const items = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ success: false, message: "Dữ liệu gửi lên không hợp lệ!" });
+    }
+
+    db.serialize(() => {
+        // Đảm bảo các cột mở rộng tồn tại
+        db.run(`ALTER TABLE CLOCK ADD COLUMN KEY_FIELD TEXT DEFAULT ''`, () => {});
+        db.run(`ALTER TABLE CLOCK ADD COLUMN MODEL TEXT DEFAULT ''`, () => {});
+        db.run(`ALTER TABLE CLOCK ADD COLUMN GCN TEXT DEFAULT ''`, () => {});
+        db.run(`ALTER TABLE CLOCK ADD COLUMN LINK TEXT DEFAULT ''`, () => {});
+        db.run(`ALTER TABLE CLOCK ADD COLUMN CAL_DATE TEXT DEFAULT ''`, () => {});
+
+        const stmt = db.prepare(`
+            INSERT OR REPLACE INTO CLOCK
+            (ID, KEY_FIELD, NAME, MANUFACTURER, MODEL, SERIAL_NUMBER, GCN, LINK, CAL_DATE, VALIDITY, TYPE)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        items.forEach((item, idx) => {
+            const finalId = item.code || `EQ-${String(idx + 1).padStart(3, '0')}`;
+            const name = item.name || '';
+            const type = (name.toLowerCase().includes('nhiệt') || name.toLowerCase().includes('temp') || name.toLowerCase().includes('thermo'))
+                ? 'temperature' : 'standard';
+
+            stmt.run([
+                finalId,
+                item.key || '',
+                name,
+                item.nsx || '',
+                item.model || '',
+                item.serial || '',
+                item.gcn || '',
+                item.lienKet || '',
+                item.calDate || '',
+                item.nextDate || '1900-12-31',
+                type
+            ]);
+        });
+
+        stmt.finalize((err) => {
+            if (err) return res.status(500).json({ success: false, error: err.message });
+            logActivity("Hệ thống", "IMPORT", "CLOCK", "ALL", `Sync hàng loạt ${items.length} thiết bị chuẩn vào bảng CLOCK`);
+            res.json({ success: true, message: `Đã đồng bộ ${items.length} thiết bị chuẩn vào Database thành công!` });
         });
     });
 });

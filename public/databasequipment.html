@@ -54,6 +54,43 @@
             background: #f0fdfa;
             outline: 2px solid #008080;
         }
+
+        /* ===== YOUTUBE-STYLE SEARCH: Cột Thiết bị chuẩn ===== */
+        .std-search-wrapper { position: relative; width: 100%; }
+        .std-search-input {
+            width: 100%; padding: 6px 10px;
+            border: 1px solid #cbd5e0; border-radius: 6px;
+            font-size: 13px; font-weight: 600; color: #008080;
+            box-sizing: border-box; background: #f0fdfa;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .std-search-input:focus {
+            outline: none; border-color: #008080; background: #fff;
+            box-shadow: 0 0 0 3px rgba(0,128,128,0.15);
+        }
+        .std-search-input.has-value { background: #e6fffa; border-color: #38a169; color: #276749; }
+        .std-dropdown {
+            position: fixed; /* fixed để thoát khỏi overflow:hidden của table */
+            background: #fff; border: 1px solid #cbd5e0; border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.18); z-index: 99999;
+            max-height: 240px; overflow-y: auto; display: none; min-width: 260px;
+        }
+        .std-dropdown.open { display: block; }
+        .std-dropdown-item {
+            padding: 9px 14px; cursor: pointer; font-size: 13px;
+            display: flex; align-items: center; gap: 8px;
+            border-bottom: 1px solid #f7fafc; transition: background 0.12s;
+        }
+        .std-dropdown-item:last-child { border-bottom: none; }
+        .std-dropdown-item:hover, .std-dropdown-item.active { background: #e6fffa; }
+        .std-dropdown-item .item-id { font-weight: 700; color: #008080; min-width: 95px; font-size: 12px; flex-shrink: 0; }
+        .std-dropdown-item .item-name { color: #2d3748; flex: 1; }
+        .std-dropdown-item .item-badge {
+            font-size: 11px; padding: 2px 7px; border-radius: 10px;
+            background: #e8f5e9; color: #276749; font-weight: 600; flex-shrink: 0;
+        }
+        .std-dropdown-item .item-badge.expired { background: #fff5f5; color: #c53030; }
+        .std-dropdown-empty { padding: 12px 14px; color: #a0aec0; font-size: 13px; text-align: center; }
     </style>
 </head>
 <body>
@@ -250,11 +287,7 @@
 
         const rowsContainer = document.getElementById('calibration-table-rows');
         if (rowsContainer) {
-            rowsContainer.addEventListener('input', (e) => {
-                if (e.target.classList.contains('param-input')) {
-                    updateStandardEqOptions(e.target);
-                }
-            });
+            // Widget YouTube-style tự xử lý sự kiện — không cần listener cũ ở đây
         }
 
         // --- TỰ ĐỘNG MỞ CHẾ ĐỘ NHẬP LIỆU HIỆU CHUẨN KHI ĐƯỢC GỌI TỪ PROJECT ---
@@ -315,56 +348,199 @@
         }
     }
 
-    // Đồng bộ: build danh sách <option> trực tiếp từ dữ liệu thiết bị chuẩn đã tải về từ SQL
-    // (fetchedEquipments — lấy qua fetchEquipmentTemplates() / API /api/equipment-templates),
-    // không còn hardcode 3 thiết bị cố định nữa.
-    function buildStandardEqOptionsHtml(currentValue) {
-        let html = '<option value="">-- Chọn thiết bị chuẩn --</option>';
-        (fetchedEquipments || []).forEach(eq => {
-            const val = eq.EQUIPMENT_ID || eq.NAME || '';
-            if (!val) return;
-            // Không cho thiết bị tự chọn chính nó làm thiết bị chuẩn tham chiếu
-            if (currentId && eq.NAME === currentId) return;
+    // ===== CLOCK DATA: tải 1 lần, dùng cho toàn bộ các ô Thiết bị chuẩn =====
+    let clockEquipmentList = []; // [{ID, NAME, MANUFACTURER, VALIDITY}, ...]
+    let activeDropdown = null;   // dropdown đang mở
 
-            const label = `${eq.EQUIPMENT_ID ? eq.EQUIPMENT_ID + ' - ' : ''}${eq.NAME || ''}${eq.MANUFACTURER ? ' (' + eq.MANUFACTURER + ')' : ''}`;
-            const selected = currentValue === val ? 'selected' : '';
-            html += `<option value="${val}" ${selected}>${label}</option>`;
-        });
-        return html;
-    }
-
-    // Cải tiến: Ban đầu ẩn hoàn toàn, chỉ hiển thị dropdown khi gõ từ khóa đúng
-    function updateStandardEqOptions(textarea, savedValue = '') {
-        const text = textarea.value.toLowerCase();
-        const tr = textarea.closest('tr');
-        const select = tr.querySelector('.standard-eq-select');
-        if (!select) return;
-
-        const currentValue = savedValue || select.value;
-
-        if (text.includes('nhiệt độ') || text.includes('temperature')) {
-            select.innerHTML = buildStandardEqOptionsHtml(currentValue);
-            select.disabled = false;
-            select.style.display = 'block'; // Hiện thẻ select
-        } else {
-            select.innerHTML = '';
-            select.disabled = true;
-            select.style.display = 'none'; // Ẩn hoàn toàn để cột rỗng hoàn toàn
+    async function loadClockEquipmentForSearch() {
+        try {
+            const res = await fetch(`${TARGET_URL}/api/clock`);
+            if (!res.ok) throw new Error('Không tải được danh sách CLOCK');
+            clockEquipmentList = await res.json();
+        } catch(e) {
+            console.warn('Không load được CLOCK, dropdown sẽ rỗng:', e.message);
+            clockEquipmentList = [];
         }
     }
 
+    // Tạo widget tìm kiếm YouTube-style cho 1 ô "Thiết bị chuẩn"
+    // savedValue: giá trị đã lưu (ID của thiết bị chuẩn), để hiển thị lại khi render
+    function createStdSearchWidget(savedValue = '') {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'std-search-wrapper';
+
+        // Tìm label để hiển thị trong ô input
+        const saved = clockEquipmentList.find(c => (c.ID || '') === savedValue);
+        const displayText = saved ? `${saved.ID} – ${saved.NAME}` : (savedValue || '');
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'std-search-input' + (savedValue ? ' has-value' : '');
+        input.placeholder = '🔍 Tìm thiết bị chuẩn...';
+        input.value = displayText;
+        input.dataset.selectedId = savedValue; // lưu ID thực sự để saveEq đọc
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'std-dropdown';
+
+        wrapper.appendChild(input);
+        wrapper.appendChild(dropdown);
+
+        // Hiện dropdown khi focus
+        input.addEventListener('focus', () => {
+            renderDropdown(input, dropdown, input.value);
+            openDropdown(input, dropdown);
+        });
+
+        // Lọc realtime khi gõ (kiểu YouTube)
+        input.addEventListener('input', () => {
+            input.dataset.selectedId = ''; // xoá lựa chọn cũ
+            input.classList.remove('has-value');
+            renderDropdown(input, dropdown, input.value);
+            openDropdown(input, dropdown);
+        });
+
+        // Đóng dropdown khi click ra ngoài
+        document.addEventListener('mousedown', (e) => {
+            if (!wrapper.contains(e.target) && e.target !== dropdown) {
+                closeDropdown(dropdown);
+            }
+        }, { capture: true });
+
+        // Phím tắt: ESC đóng, Enter chọn item đang active
+        input.addEventListener('keydown', (e) => {
+            const items = dropdown.querySelectorAll('.std-dropdown-item');
+            let activeIdx = Array.from(items).findIndex(i => i.classList.contains('active'));
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeIdx = Math.min(activeIdx + 1, items.length - 1);
+                items.forEach((item, i) => item.classList.toggle('active', i === activeIdx));
+                if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeIdx = Math.max(activeIdx - 1, 0);
+                items.forEach((item, i) => item.classList.toggle('active', i === activeIdx));
+                if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (activeIdx >= 0) items[activeIdx].click();
+            } else if (e.key === 'Escape') {
+                closeDropdown(dropdown);
+            }
+        });
+
+        return wrapper;
+    }
+
+    function renderDropdown(input, dropdown, query) {
+        const q = (query || '').toLowerCase().trim();
+        const today = new Date();
+
+        const filtered = q === ''
+            ? clockEquipmentList
+            : clockEquipmentList.filter(c => {
+                return (c.ID   || '').toLowerCase().includes(q)
+                    || (c.NAME || '').toLowerCase().includes(q)
+                    || (c.MANUFACTURER || '').toLowerCase().includes(q);
+            });
+
+        dropdown.innerHTML = '';
+
+        if (filtered.length === 0) {
+            dropdown.innerHTML = `<div class="std-dropdown-empty">Không tìm thấy thiết bị chuẩn nào</div>`;
+            return;
+        }
+
+        filtered.forEach(c => {
+            const item = document.createElement('div');
+            item.className = 'std-dropdown-item';
+
+            const v = c.VALIDITY || '';
+            const isExpired = !v || v === '1900-12-31' || (new Date(v) < today);
+            const badgeText  = isExpired ? 'Hết hạn' : 'Còn hạn';
+            const badgeClass = isExpired ? 'item-badge expired' : 'item-badge';
+
+            item.innerHTML = `
+                <span class="item-id">${c.ID || '--'}</span>
+                <span class="item-name">${c.NAME || '--'}${c.MANUFACTURER ? ' <em style="color:#a0aec0;font-size:11px;">(' + c.MANUFACTURER + ')</em>' : ''}</span>
+                <span class="${badgeClass}">${badgeText}</span>
+            `;
+
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // không blur input
+                input.value = `${c.ID} – ${c.NAME}`;
+                input.dataset.selectedId = c.ID;
+                input.classList.add('has-value');
+                closeDropdown(dropdown);
+            });
+
+            dropdown.appendChild(item);
+        });
+    }
+
+    function openDropdown(input, dropdown) {
+        // Đóng dropdown cũ nếu có
+        if (activeDropdown && activeDropdown !== dropdown) closeDropdown(activeDropdown);
+        activeDropdown = dropdown;
+
+        // Đặt vị trí dropdown theo vị trí ô input (fixed-position để thoát overflow table)
+        const rect = input.getBoundingClientRect();
+        dropdown.style.top    = (rect.bottom + window.scrollY + 2) + 'px';
+        dropdown.style.left   = rect.left + 'px';
+        dropdown.style.width  = Math.max(rect.width, 280) + 'px';
+        dropdown.classList.add('open');
+        // Đưa vào body để thoát stacking context của table
+        document.body.appendChild(dropdown);
+    }
+
+    function closeDropdown(dropdown) {
+        dropdown.classList.remove('open');
+        if (dropdown.parentNode === document.body) {
+            document.body.removeChild(dropdown);
+        }
+        if (activeDropdown === dropdown) activeDropdown = null;
+    }
+
+    // Hàm render ô standard-eq-cell dùng widget mới (gọi thay cho buildStandardEqOptionsHtml)
+    function createStdSearchCell(savedValue = '') {
+        const td = document.createElement('td');
+        td.className = 'standard-eq-cell';
+        td.style.cssText = 'border:1px solid #111; padding:8px; vertical-align:middle; min-width:200px;';
+        td.appendChild(createStdSearchWidget(savedValue));
+        return td;
+    }
+
+    // Đọc giá trị đã chọn từ widget (thay thế select.value)
+    function getStdSearchValue(cell) {
+        const input = cell.querySelector('.std-search-input');
+        return input ? (input.dataset.selectedId || '') : '';
+    }
+
+    // Tương thích ngược: hàm cũ updateStandardEqOptions không còn dùng nữa
+    // (giữ lại để không gây lỗi nếu còn chỗ gọi)
+    function updateStandardEqOptions(textarea, savedValue = '') {
+        // Không làm gì — đã thay bằng widget YouTube-style
+    }
+    function buildStandardEqOptionsHtml(currentValue) { return ''; } // stub
+
     async function fetchEquipmentTemplates() {
+        // Load song song: danh sách thiết bị (equipment-templates) + thiết bị chuẩn từ CLOCK
         try {
-            const response = await fetch(`${TARGET_URL}/api/equipment-templates`);
-            if (!response.ok) throw new Error("Không thể kết nối API danh sách thiết bị");
-            
-            fetchedEquipments = await response.json();
+            const [equipRes] = await Promise.all([
+                fetch(`${TARGET_URL}/api/equipment-templates`),
+                loadClockEquipmentForSearch() // load CLOCK cho dropdown
+            ]);
+            if (!equipRes.ok) throw new Error("Không thể kết nối API danh sách thiết bị");
+
+            fetchedEquipments = await equipRes.json();
             renderTable(fetchedEquipments, true);
         } catch (error) {
             console.error("Lỗi khi tải danh sách thiết bị từ Database API:", error);
+            await loadClockEquipmentForSearch(); // vẫn load CLOCK dù API equipment lỗi
             renderFallbackLocalStorage();
         }
-        return fetchedEquipments; // Trả về để .then() hoạt động
+        return fetchedEquipments;
     }
 
     function renderTable(equipments, isFromAPI) {
@@ -442,7 +618,7 @@
         }
     }
 
-    // Render dữ liệu và đảo thứ tự cột thiết bị chuẩn xuống kế cuối
+    // Render dữ liệu từ DB — cột Thiết bị chuẩn dùng widget YouTube-style
     function renderFromTemplatePoints(points, tbody) {
         let i = 0;
         while (i < points.length) {
@@ -462,9 +638,8 @@
                         <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${groupName}</textarea>
                     </td>`;
                     html += renderCells(pt.CAL_POINT || '', pt.AS_FOUND_VALUE || '', pt.UNCERTAINTY || '', pt.TOLERANCE || '', pt.CONFORMITY || '');
-                    html += `<td rowspan="${groupSize}" class="standard-eq-cell" style="border:1px solid #111;padding:10px;vertical-align:middle;">
-                        <select class="cell-input standard-eq-select" style="width:100%; border:1px solid #cbd5e0; border-radius:4px; padding:4px; font-weight:600; color:#008080; display:none;"></select>
-                    </td>`;
+                    // placeholder rowspan cho standard-eq-cell
+                    html += `<td rowspan="${groupSize}" class="standard-eq-cell" style="border:1px solid #111;padding:8px;vertical-align:middle;min-width:200px;"></td>`;
                 } else {
                     html += renderCells(pt.CAL_POINT || '', pt.AS_FOUND_VALUE || '', pt.UNCERTAINTY || '', pt.TOLERANCE || '', pt.CONFORMITY || '');
                 }
@@ -473,9 +648,11 @@
                 tr.innerHTML = html;
                 tbody.appendChild(tr);
 
+                // Gắn widget vào ô standard-eq-cell của hàng đầu nhóm
                 if (k === i) {
-                    const ta = tr.querySelector('.param-input');
-                    updateStandardEqOptions(ta, pt.STANDARD_EQUIPMENT || pt.standardEquipment || '');
+                    const stdCell = tr.querySelector('.standard-eq-cell');
+                    const savedVal = pt.STANDARD_EQUIPMENT || pt.standardEquipment || '';
+                    stdCell.appendChild(createStdSearchWidget(savedVal));
                 }
             }
             i = j;
@@ -513,7 +690,7 @@
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-group', item.group);
                 let html = '';
-                
+
                 const displayVal = item.values && item.values[idx] ? item.values[idx] : "";
 
                 if (idx === 0) {
@@ -521,20 +698,18 @@
                         <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${item.name}</textarea>
                     </td>`;
                     html += renderCells(p, displayVal, item.unc, item.tol, item.conf);
-                    html += `<td rowspan="${item.points.length}" class="standard-eq-cell" style="border:1px solid #111;padding:10px;vertical-align:middle;">
-                        <select class="cell-input standard-eq-select" style="width:100%; border:1px solid #cbd5e0; border-radius:4px; padding:4px; font-weight:600; color:#008080; display:none;"></select>
-                    </td>`;
+                    html += `<td rowspan="${item.points.length}" class="standard-eq-cell" style="border:1px solid #111;padding:8px;vertical-align:middle;min-width:200px;"></td>`;
                 } else {
                     html += renderCells(p, displayVal, item.unc, item.tol, item.conf);
                 }
-                
+
                 html += `<td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>`;
                 tr.innerHTML = html;
                 tbody.appendChild(tr);
 
                 if (idx === 0) {
-                    const ta = tr.querySelector('.param-input');
-                    updateStandardEqOptions(ta, item.standardEquipment || '');
+                    const stdCell = tr.querySelector('.standard-eq-cell');
+                    stdCell.appendChild(createStdSearchWidget(item.standardEquipment || ''));
                 }
             });
         });
@@ -550,9 +725,7 @@
                     <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${pt.paramName}</textarea>
                 </td>`;
                 html += renderCells(pt.point, pt.v1, pt.uncertainty, pt.tolerance, pt.conformity);
-                html += `<td rowspan="${pt.rowspan}" class="standard-eq-cell" style="border:1px solid #111;padding:10px;vertical-align:middle;">
-                    <select class="cell-input standard-eq-select" style="width:100%; border:1px solid #cbd5e0; border-radius:4px; padding:4px; font-weight:600; color:#008080; display:none;"></select>
-                </td>`;
+                html += `<td rowspan="${pt.rowspan}" class="standard-eq-cell" style="border:1px solid #111;padding:8px;vertical-align:middle;min-width:200px;"></td>`;
             } else {
                 html += renderCells(pt.point, pt.v1, pt.uncertainty, pt.tolerance, pt.conformity);
             }
@@ -561,8 +734,8 @@
             tbody.appendChild(tr);
 
             if (pt.rowspan > 0) {
-                const ta = tr.querySelector('.param-input');
-                updateStandardEqOptions(ta, pt.standardEquipment || '');
+                const stdCell = tr.querySelector('.standard-eq-cell');
+                stdCell.appendChild(createStdSearchWidget(pt.standardEquipment || ''));
             }
         });
     }
@@ -591,32 +764,31 @@
         `;
     }
 
-    // Thêm dòng mới thủ công, giữ đúng cấu trúc cột thiết bị chuẩn ở kế cuối
+    // Thêm dòng mới thủ công — cột Thiết bị chuẩn dùng widget YouTube-style
     function addCalibrationRow() {
         const tbody = document.getElementById('calibration-table-rows');
-        const emptyState = tbody.querySelector('td[colspan="8"]') || tbody.querySelector('td[colspan="7"]');
+        const emptyState = tbody.querySelector('td[colspan="8"]') || tbody.querySelector('td[colspan="7"]') || tbody.querySelector('td[colspan="9"]');
         if (emptyState) tbody.innerHTML = '';
 
         const tr = document.createElement('tr');
         tr.setAttribute('data-group', 'manual-row-' + Date.now() + Math.random().toString(36).substr(2, 5));
-        
+
         let html = `
             <td class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
                 <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;" placeholder="Tên thông số (Parameter)"></textarea>
             </td>
         `;
         html += renderCells('', '', '', '', '');
-        html += `
-            <td class="standard-eq-cell" style="border:1px solid #111;padding:10px;vertical-align:middle;">
-                <select class="cell-input standard-eq-select" style="width:100%; border:1px solid #cbd5e0; border-radius:4px; padding:4px; font-weight:600; color:#008080; display:none;"></select>
-            </td>
-            <td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>
-        `;
+        // placeholder cho ô standard-eq-cell (sẽ được gắn sau)
+        html += `<td class="standard-eq-cell" style="border:1px solid #111;padding:8px;vertical-align:middle;min-width:200px;"></td>`;
+        html += `<td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>`;
+
         tr.innerHTML = html;
         tbody.appendChild(tr);
 
-        const ta = tr.querySelector('.param-input');
-        updateStandardEqOptions(ta, '');
+        // Gắn widget vào ô standard-eq-cell
+        const stdCell = tr.querySelector('.standard-eq-cell');
+        stdCell.appendChild(createStdSearchWidget(''));
     }
 
     async function saveEq() {
@@ -634,11 +806,11 @@
                 const textarea = groupHeader.querySelector('textarea');
                 lastParamName = textarea ? textarea.value : groupHeader.innerText;
             }
-            
-            // Tìm select thiết bị chuẩn kế cuối trong hàng chứa tiêu đề nhóm
-            const select = row.querySelector('.standard-eq-select');
-            if (select) {
-                lastStandardEq = select.value;
+
+            // Đọc giá trị từ widget YouTube-style
+            const stdCell = row.querySelector('.standard-eq-cell');
+            if (stdCell) {
+                lastStandardEq = getStdSearchValue(stdCell);
             }
 
             const pointInput = row.querySelector('.point-input');
@@ -646,7 +818,7 @@
             const v2Input = row.querySelector('.v2');
             const v3Input = row.querySelector('.v3');
 
-            if (!pointInput && !v1Input) return; 
+            if (!pointInput && !v1Input) return;
 
             const val1 = v1Input ? v1Input.value.trim() : '';
             const val2 = v2Input ? v2Input.value.trim() : '';
@@ -659,8 +831,8 @@
                 value: pointInput ? pointInput.value : '',
                 asFoundValue: mergedAsFound,
                 uncertainty: row.querySelector('.unc') ? row.querySelector('.unc').value : '',
-                tolerance: row.querySelector('.tol') ? row.querySelector('.tol').value : '',
-                conformity: row.querySelector('.conf') ? row.querySelector('.conf').value : ''
+                tolerance:   row.querySelector('.tol') ? row.querySelector('.tol').value : '',
+                conformity:  row.querySelector('.conf') ? row.querySelector('.conf').value : ''
             });
         });
 

@@ -487,9 +487,12 @@ const staticEquipmentData = {
     '5': { code: 'LAB-TACHO.02', name: 'Digital Tachometer', nsx: 'TENMARS', model: 'TM-4100N', gcn: 'KT3-01161BDE5/3', nextDate: '2026-08-09' },
     '6': { code: 'LAB-TIMER.02', name: 'STOPWATCH', nsx: 'Extech', model: '365510', gcn: 'TSG-0-554097', nextDate: '2026-09-17' },
     '7': { code: 'LAB-10M1WEIGHT.01', name: 'Weight M1-10', nsx: 'CHINA', model: '', gcn: 'KT3-0122BKL5', nextDate: '2026-03-07' },
+    '8': { code: 'LAB-20M1WEIGHT.02', name: 'Weight M1-20', nsx: 'CHINA', gcn: 'KT3-0122BKL5', nextDate: '2026-03-07' },
+    '12': { code: 'LAB-20M1WEIGHT.05', name: 'Weight M1-20', nsx: 'CHINA', gcn: 'KT3-0122BKL5', nextDate: '2026-03-07' },
     '13': { code: 'LAB-CALIPER.02', name: 'Digital caliper', nsx: 'Mitutoyo', model: 'CD-20APX', gcn: 'KT3-01293BDD5/1', nextDate: '2026-08-09' },
     '14': { code: 'LAB-PANME.01', name: 'Venier micrometer', nsx: 'MITUTOYO', model: '293-240-30', gcn: 'KT3-01293BDD5/2', nextDate: '1900-12-31' },
     '15': { code: 'LAB-FEELER.01', name: 'Feeler gauge', nsx: 'NIGATA SEIKI', model: 'NO.150ML', gcn: 'KT3-01293BDD5/3', nextDate: '2026-08-09' },
+    '16': { code: 'LAB-CAL_TOOL_16', name: 'Needle detector card', nsx: 'HASHIMA', gcn: 'KT3-01293BDD5/4', nextDate: '2026-08-28' },
     '18': { code: 'LAB-THER_HUM.02', name: 'Thermo-hygrometer', nsx: 'TESTO', model: '174H', gcn: 'KT3-01499BHL5/1', nextDate: '2026-04-09' },
     '19': { code: 'LAB-AIRFLOW.02', name: 'Air Flow Meter', nsx: 'TENMARS', model: 'TM-4001', gcn: 'KT3-01499BHL5/2', nextDate: '2026-04-09' },
     '20': { code: 'LAB-BALANCE.03', name: 'Digital Balance', nsx: 'OHAUS', model: 'PA214', gcn: 'KT3-01514BKL5/1', nextDate: '2026-08-22' },
@@ -502,9 +505,11 @@ const staticEquipmentData = {
     '27': { code: 'LAB-PRESSURE.01', name: 'Pressure Gauge', nsx: 'BAROLI', model: 'RAISOVA 547', gcn: 'KT3-02205BCO4/2', nextDate: '2026-05-12' },
     '29': { code: 'LAB-THERMO.04', name: 'Digital Thermometer', nsx: 'Extech', model: '', gcn: 'KT3-02443BNH4/2', nextDate: '2026-05-12' },
     '30': { code: 'LAB-THICKNESS.01', name: 'Digital Indicator', nsx: 'INSIZE', model: '2103-05', gcn: 'TSG-0-554096', nextDate: '2026-09-17' },
+    '51': { code: 'LAB-FORCE.05', name: 'Compressor load - indicator', nsx: 'BONGSHIN', nextDate: '1900-12-31' },
     '52': { code: 'LAB-MINIFORCE.05', name: 'Miniloadcell - indicator 200kg', nsx: 'BONGSHIN', model: 'BS-32', gcn: 'TSG-0-554093', nextDate: '2026-09-17' },
     '55': { code: 'LAB-PINSET.01', name: 'Pin gauge set', nsx: 'CHINA', model: '4.98 - 5.02', gcn: 'TSG-0-554094', nextDate: '2026-09-17' },
     '56': { code: 'LAB-RULER.01', name: 'Steel Ruler', nsx: 'SHINWA', model: '', gcn: 'TSG-0-554095', nextDate: '2026-09-17' },
+    '62': { code: 'LAB-THERMO.01', name: 'Digital Thermometer', nsx: 'ETI', model: 'REFERENCE MK2', nextDate: '1900-12-31' },
     '72': { code: 'LAB-LINEAR.01', name: 'LINEAR SCALE', nsx: '', model: '', gcn: 'KT3-01596BDD5', nextDate: '2026-10-28' }
 };
 
@@ -512,9 +517,8 @@ async function fetchLiveStandards() {
   const loader = document.getElementById('standard-loader');
   if (loader) loader.style.display = 'block'; // Hiển thị spinner khi bắt đầu tải
   try {
-    const response = await fetch(`${API_BASE_URL}/api/equipment`);
-    // Updated to fetch from /api/clock for live standards
-    // const response = await fetch(`${API_BASE_URL}/api/clock`); // This line was commented out, but the logic should use it.
+    // Kích hoạt fetch từ bảng CLOCK để lấy trọn bộ thiết bị chuẩn thực tế
+    const response = await fetch(`${API_BASE_URL}/api/clock`);
     if (response.ok) {
       liveStandardsDB = await response.json();
     }
@@ -529,9 +533,10 @@ async function fetchLiveStandards() {
 function getCombinedStandardsDB() {
   const staticList = Object.values(staticEquipmentData).map(eq => ({
     EQUIPMENT_ID: eq.code || '', // Use EQUIPMENT_ID from CLOCK table
-    NAME: eq.name || '',
+    NAME: eq.name || eq.NAME || '',
     MANUFACTURER: eq.nsx || '',
-    NEXT_DUE: eq.nextDate || ''
+    NEXT_DUE: eq.nextDate || eq.VALIDITY || '',
+    isStatic: true
   }));
   const liveList = (liveStandardsDB || []).map(eq => ({
     EQUIPMENT_ID: eq.ID || '',
