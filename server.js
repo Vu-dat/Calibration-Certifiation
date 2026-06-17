@@ -208,6 +208,64 @@ app.post('/api/clock/bulk', (req, res) => {
     });
 });
 
+// ✅ API MỚI: Đồng bộ dữ liệu từ Standard Equipment Database vào CLOCK table
+app.post('/api/sync-clock-equipment', (req, res) => {
+    const equipmentArray = req.body; // Mảng các đối tượng thiết bị từ equipment.html
+    
+    if (!Array.isArray(equipmentArray)) {
+        return res.status(400).json({ success: false, message: "Dữ liệu gửi lên không phải là mảng!" });
+    }
+
+    if (equipmentArray.length === 0) {
+        return res.status(400).json({ success: false, message: "Danh sách thiết bị trống!" });
+    }
+
+    db.serialize(() => {
+        // Xóa toàn bộ dữ liệu cũ trong CLOCK (Ghi đè hoàn toàn)
+        db.run("DELETE FROM CLOCK", (err) => {
+            if (err) return res.status(500).json({ success: false, error: err.message });
+
+            const stmt = db.prepare(`
+                INSERT INTO CLOCK (ID, NAME, MANUFACTURER, SERIAL_NUMBER, VALIDITY, TYPE)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `);
+
+            let insertedCount = 0;
+            equipmentArray.forEach(item => {
+                // Mapping dữ liệu từ equipment.html
+                const finalId = item.code || `EQ-${item.stt || ''}`;
+                const name = item.name || '';
+                const manufacturer = item.nsx || '';
+                const serialNumber = item.serial || '';
+                const validity = item.nextDate || '';
+                const type = (name.toLowerCase().includes('nhiệt') || name.toLowerCase().includes('temp') || name.toLowerCase().includes('temperature')) 
+                    ? 'temperature' 
+                    : 'standard';
+
+                // Chỉ insert những item có tên không trống
+                if (name.trim()) {
+                    stmt.run([finalId, name, manufacturer, serialNumber, validity, type], (err) => {
+                        if (!err) insertedCount++;
+                    });
+                }
+            });
+
+            stmt.finalize((err) => {
+                if (err) {
+                    return res.status(500).json({ success: false, error: err.message });
+                }
+                
+                logActivity("Hệ thống / KTV", "SYNC", "CLOCK", "ALL", `Đã đồng bộ ${insertedCount} thiết bị chuẩn vào bảng CLOCK`);
+                res.json({ 
+                    success: true, 
+                    message: `✅ Đã đồng bộ thành công ${insertedCount} thiết bị vào Database CLOCK!`,
+                    count: insertedCount
+                });
+            });
+        });
+    });
+});
+
 // Xóa thiết bị chuẩn khỏi bảng CLOCK
 app.delete('/api/clock/:id', (req, res) => {
     const id = req.params.id;
