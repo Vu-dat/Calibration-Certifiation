@@ -444,7 +444,7 @@
     const q = (query || '').toLowerCase().trim();
     const today = new Date();
 
-    // 1. Định nghĩa 3 tùy chọn đồng hồ hệ thống mặc định
+    // 1. Định nghĩa 3 tùy chọn đồng hồ mặc định cho nhiệt độ
     const defaultClocks = [
         { ID: 'DH1', NAME: 'Đồng hồ nhiệt độ DH1', MANUFACTURER: 'Hệ thống', VALIDITY: '2099-12-31' },
         { ID: 'DH2', NAME: 'Đồng hồ nhiệt độ DH2', MANUFACTURER: 'Hệ thống', VALIDITY: '2099-12-31' },
@@ -453,17 +453,37 @@
 
     let filtered = [];
 
-    // 2. PHÂN LUỒNG LOGIC TÌM KIẾM THEO TỪ KHÓA ĐÚNG KIỂU BẠN MUỐN:
-    if (q.includes('nhiệt độ')) {
-        // Nếu từ khóa có chứa chữ "nhiệt độ" -> Chỉ lấy 3 option mặc định
+    // 2. Đọc tên thông số (Parameter) từ hàng chứa ô input này
+    // Tìm textarea .param-input trong cùng nhóm hàng (data-group) với ô thiết bị chuẩn
+    function getParamNameForInput(inp) {
+        const row = inp.closest('tr');
+        if (!row) return '';
+        const groupName = row.getAttribute('data-group') || '';
+        // Tìm trong tất cả hàng cùng nhóm
+        const groupRows = groupName
+            ? Array.from(document.querySelectorAll(`tr[data-group="${CSS.escape(groupName)}"]`))
+            : [row];
+        for (const gr of groupRows) {
+            const ta = gr.querySelector('.param-input');
+            if (ta) return ta.value.trim();
+            const gh = gr.querySelector('.group-header');
+            if (gh) return gh.innerText.trim();
+        }
+        return '';
+    }
+
+    const paramName = getParamNameForInput(input).toLowerCase();
+
+    // 3. PHÂN LUỒNG LOGIC: dựa trên tên thông số của hàng đó
+    if (paramName.includes('nhiệt độ') || paramName.includes('nhiet do')) {
+        // Thông số là nhiệt độ → CHỈ hiển thị cố định 3 đồng hồ DH1/DH2/DH3
         filtered = defaultClocks;
     } else {
-        // Nếu từ khóa KHÁC "nhiệt độ" -> Tiến hành tìm kiếm trong dữ liệu lấy từ SQL (CLOCK)
-        // Nếu ô input trống (chưa gõ gì), hiển thị toàn bộ thiết bị từ SQL. 
-        // Nếu đã gõ, lọc theo ID, tên thiết bị (NAME) hoặc hãng sản xuất (MANUFACTURER)
+        // Thông số KHÁC nhiệt độ → Tìm kiếm realtime trong danh sách CLOCK từ SQL
+        // Nếu chưa gõ gì → hiển thị toàn bộ; nếu đã gõ → lọc theo ID / tên / hãng
         filtered = q === '' ? clockEquipmentList : clockEquipmentList.filter(c => {
-            return (c.ID || '').toLowerCase().includes(q) || 
-                   (c.NAME || '').toLowerCase().includes(q) || 
+            return (c.ID || '').toLowerCase().includes(q) ||
+                   (c.NAME || '').toLowerCase().includes(q) ||
                    (c.MANUFACTURER || '').toLowerCase().includes(q);
         });
     }

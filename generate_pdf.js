@@ -218,65 +218,128 @@ async function main() {
         doc.fontSize(11).fillColor(C.PRIMARY).text('KẾT QUẢ HIỆU CHUẨN / CALIBRATION RESULTS:', { align: 'center' });
         doc.moveDown(0.4);
 
-        const rx   = 60; 
-        // Điều chỉnh lại độ rộng các cột để tránh lệch phải và vỡ chữ Conformity
-        const rW6  = [155, 60, 90, 60, 55, 55]; // Tổng vẫn là 475
-        const rX   = [rx, rx+155, rx+215, rx+305, rx+365, rx+420];
-        const rRowH = 24;
+        // Tổng chiều rộng khả dụng: A4 = 595pt, lề trái 45, lề phải 45 → 505pt
+        // 7 cột: Thông số | Điểm HC | Đo lần1 | Đo lần2 | Đo lần3 | KĐBĐ | Dung sai | Phù hợp | Chuẩn sử dụng
+        // Giảm xuống 6 cột gộp (As Found = lần1/2/3 gộp) + cột Ref.Std → tổng 505
+        const rx   = 45;
+        const PAGE_W = 505; // 595 - 45*2
+        //  Thông số | Điểm | As Found (3 cols) | KĐBĐ | Dung sai | Phù hợp | Chuẩn
+        const rW   = [110, 48, 45, 45, 45, 42, 42, 42, 86]; // 9 cột, tổng = 505
+        const rX   = rW.reduce((acc, w, i) => {
+            acc.push(i === 0 ? rx : acc[i-1] + rW[i-1]);
+            return acc;
+        }, []);
+        const rRowH = 26;
         let   rY   = doc.y;
 
         // Header bảng kết quả
-        doc.rect(rx, rY, 475, rRowH).fill(C.PRIMARY_LIGHT);
+        doc.rect(rx, rY, PAGE_W, rRowH).fill(C.PRIMARY_LIGHT);
         doc.lineWidth(0.5).strokeColor(C.BORDER);
-        doc.moveTo(rx, rY).lineTo(rx+475, rY).stroke();
+
+        // Vẽ đường viền header
+        doc.moveTo(rx, rY).lineTo(rx + PAGE_W, rY).stroke();
 
         setFont(doc, true);
-        doc.fontSize(8.5).fillColor(C.PRIMARY);
-        doc.text('Thông số (Parameter)',      rX[0]+4, rY+7, { width: rW6[0]-4 });
-        doc.text('Điểm HC\nCal. Point',       rX[1],   rY+3, { width: rW6[1], align: 'center' });
-        doc.text('Giá trị đo\nAs Found',      rX[2],   rY+3, { width: rW6[2], align: 'center' });
-        doc.text('KĐBĐ ±\nUncert.',           rX[3],   rY+3, { width: rW6[3], align: 'center' });
-        doc.text('Dung sai\nTolerance',        rX[4],   rY+3, { width: rW6[4], align: 'center' });
-        doc.text('Phù hợp\nConform.',          rX[5],   rY+3, { width: rW6[5], align: 'center' });
-        doc.text('Chuẩn sử dụng\nRef. Std',     rX[6],   rY+3, { width: rW6[6], align: 'center' });
-        doc.moveTo(rx, rY+rRowH).lineTo(rx+475, rY+rRowH).stroke();
+        doc.fontSize(7.5).fillColor(C.PRIMARY);
+        doc.text('Thông số\nParameter',        rX[0]+3, rY+3, { width: rW[0]-3, align: 'left' });
+        doc.text('Điểm HC\nCal.Pt',            rX[1],   rY+3, { width: rW[1], align: 'center' });
+        doc.text('Đo lần 1\nAs Found 1',        rX[2],   rY+3, { width: rW[2], align: 'center' });
+        doc.text('Đo lần 2\nAs Found 2',        rX[3],   rY+3, { width: rW[3], align: 'center' });
+        doc.text('Đo lần 3\nAs Found 3',        rX[4],   rY+3, { width: rW[4], align: 'center' });
+        doc.text('KĐBĐ ±\nUncert.',             rX[5],   rY+3, { width: rW[5], align: 'center' });
+        doc.text('Dung sai\nToleran.',           rX[6],   rY+3, { width: rW[6], align: 'center' });
+        doc.text('Phù hợp\nConform.',            rX[7],   rY+3, { width: rW[7], align: 'center' });
+        doc.text('Chuẩn sử dụng\nRef. Std',     rX[8],   rY+3, { width: rW[8], align: 'center' });
+
+        // Vẽ đường kẻ dọc phân cách cột header
+        rX.forEach((x, i) => {
+            doc.moveTo(x, rY).lineTo(x, rY + rRowH).stroke();
+        });
+        doc.moveTo(rx + PAGE_W, rY).lineTo(rx + PAGE_W, rY + rRowH).stroke();
+
+        doc.moveTo(rx, rY + rRowH).lineTo(rx + PAGE_W, rY + rRowH).stroke();
         rY += rRowH;
 
         setFont(doc, false);
-        doc.fontSize(9).fillColor(C.BODY);
+        doc.fontSize(8.5).fillColor(C.BODY);
 
         if (points.length === 0) {
-            doc.text('Chưa có dữ liệu điểm đo cho chứng nhận này.', rx+8, rY+7);
-            doc.moveTo(rx, rY+rRowH).lineTo(rx+475, rY+rRowH).stroke();
+            doc.text('Chưa có dữ liệu điểm đo cho chứng nhận này.', rx + 8, rY + 7);
+            doc.moveTo(rx, rY + rRowH).lineTo(rx + PAGE_W, rY + rRowH).stroke();
             rY += rRowH;
         } else {
+            // Nhóm theo PARAMETER_NAME để tính rowspan cho in
+            const grouped = [];
+            let curGroup = null;
             for (const p of points) {
-                // Ngắt trang tự động
-                if (rY > 710) {
+                const pn = p.PARAMETER_NAME || p.parameter_name || '–';
+                if (!curGroup || curGroup.paramName !== pn) {
+                    curGroup = { paramName: pn, rows: [] };
+                    grouped.push(curGroup);
+                }
+                curGroup.rows.push(p);
+            }
+
+            for (const group of grouped) {
+                const rowCount = group.rows.length;
+                const paramRowH = rRowH * rowCount; // tổng chiều cao nhóm
+
+                // Kiểm tra ngắt trang — giữ nguyên nhóm nếu đủ chỗ, còn không thì sang trang mới
+                if (rY + paramRowH > 750) {
                     doc.addPage();
                     rY = 45;
-                    doc.lineWidth(0.5).strokeColor(C.BORDER).moveTo(rx, rY).lineTo(rx+475, rY).stroke();
+                    // Vẽ lại đường kẻ ngang đầu trang
+                    doc.lineWidth(0.5).strokeColor(C.BORDER);
+                    doc.moveTo(rx, rY).lineTo(rx + PAGE_W, rY).stroke();
                 }
 
-                // Map đúng tên cột schema CALIBRATION_POINTS
-                const param    = String(p.PARAMETER_NAME  || p.parameter_name  || '–');
-                const calPt    = String(p.CAL_POINT        || p.cal_point        || '–');
-                const asFound  = String(p.AS_FOUND_VALUE   || p.as_found_value   || '–');
-                const unc      = String(p.UNCERTAINTY      || p.uncertainty      || '–');
-                const tol      = String(p.TOLERANCE        || p.tolerance        || '–');
-                const conf     = String(p.CONFORMITY       || p.conformity       || '–');
-                const refEq    = String(p.REF_EQUIPMENT    || p.ref_equipment    || '–');
+                group.rows.forEach((p, idx) => {
+                    const rowTop = rY;
 
-                doc.text(param,   rX[0]+4, rY+7, { width: rW6[0]-4 });
-                doc.text(calPt,   rX[1],   rY+7, { width: rW6[1], align: 'center' });
-                doc.text(asFound, rX[2],   rY+7, { width: rW6[2], align: 'center' });
-                doc.text(unc,     rX[3],   rY+7, { width: rW6[3], align: 'center' });
-                doc.text(tol,     rX[4],   rY+7, { width: rW6[4], align: 'center' });
-                doc.text(conf,    rX[5],   rY+7, { width: rW6[5], align: 'center' });
-                doc.text(refEq,   rX[6],   rY+7, { width: rW6[6], align: 'center' });
+                    // Cột Thông số — chỉ in ở hàng đầu của nhóm, chiếm toàn bộ chiều cao nhóm
+                    if (idx === 0) {
+                        setFont(doc, true);
+                        doc.fontSize(8.5).fillColor(C.BODY)
+                           .text(group.paramName, rX[0]+3, rY+5, { width: rW[0]-6, height: paramRowH-4 });
+                        setFont(doc, false);
+                        doc.fontSize(8.5).fillColor(C.BODY);
+                    }
 
-                doc.moveTo(rx, rY+rRowH).lineTo(rx+475, rY+rRowH).stroke();
-                rY += rRowH;
+                    // Các cột dữ liệu
+                    const calPt   = String(p.CAL_POINT       || p.cal_point       || '–');
+                    const asFound = String(p.AS_FOUND_VALUE  || p.as_found_value  || '–');
+                    const unc     = String(p.UNCERTAINTY     || p.uncertainty     || '–');
+                    const tol     = String(p.TOLERANCE       || p.tolerance       || '–');
+                    const conf    = String(p.CONFORMITY      || p.conformity      || '–');
+                    const refEq   = String(p.REF_EQUIPMENT   || p.ref_equipment   || '–');
+
+                    // Tách asFound thành 3 lần đo (phân cách " / ")
+                    const afParts = asFound.split(' / ');
+                    const af1 = afParts[0] || '–';
+                    const af2 = afParts[1] || '–';
+                    const af3 = afParts[2] || '–';
+
+                    doc.text(calPt, rX[1],   rY+7, { width: rW[1], align: 'center' });
+                    doc.text(af1,   rX[2],   rY+7, { width: rW[2], align: 'center' });
+                    doc.text(af2,   rX[3],   rY+7, { width: rW[3], align: 'center' });
+                    doc.text(af3,   rX[4],   rY+7, { width: rW[4], align: 'center' });
+                    doc.text(unc,   rX[5],   rY+7, { width: rW[5], align: 'center' });
+                    doc.text(tol,   rX[6],   rY+7, { width: rW[6], align: 'center' });
+                    doc.text(conf,  rX[7],   rY+7, { width: rW[7], align: 'center' });
+                    doc.text(refEq, rX[8],   rY+7, { width: rW[8]-4, align: 'center' });
+
+                    // Đường kẻ ngang dưới mỗi hàng con
+                    doc.moveTo(rx, rY + rRowH).lineTo(rx + PAGE_W, rY + rRowH).stroke();
+
+                    rY += rRowH;
+                });
+
+                // Đường kẻ dọc phân cột — vẽ theo chiều cao cả nhóm
+                const groupTop = rY - paramRowH;
+                rX.forEach((x) => {
+                    doc.moveTo(x, groupTop).lineTo(x, rY).stroke();
+                });
+                doc.moveTo(rx + PAGE_W, groupTop).lineTo(rx + PAGE_W, rY).stroke();
             }
         }
 
