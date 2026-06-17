@@ -364,7 +364,7 @@
                     if (!isExpired) statusMatch = false;
                 }
             }
-            return (idMatch || nameMatch || manufacturerMatch || serialMatch) && statusMatch;
+            return statusMatch;
         });
 
         displayEquipmentTable(filteredData);

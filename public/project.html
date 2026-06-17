@@ -532,22 +532,23 @@ function handleCustomerSearch(keyword) {
   if (loader) loader.style.display = 'block';
   const keyLower = keyword.toLowerCase();
   
-  // Lọc theo tên hoặc công ty
-  const filtered = liveCustomersDB.filter(c =>
-    (c.NAME && c.NAME.toLowerCase().includes(keyLower)) ||
-    (c.COMPANY && c.COMPANY.toLowerCase().includes(keyLower))
-  );
-
-  // Thuật toán sắp xếp YouTube-style: Ưu tiên các kết quả bắt đầu bằng từ khóa lên đầu
-  filtered.sort((a, b) => {
-    const aName = (a.NAME || '').toLowerCase();
-    const bName = (b.NAME || '').toLowerCase();
-    const aStarts = aName.startsWith(keyLower);
-    const bStarts = bName.startsWith(keyLower);
-    if (aStarts && !bStarts) return -1;
-    if (!aStarts && bStarts) return 1;
-    return aName.localeCompare(bName);
-  });
+  const filtered = liveCustomersDB
+    .map(c => {
+      const name = (c.NAME || '').toLowerCase();
+      const company = (c.COMPANY || '').toLowerCase();
+      const id = (c.ID || '').toLowerCase();
+      
+      let score = 100;
+      if (name === keyLower || id === keyLower) score = 0;
+      else if (name.startsWith(keyLower) || id.startsWith(keyLower)) score = 10;
+      else if (name.includes(keyLower) || id.includes(keyLower)) score = 20;
+      else if (company.includes(keyLower)) score = 30;
+      
+      return { item: c, score };
+    })
+    .filter(x => x.score < 100)
+    .sort((a, b) => a.score - b.score || (a.item.NAME || '').localeCompare(b.item.NAME || ''))
+    .map(x => x.item);
 
   if (filtered.length === 0) {
     box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy khách hàng</div>`;
@@ -1058,34 +1059,24 @@ function handleStandardSearch(keyword) {
   const keyLower = keyword.toLowerCase();
   const combinedDB = getCombinedStandardsDB();
   
-  // 2. Logic tìm kiếm "Mã đầu" (Prefix Search) tương tự YouTube/Google Search
-  const filtered = combinedDB.filter(eq =>
-    (eq.EQUIPMENT_ID && eq.EQUIPMENT_ID.toLowerCase().includes(keyLower)) ||
-    (eq.NAME && eq.NAME.toLowerCase().includes(keyLower))
-  );
-  // 3. Sắp xếp: Ưu tiên những kết quả bắt đầu bằng keyword lên trên đầu
-
-  // 3. Thuật toán sắp xếp thông minh: Ưu tiên kết quả bắt đầu bằng từ khóa (Mã hoặc Tên)
-  filtered.sort((a, b) => {
-    const aCode = (a.EQUIPMENT_ID || '').toLowerCase();
-    const bCode = (b.EQUIPMENT_ID || '').toLowerCase();
-    const aStarts = aCode.startsWith(keyLower);
-    const bStarts = bCode.startsWith(keyLower);
-    if (aStarts && !bStarts) return -1;
-    if (!aStarts && bStarts) return 1;
-    return aCode.localeCompare(bCode);
-    const aID = (a.EQUIPMENT_ID || '').toLowerCase();
-    const aName = (a.NAME || '').toLowerCase();
-    const bID = (b.EQUIPMENT_ID || '').toLowerCase();
-    const bName = (b.NAME || '').toLowerCase();
-    
-    const aMatch = aID.startsWith(keyLower) || aName.startsWith(keyLower);
-    const bMatch = bID.startsWith(keyLower) || bName.startsWith(keyLower);
-    
-    if (aMatch && !bMatch) return -1;
-    if (!aMatch && bMatch) return 1;
-    return aID.localeCompare(bID);
-  });
+  // Logic tìm kiếm thông minh: Sắp xếp theo độ liên quan (Exact > StartsWith > Includes)
+  const filtered = combinedDB
+    .map(eq => {
+      const code = (eq.EQUIPMENT_ID || '').toLowerCase();
+      const name = (eq.NAME || '').toLowerCase();
+      const manu = (eq.MANUFACTURER || '').toLowerCase();
+      
+      let score = 100;
+      if (code === keyLower || name === keyLower) score = 0;
+      else if (code.startsWith(keyLower) || name.startsWith(keyLower)) score = 10;
+      else if (code.includes(keyLower) || name.includes(keyLower)) score = 20;
+      else if (manu.includes(keyLower)) score = 30;
+      
+      return { item: eq, score };
+    })
+    .filter(x => x.score < 100)
+    .sort((a, b) => a.score - b.score || (a.item.EQUIPMENT_ID || '').localeCompare(b.item.EQUIPMENT_ID || ''))
+    .map(x => x.item);
 
   if (filtered.length === 0) {
     box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy thiết bị chuẩn</div>`;

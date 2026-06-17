@@ -353,6 +353,17 @@
     let clockEquipmentList = []; // [{ID, NAME, MANUFACTURER, VALIDITY}, ...]
     let activeDropdown = null;   // dropdown đang mở
 
+    // BUGFIX: một listener DUY NHẤT cho toàn trang để đóng dropdown khi click ra ngoài.
+    // (Trước đây mỗi widget tự thêm 1 listener riêng vào document và không bao giờ gỡ,
+    //  nên mỗi lần Thêm/Xóa hàng sẽ rò rỉ thêm 1 listener vĩnh viễn.)
+    document.addEventListener('mousedown', (e) => {
+        if (!activeDropdown) return;
+        const wrapper = activeDropdown._stdWrapper;
+        if (!(wrapper && wrapper.contains(e.target)) && !activeDropdown.contains(e.target)) {
+            closeDropdown(activeDropdown);
+        }
+    }, { capture: true });
+
     async function loadClockEquipmentForSearch() {
         try {
             const res = await fetch(`${TARGET_URL}/api/clock`);
@@ -364,182 +375,199 @@
         }
     }
 
+    // ===== 3 đồng hồ mặc định cho thông số Nhiệt độ =====
+    const DEFAULT_TEMP_CLOCKS = [
+        { ID: 'DH1', NAME: 'Đồng hồ nhiệt độ DH1', MANUFACTURER: 'Hệ thống', VALIDITY: '' },
+        { ID: 'DH2', NAME: 'Đồng hồ nhiệt độ DH2', MANUFACTURER: 'Hệ thống', VALIDITY: '' },
+        { ID: 'DH3', NAME: 'Đồng hồ nhiệt độ DH3', MANUFACTURER: 'Hệ thống', VALIDITY: '' }
+    ];
+
+    // Kiểm tra tên thông số có phải nhiệt độ không
+    function isTemperatureParam(paramText) {
+        const t = (paramText || '').toLowerCase().normalize('NFC');
+        return t.includes('nhiệt độ') || t.includes('nhiet do') || t.includes('temperature');
+    }
+
+    // Lấy tên thông số từ hàng chứa widget (xét cả rowspan — group-header nằm cùng hàng đầu nhóm)
+    function getParamNameFromRow(inputEl) {
+        const tr = inputEl.closest('tr');
+        if (!tr) return '';
+        // Cùng hàng (hàng đầu nhóm) → group-header có textarea
+        const ta = tr.querySelector('.group-header .param-input');
+        if (ta) return ta.value;
+        // Trường hợp rowspan: group-header ở hàng khác, dùng data-group để tìm
+        const groupName = tr.getAttribute('data-group') || '';
+        if (!groupName) return '';
+        const firstRow = document.querySelector(`tr[data-group="${CSS.escape(groupName)}"] .group-header .param-input`);
+        return firstRow ? firstRow.value : groupName;
+    }
+
     // Tạo widget tìm kiếm YouTube-style cho 1 ô "Thiết bị chuẩn"
-    // savedValue: giá trị đã lưu (ID của thiết bị chuẩn), để hiển thị lại khi render
     function createStdSearchWidget(savedValue = '') {
         const wrapper = document.createElement('div');
         wrapper.className = 'std-search-wrapper';
 
-        // Tìm label để hiển thị trong ô input
-        const defaultClocks = [
-            { ID: 'DH1', NAME: 'Đồng hồ nhiệt độ DH1' },
-            { ID: 'DH2', NAME: 'Đồng hồ nhiệt độ DH2' },
-            { ID: 'DH3', NAME: 'Đồng hồ nhiệt độ DH3' }
-        ];
-        const allPossible = [...clockEquipmentList, ...defaultClocks];
+        // Khôi phục label hiển thị từ savedValue
+        const allPossible = [...clockEquipmentList, ...DEFAULT_TEMP_CLOCKS];
         const saved = allPossible.find(c => (c.ID || '') === savedValue);
         const displayText = saved ? `${saved.ID} – ${saved.NAME}` : (savedValue || '');
 
         const input = document.createElement('input');
         input.type = 'text';
+        input.placeholder = 'Tìm thiết bị chuẩn...';
         input.className = 'std-search-input' + (savedValue ? ' has-value' : '');
-
         input.value = displayText;
-        input.dataset.selectedId = savedValue; 
+        input.dataset.selectedId = savedValue;
 
         const dropdown = document.createElement('div');
         dropdown.className = 'std-dropdown';
+        dropdown._stdWrapper = wrapper; // dùng cho listener mousedown chung (BUGFIX rò rỉ listener)
 
         wrapper.appendChild(input);
         wrapper.appendChild(dropdown);
 
-        // Hiện dropdown khi focus
+        // Focus → hiện gợi ý ngay (bôi đen text cũ để gõ đè nhanh)
         input.addEventListener('focus', () => {
-            renderDropdown(input, dropdown, input.value);
+            input.select();
+            renderDropdown(input, dropdown, '');
             openDropdown(input, dropdown);
         });
 
-        // Lọc realtime khi gõ (kiểu YouTube)
+        // Gõ → lọc realtime
         input.addEventListener('input', () => {
-            input.dataset.selectedId = ''; // xoá lựa chọn cũ
+            input.dataset.selectedId = '';
             input.classList.remove('has-value');
             renderDropdown(input, dropdown, input.value);
             openDropdown(input, dropdown);
         });
 
-        // Đóng dropdown khi click ra ngoài
-        document.addEventListener('mousedown', (e) => {
-            if (!wrapper.contains(e.target) && e.target !== dropdown) {
-                closeDropdown(dropdown);
-            }
-        }, { capture: true });
-
-        // Phím tắt: ESC đóng, Enter chọn item đang active
+        // Phím điều hướng: ↑ ↓ Enter Esc
         input.addEventListener('keydown', (e) => {
             const items = dropdown.querySelectorAll('.std-dropdown-item');
-            let activeIdx = Array.from(items).findIndex(i => i.classList.contains('active'));
-
+            let idx = Array.from(items).findIndex(i => i.classList.contains('active'));
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                activeIdx = Math.min(activeIdx + 1, items.length - 1);
-                items.forEach((item, i) => item.classList.toggle('active', i === activeIdx));
-                if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+                idx = Math.min(idx + 1, items.length - 1);
+                items.forEach((it, i) => it.classList.toggle('active', i === idx));
+                if (items[idx]) items[idx].scrollIntoView({ block: 'nearest' });
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                activeIdx = Math.max(activeIdx - 1, 0);
-                items.forEach((item, i) => item.classList.toggle('active', i === activeIdx));
-                if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+                idx = Math.max(idx - 1, 0);
+                items.forEach((it, i) => it.classList.toggle('active', i === idx));
+                if (items[idx]) items[idx].scrollIntoView({ block: 'nearest' });
             } else if (e.key === 'Enter') {
                 e.preventDefault();
-                if (activeIdx >= 0) items[activeIdx].click();
+                if (idx >= 0) items[idx].click();
             } else if (e.key === 'Escape') {
                 closeDropdown(dropdown);
             }
         });
 
+        // ── Đồng bộ với param-input: khi người dùng sửa tên thông số,
+        //    dropdown của cùng hàng tự cập nhật lại phân loại ──
+        // (gắn sau khi wrapper đã vào DOM)
+        requestAnimationFrame(() => {
+            const tr = wrapper.closest('tr');
+            if (!tr) return;
+            const groupName = tr.getAttribute('data-group') || '';
+            // Lắng nghe textarea của cùng nhóm
+            const syncHandler = () => {
+                if (activeDropdown === dropdown) {
+                    renderDropdown(input, dropdown, input.dataset.selectedId ? '' : input.value);
+                }
+            };
+            // Tìm textarea cùng nhóm
+            const findAndBind = () => {
+                const taEl = groupName
+                    ? document.querySelector(`tr[data-group="${CSS.escape(groupName)}"] .param-input`)
+                    : tr.querySelector('.param-input');
+                if (taEl && !taEl._stdSyncBound) {
+                    taEl.addEventListener('input', syncHandler);
+                    taEl._stdSyncBound = true;
+                }
+            };
+            findAndBind();
+            // Retry nếu textarea chưa render kịp
+            setTimeout(findAndBind, 100);
+        });
+
         return wrapper;
     }
 
+    // ── Render nội dung dropdown dựa trên thông số hàng + từ khoá tìm kiếm ──
     function renderDropdown(input, dropdown, query) {
-    const q = (query || '').toLowerCase().trim();
-    const today = new Date();
+        const q = (query || '').toLowerCase().trim();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Đưa về đầu ngày để so sánh chính xác
 
-    // 1. Định nghĩa 3 tùy chọn đồng hồ mặc định cho nhiệt độ
-    const defaultClocks = [
-        { ID: 'DH1', NAME: 'Đồng hồ nhiệt độ DH1', MANUFACTURER: 'Hệ thống', VALIDITY: '2099-12-31' },
-        { ID: 'DH2', NAME: 'Đồng hồ nhiệt độ DH2', MANUFACTURER: 'Hệ thống', VALIDITY: '2099-12-31' },
-        { ID: 'DH3', NAME: 'Đồng hồ nhiệt độ DH3', MANUFACTURER: 'Hệ thống', VALIDITY: '2099-12-31' }
-    ];
+        // Xác định thông số của hàng hiện tại
+        const paramName = getParamNameFromRow(input);
+        const isTemp    = isTemperatureParam(paramName);
 
-    let filtered = [];
-
-    // 2. Đọc tên thông số (Parameter) từ hàng chứa ô input này
-    // Tìm textarea .param-input trong cùng nhóm hàng (data-group) với ô thiết bị chuẩn
-    function getParamNameForInput(inp) {
-        const row = inp.closest('tr');
-        if (!row) return '';
-        const groupName = row.getAttribute('data-group') || '';
-        // Tìm trong tất cả hàng cùng nhóm
-        const groupRows = groupName
-            ? Array.from(document.querySelectorAll(`tr[data-group="${CSS.escape(groupName)}"]`))
-            : [row];
-        for (const gr of groupRows) {
-            const ta = gr.querySelector('.param-input');
-            if (ta) return ta.value.trim();
-            const gh = gr.querySelector('.group-header');
-            if (gh) return gh.innerText.trim();
-        }
-        return '';
-    }
-
-    const paramName = getParamNameForInput(input).toLowerCase();
-
-    // 3. PHÂN LUỒNG LOGIC: dựa trên tên thông số của hàng đó
-    if (paramName.includes('nhiệt độ') || paramName.includes('nhiet do')) {
-        // Thông số là nhiệt độ → CHỈ hiển thị cố định 3 đồng hồ DH1/DH2/DH3
-        filtered = defaultClocks;
-    } else {
-        // Thông số KHÁC nhiệt độ → Tìm kiếm realtime trong danh sách CLOCK từ SQL
-        // Nếu chưa gõ gì → hiển thị toàn bộ; nếu đã gõ → lọc theo ID / tên / hãng
-        filtered = q === '' ? clockEquipmentList : clockEquipmentList.filter(c => {
-            return (c.ID || '').toLowerCase().includes(q) ||
-                   (c.NAME || '').toLowerCase().includes(q) ||
-                   (c.MANUFACTURER || '').toLowerCase().includes(q);
-        });
-    }
-
-    // 3. XÓA DROPDOWN CŨ VÀ TIẾN HÀNH RENDER HTML
-    dropdown.innerHTML = '';
-
-    if (filtered.length === 0) {
-        const noResult = document.createElement('div');
-        noResult.className = 'std-dropdown-no-result';
-        noResult.innerText = 'Không tìm thấy thiết bị chuẩn nào';
-        dropdown.appendChild(noResult);
-        return;
-    }
-
-    // Vòng lặp hiển thị kết quả ra dropdown
-    filtered.forEach((item, index) => {
-        const div = document.createElement('div');
-        div.className = 'std-dropdown-item';
-        if (index === 0) div.classList.add('active'); // Mặc định active dòng đầu tiên để ấn Enter là chọn
-
-        // Kiểm tra hạn hiệu chuẩn (nếu có dữ liệu ngày tháng hợp lệ)
-        let statusHtml = '';
-        if (item.VALIDITY) {
-            const valDate = new Date(item.VALIDITY);
-            if (valDate < today) {
-                statusHtml = `<span class="badge badge-expired" style="background:#e74c3c; color:white; padding:2px 6px; border-radius:4px; font-size:11px; margin-left:8px;">Hết hạn</span>`;
-            } else {
-                statusHtml = `<span class="badge badge-valid" style="background:#2ecc71; color:white; padding:2px 6px; border-radius:4px; font-size:11px; margin-left:8px;">Còn hạn</span>`;
-            }
+        // Nguồn dữ liệu: DH1/DH2/DH3 cho Nhiệt độ, ngược lại là toàn bộ TBC từ SQL
+        const source = isTemp ? DEFAULT_TEMP_CLOCKS : clockEquipmentList;
+        
+        let pool = [];
+        if (!q) {
+            pool = source;
+        } else {
+            pool = source
+                .map(item => {
+                    const code = (item.ID || '').toLowerCase();
+                    const name = (item.NAME || '').toLowerCase();
+                    const manu = (item.MANUFACTURER || '').toLowerCase();
+                    
+                    let score = 100;
+                    if (code === q || name === q) score = 0;
+                    else if (code.startsWith(q) || name.startsWith(q)) score = 10;
+                    else if (code.includes(q) || name.includes(q)) score = 20;
+                    else if (manu.includes(q)) score = 30;
+                    
+                    return { item, score };
+                })
+                .filter(x => x.score < 100)
+                .sort((a, b) => a.score - b.score || (a.item.ID || '').localeCompare(b.item.ID || ''))
+                .map(x => x.item);
         }
 
-        // Nội dung hiển thị của từng dòng gợi ý giống Youtube (mã - tên - hãng sản xuất)
-        div.innerHTML = `
-            <div style="font-weight:600; color:#2c3e50;">${item.ID} – ${item.NAME}</div>
-            <div style="font-size:12px; color:#7f8c8d; margin-top:2px;">
-                Hãng: ${item.MANUFACTURER || 'N/A'} | Hạn: ${item.VALIDITY || 'N/A'}
-                ${statusHtml}
-            </div>
-        `;
+        dropdown.innerHTML = '';
 
-        // Sự kiện khi click chọn 1 thiết bị trong danh sách gợi ý
-        div.addEventListener('click', () => {
-            input.value = `${item.ID} – ${item.NAME}`;
-            input.dataset.selectedId = item.ID;
-            input.classList.add('has-value');
-            closeDropdown(dropdown);
+        if (pool.length === 0) {
+            dropdown.innerHTML = `<div class="std-dropdown-empty">❌ Không tìm thấy thiết bị chuẩn</div>`;
+            return;
+        }
 
-            // Tự động điền thông tin Hạn hiệu chuẩn sang ô bên cạnh (nếu có)
-            const row = input.closest('tr');
-            if (row) {
-                const dateInput = row.querySelector('.cal-date-input');
-                if (dateInput && item.VALIDITY) {
-                    dateInput.value = item.VALIDITY;
+        pool.slice(0, 10).forEach((item, idx) => {
+            const div = document.createElement('div');
+            div.className = 'std-dropdown-item' + (idx === 0 ? ' active' : '');
+            
+            // Kiểm tra trạng thái hết hạn hiệu chuẩn
+            let isExpired = false;
+            if (item.VALIDITY && item.VALIDITY !== '1900-12-31' && item.VALIDITY !== '---') {
+                const valDate = new Date(item.VALIDITY);
+                if (!isNaN(valDate) && valDate < today) {
+                    isExpired = true;
                 }
             }
+            
+            const due = item.VALIDITY || '---';
+            const warningHtml = isExpired ? `<span style="color:#e53e3e; font-weight:800; margin-left:8px; font-size:11px;">⚠️ HẾT HẠN</span>` : '';
+            
+            div.innerHTML = `🏷️ <strong>${item.ID}</strong> – ${item.NAME} ${warningHtml}
+                             <span style="margin-left:auto;color:${isExpired ? '#e53e3e' : 'var(--muted)'};font-size:11px;font-weight:${isExpired ? '700' : '400'};">Hạn: ${due}</span>`;
+            
+            div.addEventListener('click', () => {
+                input.value = `${item.ID} – ${item.NAME}`;
+                input.dataset.selectedId = item.ID;
+                input.classList.add('has-value');
+                closeDropdown(dropdown);
+
+                // Tự điền ngày hạn nếu có ô .cal-date-input cùng hàng
+                const row = input.closest('tr');
+                if (row && item.VALIDITY) {
+                    const dateInput = row.querySelector('.cal-date-input');
+                    if (dateInput) dateInput.value = item.VALIDITY;
+                }
             });
 
             dropdown.appendChild(div);
@@ -612,12 +640,30 @@
 
     // Hàm lọc danh sách mẫu thiết bị (Templates) ngay tại trình duyệt
     function filterTemplates() {
-        const query = document.getElementById('template-search-input').value.toLowerCase().trim();
-        const filtered = fetchedEquipments.filter(eq => {
-            return (eq.NAME || '').toLowerCase().includes(query) ||
-                   (eq.EQUIPMENT_ID || '').toLowerCase().includes(query) ||
-                   (eq.MANUFACTURER || '').toLowerCase().includes(query);
-        });
+        const q = document.getElementById('template-search-input').value.toLowerCase().trim();
+        if (!q) {
+            renderTable(fetchedEquipments, true);
+            return;
+        }
+
+        const filtered = fetchedEquipments
+            .map(item => {
+                const id = (item.EQUIPMENT_ID || item.equipment_id || item.ID || item.id || '').toLowerCase();
+                const name = (item.NAME || item.standard_name || '').toLowerCase();
+                const manu = (item.MANUFACTURER || item.manufacturer || '').toLowerCase();
+
+                let score = 100; // Mặc định không khớp
+                if (id === q || name === q) score = 0;
+                else if (id.startsWith(q) || name.startsWith(q)) score = 10;
+                else if (id.includes(q) || name.includes(q)) score = 20;
+                else if (manu.includes(q)) score = 30;
+
+                return { item, score };
+            })
+            .filter(x => x.score < 100)
+            .sort((a, b) => a.score - b.score || (a.item.NAME || '').localeCompare(b.item.NAME || ''))
+            .map(x => x.item);
+
         renderTable(filtered, true);
     }
 
@@ -967,7 +1013,7 @@
     function deleteRow(button) {
         const currentRow = button.closest('tr');
         const groupName = currentRow.getAttribute('data-group');
-        const groupRows = Array.from(document.querySelectorAll(`tr[data-group="${groupName}"]`));
+        const groupRows = Array.from(document.querySelectorAll(`tr[data-group="${CSS.escape(groupName)}"]`));
         
         if (groupRows.length === 1) {
             currentRow.remove();
