@@ -136,6 +136,13 @@
                 <button class="btn-shiny" onclick="openAddView()">+ Thêm mẫu thiết bị</button>
             </div>
         </div>
+
+        <!-- Thanh tìm kiếm nhanh mẫu thiết bị (Templates) -->
+        <div class="search-container" style="margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #edf2f7; display: flex; align-items: center; gap: 12px;">
+            <div style="font-size: 1.2rem;">🔍</div>
+            <input type="text" id="template-search-input" class="lab-input" placeholder="Tìm nhanh theo tên thiết bị, mã mẫu hoặc hãng sản xuất..." oninput="filterTemplates()" style="flex: 1; border: none; background: transparent; outline: none; font-size: 0.95rem;">
+        </div>
+
         <table class="detail-table">
             <thead>
                 <tr>
@@ -541,6 +548,17 @@
             renderFallbackLocalStorage();
         }
         return fetchedEquipments;
+    }
+
+    // Hàm lọc danh sách mẫu thiết bị (Templates) ngay tại trình duyệt
+    function filterTemplates() {
+        const query = document.getElementById('template-search-input').value.toLowerCase().trim();
+        const filtered = fetchedEquipments.filter(eq => {
+            return (eq.NAME || '').toLowerCase().includes(query) ||
+                   (eq.EQUIPMENT_ID || '').toLowerCase().includes(query) ||
+                   (eq.MANUFACTURER || '').toLowerCase().includes(query);
+        });
+        renderTable(filtered, true);
     }
 
     function renderTable(equipments, isFromAPI) {

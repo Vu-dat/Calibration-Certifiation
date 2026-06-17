@@ -24,8 +24,144 @@ const db = new sqlite3.Database(path.join(__dirname, 'labmaster_enterprise.db'))
 db.run("PRAGMA journal_mode = WAL"); // Bật chế độ ghi nhật ký trước (tăng hiệu năng đa luồng)
 db.configure("busyTimeout", 5000);   // Chờ tối đa 5 giây nếu DB đang bị khóa trước khi báo lỗi
 
+// ================= QUẢN LÝ BẢNG CLOCK (THIẾT BỊ CHUẨN DÙNG ĐỂ HIỆU CHUẨN) =================
+// CLOCK lưu danh sách "thiết bị chuẩn" (cân chuẩn, đồng hồ bấm giờ, panme, nhiệt kế chuẩn...).
+// Hàm này tự đọc cấu trúc bảng CLOCK hiện có trong file .db; nếu là bảng cũ/thiếu cột so với
+// cấu trúc đầy đủ mà Frontend (equipment.html) cần, nó sẽ TỰ ĐỘNG nâng cấp, đồng thời giữ lại
+// toàn bộ dữ liệu cũ (đổi tên bảng cũ thành CLOCK_LEGACY_BACKUP, không xoá).
+function initClockTable() {
+    const FULL_COLUMNS = ['ID', 'KEY_FIELD', 'NAME', 'MANUFACTURER', 'MODEL', 'SERIAL_NUMBER', 'GCN', 'LINK', 'CAL_DATE', 'VALIDITY', 'TYPE', 'NOTES', 'CREATED_AT'];
+
+    const createFullClockTable = (tableName, cb) => {
+        db.run(`CREATE TABLE IF NOT EXISTS ${tableName} (
+            ID TEXT PRIMARY KEY,
+            KEY_FIELD TEXT,
+            NAME TEXT NOT NULL,
+            MANUFACTURER TEXT,
+            MODEL TEXT,
+            SERIAL_NUMBER TEXT,
+            GCN TEXT,
+            LINK TEXT,
+            CAL_DATE TEXT,
+            VALIDITY TEXT,
+            TYPE TEXT DEFAULT 'standard',
+            NOTES TEXT,
+            CREATED_AT DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`, cb);
+    };
+
+    db.all("PRAGMA table_info(CLOCK)", [], (err, cols) => {
+        if (err) { console.error("❌ Lỗi đọc cấu trúc bảng CLOCK:", err.message); return; }
+        const existingCols = cols.map(c => c.name);
+
+        // Chưa từng có bảng CLOCK -> tạo mới với cấu trúc đầy đủ
+        if (existingCols.length === 0) {
+            return createFullClockTable('CLOCK', (e) => {
+                if (e) console.error("❌ Lỗi tạo bảng CLOCK:", e.message);
+                else {
+                    console.log("✅ Đã tạo bảng CLOCK (thiết bị chuẩn) với cấu trúc đầy đủ.");
+                    seedDefaultClockData();
+                }
+            });
+        }
+
+        const missing = FULL_COLUMNS.filter(c => !existingCols.includes(c));
+        if (missing.length === 0) {
+            seedDefaultClockData();
+            return; // Cấu trúc đã chuẩn, không cần làm gì
+        }
+
+        console.warn(`⚠️  Bảng CLOCK đang thiếu cột [${missing.join(', ')}] -> tự động nâng cấp cấu trúc...`);
+
+        db.all("SELECT * FROM CLOCK", [], (err2, oldRows) => {
+            if (err2) { console.error("❌ Lỗi đọc dữ liệu CLOCK cũ:", err2.message); return; }
+
+            db.run("ALTER TABLE CLOCK RENAME TO CLOCK_LEGACY_BACKUP", (err3) => {
+                if (err3) { console.error("❌ Lỗi đổi tên bảng CLOCK cũ:", err3.message); return; }
+
+                createFullClockTable('CLOCK', (err4) => {
+                    if (err4) { console.error("❌ Lỗi tạo bảng CLOCK mới:", err4.message); return; }
+
+                    const insertStmt = db.prepare(`
+                        INSERT OR REPLACE INTO CLOCK (ID, NAME, MANUFACTURER, MODEL, SERIAL_NUMBER, VALIDITY, TYPE, NOTES, CREATED_AT)
+                        VALUES (?, ?, ?, ?, ?, ?, 'standard', ?, ?)
+                    `);
+
+                    oldRows.forEach((row, idx) => {
+                        // Map dữ liệu cũ sang cấu trúc mới, không làm mất thông tin
+                        const rawId = (row.ID !== undefined) ? row.ID : idx;
+                        const newId = (typeof rawId === 'string' && /[A-Za-z]/.test(rawId)) ? rawId : `STD-${rawId}`;
+                        const name = row.NAME || row.CLOCK_NAME || `Thiết bị chuẩn ${newId}`;
+                        insertStmt.run([
+                            newId, name, row.MANUFACTURER || '', row.MODEL || '', row.SERIAL_NUMBER || '',
+                            row.VALIDITY || '', row.DESCRIPTION || row.NOTES || '', row.CREATED_AT || new Date().toISOString()
+                        ]);
+                    });
+
+                    insertStmt.finalize((err5) => {
+                        if (err5) console.error("❌ Lỗi nâng cấp dữ liệu CLOCK:", err5.message);
+                        else {
+                            console.log(`✅ Đã nâng cấp bảng CLOCK xong (${oldRows.length} dòng dữ liệu cũ được giữ lại, xem trong CLOCK_LEGACY_BACKUP).`);
+                            seedDefaultClockData();
+                        }
+                    });
+                });
+            });
+        });
+    });
+}
+
+// Hàm tự động seed dữ liệu 72 thiết bị chuẩn từ seed_clock_data.json vào SQLite
+function seedDefaultClockData() {
+    const fs = require('fs');
+    const path = require('path');
+    const jsonPath = path.join(__dirname, 'seed_clock_data.json');
+    
+    if (!fs.existsSync(jsonPath)) {
+        console.warn("⚠️  Không tìm thấy seed_clock_data.json để seed dữ liệu CLOCK.");
+        return;
+    }
+
+    try {
+        const raw = fs.readFileSync(jsonPath, 'utf-8');
+        const items = JSON.parse(raw);
+        
+        db.serialize(() => {
+            const stmt = db.prepare(`
+                INSERT OR IGNORE INTO CLOCK (ID, KEY_FIELD, NAME, MANUFACTURER, MODEL, SERIAL_NUMBER, GCN, LINK, CAL_DATE, VALIDITY, TYPE)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'standard')
+            `);
+
+            items.forEach(item => {
+                stmt.run([
+                    item.id,
+                    item.key || '',
+                    item.name || `Thiết bị chuẩn ${item.id}`,
+                    item.nsx || '',
+                    item.model || '',
+                    item.serial || '',
+                    item.gcn || '',
+                    item.lienKet || '',
+                    item.calDate || '1900-12-31',
+                    item.validity || '1900-12-31'
+                ]);
+            });
+
+            stmt.finalize((err) => {
+                if (err) {
+                    console.error("❌ Lỗi khi seed dữ liệu CLOCK:", err.message);
+                } else {
+                    console.log("✅ Đã kiểm tra và seed dữ liệu CLOCK từ seed_clock_data.json thành công.");
+                }
+            });
+        });
+    } catch (err) {
+        console.error("❌ Lỗi đọc và seed dữ liệu CLOCK:", err.message);
+    }
+}
+
 db.serialize(() => {
-    // 1. Bảng quản lý tiến độ Dự án
+    // 1. Bảng quản lý tiến độ Dự án (Đã di chuyển ra khỏi seedDefaultClockDataFromHTML)
     db.run(`CREATE TABLE IF NOT EXISTS PROJECTS (
         ID TEXT PRIMARY KEY, 
         TITLE TEXT, 
@@ -109,22 +245,17 @@ db.serialize(() => {
         UNCERTAINTY TEXT,
         TOLERANCE TEXT,
         CONFORMITY TEXT,
+        STANDARD_EQUIPMENT TEXT,
         FOREIGN KEY(TEMPLATE_NAME) REFERENCES EQUIPMENT_TEMPLATES(NAME) ON DELETE CASCADE
     )`);
 
-    // YÊU CẦU 1: Khởi tạo bảng CLOCK quản lý danh sách thiết bị chuẩn/đồng hồ mẫu
-    db.run(`CREATE TABLE IF NOT EXISTS CLOCK (
-        ID TEXT PRIMARY KEY,
-        NAME TEXT NOT NULL,
-        MANUFACTURER TEXT,
-        SERIAL_NUMBER TEXT,
-        VALIDITY TEXT,
-        TYPE TEXT DEFAULT 'temperature' -- Loại thiết bị nhằm phục vụ việc ẩn/hiện lọc theo tính chất ở Frontend
-    )`);
+    // YÊU CẦU 1: Khởi tạo/nâng cấp bảng CLOCK quản lý danh sách thiết bị chuẩn
+    initClockTable();
 
     // Migration an toàn: thêm cột mới cho DB cũ đã tồn tại từ trước (bỏ qua lỗi nếu cột đã có)
     db.run(`ALTER TABLE EQUIPMENT_TEMPLATES ADD COLUMN EQUIPMENT_ID TEXT`, () => {});
     db.run(`ALTER TABLE TEMPLATE_POINTS ADD COLUMN AS_FOUND_VALUE TEXT`, () => {});
+    db.run(`ALTER TABLE TEMPLATE_POINTS ADD COLUMN STANDARD_EQUIPMENT TEXT`, () => {});
     db.run(`ALTER TABLE CALIBRATION_POINTS ADD COLUMN REF_EQUIPMENT TEXT`, () => {});
     db.run(`ALTER TABLE CALIBRATION_POINTS ADD COLUMN STANDARD_EQUIPMENT TEXT`, () => {}); // Bổ sung cột đồng bộ theo Yêu cầu số 4
 
@@ -133,7 +264,6 @@ db.serialize(() => {
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN CONTACT TEXT`,         () => {});
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN TAX TEXT`,             () => {});
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN EMAIL TEXT`,           () => {});
-    db.run(`ALTER TABLE CUSTOMERS ADD COLUMN NOTE TEXT`,            () => {});
 });
 
 // Hàm tiện ích tự động ghi nhật ký hệ thống ngầm
@@ -148,7 +278,7 @@ function logActivity(userName, actionType, targetTable, targetId, description) {
     stmt.finalize();
 }
 
-// ================= YÊU CẦU 1: API CRUD CHO BẢNG CLOCK =================
+// ================= YÊU CẦU 1: API CRUD CHO BẢNG CLOCK (THIẾT BỊ CHUẨN) =================
 
 // Lấy danh sách thiết bị chuẩn (Phục vụ Yêu cầu 2 & Yêu cầu 3 tại frontend)
 app.get('/api/clock', (req, res) => {
@@ -158,23 +288,120 @@ app.get('/api/clock', (req, res) => {
     });
 });
 
-// Thêm mới hoặc Cập nhật thiết bị chuẩn vào bảng CLOCK
+// ============== TÌM KIẾM THIẾT BỊ CHUẨN KIỂU GỢI Ý TỨC THỜI (như thanh search YouTube) ==============
+// Dùng để cắm vào BẤT KỲ ô input nào cần CHỌN một thiết bị chuẩn đã lưu trong CLOCK — ví dụ
+// khi nhập điểm hiệu chuẩn cho một "thiết bị" (databasequipment.html) và cần chọn xem thiết bị
+// chuẩn nào đã dùng để hiệu chuẩn nó. Gõ tới đâu, gợi ý hiện tới đó.
+// Khớp theo: Mã (ID/CODE), Tên, Hãng sản xuất, Model, Số Serial, Key nội bộ.
+// Trả kết quả ưu tiên: khớp tuyệt đối > khớp ở đầu chuỗi > khớp chứa ở bất kỳ vị trí nào.
+app.get('/api/clock/search', (req, res) => {
+    const q = (req.query.q || '').toString().trim();
+
+    if (!q) {
+        // Chưa gõ gì -> gợi ý sẵn một danh sách rút gọn (giống YouTube hiện gợi ý phổ biến khi ô search trống)
+        return db.all("SELECT * FROM CLOCK ORDER BY NAME ASC LIMIT 10", [], (err, rows) => {
+            if (err) return res.status(500).json({ success: false, error: err.message });
+            res.json(rows);
+        });
+    }
+
+    const contains = `%${q}%`;
+    const startsWith = `${q}%`;
+
+    const sql = `
+        SELECT *,
+            CASE
+                WHEN UPPER(ID) = UPPER(?) OR UPPER(NAME) = UPPER(?) THEN 0
+                WHEN UPPER(ID) LIKE UPPER(?) OR UPPER(NAME) LIKE UPPER(?) THEN 1
+                ELSE 2
+            END AS RELEVANCE
+        FROM CLOCK
+        WHERE UPPER(ID) LIKE UPPER(?)
+           OR UPPER(NAME) LIKE UPPER(?)
+           OR UPPER(MANUFACTURER) LIKE UPPER(?)
+           OR UPPER(MODEL) LIKE UPPER(?)
+           OR UPPER(SERIAL_NUMBER) LIKE UPPER(?)
+           OR UPPER(KEY_FIELD) LIKE UPPER(?)
+        ORDER BY RELEVANCE ASC, NAME ASC
+        LIMIT 15
+    `;
+
+    db.all(sql, [
+        q, q, startsWith, startsWith,
+        contains, contains, contains, contains, contains, contains
+    ], (err, rows) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        res.json(rows);
+    });
+});
+
+// Thêm mới thiết bị chuẩn vào bảng CLOCK (route mà form "Add New Standard Equipment" của equipment.html gọi)
+app.post('/api/clock/add', (req, res) => {
+    const b = req.body || {};
+    const id = (b.EQUIPMENT_ID || b.id || b.ID || '').toString().trim();
+    const name = (b.NAME || b.name || '').toString().trim();
+
+    if (!id || !name) {
+        return res.status(400).json({ success: false, message: "Thiếu Mã thiết bị (ID) hoặc Tên thiết bị chuẩn!" });
+    }
+
+    const stmt = db.prepare(`
+        INSERT OR REPLACE INTO CLOCK (ID, KEY_FIELD, NAME, MANUFACTURER, MODEL, SERIAL_NUMBER, GCN, LINK, CAL_DATE, VALIDITY, TYPE)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run([
+        id,
+        b.KEY_FIELD || b.key_field || '',
+        name,
+        b.MANUFACTURER || b.manufacturer || '',
+        b.MODEL || b.model || '',
+        b.SERIAL_NUMBER || b.serial_number || '',
+        b.GCN || b.gcn || '',
+        b.LINK || b.link || '',
+        b.CAL_DATE || b.cal_date || '',
+        b.VALIDITY || b.validity || '1900-12-31',
+        b.TYPE || b.type || 'standard'
+    ], function(err) {
+        stmt.finalize();
+        if (err) return res.status(500).json({ success: false, error: err.message });
+
+        logActivity("Hệ thống / KTV", "CREATE", "CLOCK", id, `Thêm mới thiết bị chuẩn: ${name}`);
+        res.json({ success: true, message: "Thêm mới thiết bị chuẩn thành công!" });
+    });
+});
+
+// Thêm mới hoặc Cập nhật thiết bị chuẩn vào bảng CLOCK (giữ tương thích các nơi gọi route cũ)
 app.post('/api/clock', (req, res) => {
-    const { id, name, manufacturer, serial_number, validity, type } = req.body;
-    
+    const b = req.body || {};
+    const id = b.id || b.ID || b.EQUIPMENT_ID;
+    const name = b.name || b.NAME;
+
     if (!id || !name) {
         return res.status(400).json({ success: false, message: "Thiếu mã định danh (ID) hoặc tên thiết bị!" });
     }
 
     const stmt = db.prepare(`
-        INSERT OR REPLACE INTO CLOCK (ID, NAME, MANUFACTURER, SERIAL_NUMBER, VALIDITY, TYPE)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO CLOCK (ID, KEY_FIELD, NAME, MANUFACTURER, MODEL, SERIAL_NUMBER, GCN, LINK, CAL_DATE, VALIDITY, TYPE)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run([id, name, manufacturer || '', serial_number || '', validity || '', type || 'temperature'], function(err) {
+    stmt.run([
+        id,
+        b.key_field || b.KEY_FIELD || '',
+        name,
+        b.manufacturer || b.MANUFACTURER || '',
+        b.model || b.MODEL || '',
+        b.serial_number || b.SERIAL_NUMBER || '',
+        b.gcn || b.GCN || '',
+        b.link || b.LINK || '',
+        b.cal_date || b.CAL_DATE || '',
+        b.validity || b.VALIDITY || '',
+        b.type || b.TYPE || 'standard'
+    ], function(err) {
         stmt.finalize();
         if (err) return res.status(500).json({ success: false, error: err.message });
-        
+
         logActivity("Hệ thống / KTV", "UPDATE", "CLOCK", id, `Cập nhật thiết bị chuẩn trong bảng CLOCK: ${name}`);
         res.json({ success: true, message: "Lưu thông tin thiết bị chuẩn thành công!" });
     });
@@ -189,15 +416,20 @@ app.post('/api/clock/bulk', (req, res) => {
 
     db.serialize(() => {
         const stmt = db.prepare(`
-            INSERT OR REPLACE INTO CLOCK (ID, NAME, MANUFACTURER, SERIAL_NUMBER, VALIDITY, TYPE)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO CLOCK (ID, KEY_FIELD, NAME, MANUFACTURER, MODEL, SERIAL_NUMBER, GCN, LINK, CAL_DATE, VALIDITY, TYPE)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         items.forEach(item => {
-            // Mapping: ID = code (nếu trống dùng stt), Name = name, Manufacturer = nsx, Serial = serial, Validity = nextDate
+            // Mapping: ID = code (nếu trống dùng stt)
             const finalId = item.code || `EQ-${item.stt}`;
-            const type = (item.name.toLowerCase().includes('nhiệt') || item.name.toLowerCase().includes('temp')) ? 'temperature' : 'standard';
-            stmt.run([finalId, item.name, item.nsx || '', item.serial || '', item.nextDate || '', type]);
+            const nameLower = (item.name || '').toLowerCase();
+            const type = (nameLower.includes('nhiệt') || nameLower.includes('temp')) ? 'temperature' : 'standard';
+            stmt.run([
+                finalId, item.key || '', item.name || '', item.nsx || '', item.model || '',
+                item.serial || '', item.gcn || '', item.lienKet || '', item.calDate || '',
+                item.nextDate || '', type
+            ]);
         });
 
         stmt.finalize((err) => {
@@ -380,75 +612,58 @@ app.post('/api/equipment', (req, res) => {
     try {
         const { equipment_id, standard_name, manufacturer, due_date, points } = req.body;
 
-        if (!standard_name) {
-            return res.status(400).json({ success: false, message: "Thiếu tên thiết bị chuẩn!" });
+        if (!equipment_id || !standard_name) {
+            return res.status(400).json({ success: false, message: "Thiếu mã nhận diện hoặc tên thiết bị chuẩn!" });
         }
 
-        db.serialize(() => {
-            const stmtTemplate = db.prepare(`
-                INSERT OR REPLACE INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID)
-                VALUES (?, ?, ?, ?)
-            `);
+        // Tự động kiểm tra bổ sung cột DUE_DATE phòng hờ lỗi thiếu trường Schema
+        db.run(`ALTER TABLE CERTIFICATES ADD COLUMN DUE_DATE TEXT`, (alterErr) => {
+            // Nếu cột đã tồn tại từ trước, SQLite sẽ báo lỗi nhẹ, ta bỏ qua an toàn
+            
+            db.serialize(() => {
+                // Sử dụng các trường cột gốc chắc chắn có trong bảng CERTIFICATES của bạn
+                const stmtCert = db.prepare(`
+                    INSERT OR REPLACE INTO CERTIFICATES (
+                        CERT_NO, EQUIPMENT_ID, INSTRUMENT_NAME, MANUFACTURER, DUE_DATE
+                    ) VALUES (?, ?, ?, ?, ?)
+                `);
 
-            stmtTemplate.run([standard_name, manufacturer || '', due_date || '', equipment_id || ''], function(err) {
-                if (err) {
-                    console.error("❌ Lỗi SQLite chèn mẫu thiết bị:", err.message);
-                    return res.status(500).json({ success: false, message: "Lỗi cấu trúc SQLite: " + err.message });
-                }
-
-                db.run("DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ?", [standard_name], (delErr) => {
-                    if (delErr) {
-                        console.error("❌ Lỗi xóa điểm đo cũ:", delErr.message);
-                        return res.status(500).json({ success: false, message: delErr.message });
+                stmtCert.run(equipment_id, equipment_id, standard_name, manufacturer, due_date, function(err) {
+                    if (err) {
+                        console.error("❌ Lỗi thực thi SQL chèn thiết bị:", err.message);
+                        return res.status(500).json({ success: false, message: "Lỗi ghi dữ liệu SQLite: " + err.message });
                     }
 
-                    const finish = () => {
-                        logActivity("Hệ thống / KTV", "CREATE", "EQUIPMENT_TEMPLATES", standard_name, `Thêm/Cập nhật mẫu thiết bị chuẩn: "${standard_name}"`);
-                        return res.json({
-                            success: true,
-                            message: `Thiết bị chuẩn "${standard_name}" đã được lưu trữ hoàn tất!`
+                    // Ghi nhận mảng điểm mẫu kèm theo thiết bị chuẩn vào bảng CALIBRATION_POINTS
+                    if (points && points.length > 0) {
+                        const stmtPoint = db.prepare(`
+                            INSERT INTO CALIBRATION_POINTS (
+                                CERT_NO, PARAMETER, STANDARD_VALUE, ACTUAL_VALUE, STATUS
+                            ) VALUES (?, ?, ?, ?, 'A')
+                        `);
+
+                        points.forEach(p => {
+                            const numValue = parseFloat(p.value) || 0;
+                            stmtPoint.run(equipment_id, p.parameter, numValue, numValue);
                         });
-                    };
 
-                    const pts = points || [];
-                    if (pts.length === 0) {
-                        return finish();
+                        stmtPoint.finalize();
                     }
 
-                    const stmtPoint = db.prepare(`
-                        INSERT INTO TEMPLATE_POINTS (
-                            TEMPLATE_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                    `);
-
-                    pts.forEach(p => {
-                        stmtPoint.run([
-                            standard_name,
-                            p.parameter || p.parameterName || p.param || '',
-                            p.value || p.calPoint || p.point || '',
-                            p.asFoundValue || p.v1 || '',
-                            p.uncertainty || p.unc || '',
-                            p.tolerance || p.tol || '',
-                            p.conformity || p.conf || 'A'
-                        ]);
-                    });
-
-                    stmtPoint.finalize((finalErr) => {
-                        if (finalErr) {
-                            console.error("❌ Lỗi ghi điểm đo mẫu:", finalErr.message);
-                            return res.status(500).json({ success: false, message: finalErr.message });
-                        }
-                        finish();
+                    // Phản hồi JSON Object thành công về cho Frontend re-render danh sách
+                    return res.json({ 
+                        success: true, 
+                        message: `Thiết bị chuẩn ${equipment_id} đã được lưu trữ và cập nhật thành công!` 
                     });
                 });
-            });
 
-            stmtTemplate.finalize();
+                stmtCert.finalize();
+            });
         });
 
     } catch (criticalServerError) {
         console.error("🔥 CRITICAL API SERVER ERROR THIẾT BỊ:", criticalServerError);
-        return res.status(500).json({ success: false, message: "Lỗi hệ thống xử lý endpoint.", error: criticalServerError.message });
+        return res.status(500).json({ success: false, message: "Lỗi xử lý API nội bộ hệ thống.", error: criticalServerError.message });
     }
 });
 
