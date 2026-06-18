@@ -397,7 +397,7 @@
         
       </div>
 
-      <!-- CARD 8: NHÂN SỰ KÝ -->
+      <!-- CARD 8: NHÂN SỰ KÝ --> 
       <div class="form-card">
         <div class="form-card-title"><span>8</span> Nhân sự phê duyệt</div>
         <div class="field-row">
@@ -639,6 +639,9 @@ async function syncEquipmentDBFromAPI() {
         model: t.MODEL || '',
         instEn: t.NAME,
         equipmentId: t.EQUIPMENT_ID || '',
+        procedure: t.PROCEDURE || t.procedure || '',
+        refStandard: t.REF_STANDARD || t.ref_standard || '',
+        nextDue: t.NEXT_DUE || t.next_due || '',
         formPoints: groupTemplatePointsToFormPoints(t.formPoints || [])
       };
       liveDbEquipmentKeys.add(t.NAME);
@@ -884,6 +887,43 @@ function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum
     tbody.appendChild(tr);
 }
 
+/* ====== SMART SEARCH: TÊN THIẾT BỊ (f-inst-vi) ====== */
+function handleEquipmentSearch(keyword) {
+    const box = document.getElementById('equipment-suggestions');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!keyword || keyword.trim().length < 1) { box.style.display = 'none'; return; }
+
+    const keyLower = keyword.toLowerCase();
+    const keys = Object.keys(MockDatabaseEquipment).filter(k => k.toLowerCase().includes(keyLower));
+    keys.sort((a, b) => {
+        const aLower = a.toLowerCase();
+        const bLower = b.toLowerCase();
+        const aStarts = aLower.startsWith(keyLower);
+        const bStarts = bLower.startsWith(keyLower);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return aLower.localeCompare(bLower);
+    });
+
+    if (keys.length === 0) {
+        box.innerHTML = '<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy thiết bị trong Database</div>';
+    } else {
+        keys.slice(0, 8).forEach(key => {
+            const eq = MockDatabaseEquipment[key] || {};
+            const div = document.createElement('div');
+            div.className = 'suggestion-item';
+            div.innerHTML = `🔍 <strong>${key}</strong>${eq.manufacturer ? ` <span style="color:var(--muted);font-size:11px;">– ${eq.manufacturer}</span>` : ''}`;
+            div.onclick = () => {
+                selectEquipmentTemplate(key);
+                box.style.display = 'none';
+            };
+            box.appendChild(div);
+        });
+    }
+    box.style.display = 'block';
+}
+
 function handleDeviceSearch(input) {
     const wrapper = input.closest('.autocomplete-wrapper');
     const box = wrapper.querySelector('.autocomplete-suggestions');
@@ -959,8 +999,14 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null) {
       // Nếu chưa có dữ liệu đã lưu, ưu tiên load mẫu từ thiết bị đã chọn ở hàng
       let targetTemplate = null;
       
-      if (equipmentNameFromRow && MockDatabaseEquipment[equipmentNameFromRow]) {
-          targetTemplate = equipmentNameFromRow;
+      if (equipmentNameFromRow) {
+          // Nếu MockDatabaseEquipment chưa sync xong, chờ rồi thử lại
+          if (!MockDatabaseEquipment[equipmentNameFromRow]) {
+              await syncEquipmentDBFromAPI();
+          }
+          if (MockDatabaseEquipment[equipmentNameFromRow]) {
+              targetTemplate = equipmentNameFromRow;
+          }
       } else {
           // Nếu hàng chưa chọn, thử tìm theo tên dự án (Auto-match)
           const titleLower = currentTitle.toLowerCase();
@@ -1057,8 +1103,18 @@ function selectEquipmentTemplate(key) {
   if (!eq) return;
   document.getElementById('f-mfr').value = eq.manufacturer || '';
   document.getElementById('f-model').value = eq.model || '';
-  document.getElementById('f-id').value = eq.equipmentId || ''; // Thêm dòng này để điền Mã nhận diện (ID)
+  document.getElementById('f-id').value = eq.equipmentId || '';
   if (eq.instEn) document.getElementById('f-inst-en').value = eq.instEn;
+  
+  // Tự động đổ dữ liệu từ EQUIPMENT_TEMPLATES vào các trường còn thiếu
+  if (eq.procedure) document.getElementById('f-proc').value = eq.procedure;
+  if (eq.refStandard) document.getElementById('f-ref').value = eq.refStandard;
+  if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
+  // Tự động điền Ngày hiệu chuẩn = hôm nay nếu chưa có
+  if (!document.getElementById('f-caldate').value) {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('f-caldate').value = today;
+  }
 
   const tbody = document.getElementById('calibration-table-body');
   tbody.innerHTML = '';
@@ -1082,8 +1138,7 @@ function selectEquipmentTemplate(key) {
       <td><input type="text" class="lab-input-cell conformity" value="${pt.conformity}" style="font-weight:700;color:var(--teal);"></td>
     `;
     if (pt.rowspan > 0) {
-      const isTemp = pt.paramName.toLowerCase().includes('nhiệt độ') || pt.paramName.toLowerCase().includes('temperature');
-      html += `<td rowspan="${pt.rowspan}" class="ref-eq-col">${renderRefEqCell(isTemp, pt.standardEquipment)}</td>`;
+      html += `<td rowspan="${pt.rowspan}" class="ref-eq-col">${renderRefEqCell(pt.standardEquipment)}</td>`;
     }
     html += `
       <td style="text-align:center;"><button onclick="this.closest('tr').remove();updateRowCount();" class="btn-rm">×</button></td>
@@ -1109,7 +1164,7 @@ function addCalResultRow() {
     <td><input type="text" class="lab-input-cell uncertainty" placeholder="KĐB"></td>
     <td><input type="text" class="lab-input-cell tolerance" placeholder="Dung sai"></td>
     <td><select class="lab-input-cell conformity"><option>A</option><option>B</option><option>C</option><option>D</option><option>--</option></select></td>
-    <td class="ref-eq-col"><input type="text" class="lab-input-cell ref-eq-val" placeholder="Thiết bị"></td>
+    <td class="ref-eq-col">${renderRefEqCell('')}</td>
     <td style="text-align:center;"><button onclick="this.closest('tr').remove();updateRowCount();" class="btn-rm">×</button></td>
   `;
   tbody.appendChild(row);
@@ -1754,8 +1809,7 @@ function fillCalibrationTableRows(points) {
             `;
 
             if (idx === 0) {
-                const isTemp = group.name.toLowerCase().includes('nhiệt độ') || group.name.toLowerCase().includes('temperature');
-                html += `<td rowspan="${group.rows.length}" class="ref-eq-col">${renderRefEqCell(isTemp, pt.REF_EQUIPMENT)}</td>`;
+                html += `<td rowspan="${group.rows.length}" class="ref-eq-col">${renderRefEqCell(pt.REF_EQUIPMENT)}</td>`;
             }
 
             html += `
@@ -1769,49 +1823,71 @@ function fillCalibrationTableRows(points) {
     updateRowCount();
 }
 
-// Đồng bộ: build danh sách <option> trực tiếp từ liveStandardsDB (tải qua fetchLiveStandards()
-// từ API /api/equipment — cùng nguồn dữ liệu SQL với databasequipment.html), không còn hardcode nữa.
-function buildRefEqOptionsHtml(value = '') {
-  let html = `<option value="">-- Chọn thiết bị chuẩn --</option>`;
-  const combinedDB = getCombinedStandardsDB();
-  (combinedDB || []).forEach(eq => {
-    const val = eq.EQUIPMENT_ID || eq.NAME || '';
-    if (!val) return;
-    const label = `${eq.EQUIPMENT_ID ? eq.EQUIPMENT_ID + ' - ' : ''}${eq.NAME || ''}${eq.MANUFACTURER ? ' (' + eq.MANUFACTURER + ')' : ''}`;
-    html += `<option value="${val}" ${value === val ? 'selected' : ''}>${label}</option>`;
-  });
-  return html;
+/* ====== SMART SEARCH CHO REF-EQ-COL (CỘT THIẾT BỊ CHUẨN TRONG BẢNG KẾT QUẢ ĐO) ====== */
+function handleRefEqSearch(input) {
+    const wrapper = input.closest('.autocomplete-wrapper');
+    if (!wrapper) return;
+    const box = wrapper.querySelector('.autocomplete-suggestions');
+    if (!box) return;
+    
+    const keyword = input.value.trim();
+    box.innerHTML = '';
+    if (!keyword) { box.style.display = 'none'; return; }
+
+    const keyLower = keyword.toLowerCase();
+    const combinedDB = getCombinedStandardsDB();
+    
+    const filtered = combinedDB
+        .map(eq => {
+            const code = (eq.EQUIPMENT_ID || '').toLowerCase();
+            const name = (eq.NAME || '').toLowerCase();
+            let score = 100;
+            if (code === keyLower || name === keyLower) score = 0;
+            else if (code.startsWith(keyLower) || name.startsWith(keyLower)) score = 10;
+            else if (code.includes(keyLower) || name.includes(keyLower)) score = 20;
+            return { item: eq, score };
+        })
+        .filter(x => x.score < 100)
+        .sort((a, b) => a.score - b.score)
+        .map(x => x.item);
+
+    if (filtered.length === 0) {
+        box.innerHTML = '<div class="suggestion-item" style="color:var(--hint);cursor:default;padding:8px;">❌ Không tìm thấy</div>';
+    } else {
+        filtered.slice(0, 8).forEach(eq => {
+            const label = `${eq.EQUIPMENT_ID ? eq.EQUIPMENT_ID + ' - ' : ''}${eq.NAME || ''}`;
+            const div = document.createElement('div');
+            div.className = 'suggestion-item';
+            div.innerHTML = `🏷 <strong>${label}</strong>${eq.MANUFACTURER ? `<br><span style="font-size:11px;color:var(--muted);">${eq.MANUFACTURER}</span>` : ''}`;
+            div.onclick = () => {
+                input.value = eq.EQUIPMENT_ID || eq.NAME || label;
+                box.style.display = 'none';
+            };
+            box.appendChild(div);
+        });
+    }
+    box.style.display = 'block';
 }
 
-function renderRefEqCell(isTemp, value = '') {
-  if (isTemp) {
-    return `<select class="lab-input-cell ref-eq-val">${buildRefEqOptionsHtml(value)}</select>`;
-  }
-  return `<input type="text" class="lab-input-cell ref-eq-val" value="${value || ''}" placeholder="Thiết bị">`;
+function renderRefEqCell(value = '') {
+    const escapedValue = (value || '').replace(/"/g, '&quot;');
+    return `<div class="autocomplete-wrapper" style="position:relative;display:inline-block;width:100%;">
+        <input type="text" class="lab-input-cell ref-eq-val" value="${escapedValue}" 
+               placeholder="🔍 Gõ tên thiết bị chuẩn..." oninput="handleRefEqSearch(this)" autocomplete="off" style="width:100%;">
+        <div class="autocomplete-suggestions ref-eq-suggestions"></div>
+    </div>`;
 }
 
 function checkParamForRefEq(input) {
   const row = input.closest('tr');
-  const isTemp = input.value.toLowerCase().includes('nhiệt độ') || input.value.toLowerCase().includes('temperature');
   const refCol = row.querySelector('.ref-eq-col');
-  const currentParamText = input.value.toLowerCase();
-
-  if (refCol) {
-    let selectedValue = '';
-    // Giữ giá trị đang có nếu đã được chọn
-    const existingSelect = refCol.querySelector('.ref-eq-val');
-    if (existingSelect) {
-        selectedValue = existingSelect.value;
-    }
-
-    // Nếu chưa có giá trị và có keyword trùng, tự động gán
-    if (!selectedValue) {
-        for (const keyword in autoAssignStandardMap) {
-            if (currentParamText.includes(keyword)) { selectedValue = autoAssignStandardMap[keyword]; break; }
-        }
-    }
-    refCol.innerHTML = renderRefEqCell(isTemp, selectedValue);
-  }
+  if (!refCol) return;
+  
+  let selectedValue = '';
+  const existing = refCol.querySelector('.ref-eq-val');
+  if (existing) selectedValue = existing.value;
+  
+  refCol.innerHTML = renderRefEqCell(selectedValue);
 }
 
 /* ====== CLOSE DROPDOWNS ON OUTSIDE CLICK ====== */
@@ -1820,18 +1896,6 @@ document.addEventListener('click', function(e) {
     document.querySelectorAll('.autocomplete-suggestions').forEach(b=>b.style.display='none');
   }
 });
-
-// Bản đồ các thông số với thiết bị chuẩn ưu tiên tự động gán
-const autoAssignStandardMap = {
-    'nhiệt độ': 'LAB-THERMO.03',
-    'temperature': 'LAB-THERMO.03',
-    'độ ẩm': 'LAB-THER_HUM.02',
-    'humidity': 'LAB-THER_HUM.02',
-    'áp suất': 'LAB-PRESSURE.02',
-    'pressure': 'LAB-PRESSURE.02',
-    'thời gian': 'LAB-TIMER.01',
-    'timer': 'LAB-TIMER.01',
-};
 
 /* ====== INIT ====== */
 fetchProjects();
