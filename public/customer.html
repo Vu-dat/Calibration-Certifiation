@@ -595,13 +595,13 @@
             <div class="detail-card">
                 <div class="field-label"><i class="fas fa-user"></i> Người Đại Diện</div>
                 <div class="field-value" id="dv-name">–</div>
-                <input type="text" class="field-input" id="di-name" placeholder="Họ và tên">
+                <input type="text" class="field-input" id="di-name" placeholder="Họ và tên" oninput="this.value = this.value.replace(/(^|\s)\S/g, l => l.toUpperCase())">
             </div>
             <!-- Công ty -->
             <div class="detail-card">
                 <div class="field-label"><i class="fas fa-building"></i> Tên Công Ty</div>
                 <div class="field-value" id="dv-company">–</div>
-                <input type="text" class="field-input" id="di-company" placeholder="Tên công ty / tổ chức">
+                <input type="text" class="field-input" id="di-company" placeholder="Tên công ty / tổ chức" oninput="this.value = this.value.replace(/(^|\s)\S/g, l => l.toUpperCase())">
             </div>
             <!-- Điện thoại -->
             <div class="detail-card">
@@ -626,6 +626,12 @@
                 <div class="field-label"><i class="fas fa-address-book"></i> Đầu Mối Liên Hệ Phụ</div>
                 <div class="field-value" id="dv-contact">–</div>
                 <input type="text" class="field-input" id="di-contact" placeholder="Phòng mua hàng – Ms. B">
+            </div>
+            <!-- Địa chỉ -->
+            <div class="detail-card span-2">
+                <div class="field-label"><i class="fas fa-map-marked-alt"></i> Địa Chỉ khách hàng</div>
+                <div class="field-value" id="dv-address">–</div>
+                <input type="text" class="field-input" id="di-address" placeholder="Số X, Đường Y, Quận Z, TP. HCM" oninput="document.getElementById('di-billing_address').value = this.value">
             </div>
             <!-- Billing Address -->
             <div class="detail-card span-3">
@@ -683,14 +689,14 @@
                         <i class="fas fa-user" style="color:var(--teal);font-size:.8rem;"></i>
                         Người Đại Diện <span class="req">*</span>
                     </label>
-                    <input type="text" class="form-input" id="add-name" placeholder="Nguyễn Văn A" autocomplete="off">
+                    <input type="text" class="form-input" id="add-name" placeholder="Nguyễn Văn A" autocomplete="off" oninput="this.value = this.value.replace(/(^|\s)\S/g, l => l.toUpperCase())">
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="add-company">
                         <i class="fas fa-building" style="color:var(--teal);font-size:.8rem;"></i>
                         Tên Công Ty / Tổ Chức <span class="req">*</span>
                     </label>
-                    <input type="text" class="form-input" id="add-company" placeholder="Công ty TNHH LabMaster" autocomplete="off">
+                    <input type="text" class="form-input" id="add-company" placeholder="Công ty TNHH LabMaster" autocomplete="off" oninput="this.value = this.value.replace(/(^|\s)\S/g, l => l.toUpperCase())">
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="add-phone">
@@ -719,6 +725,13 @@
                         Đầu Mối Liên Hệ Phụ
                     </label>
                     <input type="text" class="form-input" id="add-contact" placeholder="Phòng Mua Hàng – Ms. B" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="add-address">
+                        <i class="fas fa-map-marked-alt" style="color:var(--teal);font-size:.8rem;"></i>
+                        Địa Chỉ Khách Hàng
+                    </label>
+                    <input type="text" class="form-input" id="add-address" placeholder="Số X, Đường Y, Quận Z, TP. HCM" autocomplete="off" oninput="document.getElementById('add-billing').value = this.value">
                 </div>
                 <div class="form-group span-2">
                     <label class="form-label" for="add-billing">
