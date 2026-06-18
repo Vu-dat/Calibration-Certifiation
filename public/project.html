@@ -444,7 +444,25 @@
     <div class="preview-panel">
       <div class="preview-toolbar">
         <button class="btn btn-secondary btn-sm" onclick="switchToEditor()">← Sửa dữ liệu</button>
-        <button class="btn btn-primary btn-sm" onclick="exportPDFAndFinish()">🖨 Xuất PDF & Hoàn thành</button>
+        <div class="dropdown" style="position:relative;display:inline-block;">
+          <button class="btn btn-primary btn-sm" onclick="toggleExportMenu()" id="export-dropdown-btn">
+            📥 Xuất file ▾
+          </button>
+          <div id="export-menu" class="dropdown-menu" style="display:none;position:absolute;top:100%;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);z-index:9999;min-width:220px;padding:6px 0;margin-top:4px;">
+            <div class="dropdown-item" onclick="exportFile('pdf')" style="padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;border-radius:6px;margin:2px 6px;" onmouseover="this.style.background='#f7fafc'" onmouseout="this.style.background='transparent'">
+              <span style="font-size:18px;">📄</span>
+              <div><strong style="font-size:14px;">PDF</strong><br><span style="font-size:11px;color:#718096;">Giấy chứng nhận chuẩn in ấn</span></div>
+            </div>
+            <div class="dropdown-item" onclick="exportFile('excel')" style="padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;border-radius:6px;margin:2px 6px;" onmouseover="this.style.background='#f7fafc'" onmouseout="this.style.background='transparent'">
+              <span style="font-size:18px;">📊</span>
+              <div><strong style="font-size:14px;">Excel (.xlsx)</strong><br><span style="font-size:11px;color:#718096;">Dữ liệu bảng tính dễ chỉnh sửa</span></div>
+            </div>
+            <div class="dropdown-item" onclick="exportFile('docx')" style="padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;border-radius:6px;margin:2px 6px;" onmouseover="this.style.background='#f7fafc'" onmouseout="this.style.background='transparent'">
+              <span style="font-size:18px;">📝</span>
+              <div><strong style="font-size:14px;">Word (.docx)</strong><br><span style="font-size:11px;color:#718096;">Văn bản có thể chỉnh sửa</span></div>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="a4" id="print-content"></div>
     </div>
@@ -1616,6 +1634,110 @@ async function markProjectAsFinished(skipConfirm = false) {
   }
 }
 
+// Menu xuất file thả xuống
+function toggleExportMenu() {
+  const menu = document.getElementById('export-menu');
+  const isVisible = menu.style.display === 'block';
+  // Đóng tất cả menu khác
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
+  menu.style.display = isVisible ? 'none' : 'block';
+}
+
+// Đóng menu khi click ra ngoài
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.dropdown')) {
+    document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
+  }
+});
+
+// Hàm xuất file chung cho PDF / Excel / Word
+async function exportFile(format) {
+  // Đóng menu
+  document.getElementById('export-menu').style.display = 'none';
+  
+  const certNo = (document.getElementById('f-certno')?.value || '').trim()
+              || (typeof currentActiveCertNo !== 'undefined' && currentActiveCertNo)
+              || '';
+
+  if (!certNo || certNo === '-') {
+    showToast('Vui lòng nhập Số chứng nhận (Cert No.) trong phần thông tin thiết bị!', 'warning');
+    return;
+  }
+
+  const formatNames = { pdf: 'PDF', excel: 'Excel', docx: 'Word' };
+  const formatEmojis = { pdf: '📄', excel: '📊', docx: '📝' };
+  showToast(`${formatEmojis[format]} Đang lưu dữ liệu và sinh file ${formatNames[format]}...`, 'info');
+
+  // Thu thập điểm đo
+  const pointRecords = collectCalibrationResults().map(r => ({
+    parameterName: r.param,
+    calPoint:      r.point,
+    asFoundValue:  r.found,
+    uncertainty:   r.unc,
+    tolerance:     r.tol,
+    conformity:    r.conf
+  }));
+
+  // Thu thập thiết bị chuẩn
+  const standardRecords = collectAllStandards().map(s => ({
+    name:  s.name,
+    id:    s.id,
+    trace: s.trace,
+    due:   s.due
+  }));
+
+  // Gom toàn bộ thông tin từ form
+  const payload = {
+    cert_no:        certNo,
+    instrumentName: txt('f-inst-vi'),
+    manufacturer:   txt('f-mfr'),
+    model:          txt('f-model'),
+    equipmentId:    txt('f-id'),
+    serialNumber:   txt('f-sn'),
+    customerName:   txt('f-cust'),
+    calDate:        txt('f-caldate'),
+    reCalDate:      txt('f-recaldate'),
+    procedure:      txt('f-proc'),
+    refStandard:    txt('f-ref'),
+    tempEnv:        txt('f-temp'),
+    humiEnv:        txt('f-humi'),
+    headOfLab:      txt('f-sign1'),
+    director:       txt('f-sign2'),
+    points:         pointRecords.map((p, idx) => ({ ...p, refEq: collectCalibrationResults()[idx].refEq })),
+    standards:      standardRecords
+  };
+
+  // Map format -> API endpoint
+  const apiEndpoints = {
+    pdf:  `${API_BASE_URL}/api/calibration/export-pdf`,
+    excel: `${API_BASE_URL}/api/calibration/export-excel`,
+    docx: `${API_BASE_URL}/api/calibration/export-docx`
+  };
+
+  const extensions = { pdf: 'pdf', excel: 'xlsx', docx: 'docx' };
+
+  try {
+    const response = await fetch(apiEndpoints[format], {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      showToast(result.message, 'success');
+      if (result.file_url) window.open(result.file_url, '_blank');
+      if (typeof fetchProjects === 'function') fetchProjects();
+    } else {
+      showToast(`Lỗi xử lý từ Server: ${result.message}`, 'danger');
+    }
+  } catch (error) {
+    console.error(`Lỗi API xuất ${formatNames[format]}:`, error);
+    showToast(`Lỗi kết nối máy chủ, không thể sinh file ${formatNames[format]}!`, 'danger');
+  }
+}
+
+// Giữ lại hàm cũ cho tương thích
 async function exportPDFAndFinish() {
     // Lấy cert_no từ field nhập liệu trong workspace (f-certno)
     const certNo = (document.getElementById('f-certno')?.value || '').trim()

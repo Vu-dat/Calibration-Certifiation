@@ -801,17 +801,8 @@ app.get('/api/stats/summary', (req, res) => {
 const staticDir = path.join(__dirname, 'static');
 if (!fs.existsSync(staticDir)) fs.mkdirSync(staticDir, { recursive: true });
 
-// ================= YÊU CẦU 4: XUẤT FILE PDF & ĐỒNG BỘ CỘT STANDARD_EQUIPMENT =================
-app.post('/api/calibration/export-pdf', (req, res) => {
-    const data = req.body;
-    const cert_no = data.cert_no || data.certNo;
-
-    if (!cert_no) {
-        return res.status(400).json({ success: false, message: "Thiếu số chứng nhận cert_no!" });
-    }
-
-    const scriptPath = path.join(__dirname, 'generate_pdf.js');
-
+// Hàm helper lưu dữ liệu vào DB trước khi xuất file (dùng chung cho PDF/Excel/Word)
+function saveCalibrationDataToDB(data, cert_no, callback) {
     db.serialize(() => {
         const certStmt = db.prepare(`
             INSERT OR REPLACE INTO CERTIFICATES 
@@ -833,7 +824,6 @@ app.post('/api/calibration/export-pdf', (req, res) => {
 
         const points = data.points || [];
         if (points.length > 0) {
-            // YÊU CẦU 4: Đảm bảo điền dữ liệu đồng bộ vào STANDARD_EQUIPMENT
             const ptStmt = db.prepare(`
                 INSERT INTO CALIBRATION_POINTS
                 (CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT)
@@ -849,24 +839,6 @@ app.post('/api/calibration/export-pdf', (req, res) => {
             ptStmt.finalize();
         }
 
-        const runExec = () => {
-            exec(`node "${scriptPath}" "${cert_no}"`, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`Lỗi thực thi generate_pdf.js: ${error.message}`);
-                    return res.status(500).json({ success: false, message: "Lỗi hệ thống khi sinh PDF." });
-                }
-
-                const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-                logActivity("Hệ thống / KTV", "EXPORT_PDF", "CERTIFICATES", cert_no, `Xuất PDF: ${fileName}`);
-
-                return res.json({
-                    success: true,
-                    message: `Đã xuất thành công GCN_${cert_no}.pdf`,
-                    file_url: `http://localhost:${process.env.PORT || 18080}/static/${fileName}`
-                });
-            });
-        };
-
         const stds = data.standards || [];
         if (stds.length > 0) {
             const stdStmt = db.prepare(`
@@ -877,12 +849,108 @@ app.post('/api/calibration/export-pdf', (req, res) => {
                 stdStmt.run([cert_no, s.id || s.code || '', s.name || '', s.trace || s.link || '', s.due || s.validity || '']);
             });
             stdStmt.finalize((err) => {
-                if (err) return res.status(500).json({ success: false, error: err.message });
-                runExec();
+                if (err) return callback(err);
+                callback(null);
             });
         } else {
-            db.run("SELECT 1", [], () => runExec());
+            callback(null);
         }
+    });
+}
+
+// ================= YÊU CẦU 4: XUẤT FILE PDF & ĐỒNG BỘ CỘT STANDARD_EQUIPMENT =================
+app.post('/api/calibration/export-pdf', (req, res) => {
+    const data = req.body;
+    const cert_no = data.cert_no || data.certNo;
+
+    if (!cert_no) {
+        return res.status(400).json({ success: false, message: "Thiếu số chứng nhận cert_no!" });
+    }
+
+    const scriptPath = path.join(__dirname, 'generate_pdf.js');
+
+    saveCalibrationDataToDB(data, cert_no, (err) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+
+        exec(`node "${scriptPath}" "${cert_no}"`, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Lỗi thực thi generate_pdf.js: ${error.message}`);
+                return res.status(500).json({ success: false, message: "Lỗi hệ thống khi sinh PDF." });
+            }
+
+            const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+            logActivity("Hệ thống / KTV", "EXPORT_PDF", "CERTIFICATES", cert_no, `Xuất PDF: ${fileName}`);
+
+            return res.json({
+                success: true,
+                message: `Đã xuất thành công GCN_${cert_no}.pdf`,
+                file_url: `http://localhost:${process.env.PORT || 18080}/static/${fileName}`
+            });
+        });
+    });
+});
+
+// ================= XUẤT FILE EXCEL (.xlsx) =================
+app.post('/api/calibration/export-excel', (req, res) => {
+    const data = req.body;
+    const cert_no = data.cert_no || data.certNo;
+
+    if (!cert_no) {
+        return res.status(400).json({ success: false, message: "Thiếu số chứng nhận cert_no!" });
+    }
+
+    const scriptPath = path.join(__dirname, 'generate_excel.js');
+
+    saveCalibrationDataToDB(data, cert_no, (err) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+
+        exec(`node "${scriptPath}" "${cert_no}"`, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Lỗi thực thi generate_excel.js: ${error.message}`);
+                return res.status(500).json({ success: false, message: "Lỗi hệ thống khi sinh Excel." });
+            }
+
+            const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.xlsx`;
+            logActivity("Hệ thống / KTV", "EXPORT_EXCEL", "CERTIFICATES", cert_no, `Xuất Excel: ${fileName}`);
+
+            return res.json({
+                success: true,
+                message: `Đã xuất thành công GCN_${cert_no}.xlsx`,
+                file_url: `http://localhost:${process.env.PORT || 18080}/static/${fileName}`
+            });
+        });
+    });
+});
+
+// ================= XUẤT FILE WORD (.docx) =================
+app.post('/api/calibration/export-docx', (req, res) => {
+    const data = req.body;
+    const cert_no = data.cert_no || data.certNo;
+
+    if (!cert_no) {
+        return res.status(400).json({ success: false, message: "Thiếu số chứng nhận cert_no!" });
+    }
+
+    const scriptPath = path.join(__dirname, 'generate_docx.js');
+
+    saveCalibrationDataToDB(data, cert_no, (err) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+
+        exec(`node "${scriptPath}" "${cert_no}"`, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Lỗi thực thi generate_docx.js: ${error.message}`);
+                return res.status(500).json({ success: false, message: "Lỗi hệ thống khi sinh Word." });
+            }
+
+            const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.docx`;
+            logActivity("Hệ thống / KTV", "EXPORT_DOCX", "CERTIFICATES", cert_no, `Xuất Word: ${fileName}`);
+
+            return res.json({
+                success: true,
+                message: `Đã xuất thành công GCN_${cert_no}.docx`,
+                file_url: `http://localhost:${process.env.PORT || 18080}/static/${fileName}`
+            });
+        });
     });
 });
 
