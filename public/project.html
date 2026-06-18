@@ -788,9 +788,40 @@ function viewProjectDetail(id) {
     }
   }
 
-  // Khởi tạo danh sách máy (Mặc định máy 1 lấy thông tin từ dự án)
+  // Khởi tạo danh sách máy — Đưa ra tất cả tên máy từ databasequipment (EQUIPMENT_TEMPLATES)
   resetMachineList();
-  addMachineToProjectList(proj);
+  
+  const allEquipmentNames = Object.keys(MockDatabaseEquipment);
+  if (allEquipmentNames.length > 0) {
+    // Sắp xếp theo tên
+    allEquipmentNames.sort((a, b) => a.localeCompare(b));
+    // Tìm thiết bị phù hợp với dự án (ưu tiên đưa lên đầu)
+    const titleLower = proj.TITLE.toLowerCase();
+    let matchedFirst = null;
+    for (const [kw, tpl] of Object.entries(templateMapping)) {
+      if (titleLower.includes(kw) && allEquipmentNames.includes(tpl)) {
+        matchedFirst = tpl;
+        break;
+      }
+    }
+    
+    // Nếu có thiết bị khớp, đưa lên đầu danh sách
+    const sortedNames = [...allEquipmentNames];
+    if (matchedFirst) {
+      const idx = sortedNames.indexOf(matchedFirst);
+      if (idx > 0) {
+        sortedNames.splice(idx, 1);
+        sortedNames.unshift(matchedFirst);
+      }
+    }
+    
+    sortedNames.forEach((eqName, idx) => {
+      addMachineToProjectList(proj, eqName, idx + 1);
+    });
+  } else {
+    // Fallback: thêm 1 dòng trống nếu chưa có dữ liệu
+    addMachineToProjectList(proj);
+  }
 }
 
 function resetMachineList() {
@@ -798,43 +829,59 @@ function resetMachineList() {
   if (tbody) tbody.innerHTML = '';
 }
 
-function addMachineToProjectList(proj = null) {
+function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum = null) {
     const tbody = document.getElementById('project-items-body');
     if (!tbody) return;
 
-    const rowCount = tbody.querySelectorAll('tr').length + 1;
-    const machineLabel = `Máy ${rowCount}`;
+    const rowCount = forcedRowNum || (tbody.querySelectorAll('tr').length + 1);
+    const machineLabel = equipmentName || `Máy ${rowCount}`;
     
     const currentProj = proj || projectsList.find(p => p.ID === currentProjectId);
     const statusClass = currentProj?.STATUS === 'Finished' ? 'finished' : 'progress';
     const calDate = currentProj?.CREATED_AT ? new Date(currentProj.CREATED_AT).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN');
 
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-        <td style="font-weight:600; color:var(--accent);">${machineLabel}</td>
-        <td>
-            <div class="autocomplete-wrapper">
-                <input type="text" class="lab-input-cell device-search-input" placeholder="Tìm tên thiết bị (YouTube style)..." oninput="handleDeviceSearch(this)" autocomplete="off" style="font-weight:600; min-width:220px;">
-                <div class="autocomplete-suggestions"></div>
-            </div>
-        </td>
-        <td><span class="badge badge-${statusClass}">${currentProj?.STATUS || 'In Progress'}</span></td>
-        <td><input type="text" class="lab-input-cell" placeholder="Nhập người phụ trách..." value="${currentProj?.TECH || ''}" style="min-width:140px;"></td>
-        <td>${calDate}</td>
-        <td>
-            <div style="display:flex; gap:6px; justify-content:center;">
-                <button class="btn btn-teal btn-sm" onclick="openCalibrationForRow(this)" title="Bắt đầu hiệu chuẩn">Calibration</button>
-                <button class="btn btn-secondary btn-sm" onclick="openCalibrationWorkspace(); setTimeout(switchToPreview, 500);" title="Xem bản in">Print</button>
-            </div>
-        </td>
-    `;
-    tbody.appendChild(tr);
-
-    const input = tr.querySelector('.device-search-input');
-    if (currentEquipmentName && MockDatabaseEquipment[currentEquipmentName]) {
-        input.value = currentEquipmentName;
-        tr.dataset.equipmentName = currentEquipmentName;
+    
+    // Nếu có equipmentName, row được pre-fill sẵn, không cần search input
+    if (equipmentName) {
+      const eq = MockDatabaseEquipment[equipmentName] || {};
+      tr.dataset.equipmentName = equipmentName;
+      tr.innerHTML = `
+          <td style="font-weight:600; color:var(--accent);">${rowCount}</td>
+          <td style="font-weight:600;">🔧 ${equipmentName}${eq.manufacturer ? `<br><span style="font-size:12px;color:var(--muted);font-weight:400;">${eq.manufacturer}</span>` : ''}</td>
+          <td><span class="badge badge-${statusClass}">${currentProj?.STATUS || 'In Progress'}</span></td>
+          <td><input type="text" class="lab-input-cell" placeholder="Nhập người phụ trách..." value="${currentProj?.TECH || ''}" style="min-width:140px;"></td>
+          <td>${calDate}</td>
+          <td>
+              <div style="display:flex; gap:6px; justify-content:center;">
+                  <button class="btn btn-teal btn-sm" onclick="openCalibrationForRow(this)" title="Bắt đầu hiệu chuẩn">Calibration</button>
+                  <button class="btn btn-secondary btn-sm" onclick="openCalibrationWorkspace('${equipmentName.replace(/'/g, "\\'")}'); setTimeout(switchToPreview, 500);" title="Xem bản in">Print</button>
+              </div>
+          </td>
+      `;
+    } else {
+      // Dòng trống với search input (fallback / thêm thủ công)
+      tr.innerHTML = `
+          <td style="font-weight:600; color:var(--accent);">${machineLabel}</td>
+          <td>
+              <div class="autocomplete-wrapper">
+                  <input type="text" class="lab-input-cell device-search-input" placeholder="Tìm tên thiết bị (YouTube style)..." oninput="handleDeviceSearch(this)" autocomplete="off" style="font-weight:600; min-width:220px;">
+                  <div class="autocomplete-suggestions"></div>
+              </div>
+          </td>
+          <td><span class="badge badge-${statusClass}">${currentProj?.STATUS || 'In Progress'}</span></td>
+          <td><input type="text" class="lab-input-cell" placeholder="Nhập người phụ trách..." value="${currentProj?.TECH || ''}" style="min-width:140px;"></td>
+          <td>${calDate}</td>
+          <td>
+              <div style="display:flex; gap:6px; justify-content:center;">
+                  <button class="btn btn-teal btn-sm" onclick="openCalibrationForRow(this)" title="Bắt đầu hiệu chuẩn">Calibration</button>
+                  <button class="btn btn-secondary btn-sm" onclick="openCalibrationWorkspace(); setTimeout(switchToPreview, 500);" title="Xem bản in">Print</button>
+              </div>
+          </td>
+      `;
     }
+    
+    tbody.appendChild(tr);
 }
 
 function handleDeviceSearch(input) {
