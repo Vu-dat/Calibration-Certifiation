@@ -399,32 +399,7 @@
         }
     }
 
-    // ===== 3 đồng hồ mặc định cho thông số Nhiệt độ =====
-    const DEFAULT_TEMP_CLOCKS = [
-        { ID: 'DH1', NAME: 'Đồng hồ nhiệt độ DH1', MANUFACTURER: 'Hệ thống', VALIDITY: '' },
-        { ID: 'DH2', NAME: 'Đồng hồ nhiệt độ DH2', MANUFACTURER: 'Hệ thống', VALIDITY: '' },
-        { ID: 'DH3', NAME: 'Đồng hồ nhiệt độ DH3', MANUFACTURER: 'Hệ thống', VALIDITY: '' }
-    ];
-
-    // Kiểm tra tên thông số có phải nhiệt độ không
-    function isTemperatureParam(paramText) {
-        const t = (paramText || '').toLowerCase().normalize('NFC');
-        return t.includes('nhiệt độ') || t.includes('nhiet do') || t.includes('temperature');
-    }
-
-    // Lấy tên thông số từ hàng chứa widget (xét cả rowspan — group-header nằm cùng hàng đầu nhóm)
-    function getParamNameFromRow(inputEl) {
-        const tr = inputEl.closest('tr');
-        if (!tr) return '';
-        // Cùng hàng (hàng đầu nhóm) → group-header có textarea
-        const ta = tr.querySelector('.group-header .param-input');
-        if (ta) return ta.value;
-        // Trường hợp rowspan: group-header ở hàng khác, dùng data-group để tìm
-        const groupName = tr.getAttribute('data-group') || '';
-        if (!groupName) return '';
-        const firstRow = document.querySelector(`tr[data-group="${CSS.escape(groupName)}"] .group-header .param-input`);
-        return firstRow ? firstRow.value : groupName;
-    }
+    // (searchTimeout + AbortController được lưu trên mỗi input element riêng biệt)
 
     // Tạo widget tìm kiếm YouTube-style cho 1 ô "Thiết bị chuẩn"
     function createStdSearchWidget(savedValue = '') {
@@ -432,8 +407,7 @@
         wrapper.className = 'std-search-wrapper';
 
         // Khôi phục label hiển thị từ savedValue
-        const allPossible = [...clockEquipmentList, ...DEFAULT_TEMP_CLOCKS];
-        const saved = allPossible.find(c => (c.ID || '') === savedValue);
+        const saved = clockEquipmentList.find(c => (c.ID || '') === savedValue);
         const displayText = saved ? `${saved.ID} – ${saved.NAME}` : (savedValue || '');
 
         const input = document.createElement('input');
@@ -452,16 +426,44 @@
 
         input.addEventListener('focus', () => {
             input.select();
-            renderDropdown(input, dropdown, '');
-            openDropdown(input, dropdown);
+            if (input.value.trim() && dropdown.querySelectorAll('.std-dropdown-item').length > 0) {
+                openDropdown(input, dropdown);
+            }
         });
 
-        // Gõ → lọc realtime theo thuật toán Youtube
+        // Gõ → search realtime qua API (có debounce 300ms + AbortController)
         input.addEventListener('input', () => {
             input.dataset.selectedId = '';
             input.classList.remove('has-value');
-            renderDropdown(input, dropdown, input.value);
-            openDropdown(input, dropdown);
+            
+            // Clear debounce timeout cũ (lưu trên chính input element để không xung đột giữa các widget)
+            if (input._searchTimeout) clearTimeout(input._searchTimeout);
+            
+            const q = input.value.trim();
+            if (!q) {
+                closeDropdown(dropdown);
+                return;
+            }
+            
+            input._searchTimeout = setTimeout(async () => {
+                // Hủy request trước đó nếu còn đang chạy (mỗi widget có AbortController riêng)
+                if (input._lastSearchAbort) {
+                    input._lastSearchAbort.abort();
+                }
+                const abortController = new AbortController();
+                input._lastSearchAbort = abortController;
+                
+                try {
+                    await renderDropdown(input, dropdown, q, abortController.signal);
+                    if (!abortController.signal.aborted) {
+                        openDropdown(input, dropdown);
+                    }
+                } catch (e) {
+                    if (e.name !== 'AbortError') {
+                        console.error('Search error:', e);
+                    }
+                }
+            }, 300);
         });
 
         // Phím điều hướng: ↑ ↓ Enter Esc
@@ -496,92 +498,67 @@
         return wrapper;
     }
 
-    // ── Render nội dung dropdown dựa trên thuật toán tìm kiếm Youtube ──
-    function renderDropdown(input, dropdown, query) {
-        const q = (query || '').toLowerCase().trim();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        // Xác định thông số của hàng hiện tại
-        const paramName = getParamNameFromRow(input);
-        const isTemp    = isTemperatureParam(paramName);
-
-        // Nguồn dữ liệu: DH1/DH2/DH3 cho Nhiệt độ, ngược lại là toàn bộ CLOCK từ SQL
-        const source = isTemp ? DEFAULT_TEMP_CLOCKS : clockEquipmentList;
+    // ── Render nội dung dropdown dùng API search server-side (giống project.html) ──
+    async function renderDropdown(input, dropdown, query, signal) {
+        const q = (query || '').trim();
+        dropdown.innerHTML = '<div class="std-dropdown-empty" style="padding:10px;text-align:center;color:#a0aec0;">⏳ Đang tìm...</div>';
+        dropdown.classList.add('open');
         
-        let pool = [];
         if (!q) {
-            // Nếu không có từ khóa, hiển thị tất cả (giới hạn 10 kết quả)
-            pool = source;
-        } else {
-            // Thuật toán Youtube-style: Sắp xếp theo độ liên quan
-            // Exact match (0) > StartsWith (10) > Contains (20) > Manufacturer (30)
-            pool = source
-                .map(item => {
-                    const code = (item.ID || '').toLowerCase();
-                    const name = (item.NAME || '').toLowerCase();
-                    const manu = (item.MANUFACTURER || '').toLowerCase();
-                    
-                    let score = 100;
-                    if (code === q || name === q) {
-                        score = 0; // Exact match - ưu tiên cao nhất
-                    } else if (code.startsWith(q) || name.startsWith(q)) {
-                        score = 10; // Bắt đầu với từ khóa
-                    } else if (code.includes(q) || name.includes(q)) {
-                        score = 20; // Chứa từ khóa
-                    } else if (manu.includes(q)) {
-                        score = 30; // Tìm theo hãng sản xuất
-                    }
-                    
-                    return { item, score };
-                })
-                .filter(x => x.score < 100) // Chỉ lấy kết quả có liên quan
-                .sort((a, b) => a.score - b.score || (a.item.ID || '').localeCompare(b.item.ID || ''))
-                .map(x => x.item);
-        }
-
-        dropdown.innerHTML = '';
-
-        if (pool.length === 0) {
-            dropdown.innerHTML = `<div class="std-dropdown-empty">❌ Không tìm thấy thiết bị chuẩn</div>`;
+            dropdown.innerHTML = '<div class="std-dropdown-empty">🔍 Gõ từ khóa để tìm thiết bị chuẩn</div>';
             return;
         }
 
-        pool.slice(0, 10).forEach((item, idx) => {
-            const div = document.createElement('div');
-            div.className = 'std-dropdown-item' + (idx === 0 ? ' active' : '');
+        try {
+            const response = await fetch(`${TARGET_URL}/api/clock/search?q=${encodeURIComponent(q)}`, { signal });
+            if (!response.ok) throw new Error('Lỗi kết nối API search');
+            const data = await response.json();
             
-            // Kiểm tra trạng thái hết hạn hiệu chuẩn
-            let isExpired = false;
-            if (item.VALIDITY && item.VALIDITY !== '1900-12-31' && item.VALIDITY !== '---') {
-                const valDate = new Date(item.VALIDITY);
-                if (!isNaN(valDate) && valDate < today) {
-                    isExpired = true;
-                }
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            dropdown.innerHTML = '';
+
+            const pool = Array.isArray(data) ? data : [];
+
+            if (pool.length === 0) {
+                dropdown.innerHTML = `<div class="std-dropdown-empty">❌ Không tìm thấy thiết bị chuẩn</div>`;
+                return;
             }
-            
-            const due = item.VALIDITY || '---';
-            const warningHtml = isExpired ? `<span style="color:#e53e3e; font-weight:800; margin-left:8px; font-size:11px;">⚠️ HẾT HẠN</span>` : '';
-            
-            div.innerHTML = `🏷️ <strong>${item.ID}</strong> – ${item.NAME} ${warningHtml}
-                             <span style="margin-left:auto;color:${isExpired ? '#e53e3e' : 'var(--muted)'};font-size:11px;font-weight:${isExpired ? '700' : '400'};">Hạn: ${due}</span>`;
-            
-            div.addEventListener('click', () => {
-                input.value = `${item.ID} – ${item.NAME}`;
-                input.dataset.selectedId = item.ID;
-                input.classList.add('has-value');
-                closeDropdown(dropdown);
 
-                // Tự điền ngày hạn nếu có ô .cal-date-input cùng hàng
-                const row = input.closest('tr');
-                if (row && item.VALIDITY) {
-                    const dateInput = row.querySelector('.cal-date-input');
-                    if (dateInput) dateInput.value = item.VALIDITY;
+            pool.slice(0, 10).forEach((item, idx) => {
+                const div = document.createElement('div');
+                div.className = 'std-dropdown-item' + (idx === 0 ? ' active' : '');
+                
+                // Kiểm tra trạng thái hết hạn
+                let isExpired = false;
+                if (item.VALIDITY && item.VALIDITY !== '1900-12-31' && item.VALIDITY !== '---') {
+                    const valDate = new Date(item.VALIDITY);
+                    if (!isNaN(valDate) && valDate < today) {
+                        isExpired = true;
+                    }
                 }
-            });
+                
+                const due = item.VALIDITY || '---';
+                const warningHtml = isExpired ? `<span style="color:#e53e3e; font-weight:800; margin-left:8px; font-size:11px;">⚠️ HẾT HẠN</span>` : '';
+                
+                div.innerHTML = `🏷️ <strong>${item.ID || item.EQUIPMENT_ID || ''}</strong> – ${item.NAME || ''} ${warningHtml}
+                                 <span style="margin-left:auto;color:${isExpired ? '#e53e3e' : 'var(--muted)'};font-size:11px;font-weight:${isExpired ? '700' : '400'};">Hạn: ${due}</span>`;
+                
+                div.addEventListener('click', () => {
+                    const selectedId = item.ID || item.EQUIPMENT_ID || '';
+                    input.value = `${selectedId} – ${item.NAME || ''}`;
+                    input.dataset.selectedId = selectedId;
+                    input.classList.add('has-value');
+                    closeDropdown(dropdown);
+                });
 
-            dropdown.appendChild(div);
-        });
+                dropdown.appendChild(div);
+            });
+        } catch (error) {
+            console.error('Lỗi search thiết bị chuẩn:', error);
+            dropdown.innerHTML = '<div class="std-dropdown-empty">❌ Lỗi kết nối máy chủ</div>';
+        }
     }
 
     function openDropdown(input, dropdown) {

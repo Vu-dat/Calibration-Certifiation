@@ -378,32 +378,7 @@
         </div>
       </div>
 
-      <!-- CARD 5: THIẾT BỊ CHUẨN SỬ DỤNG -->
-      <div class="form-card">
-        <div class="form-card-title"><span>5</span> Thiết bị chuẩn sử dụng (Standards Used)</div>
-        <div class="field">
-          <label>Tìm & thêm thiết bị chuẩn (gõ mã LAB- hoặc tên)</label>
-          <div class="autocomplete-wrapper">
-            <input type="text" id="input-standard-search" oninput="handleStandardSearch(this.value)" placeholder="Ví dụ: LAB-THER hoặc Thermo…" autocomplete="off">
-            <div id="standard-loader" class="loader-inline"></div>
-            <div id="standard-suggestions" class="autocomplete-suggestions"></div>
-          </div>
-        </div>
-        <div class="standards-selected-panel" id="selected-standards-wrapper">
-          <table class="selected-std-table">
-            <thead>
-              <tr>
-                <th>Tên thiết bị chuẩn</th>
-                <th>Mã (ID)</th>
-                <th>Liên kết hiệu chuẩn / GCN</th>
-                <th>Hiệu lực đến</th>
-                <th style="text-align:center;">Xóa</th>
-              </tr>
-            </thead>
-            <tbody id="std-form-body"></tbody>
-          </table>
-        </div>
-      </div>
+      
 
       <!-- CARD 6: MÔI TRƯỜNG -->
       <div class="form-card">
@@ -1479,16 +1454,7 @@ function buildPrintTemplate() {
       </tr>
     </table>
 
-    <div class="cert-section-title">13. Chuẩn sử dụng / Standards Used:</div>
-    <table class="cert-std-table">
-      <thead><tr>
-        <th>Tên thiết bị chuẩn<br><span style="font-weight:normal;font-style:italic;">Standard Name</span></th>
-        <th style="width:20%">ID</th>
-        <th style="width:20%">Liên kết chuẩn<br><span style="font-weight:normal;font-style:italic;">Traceable to</span></th>
-        <th style="width:20%">Hiệu lực<br><span style="font-weight:normal;font-style:italic;">Due date</span></th>
-      </tr></thead>
-      <tbody>${stdRows}</tbody>
-    </table>
+    
 
     <table class="cert-info-table">
       <tr>
