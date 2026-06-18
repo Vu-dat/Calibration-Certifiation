@@ -122,6 +122,56 @@
             border-radius: 4px;
         }
 }
+  /* CSS cho hộp tìm kiếm thông minh dạng Fixed tránh lỗi bị hide do overflow */
+    .search-container {
+        position: relative;
+        display: block;
+        width: 100%;
+    }
+    .inline-search-input {
+        width: 100%;
+        padding: 8px 12px;
+        box-sizing: border-box;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 14px;
+        outline: none;
+    }
+    .inline-search-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+    .dropdown-results-fixed {
+        position: fixed; /* Bắt buộc sử dụng fixed để thoát khỏi layout bị overflow hide */
+        background: #ffffff;
+        border: 1px solid #cbd5e0;
+        border-radius: 6px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 999999; /* Luôn luôn nổi lên trên cùng màn hình */
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        text-align: left;
+        display: none;
+    }
+    .dropdown-results-fixed li {
+        padding: 10px 14px;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1.4;
+        border-bottom: 1px solid #edf2f7;
+        color: #334155;
+    }
+    .dropdown-results-fixed li:hover {
+        background-color: #f1f5f9;
+        color: var(--primary);
+        font-weight: bold;
+    }
+    .dropdown-results-fixed li:last-child {
+        border-bottom: none;
+    }
     </style>
 </head>
 <body>
@@ -1372,7 +1422,7 @@ function buildPrintTemplate() {
   const allStd = collectAllStandards();
   const allRes = collectCalibrationResults();
   const stdRows = allStd.map(s=>`<tr><td>${s.name}</td><td style="text-align:center">${s.id}</td><td style="text-align:center">${s.trace}</td><td style="text-align:center">${s.due}</td></tr>`).join('');
-  const resRows = allRes.map(r=>`<tr><td class="tdl">${r.param}</td><td>${r.point}</td><td>${r.found}</td><td>${r.unc}</td><td>${r.tol}</td><td>${r.conf}</td></tr>`).join('');
+  const resRows = allRes.map(r=>`<tr><td class="tdl">${r.param}</td><td>${r.point}</td><td>${r.found}</td><td>${r.unc}</td><td>${r.tol}</td><td>${r.conf}</td><td style="font-size:9pt;">${r.refEq || ''}</td></tr>`).join('');
 
   document.getElementById('print-content').innerHTML = `
     <div class="cert-header">
@@ -1476,6 +1526,7 @@ function buildPrintTemplate() {
           <th>Độ KĐBĐ (±)<br><span style="font-weight:normal;font-style:italic;">Uncertainty</span></th>
           <th>Dung sai<br><span style="font-weight:normal;font-style:italic;">Tolerance</span></th>
           <th>Sự phù hợp<br><span style="font-weight:normal;font-style:italic;">Conformity</span></th>
+          <th>Thiết bị chuẩn<br><span style="font-weight:normal;font-style:italic;">Ref. Equipment</span></th>
         </tr></thead>
         <tbody>${resRows}</tbody>
       </table>
