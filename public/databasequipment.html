@@ -180,15 +180,14 @@
         <div class="search-container" style="margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #edf2f7; display: flex; align-items: center; gap: 12px;">
             <div style="font-size: 1.2rem;">🔍</div>
             <input type="text" id="template-search-input" class="lab-input" placeholder="Tìm nhanh theo tên thiết bị, mã mẫu hoặc hãng sản xuất..." oninput="filterTemplates()" style="flex: 1; border: none; background: transparent; outline: none; font-size: 0.95rem;">
-        </div>
-
-        <table class="detail-table">
+        </div>                        <table class="detail-table">
             <thead>
                 <tr>
                     <th>Code</th>
                     <th>Name</th>
                     <th>Manufacturer</th>
                     <th>Next Due</th>
+                    <th style="width: 80px;">Actions</th>
                 </tr>
             </thead>
             <tbody id="eq-body">
@@ -439,7 +438,7 @@
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.placeholder = 'Tìm thiết bị chuẩn...';
+        input.placeholder = 'Nhập thiết bị chuẩn...';
         input.className = 'std-search-input' + (savedValue ? ' has-value' : '');
         input.value = displayText;
         input.dataset.selectedId = savedValue;
@@ -457,7 +456,7 @@
             openDropdown(input, dropdown);
         });
 
-        // Gõ → lọc realtime
+        // Gõ → lọc realtime theo thuật toán Youtube
         input.addEventListener('input', () => {
             input.dataset.selectedId = '';
             input.classList.remove('has-value');
@@ -487,54 +486,36 @@
             }
         });
 
-        // ── Đồng bộ với param-input: khi người dùng sửa tên thông số,
-        //    dropdown của cùng hàng tự cập nhật lại phân loại ──
-        // (gắn sau khi wrapper đã vào DOM)
-        requestAnimationFrame(() => {
-            const tr = wrapper.closest('tr');
-            if (!tr) return;
-            const groupName = tr.getAttribute('data-group') || '';
-            // Lắng nghe textarea của cùng nhóm
-            const syncHandler = () => {
-                if (activeDropdown === dropdown) {
-                    renderDropdown(input, dropdown, input.dataset.selectedId ? '' : input.value);
-                }
-            };
-            // Tìm textarea cùng nhóm
-            const findAndBind = () => {
-                const taEl = groupName
-                    ? document.querySelector(`tr[data-group="${CSS.escape(groupName)}"] .param-input`)
-                    : tr.querySelector('.param-input');
-                if (taEl && !taEl._stdSyncBound) {
-                    taEl.addEventListener('input', syncHandler);
-                    taEl._stdSyncBound = true;
-                }
-            };
-            findAndBind();
-            // Retry nếu textarea chưa render kịp
-            setTimeout(findAndBind, 100);
+        // ── Đóng dropdown khi click ra ngoài ──
+        document.addEventListener('click', (e) => {
+            if (!wrapper.contains(e.target) && dropdown.classList.contains('open')) {
+                closeDropdown(dropdown);
+            }
         });
 
         return wrapper;
     }
 
-    // ── Render nội dung dropdown dựa trên thông số hàng + từ khoá tìm kiếm ──
+    // ── Render nội dung dropdown dựa trên thuật toán tìm kiếm Youtube ──
     function renderDropdown(input, dropdown, query) {
         const q = (query || '').toLowerCase().trim();
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Đưa về đầu ngày để so sánh chính xác
+        today.setHours(0, 0, 0, 0);
 
         // Xác định thông số của hàng hiện tại
         const paramName = getParamNameFromRow(input);
         const isTemp    = isTemperatureParam(paramName);
 
-        // Nguồn dữ liệu: DH1/DH2/DH3 cho Nhiệt độ, ngược lại là toàn bộ TBC từ SQL
+        // Nguồn dữ liệu: DH1/DH2/DH3 cho Nhiệt độ, ngược lại là toàn bộ CLOCK từ SQL
         const source = isTemp ? DEFAULT_TEMP_CLOCKS : clockEquipmentList;
         
         let pool = [];
         if (!q) {
+            // Nếu không có từ khóa, hiển thị tất cả (giới hạn 10 kết quả)
             pool = source;
         } else {
+            // Thuật toán Youtube-style: Sắp xếp theo độ liên quan
+            // Exact match (0) > StartsWith (10) > Contains (20) > Manufacturer (30)
             pool = source
                 .map(item => {
                     const code = (item.ID || '').toLowerCase();
@@ -542,14 +523,19 @@
                     const manu = (item.MANUFACTURER || '').toLowerCase();
                     
                     let score = 100;
-                    if (code === q || name === q) score = 0;
-                    else if (code.startsWith(q) || name.startsWith(q)) score = 10;
-                    else if (code.includes(q) || name.includes(q)) score = 20;
-                    else if (manu.includes(q)) score = 30;
+                    if (code === q || name === q) {
+                        score = 0; // Exact match - ưu tiên cao nhất
+                    } else if (code.startsWith(q) || name.startsWith(q)) {
+                        score = 10; // Bắt đầu với từ khóa
+                    } else if (code.includes(q) || name.includes(q)) {
+                        score = 20; // Chứa từ khóa
+                    } else if (manu.includes(q)) {
+                        score = 30; // Tìm theo hãng sản xuất
+                    }
                     
                     return { item, score };
                 })
-                .filter(x => x.score < 100)
+                .filter(x => x.score < 100) // Chỉ lấy kết quả có liên quan
                 .sort((a, b) => a.score - b.score || (a.item.ID || '').localeCompare(b.item.ID || ''))
                 .map(x => x.item);
         }
@@ -633,7 +619,9 @@
     // Đọc giá trị đã chọn từ widget (thay thế select.value)
     function getStdSearchValue(cell) {
         const input = cell.querySelector('.std-search-input');
-        return input ? (input.dataset.selectedId || '') : '';
+        if (!input) return '';
+        // Ưu tiên selectedId (đã chọn từ dropdown), fallback về input.value (gõ tay)
+        return input.dataset.selectedId || input.value.trim();
     }
 
     // Tương thích ngược: hàm cũ updateStandardEqOptions không còn dùng nữa
@@ -700,7 +688,7 @@
         if (statEl && isFromAPI) statEl.textContent = String(equipments ? equipments.length : 0).padStart(2, '0');
 
         if (!equipments || equipments.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888; padding: 15px;">Chưa có mẫu thiết bị nào trong Database</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 15px;">Chưa có mẫu thiết bị nào trong Database</td></tr>`;
             return;
         }
 
@@ -720,6 +708,15 @@
                 <td><strong>${eqName}</strong></td>
                 <td>${eqManu}</td>
                 <td><span class="badge" style="background: #edf2f7; color: #2d3748; padding: 4px 8px; border-radius: 4px;">${eqDue || '-'}</span></td>
+                <td style="text-align: center;">
+                    <button onclick="event.stopPropagation(); deleteEquipmentTemplate(${index})"
+                        style="background: #fff5f5; color: #e53e3e; border: 1px solid #fed7d7; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s;"
+                        onmouseover="this.style.background='#fed7d7'; this.style.borderColor='#fc8181';"
+                        onmouseout="this.style.background='#fff5f5'; this.style.borderColor='#fed7d7';"
+                        title="Xóa mẫu thiết bị này">
+                        🗑️ Xóa
+                    </button>
+                </td>
             `;
             tbody.appendChild(tr);
         });
@@ -921,12 +918,16 @@
 
         const manufacturer = document.getElementById('in-nsx') ? document.getElementById('in-nsx').value : '';
         const nextDue = document.getElementById('in-due') ? document.getElementById('in-due').value : '';
+        const procedure = document.getElementById('in-procedure') ? document.getElementById('in-procedure').value : '';
+        const refStandard = document.getElementById('in-ref-standard') ? document.getElementById('in-ref-standard').value : '';
 
         const payload = {
             equipment_id: currentEquipmentId || name,
             standard_name: name,
             manufacturer: manufacturer,
             due_date: nextDue,
+            procedure: procedure,
+            ref_standard: refStandard,
             points: points
         };
 
@@ -969,6 +970,43 @@
             alert('Mất kết nối API Server. Dữ liệu đã được lưu tạm vào LocalStorage!');
             fetchEquipmentTemplates();
             showView('list-view');
+        }
+    }
+
+    // Xóa mẫu thiết bị khỏi Database (gọi API DELETE)
+    async function deleteEquipmentTemplate(index) {
+        const eq = fetchedEquipments[index];
+        if (!eq) {
+            alert('Không thể xác định thiết bị cần xóa!');
+            return;
+        }
+        
+        const templateName = eq.NAME || eq.standard_name || '';
+        const displayName = eq.NAME || eq.standard_name || eq.EQUIPMENT_ID || 'Không rõ';
+        
+        if (!templateName) {
+            alert('Thiết bị này không có tên hợp lệ để xóa!');
+            return;
+        }
+        
+        if (!confirm(`Bạn có chắc chắn muốn xóa mẫu thiết bị "${displayName}" và toàn bộ cấu hình điểm chuẩn của nó?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${TARGET_URL}/api/equipment-templates/${encodeURIComponent(templateName)}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const result = await response.json();
+            if (!result.success) throw new Error(result.message || 'Lỗi không xác định từ Server');
+
+            alert(`✅ Đã xóa mẫu thiết bị "${displayName}" thành công!`);
+            await fetchEquipmentTemplates();
+        } catch (error) {
+            console.error("Lỗi khi xóa mẫu thiết bị:", error);
+            alert(`❌ Không thể xóa mẫu thiết bị: ${error.message}`);
         }
     }
 

@@ -254,6 +254,8 @@ db.serialize(() => {
 
     // Migration an toàn: thêm cột mới cho DB cũ đã tồn tại từ trước (bỏ qua lỗi nếu cột đã có)
     db.run(`ALTER TABLE EQUIPMENT_TEMPLATES ADD COLUMN EQUIPMENT_ID TEXT`, () => {});
+    db.run(`ALTER TABLE EQUIPMENT_TEMPLATES ADD COLUMN PROCEDURE TEXT`, () => {});
+    db.run(`ALTER TABLE EQUIPMENT_TEMPLATES ADD COLUMN REF_STANDARD TEXT`, () => {});
     db.run(`ALTER TABLE TEMPLATE_POINTS ADD COLUMN AS_FOUND_VALUE TEXT`, () => {});
     db.run(`ALTER TABLE TEMPLATE_POINTS ADD COLUMN STANDARD_EQUIPMENT TEXT`, () => {});
     db.run(`ALTER TABLE CALIBRATION_POINTS ADD COLUMN REF_EQUIPMENT TEXT`, () => {});
@@ -610,7 +612,7 @@ app.get('/api/equipment', (req, res) => {
 
 app.post('/api/equipment', (req, res) => {
     try {
-        const { equipment_id, standard_name, manufacturer, due_date, points } = req.body;
+        const { equipment_id, standard_name, manufacturer, due_date, procedure, ref_standard, points } = req.body;
 
         if (!equipment_id || !standard_name) {
             return res.status(400).json({ success: false, message: "Thiếu mã nhận diện hoặc tên thiết bị chuẩn!" });
@@ -620,11 +622,11 @@ app.post('/api/equipment', (req, res) => {
         db.serialize(() => {
             // Upsert vào EQUIPMENT_TEMPLATES
             const stmtTemplate = db.prepare(`
-                INSERT OR REPLACE INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID)
-                VALUES (?, ?, ?, ?)
+                INSERT OR REPLACE INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID, PROCEDURE, REF_STANDARD)
+                VALUES (?, ?, ?, ?, ?, ?)
             `);
 
-            stmtTemplate.run([standard_name, manufacturer || '', due_date || '', equipment_id], function(err) {
+            stmtTemplate.run([standard_name, manufacturer || '', due_date || '', equipment_id, procedure || '', ref_standard || ''], function(err) {
                 if (err) {
                     console.error("❌ Lỗi lưu EQUIPMENT_TEMPLATES:", err.message);
                     return res.status(500).json({ success: false, message: "Lỗi ghi dữ liệu: " + err.message });
