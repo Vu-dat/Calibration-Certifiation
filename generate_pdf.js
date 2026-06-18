@@ -79,6 +79,13 @@ function dbAll(sql, params) {
 const FONT_REGULAR = 'ArialCustom';
 const FONT_BOLD    = 'ArialCustom-Bold';
 
+// Format ngày tháng từ YYYY-MM-DD sang DD.MM.YYYY (giống preview)
+function parseDate(d) {
+    if (!d) return '';
+    const p = d.split('-');
+    return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : d;
+}
+
 function setFont(doc, bold = false) {
     if (bold && FINAL_FONT_BOLD_PATH) {
         try { doc.font(FONT_BOLD); } catch (e) { doc.font('Helvetica-Bold'); }
@@ -144,12 +151,12 @@ async function main() {
 
         // Số GCN + Ngày tháng dưới tiêu đề
         doc.fontSize(9).fillColor(C.MUTED)
-           .text(`Số / No.: ${cert.CERT_NO || certNo}   ·   Ngày HC / Cal. Date: ${cert.CAL_DATE || ''}   ·   HC kế tiếp / Re-cal: ${cert.RE_CAL_DATE || ''}`,
+           .text(`Số / No.: ${cert.CERT_NO || certNo}   ·   Ngày HC / Cal. Date: ${parseDate(cert.CAL_DATE || '')}   ·   HC kế tiếp / Re-cal: ${parseDate(cert.RE_CAL_DATE || '')}`,
                  { align: 'center' });
         doc.moveDown(1.2);
 
         // ─────────────────────── THÔNG TIN THIẾT BỊ & KH ───────────────────────
-        const renderRow = (label, engLabel, val, startX = 45, labelW = 170, valX = 215, valW = 335) => {
+        const renderRow = (label, engLabel, val, startX = 45, labelW = 105, valX = 155, valW = 395) => {
             const y = doc.y;
             setFont(doc, true);
             doc.fontSize(10).fillColor(C.BODY).text(label, startX, y, { width: labelW });
@@ -172,15 +179,15 @@ async function main() {
 
         // ─────────────────────── BẢNG THIẾT BỊ CHUẨN SỬ DỤNG ───────────────────────
         setFont(doc, true);
-        doc.fontSize(11).fillColor(C.PRIMARY).text('CHUẨN SỬ DỤNG / STANDARDS USED:', { align: 'center' });
+        doc.fontSize(11).fillColor(C.PRIMARY).text('13. CHUẨN SỬ DỤNG / STANDARDS USED:', { align: 'center' });
         doc.moveDown(0.4);
 
-        const sx   = 60; // Căn lề trái 60 để bảng nằm giữa trang A4 (595pt)
-        const sW   = [170, 80, 135, 90];   // cột: Tên, Mã, Liên kết, Hiệu lực
-        const sX   = [sx, sx+170, sx+250, sx+385]; 
+        const sx   = 45; // Căn trái cùng với các section khác (45pt = lề trái)
+        const sW   = [195, 80, 135, 80];   // cột: Tên, Mã, Liên kết, Hiệu lực (tổng = 490)
+        const sX   = [sx, sx+195, sx+275, sx+410]; 
         const sRowH = 22;
         let   sY   = doc.y;
-        const sTotalW = sW.reduce((a,b)=>a+b, 0);  // 475
+        const sTotalW = sW.reduce((a,b)=>a+b, 0);  // 490
 
         // Header bảng chuẩn
         doc.rect(sx, sY, sTotalW, sRowH).fill(C.PRIMARY_LIGHT);
@@ -215,16 +222,14 @@ async function main() {
 
         // ─────────────────────── BẢNG KẾT QUẢ HIỆU CHUẨN ───────────────────────
         setFont(doc, true);
-        doc.fontSize(11).fillColor(C.PRIMARY).text('KẾT QUẢ HIỆU CHUẨN / CALIBRATION RESULTS:', { align: 'center' });
+        doc.fontSize(11).fillColor(C.PRIMARY).text('16. KẾT QUẢ HIỆU CHUẨN / CALIBRATION RESULTS:', { align: 'center' });
         doc.moveDown(0.4);
 
         // Tổng chiều rộng khả dụng: A4 = 595pt, lề trái 45, lề phải 45 → 505pt
-        // 7 cột: Thông số | Điểm HC | Đo lần1 | Đo lần2 | Đo lần3 | KĐBĐ | Dung sai | Phù hợp | Chuẩn sử dụng
-        // Giảm xuống 6 cột gộp (As Found = lần1/2/3 gộp) + cột Ref.Std → tổng 505
+        // 7 cột: giống hệt preview: Thông số | Điểm HC | Giá trị đo được (gộp) | KĐBĐ | Dung sai | Phù hợp | Thiết bị chuẩn
         const rx   = 45;
-        const PAGE_W = 505; // 595 - 45*2
-        //  Thông số | Điểm | As Found (3 cols) | KĐBĐ | Dung sai | Phù hợp | Chuẩn
-        const rW   = [110, 48, 45, 45, 45, 42, 42, 42, 86]; // 9 cột, tổng = 505
+        const PAGE_W = 505;
+        const rW   = [150, 55, 80, 50, 50, 50, 70]; // 7 cột, tổng = 505
         const rX   = rW.reduce((acc, w, i) => {
             acc.push(i === 0 ? rx : acc[i-1] + rW[i-1]);
             return acc;
@@ -235,28 +240,23 @@ async function main() {
         // Header bảng kết quả
         doc.rect(rx, rY, PAGE_W, rRowH).fill(C.PRIMARY_LIGHT);
         doc.lineWidth(0.5).strokeColor(C.BORDER);
-
-        // Vẽ đường viền header
         doc.moveTo(rx, rY).lineTo(rx + PAGE_W, rY).stroke();
 
         setFont(doc, true);
         doc.fontSize(7.5).fillColor(C.PRIMARY);
-        doc.text('Thông số\nParameter',        rX[0]+3, rY+3, { width: rW[0]-3, align: 'left' });
-        doc.text('Điểm HC\nCal.Pt',            rX[1],   rY+3, { width: rW[1], align: 'center' });
-        doc.text('Đo lần 1\nAs Found 1',        rX[2],   rY+3, { width: rW[2], align: 'center' });
-        doc.text('Đo lần 2\nAs Found 2',        rX[3],   rY+3, { width: rW[3], align: 'center' });
-        doc.text('Đo lần 3\nAs Found 3',        rX[4],   rY+3, { width: rW[4], align: 'center' });
-        doc.text('KĐBĐ ±\nUncert.',             rX[5],   rY+3, { width: rW[5], align: 'center' });
-        doc.text('Dung sai\nToleran.',           rX[6],   rY+3, { width: rW[6], align: 'center' });
-        doc.text('Phù hợp\nConform.',            rX[7],   rY+3, { width: rW[7], align: 'center' });
-        doc.text('Chuẩn sử dụng\nRef. Std',     rX[8],   rY+3, { width: rW[8], align: 'center' });
+        doc.text('Thông số (Parameters)',       rX[0]+3, rY+3, { width: rW[0]-3, align: 'left' });
+        doc.text('Điểm HC\nCalibration Points',    rX[1],   rY+3, { width: rW[1], align: 'center' });
+        doc.text('Giá trị đo được\nAs Found Value', rX[2],   rY+3, { width: rW[2], align: 'center' });
+        doc.text('Độ KĐBĐ (±)\nUncertainty',       rX[3],   rY+3, { width: rW[3], align: 'center' });
+        doc.text('Dung sai\nTolerance',            rX[4],   rY+3, { width: rW[4], align: 'center' });
+        doc.text('Sự phù hợp\nConformity',         rX[5],   rY+3, { width: rW[5], align: 'center' });
+        doc.text('Thiết bị chuẩn\nRef. Equipment', rX[6],   rY+3, { width: rW[6], align: 'center' });
 
         // Vẽ đường kẻ dọc phân cách cột header
         rX.forEach((x, i) => {
             doc.moveTo(x, rY).lineTo(x, rY + rRowH).stroke();
         });
         doc.moveTo(rx + PAGE_W, rY).lineTo(rx + PAGE_W, rY + rRowH).stroke();
-
         doc.moveTo(rx, rY + rRowH).lineTo(rx + PAGE_W, rY + rRowH).stroke();
         rY += rRowH;
 
@@ -282,21 +282,18 @@ async function main() {
 
             for (const group of grouped) {
                 const rowCount = group.rows.length;
-                const paramRowH = rRowH * rowCount; // tổng chiều cao nhóm
+                const paramRowH = rRowH * rowCount;
 
-                // Kiểm tra ngắt trang — giữ nguyên nhóm nếu đủ chỗ, còn không thì sang trang mới
+                // Kiểm tra ngắt trang
                 if (rY + paramRowH > 750) {
                     doc.addPage();
                     rY = 45;
-                    // Vẽ lại đường kẻ ngang đầu trang
                     doc.lineWidth(0.5).strokeColor(C.BORDER);
                     doc.moveTo(rx, rY).lineTo(rx + PAGE_W, rY).stroke();
                 }
 
                 group.rows.forEach((p, idx) => {
-                    const rowTop = rY;
-
-                    // Cột Thông số — chỉ in ở hàng đầu của nhóm, chiếm toàn bộ chiều cao nhóm
+                    // Cột Thông số — chỉ in ở hàng đầu của nhóm
                     if (idx === 0) {
                         setFont(doc, true);
                         doc.fontSize(8.5).fillColor(C.BODY)
@@ -305,7 +302,7 @@ async function main() {
                         doc.fontSize(8.5).fillColor(C.BODY);
                     }
 
-                    // Các cột dữ liệu
+                    // Các cột dữ liệu — giống preview: gộp 3 lần đo thành 1 cột "As Found Value"
                     const calPt   = String(p.CAL_POINT       || p.cal_point       || '–');
                     const asFound = String(p.AS_FOUND_VALUE  || p.as_found_value  || '–');
                     const unc     = String(p.UNCERTAINTY     || p.uncertainty     || '–');
@@ -313,24 +310,15 @@ async function main() {
                     const conf    = String(p.CONFORMITY      || p.conformity      || '–');
                     const refEq   = String(p.REF_EQUIPMENT   || p.ref_equipment   || '–');
 
-                    // Tách asFound thành 3 lần đo (phân cách " / ")
-                    const afParts = asFound.split(' / ');
-                    const af1 = afParts[0] || '–';
-                    const af2 = afParts[1] || '–';
-                    const af3 = afParts[2] || '–';
-
                     doc.text(calPt, rX[1],   rY+7, { width: rW[1], align: 'center' });
-                    doc.text(af1,   rX[2],   rY+7, { width: rW[2], align: 'center' });
-                    doc.text(af2,   rX[3],   rY+7, { width: rW[3], align: 'center' });
-                    doc.text(af3,   rX[4],   rY+7, { width: rW[4], align: 'center' });
-                    doc.text(unc,   rX[5],   rY+7, { width: rW[5], align: 'center' });
-                    doc.text(tol,   rX[6],   rY+7, { width: rW[6], align: 'center' });
-                    doc.text(conf,  rX[7],   rY+7, { width: rW[7], align: 'center' });
-                    doc.text(refEq, rX[8],   rY+7, { width: rW[8]-4, align: 'center' });
+                    doc.text(asFound, rX[2], rY+7, { width: rW[2], align: 'center' });
+                    doc.text(unc,   rX[3],   rY+7, { width: rW[3], align: 'center' });
+                    doc.text(tol,   rX[4],   rY+7, { width: rW[4], align: 'center' });
+                    doc.text(conf,  rX[5],   rY+7, { width: rW[5], align: 'center' });
+                    doc.text(refEq, rX[6],   rY+7, { width: rW[6]-4, align: 'center' });
 
                     // Đường kẻ ngang dưới mỗi hàng con
                     doc.moveTo(rx, rY + rRowH).lineTo(rx + PAGE_W, rY + rRowH).stroke();
-
                     rY += rRowH;
                 });
 
@@ -342,6 +330,36 @@ async function main() {
                 doc.moveTo(rx + PAGE_W, groupTop).lineTo(rx + PAGE_W, rY).stroke();
             }
         }
+
+        // ─────────────────────── SECTION 17: THÔNG TIN KHÁC ───────────────────────
+        doc.moveDown(1.5);
+        let otherY = doc.y;
+        if (otherY > 680) { doc.addPage(); otherY = 45; }
+
+        setFont(doc, true);
+        doc.fontSize(11).fillColor(C.PRIMARY).text('17. THÔNG TIN KHÁC / OTHER INFORMATION:', { align: 'center' });
+        doc.moveDown(0.8);
+
+        setFont(doc, true);
+        doc.fontSize(9).fillColor(C.BODY);
+        doc.text('17.1 Độ không đảm bảo đo / Uncertainty:', { align: 'left' });
+        setFont(doc, false);
+        doc.fontSize(8.5).fillColor(C.BODY);
+        doc.text('Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy.', { align: 'left' });
+        doc.fontSize(8).fillColor(C.MUTED);
+        doc.text('The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.', { align: 'left' });
+        doc.moveDown(0.8);
+
+        setFont(doc, true);
+        doc.fontSize(9).fillColor(C.BODY);
+        doc.text('17.2. Công bố về sự phù hợp / Statements of conformity:', { align: 'left' });
+        setFont(doc, false);
+        doc.fontSize(8.5).fillColor(C.BODY);
+        doc.text('+ A: Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép. Within tolerance.', { align: 'left' });
+        doc.text('+ B: Kết quả đo nằm ngoài giới hạn cho phép. Out of tolerance.', { align: 'left' });
+        doc.text('+ C: Kết quả đo có thể nằm ngoài giới hạn. Không có kết luận. May be out of tolerance. No conclusion.', { align: 'left' });
+        doc.text('+ D: Tiêu chuẩn kỹ thuật không quy định dung sai. No tolerance stated.', { align: 'left' });
+        doc.moveDown(1.2);
 
         // ─────────────────────── KHU VỰC CHỮ KÝ ───────────────────────
         doc.moveDown(2);
@@ -366,6 +384,13 @@ async function main() {
         doc.fontSize(8.5).fillColor(C.PRIMARY).text('GIÁM ĐỐC / DIRECTOR', sigRightX+5, sigY+4, { width: sigW-10, align: 'center' });
         setFont(doc, false);
         doc.fontSize(9).fillColor(C.BODY).text(cert.DIRECTOR || '', sigRightX+5, sigY+45, { width: sigW-10, align: 'center' });
+
+        // ─────────────────────── FOOTER ───────────────────────
+        doc.moveDown(2);
+        let footerY = doc.y;
+        if (footerY > 770) { doc.addPage(); footerY = 45; }
+        setFont(doc, false);
+        doc.fontSize(7).fillColor(C.MUTED).text('www.labmaster.vn  |  Textile – Footwear – Children Products Safety Tester', 45, footerY + 10, { align: 'center', width: 505 });
 
         // Kết thúc
         doc.end();

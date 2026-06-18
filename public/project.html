@@ -1454,7 +1454,21 @@ function buildPrintTemplate() {
       </tr>
     </table>
 
-    
+    <!-- 13. Thiết bị chuẩn sử dụng -->
+    ${allStd.length > 0 ? `
+    <div style="margin-top: 12px; font-family: Arial, sans-serif;">
+      <div style="font-weight:bold; font-size:11pt; text-align:center; margin-bottom:6px;">13. CHUẨN SỬ DỤNG / STANDARDS USED:</div>
+      <table class="cert-info-table" style="margin-top:4px;">
+        <thead><tr style="background:#e6f7f7;">
+          <th style="width:40%; border:1px solid #000; padding:5px; font-size:9pt;">Tên thiết bị chuẩn (Name)</th>
+          <th style="width:20%; border:1px solid #000; padding:5px; font-size:9pt;">Mã số (ID)</th>
+          <th style="width:20%; border:1px solid #000; padding:5px; font-size:9pt;">Liên kết chuẩn (Traceable)</th>
+          <th style="width:20%; border:1px solid #000; padding:5px; font-size:9pt;">Hiệu lực (Due Date)</th>
+        </tr></thead>
+        <tbody>${stdRows}</tbody>
+      </table>
+    </div>
+    ` : ''}
 
     <table class="cert-info-table">
       <tr>
