@@ -394,16 +394,7 @@
         <button class="btn-add-row" style="border-radius:0 0 10px 10px; border-top:none;" onclick="addCalResultRow()">+ Thêm dòng kết quả</button>
 
         <!-- Simple mode (fallback) -->
-        <div style="margin-top:20px; padding-top:16px; border-top:1px dashed var(--border);">
-          <div class="form-card-title" style="margin-bottom:12px;"><span style="background:var(--teal)">↓</span> Chế độ nhập đơn giản (1 cột As Found)</div>
-          <div class="res-outer">
-            <div class="res-head">
-              <span>Thông số đánh giá</span><span>Điểm HC</span><span>Đo được</span><span>Lần 2</span><span>KĐBĐ ±</span><span>Dung sai</span><span>Phù hợp</span><span>Sự phù hợp</span><span></span>
-            </div>
-            <div id="res-form-body"></div>
-          </div>
-          <button class="btn-add-row" onclick="addResultRow()">+ Thêm dòng (chế độ đơn giản)</button>
-        </div>
+        
       </div>
 
       <!-- CARD 8: NHÂN SỰ KÝ -->
@@ -956,28 +947,60 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null) {
 }
 
 /* ====== EQUIPMENT SEARCH ====== */
-function handleEquipmentSearch(keyword) {
-  // Dữ liệu luôn từ SQL — không cần localStorage nữa
-  const box = document.getElementById('equipment-suggestions');
-  box.innerHTML = '';
-  if (!keyword || keyword.trim() === '') { box.style.display='none'; return; }
-  const keys = Object.keys(MockDatabaseEquipment).filter(k => k.toLowerCase().includes(keyword.toLowerCase()));
-  if (keys.length === 0) {
-    box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy mẫu thiết bị trong Database</div>`;
-  } else {
-    keys.forEach(key => {
-      const eq = MockDatabaseEquipment[key];
-      const d = document.createElement('div');
-      d.className = 'suggestion-item';
-      d.innerHTML = `🔍 <strong>${key}</strong> &nbsp;–&nbsp; ${eq.manufacturer || ''} ${eq.model || ''}
-        <span style="margin-left:auto;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:#c6f6d5;color:#22543d;">
-          🔗 Live DB
-        </span>`;
-      d.onclick = () => selectEquipmentTemplate(key);
-      box.appendChild(d);
-    });
-  }
-  box.style.display = 'block';
+async function handleStandardSearch(query) {
+    const suggestionsBox = document.getElementById('standard-suggestions');
+    const loader = document.getElementById('standard-loader');
+
+    // Nếu ô nhập trống, ẩn khung gợi ý và dừng xử lý
+    if (!query.trim()) {
+        suggestionsBox.style.display = 'none';
+        return;
+    }
+
+    if (loader) loader.style.display = 'block';
+
+    try {
+        // Gửi trực tiếp từ khóa 'query' người dùng gõ lên API, KHÔNG chèn thêm chữ "nhiệt độ" nữa
+        const response = await fetch(`http://localhost:18080/api/clock/search?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+
+        if (!suggestionsBox) return;
+        suggestionsBox.innerHTML = '';
+
+        if (data && data.length > 0) {
+            data.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.innerHTML = `
+                    <div>
+                        <div class="item-main" style="font-weight: 600; color: #2b6cb0;">${item.ID} - ${item.NAME}</div>
+                        <div class="item-sub" style="font-size: 12px; color: #718096;">
+                            Hãng: ${item.MANUFACTURER || 'N/A'} | Model: ${item.MODEL || 'N/A'} | Hạn: ${item.VALIDITY || 'N/A'}
+                        </div>
+                    </div>
+                    <span style="font-size: 11px; color: #4a5568; background: #edf2f7; padding: 2px 6px; border-radius: 4px;">Chọn</span>
+                `;
+                
+                div.onclick = function() {
+                    // Gọi hàm thêm thiết bị chuẩn vào bảng sau khi chọn
+                    if (typeof addStandardToTable === 'function') {
+                        addStandardToTable(item);
+                    }
+                    suggestionsBox.style.display = 'none';
+                    document.getElementById('input-standard-search').value = '';
+                };
+                suggestionsBox.appendChild(div);
+            });
+            suggestionsBox.style.display = 'block';
+        } else {
+            suggestionsBox.innerHTML = '<div style="padding: 10px; color: #a0aec0; text-align: center;">Không thấy thiết bị phù hợp</div>';
+            suggestionsBox.style.display = 'block';
+        }
+    } catch (error) {
+        console.error("Lỗi khi kết nối API tìm kiếm thiết bị:", error);
+    } finally {
+        if (loader) loader.style.display = 'none';
+    }
 }
 
 function selectEquipmentTemplate(key) {

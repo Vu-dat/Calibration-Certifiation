@@ -252,19 +252,19 @@
         <div class="admin-grid">
             <div>
                 <label>Quy trình hiệu chuẩn:</label>
-                <input type="text" class="lab-input" value="LAB-F-01, LAB-T-02">
+                <input type="text" id="in-procedure" class="lab-input" placeholder="Ví dụ: LAB-F-01, LAB-T-02">
             </div>
             <div>
                 <label>Tiêu chuẩn tham chiếu:</label>
-                <input type="text" class="lab-input" value="ISO 6330">
+                <input type="text" id="in-ref-standard" class="lab-input" placeholder="Ví dụ: ISO 6330">
             </div>
             <div>
                 <label>Nhà sản xuất mặc định:</label>
-                <input type="text" id="in-nsx" class="lab-input">
+                <input type="text" id="in-nsx" class="lab-input" placeholder="Nhà sản xuất">
             </div>
             <div>
                 <label>Hạn hiệu chuẩn mẫu:</label>
-                <input type="text" id="in-due" class="lab-input">
+                <input type="text" id="in-due" class="lab-input" placeholder="YYYY-MM-DD">
             </div>
         </div>
 
@@ -282,7 +282,9 @@
                         <th style="border: 1px solid #111111; padding: 10px; width: 6%;">Thao tác<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Action</span></th>
                     </tr>
                 </thead>
-                <tbody id="calibration-table-rows"></tbody>
+                <tbody id="calibration-table-rows"> 
+                    
+                </tbody>
             </table>
         </div>
 
@@ -302,22 +304,6 @@
         : window.location.origin;
 
     const TARGET_URL = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:18080');
-
-    const MockTemplates = {
-        "Washing Machine": [
-            { group: "temp", name: "Nhiệt độ\nTemperature (°C)", points: [30, 40, 60, 80, 90], values: ["30.2", "39.5", "59.2", "78.9", "88.7"], unc: "0.3", tol: "± 3", conf: "A" },
-            { group: "speed", name: "Tốc độ giặt\nWashing Speed (rpm)", points: [52], values: ["52.6"], unc: "0.8", tol: "± 2", conf: "A" },
-            { group: "timer", name: "Thời gian\nTimer (second)", points: [100], values: ["100.0"], unc: "0.1", tol: "--", conf: "--" },
-            { group: "water-level", name: "Mức nước\nLevel Check (mm)", points: [100, 130, 160, 200], values: ["100", "131", "162", "201"], unc: "0.5", tol: "± 5", conf: "A" },
-            { group: "spin-speed", name: "Tốc độ vắt\nSpin Speed (rpm)", points: [500, 775, 950, 1100], values: ["501.8", "776.2", "953.5", "1103"], unc: "0.8", tol: "± 50", conf: "A" }
-        ],
-        "Dryer": [
-            { group: "temp", name: "Nhiệt độ sấy\nDrying Temp (°C)", points: [45, 50, 60, 70], values: ["44.8", "49.8", "60.1", "69.9"], unc: "0.4", tol: "± 5", conf: "A" }
-        ],
-        "Refrigerator": [
-            { group: "fridge_temp", name: "Nhiệt độ ngăn mát\nFridge Temp (°C)", points: [2, 4, 8], values: ["2.3", "4.1", "8.2"], unc: "0.2", tol: "± 2", conf: "A" }
-        ]
-    };
 
     let currentId = '';
     let currentEquipmentId = ''; 
@@ -722,12 +708,12 @@
             const tr = document.createElement("tr");
             tr.style.cursor = "pointer";
             
-            const eqCode = isFromAPI ? (eq.EQUIPMENT_ID || eq.NAME || eq.equipment_id || eq.ID || eq.id) : `EQ${String(index + 1).padStart(3, '0')}`;
-            const eqName = isFromAPI ? (eq.NAME || eq.standard_name) : eq.name;
-            const eqManu = isFromAPI ? (eq.MANUFACTURER || eq.manufacturer || '-') : eq.manufacturer;
-            const eqDue = isFromAPI ? (eq.NEXT_DUE || eq.next_due || '-') : eq.nextDue;
+            const eqCode = eq.EQUIPMENT_ID || eq.NAME || eq.equipment_id || eq.ID || eq.id || `EQ${String(index + 1).padStart(3, '0')}`;
+            const eqName = eq.NAME || eq.standard_name || '';
+            const eqManu = eq.MANUFACTURER || eq.manufacturer || '-';
+            const eqDue = eq.NEXT_DUE || eq.next_due || '-';
 
-            tr.onclick = () => isFromAPI ? editEqFromAPI(index) : editEq(eqCode, eqName, eqManu, eqDue);
+            tr.onclick = () => editEqFromAPI(index);
 
             tr.innerHTML = `
                 <td>#${eqCode}</td>
@@ -743,18 +729,14 @@
         let db = {};
         try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
         
-        const localList = [];
-        const allNames = Array.from(new Set([...Object.keys(MockTemplates), ...Object.keys(db)]));
-
-        allNames.forEach((name, index) => {
-            const data = db[name] || {};
-            localList.push({
-                name: name,
-                manufacturer: data.manufacturer || "Default",
-                nextDue: data.nextDue || "2026-12-31"
-            });
-        });
-        renderTable(localList, false);
+        const localList = Object.entries(db).map(([name, data], index) => ({
+            NAME: name,
+            MANUFACTURER: data.manufacturer || '',
+            NEXT_DUE: data.nextDue || '',
+            EQUIPMENT_ID: `LOCAL-${String(index + 1).padStart(3, '0')}`,
+            formPoints: data.formPoints || []
+        }));
+        renderTable(localList, true);
     }
 
     function editEqFromAPI(index) {
@@ -768,6 +750,8 @@
         document.getElementById('edit-title').innerText = "Detail: " + eq.NAME;
         if (document.getElementById('in-nsx')) document.getElementById('in-nsx').value = eq.MANUFACTURER || '';
         if (document.getElementById('in-due')) document.getElementById('in-due').value = eq.NEXT_DUE || '';
+        if (document.getElementById('in-procedure')) document.getElementById('in-procedure').value = eq.PROCEDURE || eq.procedure || '';
+        if (document.getElementById('in-ref-standard')) document.getElementById('in-ref-standard').value = eq.REF_STANDARD || eq.ref_standard || '';
 
         const tbody = document.getElementById('calibration-table-rows');
         tbody.innerHTML = '';
@@ -780,13 +764,19 @@
         }
     }
 
-    // Render dữ liệu từ DB — cột Thiết bị chuẩn dùng widget YouTube-style
+    // Hàm duy nhất để render points — xóa bỏ renderFromMock và renderFromSaved cũ
     function renderFromTemplatePoints(points, tbody) {
+        if (!points || points.length === 0) {
+            // Không có dữ liệu: thêm 3 dòng trống
+            for (let k = 0; k < 3; k++) addCalibrationRow();
+            return;
+        }
+        
         let i = 0;
         while (i < points.length) {
-            const groupName = points[i].PARAMETER_NAME || '';
+            const groupName = points[i].PARAMETER_NAME || points[i].parameterName || '';
             let j = i;
-            while (j < points.length && (points[j].PARAMETER_NAME || '') === groupName) j++;
+            while (j < points.length && (points[j].PARAMETER_NAME || points[j].parameterName || '') === groupName) j++;
             const groupSize = j - i;
 
             for (let k = i; k < j; k++) {
@@ -799,11 +789,23 @@
                     html += `<td rowspan="${groupSize}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
                         <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${groupName}</textarea>
                     </td>`;
-                    html += renderCells(pt.CAL_POINT || '', pt.AS_FOUND_VALUE || '', pt.UNCERTAINTY || '', pt.TOLERANCE || '', pt.CONFORMITY || '');
+                    html += renderCells(
+                        pt.CAL_POINT || pt.calPoint || pt.point || pt.value || '',
+                        pt.AS_FOUND_VALUE || pt.asFoundValue || pt.v1 || '',
+                        pt.UNCERTAINTY || pt.uncertainty || '',
+                        pt.TOLERANCE || pt.tolerance || '',
+                        pt.CONFORMITY || pt.conformity || ''
+                    );
                     // placeholder rowspan cho standard-eq-cell
                     html += `<td rowspan="${groupSize}" class="standard-eq-cell" style="border:1px solid #111;padding:8px;vertical-align:middle;min-width:200px;"></td>`;
                 } else {
-                    html += renderCells(pt.CAL_POINT || '', pt.AS_FOUND_VALUE || '', pt.UNCERTAINTY || '', pt.TOLERANCE || '', pt.CONFORMITY || '');
+                    html += renderCells(
+                        pt.CAL_POINT || pt.calPoint || pt.point || pt.value || '',
+                        pt.AS_FOUND_VALUE || pt.asFoundValue || pt.v1 || '',
+                        pt.UNCERTAINTY || pt.uncertainty || '',
+                        pt.TOLERANCE || pt.tolerance || '',
+                        pt.CONFORMITY || pt.conformity || ''
+                    );
                 }
 
                 html += `<td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>`;
@@ -814,92 +816,11 @@
                 if (k === i) {
                     const stdCell = tr.querySelector('.standard-eq-cell');
                     const savedVal = pt.STANDARD_EQUIPMENT || pt.standardEquipment || '';
-                    stdCell.appendChild(createStdSearchWidget(savedVal));
+                    if (stdCell) stdCell.appendChild(createStdSearchWidget(savedVal));
                 }
             }
             i = j;
         }
-    }
-
-    function editEq(id, name, manufacturer, nextDue) {
-        currentId = id;
-        currentEquipmentId = id;
-        showView('edit-view');
-        
-        document.getElementById('edit-title').innerText = "Detail: " + name;
-        if(document.getElementById('in-nsx')) document.getElementById('in-nsx').value = manufacturer;
-        if(document.getElementById('in-due')) document.getElementById('in-due').value = nextDue;
-
-        const tbody = document.getElementById('calibration-table-rows');
-        tbody.innerHTML = '';
-
-        let db = {};
-        try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
-        
-        const savedData = db[name];
-        const template = savedData ? savedData.formPoints : (MockTemplates[name] || MockTemplates["Washing Machine"]);
-
-        if (Array.isArray(template) && !savedData) {
-            renderFromMock(template, tbody);
-        } else if (savedData) {
-            renderFromSaved(template, tbody);
-        }
-    }
-
-    function renderFromMock(template, tbody) {
-        template.forEach(item => {
-            item.points.forEach((p, idx) => {
-                const tr = document.createElement('tr');
-                tr.setAttribute('data-group', item.group);
-                let html = '';
-
-                const displayVal = item.values && item.values[idx] ? item.values[idx] : "";
-
-                if (idx === 0) {
-                    html += `<td rowspan="${item.points.length}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
-                        <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${item.name}</textarea>
-                    </td>`;
-                    html += renderCells(p, displayVal, item.unc, item.tol, item.conf);
-                    html += `<td rowspan="${item.points.length}" class="standard-eq-cell" style="border:1px solid #111;padding:8px;vertical-align:middle;min-width:200px;"></td>`;
-                } else {
-                    html += renderCells(p, displayVal, item.unc, item.tol, item.conf);
-                }
-
-                html += `<td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>`;
-                tr.innerHTML = html;
-                tbody.appendChild(tr);
-
-                if (idx === 0) {
-                    const stdCell = tr.querySelector('.standard-eq-cell');
-                    stdCell.appendChild(createStdSearchWidget(item.standardEquipment || ''));
-                }
-            });
-        });
-    }
-
-    function renderFromSaved(points, tbody) {
-        points.forEach(pt => {
-            const tr = document.createElement('tr');
-            tr.setAttribute('data-group', pt.group);
-            let html = '';
-            if (pt.rowspan > 0) {
-                html += `<td rowspan="${pt.rowspan}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
-                    <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${pt.paramName}</textarea>
-                </td>`;
-                html += renderCells(pt.point, pt.v1, pt.uncertainty, pt.tolerance, pt.conformity);
-                html += `<td rowspan="${pt.rowspan}" class="standard-eq-cell" style="border:1px solid #111;padding:8px;vertical-align:middle;min-width:200px;"></td>`;
-            } else {
-                html += renderCells(pt.point, pt.v1, pt.uncertainty, pt.tolerance, pt.conformity);
-            }
-            html += `<td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>`;
-            tr.innerHTML = html;
-            tbody.appendChild(tr);
-
-            if (pt.rowspan > 0) {
-                const stdCell = tr.querySelector('.standard-eq-cell');
-                stdCell.appendChild(createStdSearchWidget(pt.standardEquipment || ''));
-            }
-        });
     }
 
     // Hàm render các cột giá trị trung gian
@@ -988,9 +909,9 @@
             const mergedAsFound = [val1, val2, val3].filter(Boolean).join(' / ') || val1;
 
             points.push({
-                parameter: lastParamName,
+                parameterName: lastParamName,
                 standardEquipment: lastStandardEq,
-                value: pointInput ? pointInput.value : '',
+                calPoint: pointInput ? pointInput.value : '',
                 asFoundValue: mergedAsFound,
                 uncertainty: row.querySelector('.unc') ? row.querySelector('.unc').value : '',
                 tolerance:   row.querySelector('.tol') ? row.querySelector('.tol').value : '',
@@ -1026,6 +947,7 @@
         } catch (error) {
             console.error("Lỗi khi lưu thiết bị:", error);
 
+            // Fallback: lưu tạm vào localStorage
             let db = {};
             try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
 
@@ -1033,10 +955,13 @@
                 manufacturer: manufacturer,
                 nextDue: nextDue,
                 formPoints: points.map(p => ({
-                    group: p.parameter, paramName: p.parameter, rowspan: 1,
-                    standardEquipment: p.standardEquipment,
-                    point: p.value, v1: p.asFoundValue, v2: "", v3: "",
-                    uncertainty: p.uncertainty, tolerance: p.tolerance, conformity: p.conformity
+                    PARAMETER_NAME: p.parameterName,
+                    CAL_POINT: p.calPoint,
+                    AS_FOUND_VALUE: p.asFoundValue,
+                    UNCERTAINTY: p.uncertainty,
+                    TOLERANCE: p.tolerance,
+                    CONFORMITY: p.conformity,
+                    STANDARD_EQUIPMENT: p.standardEquipment
                 }))
             };
             localStorage.setItem('labmaster_equipment_db', JSON.stringify(db));
@@ -1047,39 +972,47 @@
         }
     }
 
-    // Cải tiến hàm xóa dòng để dịch chuyển ô thiết bị chuẩn (rowspan) về đúng cột kế cuối của hàng tiếp theo
+    // Xóa dòng — tự động di chuyển ô rowspan sang hàng kế tiếp nếu xóa hàng đầu nhóm
     function deleteRow(button) {
         const currentRow = button.closest('tr');
         const groupName = currentRow.getAttribute('data-group');
         const groupRows = Array.from(document.querySelectorAll(`tr[data-group="${CSS.escape(groupName)}"]`));
         
-        if (groupRows.length === 1) {
+        if (groupRows.length <= 1) {
             currentRow.remove();
             return;
         }
         
+        // Nếu xóa hàng đầu nhóm, di chuyển ô rowspan sang hàng kế tiếp
         if (currentRow === groupRows[0]) {
             const nextRow = groupRows[1];
-            const headerCell = groupRows[0].querySelector('.group-header');
-            const selectCell = groupRows[0].querySelector('.standard-eq-cell');
+            const headerCell = currentRow.querySelector('.group-header');
+            const stdCell = currentRow.querySelector('.standard-eq-cell');
             
-            const currentRowsSpan = parseInt(headerCell.getAttribute('rowspan'), 10);
-            headerCell.setAttribute('rowspan', currentRowsSpan - 1);
-            if (selectCell) selectCell.setAttribute('rowspan', currentRowsSpan - 1);
-            
-            // Đẩy ô thông số vào đầu dòng tiếp theo
-            nextRow.insertBefore(headerCell, nextRow.firstChild);
-            
-            // Đẩy ô thiết bị chuẩn vào trước ô Thao tác (ô cuối cùng) của dòng tiếp theo
-            const lastCell = nextRow.querySelector('td:last-child');
-            nextRow.insertBefore(selectCell, lastCell);
+            if (headerCell) {
+                const span = parseInt(headerCell.getAttribute('rowspan'), 10);
+                if (span > 1) headerCell.setAttribute('rowspan', span - 1);
+                nextRow.insertBefore(headerCell, nextRow.firstChild);
+            }
+            if (stdCell) {
+                const span = parseInt(stdCell.getAttribute('rowspan'), 10);
+                if (span > 1) stdCell.setAttribute('rowspan', span - 1);
+                const actionCell = nextRow.querySelector('td:last-child');
+                if (actionCell) {
+                    nextRow.insertBefore(stdCell, actionCell);
+                } else {
+                    nextRow.appendChild(stdCell);
+                }
+            }
         } else {
-            const rowspans = groupRows[0].querySelectorAll('[rowspan]');
-            rowspans.forEach(cell => {
-                const currentRowsSpan = parseInt(cell.getAttribute('rowspan'), 10);
-                cell.setAttribute('rowspan', currentRowsSpan - 1);
+            // Giảm rowspan ở hàng đầu nhóm
+            const firstRow = groupRows[0];
+            firstRow.querySelectorAll('[rowspan]').forEach(cell => {
+                const span = parseInt(cell.getAttribute('rowspan'), 10);
+                if (span > 1) cell.setAttribute('rowspan', span - 1);
             });
         }
+        
         currentRow.remove();
     }
 
@@ -1107,7 +1040,15 @@
             const pName = row.querySelector('.param-name')?.value.trim();
             const pVal = row.querySelector('.param-value')?.value.trim();
             if (pName || pVal) {
-                points.push({ parameter: pName, value: pVal });
+                points.push({ 
+                    parameterName: pName, 
+                    calPoint: pVal, 
+                    asFoundValue: '',
+                    uncertainty: '',
+                    tolerance: '',
+                    conformity: '',
+                    standardEquipment: ''
+                });
             }
         });
 
@@ -1136,7 +1077,7 @@
             console.error("Lỗi kịch bản executeCreateEquipment:", error);
             let db = {};
             try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
-            db[name] = { manufacturer: manu, nextDue: due, formPoints: [] };
+            db[name] = { manufacturer: manu, nextDue: due, formPoints: points };
             localStorage.setItem('labmaster_equipment_db', JSON.stringify(db));
             
             alert('Mất kết nối API Server. Thiết bị đã được lưu tạm vào LocalStorage!');

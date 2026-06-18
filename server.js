@@ -616,54 +616,72 @@ app.post('/api/equipment', (req, res) => {
             return res.status(400).json({ success: false, message: "Thiếu mã nhận diện hoặc tên thiết bị chuẩn!" });
         }
 
-        // Tự động kiểm tra bổ sung cột DUE_DATE phòng hờ lỗi thiếu trường Schema
-        db.run(`ALTER TABLE CERTIFICATES ADD COLUMN DUE_DATE TEXT`, (alterErr) => {
-            // Nếu cột đã tồn tại từ trước, SQLite sẽ báo lỗi nhẹ, ta bỏ qua an toàn
-            
-            db.serialize(() => {
-                // Sử dụng các trường cột gốc chắc chắn có trong bảng CERTIFICATES của bạn
-                const stmtCert = db.prepare(`
-                    INSERT OR REPLACE INTO CERTIFICATES (
-                        CERT_NO, EQUIPMENT_ID, INSTRUMENT_NAME, MANUFACTURER, DUE_DATE
-                    ) VALUES (?, ?, ?, ?, ?)
-                `);
+        // Lưu vào bảng EQUIPMENT_TEMPLATES và TEMPLATE_POINTS (không phải CERTIFICATES)
+        db.serialize(() => {
+            // Upsert vào EQUIPMENT_TEMPLATES
+            const stmtTemplate = db.prepare(`
+                INSERT OR REPLACE INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID)
+                VALUES (?, ?, ?, ?)
+            `);
 
-                stmtCert.run(equipment_id, equipment_id, standard_name, manufacturer, due_date, function(err) {
-                    if (err) {
-                        console.error("❌ Lỗi thực thi SQL chèn thiết bị:", err.message);
-                        return res.status(500).json({ success: false, message: "Lỗi ghi dữ liệu SQLite: " + err.message });
-                    }
+            stmtTemplate.run([standard_name, manufacturer || '', due_date || '', equipment_id], function(err) {
+                if (err) {
+                    console.error("❌ Lỗi lưu EQUIPMENT_TEMPLATES:", err.message);
+                    return res.status(500).json({ success: false, message: "Lỗi ghi dữ liệu: " + err.message });
+                }
+            });
+            stmtTemplate.finalize();
 
-                    // Ghi nhận mảng điểm mẫu kèm theo thiết bị chuẩn vào bảng CALIBRATION_POINTS
-                    if (points && points.length > 0) {
-                        const stmtPoint = db.prepare(`
-                            INSERT INTO CALIBRATION_POINTS (
-                                CERT_NO, PARAMETER, STANDARD_VALUE, ACTUAL_VALUE, STATUS
-                            ) VALUES (?, ?, ?, ?, 'A')
-                        `);
+            // Xóa điểm cũ và chèn điểm mới vào TEMPLATE_POINTS
+            db.run("DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ?", [standard_name], (err) => {
+                if (err) {
+                    console.error("❌ Lỗi xóa TEMPLATE_POINTS cũ:", err.message);
+                }
 
-                        points.forEach(p => {
-                            const numValue = parseFloat(p.value) || 0;
-                            stmtPoint.run(equipment_id, p.parameter, numValue, numValue);
+                if (points && points.length > 0) {
+                    const stmtPoint = db.prepare(`
+                        INSERT INTO TEMPLATE_POINTS (TEMPLATE_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, STANDARD_EQUIPMENT)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    `);
+
+                    points.forEach(p => {
+                        stmtPoint.run([
+                            standard_name,
+                            p.parameter || p.parameterName || '',
+                            p.value || p.calPoint || '',
+                            p.asFoundValue || '',
+                            p.uncertainty || '',
+                            p.tolerance || '',
+                            p.conformity || '',
+                            p.standardEquipment || ''
+                        ]);
+                    });
+
+                    stmtPoint.finalize((finalErr) => {
+                        if (finalErr) {
+                            console.error("❌ Lỗi lưu TEMPLATE_POINTS:", finalErr.message);
+                            return res.status(500).json({ success: false, message: "Lỗi lưu điểm: " + finalErr.message });
+                        }
+
+                        logActivity("Hệ thống / KTV", "UPDATE", "EQUIPMENT_TEMPLATES", equipment_id, `Lưu mẫu thiết bị: ${standard_name}`);
+                        return res.json({ 
+                            success: true, 
+                            message: `Thiết bị chuẩn "${standard_name}" đã được lưu thành công!` 
                         });
-
-                        stmtPoint.finalize();
-                    }
-
-                    // Phản hồi JSON Object thành công về cho Frontend re-render danh sách
+                    });
+                } else {
+                    logActivity("Hệ thống / KTV", "UPDATE", "EQUIPMENT_TEMPLATES", equipment_id, `Lưu mẫu thiết bị: ${standard_name}`);
                     return res.json({ 
                         success: true, 
-                        message: `Thiết bị chuẩn ${equipment_id} đã được lưu trữ và cập nhật thành công!` 
+                        message: `Thiết bị chuẩn "${standard_name}" đã được lưu thành công!` 
                     });
-                });
-
-                stmtCert.finalize();
+                }
             });
         });
 
     } catch (criticalServerError) {
-        console.error("🔥 CRITICAL API SERVER ERROR THIẾT BỊ:", criticalServerError);
-        return res.status(500).json({ success: false, message: "Lỗi xử lý API nội bộ hệ thống.", error: criticalServerError.message });
+        console.error("🔥 CRITICAL API SERVER ERROR:", criticalServerError);
+        return res.status(500).json({ success: false, message: "Lỗi xử lý API nội bộ.", error: criticalServerError.message });
     }
 });
 

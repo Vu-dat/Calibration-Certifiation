@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng Hiệu Chuẩn - Kết Nối SQL Realtime</title>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 15px;
+            margin: 0;
+            background-color: #f9f9f9;
+            box-sizing: border-box;
+        }
+
+        .full-width-container {
+            width: 100%;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+            box-sizing: border-box;
+        }
+
+        #calibration-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 14px;
+            text-align: center;
+            border: 1px solid #111;
+        }
+
+        #calibration-table th { background-color: #f2f2f2; }
+        .col-thongso { width: 15%; }
+        .col-diem { width: 10%; }
+        .col-giatri { width: 22%; }
+        .col-kdbd { width: 8%; }
+        .col-dungsai { width: 8%; }
+        .col-phuhop { width: 10%; }
+        .col-thietbichuan { width: 22%; } 
+        .col-thaotac { width: 5%; }
+
+        .search-container {
+            position: relative;
+            display: block;
+            width: 100%;
+        }
+
+        .inline-search-input {
+            width: 100%;
+            padding: 8px 12px;
+            box-sizing: border-box;
+            border: 1px solid #a0aec0;
+            border-radius: 4px;
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 14px;
+            outline: none;
+        }
+        .inline-search-input:focus {
+            border-color: #3182ce;
+            box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2);
+        }
+
+        /* Dropdown thả nổi theo tọa độ màn hình tránh lỗi bị khuất bởi overflow bảng */
+        .dropdown-results {
+            position: fixed; 
+            background: #ffffff;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 99999; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            text-align: left;
+            display: none;
+        }
+
+        .dropdown-results li {
+            padding: 10px 14px;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+            font-size: 13px;
+            line-height: 1.4;
+            border-bottom: 1px solid #edf2f7;
+            color: #2d3748;
+        }
+        .dropdown-results li:hover {
+            background-color: #ebf8ff;
+            color: #2b6cb0;
+            font-weight: bold;
+        }
+
+        .action-btn {
+            color: #e53e3e;
+            cursor: pointer;
+            font-weight: bold;
+            background: none;
+            border: none;
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 14px;
+        }
+        .action-btn:hover { text-decoration: underline; }
+        
+        .add-row-btn {
+            margin-top: 15px;
+            padding: 8px 16px;
+            background-color: #2b6cb0;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .add-row-btn:hover { background-color: #2c5282; }
+    </style>
+</head>
+<body>
+
+<div class="full-width-container">
+    <h3 style="text-align: center; margin-bottom: 20px; font-family: Arial, sans-serif;">BẢNG DỮ LIỆU HIỆU CHUẨN (KẾT NỐI API SQL)</h3>
+
+    <div style="overflow-x: auto;">
+        <table id="calibration-table">
+            <thead>
+                <tr>
+                    <th style="border: 1px solid #111111; padding: 10px; width: 18%;">Thông số<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Parameters</span></th>
+                    <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Calibration Points</span></th>
+                    <th colspan="3" style="border: 1px solid #111111; padding: 10px; width: 22%;">Giá trị đo được<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">As Found Value (lần 1 / 2 / 3)</span></th>
+                    <th style="border: 1px solid #111111; padding: 10px; width: 9%;">Độ KĐBD<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Uncertainty</span></th>
+                    <th style="border: 1px solid #111111; padding: 10px; width: 9%;">Dung sai<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Tolerance</span></th>
+                    <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Sự phù hợp<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Conformity</span></th>
+                    <th style="border: 1px solid #111111; padding: 10px; width: 16%;">Thiết bị chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Standard Equipment</span></th>
+                    <th style="border: 1px solid #111111; padding: 10px; width: 6%;">Thao tác<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Action</span></th>
+                </tr>
+            </thead>
+            <tbody id="calibration-table-rows"> 
+                <tr>
+                    <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="Nhập thông số..."></td>
+                    <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>   
+                    <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>
+                    <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>
+                    <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>
+                    <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>
+                    <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>
+                    <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>
+                    
+                    <td style="border: 1px solid #111111; padding: 5px;">
+                        <div class="search-container">
+                            <input type="text" class="inline-search-input" placeholder="Tìm thiết bị chuẩn..." oninput="searchStandard(this)">
+                            <ul class="dropdown-results"></ul>
+                        </div>
+                    </td>
+                    
+                    <td style="border: 1px solid #111111; padding: 10px;" onclick="deleteRow(this)"><span class="action-btn">Xóa</span></td>
+                </tr>    
+            </tbody>
+        </table>
+    </div>
+    
+    <button class="add-row-btn" onclick="addNewRow()">+ Thêm hàng mới</button>
+</div>
+
+<script>
+    let SQL_EQUIPMENT_DATA = [];
+    let fuseInstance = null;
+
+    // 1. GỌI API ĐẾN SERVER NODE.JS ĐỂ LẤY DỮ LIỆU TỪ SQL SERVER
+    function loadDataFromSQL() {
+        // Gọi chính xác route xử lý lấy dữ liệu thiết bị chuẩn trong file server.js của bạn
+        // Lưu ý: Thay đổi port 18080 nếu server Node.js của bạn chạy port khác
+        fetch('http://localhost:18080/api/standard-equipment') 
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Mạng không ổn định hoặc lỗi server API');
+                }
+                return response.json();
+            })
+            .then(data => {
+                SQL_EQUIPMENT_DATA = data; 
+                initFuseSearch();
+            })
+            .catch(err => {
+                console.error("Lỗi lấy data SQL: ", err);
+                // Tạo dữ liệu dự phòng (fallback) để test giao diện nếu ngắt kết nối server
+                SQL_EQUIPMENT_DATA = [
+                    { EquipmentName: "Lò chuẩn nhiệt độ cao Fluke 9142", Model: "9142" },
+                    { EquipmentName: "Nhiệt kế chuẩn SPRT Chino", Model: "Chino-01" }
+                ];
+                initFuseSearch();
+            });
+    }
+
+    // 2. KHỞI TẠO THUẬT TOÁN TÌM KIẾM MỜ THEO CẤU TRÚC ĐỊNH DANH CỦA SQL
+    function initFuseSearch() {
+        const fuseOptions = { 
+            // Khớp chính xác với tên trường viết hoa/thường trả về từ câu lệnh SELECT trong server.js của bạn
+            keys: ['EquipmentName', 'Model'], 
+            threshold: 0.4 
+        };
+        fuseInstance = new Fuse(SQL_EQUIPMENT_DATA, fuseOptions);
+    }
+
+    // 3. HÀM TÌM KIẾM VÀ HIỂN THỊ KẾT QUẢ DƯỚI DẠNG DROPDOWN NỔI
+    function searchStandard(inputElement) {
+        if (!fuseInstance) return; 
+
+        const container = inputElement.parentElement;
+        const dropdown = container.querySelector('.dropdown-results');
+        const query = inputElement.value.trim();
+
+        if (query === "") {
+            dropdown.style.display = "none";
+            return;
+        }
+
+        const results = fuseInstance.search(query);
+        dropdown.innerHTML = "";
+
+        if (results.length === 0) {
+            dropdown.innerHTML = `<li style="color:#999; cursor:default; padding: 10px 14px;">Không tìm thấy thiết bị...</li>`;
+        } else {
+            results.forEach(result => {
+                const item = result.item;
+                const li = document.createElement('li');
+                // Hiển thị dạng: "Tên Thiết Bị (Model)" theo dữ liệu trường SQL
+                li.textContent = `${item.EquipmentName} (${item.Model || 'Không có Model'})`;
+                
+                li.onclick = function(e) {
+                    e.stopPropagation(); 
+                    inputElement.value = item.EquipmentName; // Gán giá trị được chọn vào ô input
+                    dropdown.style.display = "none";
+                };
+                dropdown.appendChild(li);
+            });
+        }
+
+        // Khắc phục lỗi tràn viền: Tính toán vị trí fixed theo vị trí tương đối của ô input trên màn hình hiển thị
+        const rect = inputElement.getBoundingClientRect();
+        dropdown.style.top = (rect.bottom + window.scrollY) + 'px';
+        dropdown.style.left = (rect.left + window.scrollX) + 'px';
+        dropdown.style.width = rect.width + 'px';
+        
+        dropdown.style.display = "block";
+    }
+
+    // 4. HÀM THÊM HÀNG MỚI ĐỘNG (User tự nhập thông số)
+    function addNewRow() {
+        const tbody = document.getElementById('calibration-table-rows');
+        const tr = document.createElement('tr');
+        
+        tr.innerHTML = `
+            <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="Nhập thông số..."></td>
+            <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>   
+            <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>
+            <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>
+            <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>
+            <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>
+            <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>
+            <td style="border: 1px solid #111111; padding: 10px;"><input type="text" style="width:90%; border:none; text-align:center;" placeholder="..."></td>
+            
+            <td style="border: 1px solid #111111; padding: 5px;">
+                <div class="search-container">
+                    <input type="text" class="inline-search-input" placeholder="Gõ từ khóa tìm thiết bị..." oninput="searchStandard(this)">
+                    <ul class="dropdown-results"></ul>
+                </div>
+            </td>
+            
+            <td style="border: 1px solid #111111; padding: 10px;"><button class="action-btn" onclick="deleteRow(this)">Xóa</button></td>
+        `;
+        
+        tbody.appendChild(tr);
+    }
+
+    // Đóng danh sách gợi ý khi click ra ngoài vùng tìm kiếm
+    document.addEventListener('click', function (e) {
+        if (!e.target.classList.contains('inline-search-input')) {
+            document.querySelectorAll('.dropdown-results').forEach(el => el.style.display = 'none');
+        }
+    });
+
+    // Ẩn danh sách khi cuộn chuột để tránh lệch giao diện
+    document.addEventListener('scroll', function() {
+        document.querySelectorAll('.dropdown-results').forEach(el => el.style.display = 'none');
+    }, true);
+
+    function deleteRow(btn) {
+        const row = btn.closest('tr');
+        row.remove();
+    }
+
+    // Tự động gọi tải CSDL từ SQL của backend khi vừa load trang web xong
+    window.onload = loadDataFromSQL;
+</script>
+
+</body>
+</html>
