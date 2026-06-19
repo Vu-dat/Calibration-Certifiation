@@ -135,7 +135,8 @@ async function main() {
             ['4. Mã nhận diện / Equipment ID', cert.EQUIPMENT_ID || '–'],
             ['5. Số sê-ri / Serial No.', cert.SERIAL_NUMBER || '–'],
             ['6. Khách hàng / Customer', cert.CUSTOMER_NAME || '–'],
-            ['7. Quy trình HC / Procedure', cert.PROCEDURE || '–'],
+            ['7. Địa chỉ KH / Address', cert.CUSTOMER_ADDRESS || '–'],
+            ['8. Quy trình HC / Procedure', cert.PROCEDURE || '–'],
             ['8. Tiêu chuẩn TK / Ref. Standard', cert.REF_STANDARD || '–'],
             ['9. Môi trường / Environment', `Nhiệt độ: ${cert.TEMP_ENV || '–'}   /   Độ ẩm: ${cert.HUMI_ENV || '–'}`]
         ];

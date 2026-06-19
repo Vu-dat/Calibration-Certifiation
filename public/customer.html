@@ -1014,7 +1014,7 @@ function clearSearch() {
 /* ──────────────────────────────────────────────
    DETAIL VIEW
 ────────────────────────────────────────────── */
-const SCHEMA_FIELDS = ['name', 'company', 'phone', 'tax', 'email', 'contact', 'billing_address', 'note'];
+const SCHEMA_FIELDS = ['name', 'company', 'phone', 'tax', 'email', 'contact', 'address', 'billing_address', 'note'];
 
 function viewCustomerDetail(id) {
     const c = globalCustomersList.find(item => item.ID === id);
@@ -1116,6 +1116,7 @@ async function submitNewCustomer() {
         tax:             document.getElementById('add-tax').value.trim(),
         email:           document.getElementById('add-email').value.trim(),
         contact:         document.getElementById('add-contact').value.trim(),
+        address:         document.getElementById('add-address').value.trim(),
         billing_address: document.getElementById('add-billing').value.trim(),
         note:            document.getElementById('add-note').value.trim(),
     };
@@ -1209,6 +1210,7 @@ async function saveCustomerEdit() {
                     TAX:             payload.tax,
                     EMAIL:           payload.email,
                     CONTACT:         payload.contact,
+                    ADDRESS:         payload.address,
                     BILLING_ADDRESS: payload.billing_address,
                     NOTE:            payload.note,
                 };

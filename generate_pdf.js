@@ -172,6 +172,7 @@ async function main() {
         renderRow('Mã nhận diện',   'Equipment ID',  cert.EQUIPMENT_ID);
         renderRow('Số sê-ri',       'Serial No.',    cert.SERIAL_NUMBER);
         renderRow('Khách hàng',     'Customer',      cert.CUSTOMER_NAME);
+        renderRow('Địa chỉ KH',      'Address',       cert.CUSTOMER_ADDRESS || '');
         renderRow('Quy trình HC',   'Procedure',     cert.PROCEDURE);
         renderRow('Tiêu chuẩn TK',  'Ref. Standard', cert.REF_STANDARD);
         renderRow('Môi trường',     'Environment',   `Nhiệt độ: ${cert.TEMP_ENV || '–'}   /   Độ ẩm: ${cert.HUMI_ENV || '–'}`);

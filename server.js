@@ -256,9 +256,11 @@ db.serialize(() => {
     db.run(`ALTER TABLE TEMPLATE_POINTS ADD COLUMN STANDARD_EQUIPMENT TEXT`, () => {});
     db.run(`ALTER TABLE CALIBRATION_POINTS ADD COLUMN REF_EQUIPMENT TEXT`, () => {});
     db.run(`ALTER TABLE CALIBRATION_POINTS ADD COLUMN STANDARD_EQUIPMENT TEXT`, () => {}); // Bổ sung cột đồng bộ theo Yêu cầu số 4
+    db.run(`ALTER TABLE CERTIFICATES ADD COLUMN CUSTOMER_ADDRESS TEXT`, () => {});
 
     // Migration bảng CUSTOMERS
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN BILLING_ADDRESS TEXT`, () => {});
+    db.run(`ALTER TABLE CUSTOMERS ADD COLUMN ADDRESS TEXT`,         () => {});
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN CONTACT TEXT`,         () => {});
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN TAX TEXT`,             () => {});
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN EMAIL TEXT`,           () => {});
@@ -707,7 +709,7 @@ app.get('/api/customers', (req, res) => {
 });
 
 app.post('/api/customers', (req, res) => {
-    let { id, name, company, phone, tax, email, billing_address, contact, note } = req.body;
+    let { id, name, company, phone, tax, email, address, billing_address, contact, note } = req.body;
 
     if (!name || !company || !phone) {
         return res.status(400).json({ 
@@ -725,13 +727,13 @@ app.post('/api/customers', (req, res) => {
 
         const stmt = db.prepare(`
             INSERT OR REPLACE INTO CUSTOMERS 
-            (ID, NAME, COMPANY, PHONE, TAX, EMAIL, BILLING_ADDRESS, CONTACT, NOTE) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (ID, NAME, COMPANY, PHONE, TAX, EMAIL, ADDRESS, BILLING_ADDRESS, CONTACT, NOTE) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         
         stmt.run([
             finalId, name.trim(), company.trim(), phone.trim(), (tax || '').trim(), 
-            (email || '').trim(), (billing_address || '').trim(), (contact || '').trim(), (note || '').trim()
+            (email || '').trim(), (address || '').trim(), (billing_address || '').trim(), (contact || '').trim(), (note || '').trim()
         ], function(err) {
             stmt.finalize(); 
             if (err) return res.status(500).json({ success: false, error: err.message });
@@ -799,17 +801,18 @@ if (!fs.existsSync(staticDir)) fs.mkdirSync(staticDir, { recursive: true });
 
 // Hàm helper lưu dữ liệu vào DB trước khi xuất file (dùng chung cho PDF/Excel/Word)
 function saveCalibrationDataToDB(data, cert_no, callback) {
-    db.serialize(() => {
-        const certStmt = db.prepare(`
+    db.serialize(() => {    const certStmt = db.prepare(`
             INSERT OR REPLACE INTO CERTIFICATES 
             (CERT_NO, INSTRUMENT_NAME, MANUFACTURER, MODEL, EQUIPMENT_ID, SERIAL_NUMBER,
-             CUSTOMER_NAME, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV, HEAD_OF_LAB, DIRECTOR)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             CUSTOMER_NAME, CUSTOMER_ADDRESS, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV, HEAD_OF_LAB, DIRECTOR)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `);
+        
         certStmt.run([
             cert_no, data.instrumentName || data.instrument_name || '', data.manufacturer || '', data.model || '',
             data.equipmentId || data.equipment_id || '', data.serialNumber || data.serial_number || '',
-            data.customerName || data.customer_name || '', data.calDate || data.cal_date || '', data.reCalDate || data.re_cal_date || '',
+            data.customerName || data.customer_name || '', data.customerAddress || data.customer_address || '',
+            data.calDate || data.cal_date || '', data.reCalDate || data.re_cal_date || '',
             data.procedure || '', data.refStandard || data.ref_standard || '', data.tempEnv || data.temp_env || '',
             data.humiEnv || data.humi_env || '', data.headOfLab || data.head_of_lab || '', data.director || ''
         ]);

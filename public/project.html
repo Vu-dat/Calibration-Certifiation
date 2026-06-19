@@ -93,7 +93,8 @@
           <div class="info-group"><label>Mã số thuế</label><div class="display-value" id="det-cust-tax">-</div></div>
           <div class="info-group"><label>Số điện thoại</label><div class="display-value" id="det-cust-phone">-</div></div>
           <div class="info-group"><label>Email</label><div class="display-value" id="det-cust-email">-</div></div>
-          <div class="info-group" style="grid-column: span 2;"><label>Địa chỉ xuất hóa đơn</label><div class="display-value" id="det-cust-addr">-</div></div>
+          <div class="info-group" style="grid-column: span 2;"><label>Địa chỉ khách hàng</label><div class="display-value" id="det-cust-address">-</div></div>
+    <div class="info-group" style="grid-column: span 2;"><label>Địa chỉ xuất hóa đơn</label><div class="display-value" id="det-cust-addr">-</div></div>
       </div>
       <div class="section-divider"></div>
       
@@ -441,6 +442,7 @@ function selectCustomerInDetail(cust) {
   document.getElementById('det-cust-tax').innerText = cust.TAX || '-';
   document.getElementById('det-cust-phone').innerText = cust.PHONE || '-';
   document.getElementById('det-cust-email').innerText = cust.EMAIL || '-';
+  document.getElementById('det-cust-address').innerText = cust.ADDRESS || '-';
   document.getElementById('det-cust-addr').innerText = cust.BILLING_ADDRESS || '-';
   document.getElementById('selected-cust-details').style.display = 'grid';
 
@@ -1003,7 +1005,7 @@ function selectEquipmentTemplate(key) {
       <td><input type="text" class="lab-input-cell conformity" value="${pt.conformity}" style="font-weight:700;color:var(--accent);"></td>
     `;
     if (pt.rowspan > 0) {
-      html += `<td rowspan="${pt.rowspan}" class="ref-eq-col">${renderRefEqCell(pt.standardEquipment)}</td>`;
+      html += `<td rowspan="${pt.rowspan}" class="ref-eq-col">${renderRefEqControl(pt.paramName, pt.standardEquipment)}</td>`;
     }
     html += `
       <td style="text-align:center;"><button onclick="this.closest('tr').remove();updateRowCount();" class="btn-rm">×</button></td>
@@ -1029,7 +1031,7 @@ function addCalResultRow() {
     <td><input type="text" class="lab-input-cell uncertainty" placeholder="KĐB"></td>
     <td><input type="text" class="lab-input-cell tolerance" placeholder="Dung sai"></td>
     <td><select class="lab-input-cell conformity"><option>A</option><option>B</option><option>C</option><option>D</option><option>--</option></select></td>
-    <td class="ref-eq-col">${renderRefEqCell('')}</td>
+    <td class="ref-eq-col">${renderRefEqControl('', '')}</td>
     <td style="text-align:center;"><button onclick="this.closest('tr').remove();updateRowCount();" class="btn-rm">×</button></td>
   `;
   tbody.appendChild(row);
@@ -1501,6 +1503,7 @@ async function exportFile(format) {
     equipmentId:    txt('f-id'),
     serialNumber:   txt('f-sn'),
     customerName:   txt('f-cust'),
+    customerAddress: txt('f-cust-addr'),
     calDate:        txt('f-caldate'),
     reCalDate:      txt('f-recaldate'),
     procedure:      txt('f-proc'),
@@ -1684,7 +1687,7 @@ function fillCalibrationTableRows(points) {
             `;
 
             if (idx === 0) {
-                html += `<td rowspan="${group.rows.length}" class="ref-eq-col">${renderRefEqCell(pt.REF_EQUIPMENT)}</td>`;
+                html += `<td rowspan="${group.rows.length}" class="ref-eq-col">${renderRefEqControl(group.name, pt.REF_EQUIPMENT)}</td>`;
             }
 
             html += `
@@ -1755,6 +1758,34 @@ function renderRefEqCell(value = '') {
     </div>`;
 }
 
+function normalizeVietnameseKeyword(value = '') {
+    return value
+        .toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .toLowerCase()
+        .trim();
+}
+
+function isTemperatureParameter(value = '') {
+    return normalizeVietnameseKeyword(value).includes('nhiet do');
+}
+
+function renderClockSelect(value = '') {
+    const selected = (value || '').trim().toUpperCase();
+    const options = ['', 'DH1', 'DH2', 'DH3'].map(opt => {
+        const label = opt || '-- Chon dong ho --';
+        return `<option value="${opt}"${selected === opt ? ' selected' : ''}>${label}</option>`;
+    }).join('');
+    return `<select class="lab-input-cell ref-eq-val ref-eq-clock-select" title="Chon dong ho cho thong so Nhiet do">${options}</select>`;
+}
+
+function renderRefEqControl(parameterName = '', value = '') {
+    return isTemperatureParameter(parameterName) ? renderClockSelect(value) : renderRefEqCell(value);
+}
+
 function positionRefEqSuggestions(input, box) {
     const rect = input.getBoundingClientRect();
     const viewportPadding = 16;
@@ -1784,7 +1815,7 @@ function checkParamForRefEq(input) {
   const existing = refCol.querySelector('.ref-eq-val');
   if (existing) selectedValue = existing.value;
   
-  refCol.innerHTML = renderRefEqCell(selectedValue);
+  refCol.innerHTML = renderRefEqControl(input.value, selectedValue);
 }
 
 /* ====== CLOSE DROPDOWNS ON OUTSIDE CLICK ====== */
