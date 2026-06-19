@@ -10,7 +10,8 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const {
     Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-    AlignmentType, WidthType, BorderStyle
+    AlignmentType, WidthType, BorderStyle,
+    Header, Footer, ImageRun
 } = require('docx');
 
 // ─── CLI ───────────────────────────────────────────────────────────
@@ -215,6 +216,7 @@ async function main() {
             new Table({
                 rows: infoRows,
                 width: { size: 9072, type: WidthType.DXA },
+                alignment: AlignmentType.CENTER,
             }),
             para('', { spacing: { before: 80, after: 80 } }), // spacer
         );
@@ -387,6 +389,7 @@ async function main() {
             new Table({
                 rows: bigRows,
                 width: { size: 9072, type: WidthType.DXA },
+                alignment: AlignmentType.CENTER,
             }),
         );
 
@@ -478,6 +481,7 @@ async function main() {
             new Table({
                 rows: resRows,
                 width: { size: 9072, type: WidthType.DXA },
+                alignment: AlignmentType.CENTER,
             }),
         );
 
@@ -536,6 +540,92 @@ async function main() {
         );
 
         // ═══════════════════════════════════════════════════════════════
+        //  HEADER (Logo + Company Info) giống file mẫu
+        // ═══════════════════════════════════════════════════════════════
+        const logoPath = path.join(BASE_DIR, '_ref_logo.png');
+        let logoData = null;
+        try {
+            if (fs.existsSync(logoPath)) {
+                logoData = fs.readFileSync(logoPath);
+            }
+        } catch (e) { /* ignore */ }
+
+        const headerTable = new Table({
+            rows: [
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [
+                                new Paragraph({
+                                    alignment: AlignmentType.CENTER,
+                                    children: logoData ? [
+                                        new ImageRun({
+                                            data: logoData,
+                                            transformation: { width: 110, height: 42 },
+                                        })
+                                    ] : [new TextRun({ text: 'LABMASTER', font: 'Arial', size: 28, bold: true, color: '0d9488' })],
+                                })
+                            ],
+                            width: { size: 2335, type: WidthType.DXA },
+                            verticalAlign: 'center',
+                        }),
+                        new TableCell({
+                            children: [
+                                new Paragraph({
+                                    alignment: AlignmentType.RIGHT,
+                                    children: [new TextRun({ text: 'Labmaster ST Company Limited', font: 'Arial', size: 28, bold: true })],
+                                }),
+                                new Paragraph({
+                                    alignment: AlignmentType.RIGHT,
+                                    children: [new TextRun({ text: '17 street 179, Tang Nhon Phu ward, Ho Chi Minh city', font: 'Arial', size: 18 })],
+                                }),
+                                new Paragraph({
+                                    alignment: AlignmentType.RIGHT,
+                                    children: [new TextRun({ text: 'Email: sale@labmaster.vn / Phone: (+84) 938 088 239', font: 'Arial', size: 18 })],
+                                }),
+                            ],
+                            width: { size: 8285, type: WidthType.DXA },
+                            verticalAlign: 'center',
+                            shading: { fill: 'FFFFFF' },
+                        }),
+                    ]
+                }),
+            ],
+            width: { size: 10620, type: WidthType.DXA },
+        });
+
+        // ISO line below header
+        const headerChildren = [
+            headerTable,
+            new Paragraph({
+                spacing: { before: 0, after: 0 },
+                children: [new TextRun({ text: 'ISO/IEC 17025:2017', font: 'Arial', size: 24, bold: true })],
+                alignment: AlignmentType.RIGHT,
+            }),
+            new Paragraph({
+                spacing: { before: 20, after: 0 },
+                border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '767171' } },
+                children: [],
+            }),
+        ];
+
+        const header = new Header({
+            children: headerChildren,
+        });
+
+        // ═══════════════════════════════════════════════════════════════
+        //  FOOTER
+        // ═══════════════════════════════════════════════════════════════
+        const footer = new Footer({
+            children: [
+                new Paragraph({
+                    alignment: AlignmentType.RIGHT,
+                    children: [new TextRun({ text: 'www.labmaster.vn  |  Textile – Footwear – Children Products Safety Tester', font: 'Arial', size: 16, italics: true, color: '6b6860' })],
+                }),
+            ],
+        });
+
+        // ═══════════════════════════════════════════════════════════════
         //  BUILD DOCUMENT
         // ═══════════════════════════════════════════════════════════════
         const doc = new Document({
@@ -552,8 +642,16 @@ async function main() {
             sections: [{
                 properties: {
                     page: {
-                        margin: { top: 1000, bottom: 1000, left: 1417, right: 1417 },
+                        margin: { top: 1440, bottom: 1080, left: 1080, right: 1080 },
+                        header: { space: 450 },
+                        footer: { space: 43 },
                     }
+                },
+                headers: {
+                    default: header,
+                },
+                footers: {
+                    default: footer,
                 },
                 children: children,
             }],
