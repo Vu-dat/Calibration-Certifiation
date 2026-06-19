@@ -73,13 +73,17 @@
             position: fixed; /* fixed để thoát khỏi overflow:hidden của table */
             background: #fff; border: 1px solid #cbd5e0; border-radius: 8px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.18); z-index: 99999;
-            max-height: 240px; overflow-y: auto; display: none; min-width: 260px;
+            max-height: 260px; overflow-y: auto; overflow-x: hidden; display: none;
+            min-width: 360px; max-width: min(620px, calc(100vw - 32px));
+            text-align: left;
         }
         .std-dropdown.open { display: block; }
         .std-dropdown-item {
             padding: 9px 14px; cursor: pointer; font-size: 13px;
-            display: flex; align-items: center; gap: 8px;
+            display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px;
             border-bottom: 1px solid #f7fafc; transition: background 0.12s;
+            white-space: normal;
+            overflow-wrap: anywhere;
         }
         .std-dropdown-item:last-child { border-bottom: none; }
         .std-dropdown-item:hover, .std-dropdown-item.active { background: #e6fffa; }
@@ -407,8 +411,8 @@
         wrapper.className = 'std-search-wrapper';
 
         // Khôi phục label hiển thị từ savedValue
-        const saved = clockEquipmentList.find(c => (c.ID || '') === savedValue);
-        const displayText = saved ? `${saved.ID} – ${saved.NAME}` : (savedValue || '');
+        const saved = clockEquipmentList.find(c => getClockItemId(c) === savedValue);
+        const displayText = saved ? getClockItemLabel(saved) : (savedValue || '');
 
         const input = document.createElement('input');
         input.type = 'text';
@@ -424,10 +428,17 @@
         wrapper.appendChild(input);
         wrapper.appendChild(dropdown);
 
-        input.addEventListener('focus', () => {
+        input.addEventListener('focus', async () => {
             input.select();
-            if (input.value.trim() && dropdown.querySelectorAll('.std-dropdown-item').length > 0) {
+            if (dropdown.querySelectorAll('.std-dropdown-item').length > 0) {
                 openDropdown(input, dropdown);
+                return;
+            }
+            try {
+                await renderDropdown(input, dropdown, input.value.trim());
+                openDropdown(input, dropdown);
+            } catch (e) {
+                console.error('Search error:', e);
             }
         });
 
@@ -440,11 +451,6 @@
             if (input._searchTimeout) clearTimeout(input._searchTimeout);
             
             const q = input.value.trim();
-            if (!q) {
-                closeDropdown(dropdown);
-                return;
-            }
-            
             input._searchTimeout = setTimeout(async () => {
                 // Hủy request trước đó nếu còn đang chạy (mỗi widget có AbortController riêng)
                 if (input._lastSearchAbort) {
@@ -499,16 +505,43 @@
     }
 
     // ── Render nội dung dropdown dùng API search server-side (giống project.html) ──
+    function getClockItemId(item) {
+        return item.ID || item.EQUIPMENT_ID || item.id || item.equipment_id || '';
+    }
+
+    function getClockItemLabel(item) {
+        const id = getClockItemId(item);
+        const name = item.NAME || item.name || '';
+        return `${id ? id + ' - ' : ''}${name}`;
+    }
+
+    function searchClockEquipmentLocal(query) {
+        const q = (query || '').trim().toLowerCase();
+        const list = Array.isArray(clockEquipmentList) ? clockEquipmentList : [];
+        if (!q) return [...list].sort((a, b) => getClockItemLabel(a).localeCompare(getClockItemLabel(b))).slice(0, 10);
+
+        return list
+            .map(item => {
+                const id = getClockItemId(item).toLowerCase();
+                const name = (item.NAME || item.name || '').toLowerCase();
+                const maker = (item.MANUFACTURER || item.manufacturer || '').toLowerCase();
+                let score = 100;
+                if (id === q || name === q) score = 0;
+                else if (id.startsWith(q) || name.startsWith(q)) score = 10;
+                else if (id.includes(q) || name.includes(q) || maker.includes(q)) score = 20;
+                return { item, score };
+            })
+            .filter(x => x.score < 100)
+            .sort((a, b) => a.score - b.score || getClockItemLabel(a.item).localeCompare(getClockItemLabel(b.item)))
+            .map(x => x.item)
+            .slice(0, 10);
+    }
+
     async function renderDropdown(input, dropdown, query, signal) {
         const q = (query || '').trim();
         dropdown.innerHTML = '<div class="std-dropdown-empty" style="padding:10px;text-align:center;color:#a0aec0;">⏳ Đang tìm...</div>';
         dropdown.classList.add('open');
         
-        if (!q) {
-            dropdown.innerHTML = '<div class="std-dropdown-empty">🔍 Gõ từ khóa để tìm thiết bị chuẩn</div>';
-            return;
-        }
-
         try {
             const response = await fetch(`${TARGET_URL}/api/clock/search?q=${encodeURIComponent(q)}`, { signal });
             if (!response.ok) throw new Error('Lỗi kết nối API search');
@@ -519,7 +552,7 @@
 
             dropdown.innerHTML = '';
 
-            const pool = Array.isArray(data) ? data : [];
+            const pool = Array.isArray(data) && data.length > 0 ? data : searchClockEquipmentLocal(q);
 
             if (pool.length === 0) {
                 dropdown.innerHTML = `<div class="std-dropdown-empty">❌ Không tìm thấy thiết bị chuẩn</div>`;
@@ -546,8 +579,9 @@
                                  <span style="margin-left:auto;color:${isExpired ? '#e53e3e' : 'var(--muted)'};font-size:11px;font-weight:${isExpired ? '700' : '400'};">Hạn: ${due}</span>`;
                 
                 div.addEventListener('click', () => {
-                    const selectedId = item.ID || item.EQUIPMENT_ID || '';
-                    input.value = `${selectedId} – ${item.NAME || ''}`;
+                    const selectedId = getClockItemId(item);
+                    input.value = getClockItemLabel(item);
+                    input.title = getClockItemLabel(item);
                     input.dataset.selectedId = selectedId;
                     input.classList.add('has-value');
                     closeDropdown(dropdown);
@@ -568,9 +602,17 @@
 
         // Đặt vị trí dropdown theo vị trí ô input (fixed-position để thoát overflow table)
         const rect = input.getBoundingClientRect();
-        dropdown.style.top    = (rect.bottom + window.scrollY + 2) + 'px';
-        dropdown.style.left   = rect.left + 'px';
-        dropdown.style.width  = Math.max(rect.width, 280) + 'px';
+        const viewportPadding = 16;
+        const width = Math.min(Math.max(rect.width, 520), window.innerWidth - viewportPadding * 2);
+        let left = rect.left;
+        if (left + width > window.innerWidth - viewportPadding) {
+            left = window.innerWidth - viewportPadding - width;
+        }
+        if (left < viewportPadding) left = viewportPadding;
+
+        dropdown.style.top    = (rect.bottom + 4) + 'px';
+        dropdown.style.left   = left + 'px';
+        dropdown.style.width  = width + 'px';
         dropdown.classList.add('open');
         // Đưa vào body để thoát stacking context của table
         document.body.appendChild(dropdown);
