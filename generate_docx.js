@@ -2,8 +2,7 @@
 
 /**
  * generate_docx.js — Tạo file Word (.docx) Giấy Chứng Nhận Hiệu Chuẩn
- * Sử dụng: node generate_docx.js <CERT_NO>
- * Hoặc được gọi từ server.js
+ * Layout theo mẫu: 328344 Wascator.docx
  */
 
 const fs = require('fs');
@@ -11,17 +10,16 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const {
     Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-    AlignmentType, WidthType, BorderStyle, PageOrientation, Header, Footer
+    AlignmentType, WidthType, BorderStyle
 } = require('docx');
 
-// ─────────────────────── KIỂM TRA CLI ───────────────────────
+// ─── CLI ───────────────────────────────────────────────────────────
 const certNo = process.argv[2];
 if (!certNo) {
-    console.error('Lỗi: Vui lòng cung cấp mã số chứng nhận. Ví dụ: node generate_docx.js 328344');
+    console.error('Lỗi: node generate_docx.js <CERT_NO>');
     process.exit(1);
 }
 
-// ─────────────────────── CẤU HÌNH ĐƯỜNG DẪN ───────────────────────
 const BASE_DIR   = __dirname;
 const DB_PATH    = path.join(BASE_DIR, 'labmaster_enterprise.db');
 const STATIC_DIR = path.join(BASE_DIR, 'static');
@@ -30,9 +28,8 @@ if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
 const SAFE_NAME   = certNo.replace(/[^a-zA-Z0-9]/g, '_');
 const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.docx`);
 
-// ─────────────────────── KẾT NỐI DATABASE ───────────────────────
 const db = new sqlite3.Database(DB_PATH, (err) => {
-    if (err) { console.error('Không thể kết nối SQLite:', err.message); process.exit(1); }
+    if (err) { console.error('Lỗi SQLite:', err.message); process.exit(1); }
 });
 db.configure("busyTimeout", 5000);
 
@@ -49,154 +46,395 @@ function parseDate(d) {
     return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : d;
 }
 
-const TEAL = '007a78';
-const DARK = '1a1917';
-const GRAY = '6b6860';
+// ─── CONSTANTS ──────────────────────────────────────────────────────
+const COL_DARK    = '1a1917';
+const COL_GRAY    = '6b6860';
+const BORDER_S    = { style: BorderStyle.SINGLE, size: 4, color: '767171' };
+const BORDER_NONE = { style: BorderStyle.NONE,   size: 0,  color: 'auto' };
+const SHADING     = 'F2F2F2';
 
-// Helper để tạo cell có border
-function borderedCell(children, options = {}) {
-    const { width, shading, alignment, bold, fontSize, color } = options;
+// Column widths (DXA) — scaled to fit A4 page with 2.5cm margins: total 9072
+const COL_W = [1675, 3426, 2513, 1458];
+
+// ─── HELPERS ────────────────────────────────────────────────────────
+const font = 'Arial';
+
+function txtRun(text, opts = {}) {
+    return new TextRun({
+        text: text || '',
+        font,
+        size: (opts.fontSize || 10) * 2,
+        bold: opts.bold || false,
+        italics: opts.italics || false,
+        color: opts.color || COL_DARK,
+    });
+}
+
+function para(text, opts = {}) {
+    const runs = [];
+    if (typeof text === 'string') {
+        runs.push(txtRun(text, opts));
+    } else if (Array.isArray(text)) {
+        text.forEach(t => {
+            if (typeof t === 'string') runs.push(txtRun(t, opts));
+            else runs.push(txtRun(t.text, { ...opts, ...t }));
+        });
+    }
+    return new Paragraph({
+        children: runs,
+        alignment: opts.alignment || AlignmentType.LEFT,
+        spacing: opts.spacing || { before: 40, after: 40 },
+    });
+}
+
+function labelPara(viText, enText) {
+    return [
+        para(viText, { fontSize: 10, bold: true, spacing: { before: 60, after: 0 } }),
+        para(enText, { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
+    ];
+}
+
+function valPara(val, opts = {}) {
+    return para(val || '–', { fontSize: 10, bold: opts.bold || false, ...opts });
+}
+
+function emptyPara() {
+    return para('', { fontSize: 8, spacing: { before: 20, after: 20 } });
+}
+
+function mkCell(children, opts = {}) {
     return new TableCell({
         children: Array.isArray(children) ? children : [children],
-        width: width ? { size: width, type: WidthType.DXA } : undefined,
-        shading: shading ? { fill: shading } : undefined,
-        verticalAlign: 'center',
-        borders: {
-            top: { style: BorderStyle.SINGLE, size: 1, color: 'b8b5ae' },
-            bottom: { style: BorderStyle.SINGLE, size: 1, color: 'b8b5ae' },
-            left: { style: BorderStyle.SINGLE, size: 1, color: 'b8b5ae' },
-            right: { style: BorderStyle.SINGLE, size: 1, color: 'b8b5ae' },
+        columnSpan: opts.colSpan,
+        width: opts.width ? { size: opts.width, type: WidthType.DXA } : undefined,
+        shading: opts.shading ? { fill: opts.shading } : undefined,
+        verticalAlign: opts.vAlign || 'center',
+        margins: opts.margins,
+        borders: opts.borders || {
+            top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE,
         },
     });
 }
 
-function cellParagraph(text, opts = {}) {
-    const { bold, fontSize, color, alignment, spacing } = opts;
-    return new Paragraph({
-        children: [new TextRun({
-            text: text || '',
-            font: 'Arial',
-            size: (fontSize || 10) * 2,
-            bold: bold || false,
-            color: color || DARK,
-        })],
-        alignment: alignment || AlignmentType.LEFT,
-        spacing: spacing || { before: 40, after: 40 },
+function borderCell(children, opts = {}) {
+    return mkCell(children, {
+        ...opts,
+        borders: { top: BORDER_S, bottom: BORDER_S, left: BORDER_S, right: BORDER_S },
+        margins: opts.margins || { top: 80, bottom: 80, left: 100, right: 150 },
     });
 }
 
+// ─── MAIN ──────────────────────────────────────────────────────────
 async function main() {
     try {
         const cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [certNo]);
         if (!cert) {
-            console.error(`Lỗi: Không tìm thấy dữ liệu cho mã [${certNo}] trong bảng CERTIFICATES.`);
+            console.error(`Lỗi: Không tìm thấy dữ liệu cho mã [${certNo}].`);
             db.close(); process.exit(1);
         }
 
-        const points = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [certNo]);
+        const points   = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [certNo]);
         const standards = await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [certNo]);
 
-        // ─────────────────────── XÂY DỰNG DOCUMENT ───────────────────────
         const children = [];
 
-        // ── TIÊU ĐỀ ──
+        // ═══════════════════════════════════════════════════════════════
+        //  TITLE
+        // ═══════════════════════════════════════════════════════════════
         children.push(
-            new Paragraph({
-                children: [new TextRun({
-                    text: 'GIẤY CHỨNG NHẬN HIỆU CHUẨN',
-                    font: 'Arial', size: 32, bold: true, color: TEAL
-                })],
-                alignment: AlignmentType.CENTER,
-                spacing: { after: 40 },
+            para('GIẤY CHỨNG NHẬN HIỆU CHUẨN', {
+                fontSize: 18, bold: true, color: '000000',
+                alignment: AlignmentType.CENTER, spacing: { before: 120, after: 0 },
             }),
-            new Paragraph({
-                children: [new TextRun({
-                    text: 'CERTIFICATE OF CALIBRATION',
-                    font: 'Arial', size: 22, color: GRAY
-                })],
-                alignment: AlignmentType.CENTER,
-                spacing: { after: 120 },
+            para('CERTIFICATE OF CALIBRATION', {
+                fontSize: 16, bold: true, italics: true, color: COL_DARK,
+                alignment: AlignmentType.CENTER, spacing: { before: 0, after: 120 },
             }),
-            new Paragraph({
-                children: [new TextRun({
-                    text: `Số / No.: ${cert.CERT_NO || certNo}    ·    Ngày HC / Cal. Date: ${parseDate(cert.CAL_DATE || '')}    ·    HC kế tiếp / Re-cal: ${parseDate(cert.RE_CAL_DATE || '')}`,
-                    font: 'Arial', size: 18, color: GRAY
-                })],
-                alignment: AlignmentType.CENTER,
-                spacing: { after: 200 },
-            })
         );
 
-        // ── THÔNG TIN THIẾT BỊ ──
-        const infoData = [
-            ['1. Tên thiết bị / Instrument', cert.INSTRUMENT_NAME || '–'],
-            ['2. Nhà sản xuất / Manufacturer', cert.MANUFACTURER || '–'],
-            ['3. Kiểu / Model', cert.MODEL || '–'],
-            ['4. Mã nhận diện / Equipment ID', cert.EQUIPMENT_ID || '–'],
-            ['5. Số sê-ri / Serial No.', cert.SERIAL_NUMBER || '–'],
-            ['6. Khách hàng / Customer', cert.CUSTOMER_NAME || '–'],
-            ['7. Địa chỉ KH / Address', cert.CUSTOMER_ADDRESS || '–'],
-            ['8. Quy trình HC / Procedure', cert.PROCEDURE || '–'],
-            ['8. Tiêu chuẩn TK / Ref. Standard', cert.REF_STANDARD || '–'],
-            ['9. Môi trường / Environment', `Nhiệt độ: ${cert.TEMP_ENV || '–'}   /   Độ ẩm: ${cert.HUMI_ENV || '–'}`]
+        // ═══════════════════════════════════════════════════════════════
+        //  TABLE 1: INFO (Sections 1–10)
+        // ═══════════════════════════════════════════════════════════════
+        const infoLabels = {
+            '1': ['1. Tên thiết bị:', 'Instrument'],
+            '2': ['2. Nhà sản xuất:', 'Manufacturer'],
+            '3': ['3. Kiểu:', 'Model'],
+            '4': ['4. ID:', ''],
+            '5': ['5. Số sản xuất:', 'SN'],
+            '6': ['6. Tên khách hàng:', 'Customer'],
+            '7': ['7. Địa chỉ:', 'Address'],
+            '8': ['8. Số giấy chứng nhận:', 'Certificate No.'],
+            '9': ['9. Ngày hiệu chuẩn:', 'Calibration Date'],
+            '10': ['10. Ngày hiệu chuẩn tiếp theo:', 'Re-calibration Date'],
+        };
+
+        function infoRow(labelKey, val1, labelKey2, val2) {
+            const [vi1, en1] = infoLabels[labelKey] || [labelKey, ''];
+            const [vi2, en2] = infoLabels[labelKey2] || [labelKey2, ''];
+
+            const c1Contents = en1 ? [...labelPara(vi1, en1)] : [para(vi1, { fontSize: 10, bold: true, spacing: { before: 60, after: 40 } })];
+            const c3Contents = en2 ? [...labelPara(vi2, en2)] : [para(vi2 || '', { fontSize: 10, bold: true, spacing: { before: 60, after: 40 } })];
+
+            return new TableRow({
+                children: [
+                    borderCell(c1Contents, { width: COL_W[0] }),
+                    borderCell([valPara(val1)], { width: COL_W[1] }),
+                    borderCell(c3Contents, { width: COL_W[2] }),
+                    borderCell([valPara(val2)], { width: COL_W[3] }),
+                ]
+            });
+        }
+
+        function infoRowFull(labelKey, val, colSpan = 3) {
+            const [vi, en] = infoLabels[labelKey] || [labelKey, ''];
+            const c1Contents = en ? [...labelPara(vi, en)] : [para(vi, { fontSize: 10, bold: true, spacing: { before: 60, after: 40 } })];
+            const col1 = borderCell(c1Contents, { width: COL_W[0] });
+            const valCellWidth = colSpan === 3 ? COL_W[1] + COL_W[2] + COL_W[3] : 0;
+
+            const valueCells = [
+                borderCell([valPara(val, { bold: true })], {
+                    width: valCellWidth, colSpan
+                }),
+            ];
+
+            return new TableRow({ children: [col1, ...valueCells] });
+        }
+
+        // Build info rows
+        const infoRows = [
+            infoRow('1', cert.INSTRUMENT_NAME || '–', '8', cert.CERT_NO || certNo),
+            infoRow('2', cert.MANUFACTURER || '–', '9', parseDate(cert.CAL_DATE || '')),
+            infoRow('3', cert.MODEL || '–', '10', parseDate(cert.RE_CAL_DATE || '')),
+            infoRow('4', cert.EQUIPMENT_ID || '–', '', ''),
+            infoRow('5', cert.SERIAL_NUMBER || '–', '', ''),
+            infoRowFull('6', cert.CUSTOMER_NAME || '–', 3),
+            infoRowFull('7', cert.CUSTOMER_ADDRESS || '–', 3),
         ];
 
-        infoData.forEach(([label, val]) => {
-            children.push(
-                new Paragraph({
+        children.push(
+            new Table({
+                rows: infoRows,
+                width: { size: 9072, type: WidthType.DXA },
+            }),
+            para('', { spacing: { before: 80, after: 80 } }), // spacer
+        );
+
+        // ═══════════════════════════════════════════════════════════════
+        //  TABLE 2: Sections 11–15, Standards, Signature
+        // ═══════════════════════════════════════════════════════════════
+        const bigRows = [];
+
+        // ── 11-12: Procedure & Ref Standard ──
+        bigRows.push(new TableRow({
+            children: [
+                borderCell([
+                    para('11. Quy trình hiệu chuẩn:', { fontSize: 10, bold: true, spacing: { before: 60, after: 0 } }),
+                    para('Calibration Procedure', { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
+                ], { width: COL_W[0] }),
+                borderCell([valPara(cert.PROCEDURE || '–')], { width: COL_W[1] }),
+                borderCell([
+                    para('12. Tiêu chuẩn tham chiếu:', { fontSize: 10, bold: true, spacing: { before: 60, after: 0 } }),
+                    para('Reference Standard', { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
+                ], { width: COL_W[2] }),
+                borderCell([valPara(cert.REF_STANDARD || '–')], { width: COL_W[3] }),
+            ]
+        }));
+
+        // ── 13: Standards — chỉ hiển thị nếu có dữ liệu (giống preview) ──
+        if (standards.length > 0) {
+            // Standards header
+            bigRows.push(new TableRow({
+                children: [
+                    borderCell([
+                        para('13. Chuẩn sử dụng / Standards Used:', { fontSize: 10, bold: true, spacing: { before: 60, after: 40 } }),
+                    ], { width: COL_W[0] + COL_W[1], colSpan: 2 }),
+                    borderCell([emptyPara()], { width: COL_W[2] }),
+                    borderCell([emptyPara()], { width: COL_W[3] }),
+                ]
+            }));
+
+            // Standards table header
+            bigRows.push(new TableRow({
+                children: [
+                    borderCell([para('Tên thiết bị chuẩn', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 40, after: 0 } }),
+                               para('Standard Name', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } })],
+                              { shading: SHADING, width: COL_W[0] }),
+                    borderCell([para('ID', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER })],
+                              { shading: SHADING, width: COL_W[1] }),
+                    borderCell([para('Liên kết chuẩn', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 40, after: 0 } }),
+                               para('Traceableto', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } })],
+                              { shading: SHADING, width: COL_W[2] }),
+                    borderCell([para('Hiệu lực', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 40, after: 0 } }),
+                               para('Due date', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } })],
+                              { shading: SHADING, width: COL_W[3] }),
+                ]
+            }));
+
+            // Standards data rows
+            standards.forEach(s => {
+                bigRows.push(new TableRow({
                     children: [
-                        new TextRun({ text: label, font: 'Arial', size: 20, bold: true, color: DARK }),
-                        new TextRun({ text: `  :  ${val}`, font: 'Arial', size: 20, color: DARK }),
-                    ],
-                    spacing: { before: 60, after: 60 },
-                })
-            );
-        });
+                        borderCell([para(s.EQ_NAME || '–', { fontSize: 10 })], { width: COL_W[0] }),
+                        borderCell([para(s.EQ_CODE || '–', { fontSize: 10 })], { width: COL_W[1] }),
+                        borderCell([para(s.LINK || '–', { fontSize: 10, alignment: AlignmentType.CENTER })], { width: COL_W[2] }),
+                        borderCell([para(s.VALIDITY || '–', { fontSize: 10, alignment: AlignmentType.CENTER })], { width: COL_W[3] }),
+                    ]
+                }));
+            });
+        }
 
-        
+        // ── Spacer row ──
+        bigRows.push(new TableRow({
+            children: [
+                borderCell([emptyPara()], { width: COL_W[0] }),
+                borderCell([emptyPara()], { width: COL_W[1] }),
+                borderCell([emptyPara()], { width: COL_W[2] }),
+                borderCell([emptyPara()], { width: COL_W[3] }),
+            ]
+        }));
 
-        
+        // ── 14: Place ──
+        bigRows.push(new TableRow({
+            children: [
+                borderCell([
+                    para('14. Nơi hiệu chuẩn:', { fontSize: 10, bold: true, spacing: { before: 60, after: 0 } }),
+                    para('Place of Calibration', { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
+                ], { width: COL_W[0] }),
+                borderCell([
+                    para(cert.CUSTOMER_NAME || '–', { fontSize: 10, bold: true }),
+                    para(cert.CUSTOMER_ADDRESS || '', { fontSize: 10 }),
+                ], { width: COL_W[1] + COL_W[2] + COL_W[3], colSpan: 3 }),
+            ]
+        }));
 
+        // ── 15: Environment ──
+        bigRows.push(new TableRow({
+            children: [
+                borderCell([
+                    para('15. Môi trường hiệu chuẩn:', { fontSize: 10, bold: true, spacing: { before: 60, after: 0 } }),
+                    para('Calibration Environment', { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
+                ], { width: COL_W[0] }),
+                borderCell([
+                    para('+ Nhiệt độ:', { fontSize: 10, spacing: { before: 60, after: 0 } }),
+                    para('Temperature', { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
+                ], { width: COL_W[1] }),
+                borderCell([
+                    para(cert.TEMP_ENV || '–', { fontSize: 10 }),
+                ], { width: COL_W[2] }),
+                borderCell([
+                    para('+ Độ ẩm:', { fontSize: 10, spacing: { before: 60, after: 0 } }),
+                    para('Humidity', { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
+                ], { width: COL_W[3] }),
+            ]
+        }));
 
-        // ── KẾT QUẢ HIỆU CHUẨN ──
+        // Humidity value row
+        bigRows.push(new TableRow({
+            children: [
+                borderCell([emptyPara()], { width: COL_W[0] }),
+                borderCell([emptyPara()], { width: COL_W[1] }),
+                borderCell([emptyPara()], { width: COL_W[2] }),
+                borderCell([
+                    para(cert.HUMI_ENV || '–', { fontSize: 10 }),
+                ], { width: COL_W[3] }),
+            ]
+        }));
+
+        // ── Signature spacer ──
+        for (let i = 0; i < 4; i++) {
+            bigRows.push(new TableRow({
+                children: [
+                    borderCell([emptyPara()], { width: COL_W[0] }),
+                    borderCell([emptyPara()], { width: COL_W[1] }),
+                    borderCell([emptyPara()], { width: COL_W[2] }),
+                    borderCell([emptyPara()], { width: COL_W[3] }),
+                ]
+            }));
+        }
+
+        // ── Signature ──
+        bigRows.push(new TableRow({
+            children: [
+                borderCell([
+                    para('Người soát xét', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 60, after: 0 } }),
+                    para('Reviewed by', { fontSize: 10, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } }),
+                ], { width: COL_W[0] + COL_W[1] + COL_W[2], colSpan: 3, vAlign: 'center' }),
+                borderCell([
+                    para('Giám đốc', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 60, after: 0 } }),
+                    para('Director', { fontSize: 10, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } }),
+                ], { width: COL_W[3], vAlign: 'center' }),
+            ]
+        }));
+
+        // ── Signature names ──
+        bigRows.push(new TableRow({
+            children: [
+                borderCell([para('', { spacing: { before: 400 } })], { width: COL_W[0] + COL_W[1] + COL_W[2], colSpan: 3, vAlign: 'center' }),
+                borderCell([para('', { spacing: { before: 400 } })], { width: COL_W[3], vAlign: 'center' }),
+            ]
+        }));
+
+        bigRows.push(new TableRow({
+            children: [
+                borderCell([para(cert.HEAD_OF_LAB || '', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER })],
+                          { width: COL_W[0] + COL_W[1] + COL_W[2], colSpan: 3, vAlign: 'center' }),
+                borderCell([para(cert.DIRECTOR || '', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER })],
+                          { width: COL_W[3], vAlign: 'center' }),
+            ]
+        }));
+
         children.push(
-            new Paragraph({
-                children: [new TextRun({
-                    text: '16. KẾT QUẢ HIỆU CHUẨN / CALIBRATION RESULTS:',
-                    font: 'Arial', size: 22, bold: true, color: TEAL
-                })],
-                alignment: AlignmentType.CENTER,
-                spacing: { before: 200, after: 120 },
-            })
+            new Table({
+                rows: bigRows,
+                width: { size: 9072, type: WidthType.DXA },
+            }),
         );
 
-        const resHeaderCells = [
-            'Thông số\nParameters',
-            'Điểm HC\nCal. Points',
-            'Giá trị đo được\nAs Found Value',
-            'KĐBĐ ±\nUncertainty',
-            'Dung sai\nTolerance',
-            'Phù hợp\nConformity',
-            'TB chuẩn\nRef. Equipment'
-        ];
+        // ── Footer spacer + cert no ──
+        children.push(
+            para('', { spacing: { before: 240 } }),
+            para([
+                { text: 'Số giấy chứng nhận / Certificate No.: ', fontSize: 10 },
+                { text: certNo, fontSize: 10 },
+            ], { alignment: AlignmentType.RIGHT, spacing: { after: 0 } }),
+        );
 
-        const resTableRows = [];
-        resTableRows.push(new TableRow({
+        // ═══════════════════════════════════════════════════════════════
+        //  SECTION 16: RESULTS TABLE
+        // ═══════════════════════════════════════════════════════════════
+        children.push(
+            para('16. Kết quả hiệu chuẩn / Calibration Results:', {
+                fontSize: 10, bold: true, spacing: { before: 120, after: 60 },
+            }),
+        );
+
+        // Results header (6 columns matching reference)
+        const resHeader = ['Thông số', 'Điểm hiệu chuẩn', 'Giá trị đo được', 'Độ KĐBĐ', 'Dung sai', 'Sự phù hợp'];
+        const resHeaderEn = ['Parameters', 'Calibration Points', 'As Found Value', 'Uncertainty', 'Tolerance', 'Conformity'];
+        // Widths: scaled to fit A4 page with 2.5cm margins: total 9072
+        const resColW = [1998, 1731, 1649, 1251, 1149, 1294];
+
+        const resRows = [];
+
+        // Header row
+        resRows.push(new TableRow({
             tableHeader: true,
-            children: resHeaderCells.map(h =>
-                borderedCell([cellParagraph(h, { bold: true, fontSize: 8, color: TEAL, alignment: AlignmentType.CENTER })], {
-                    shading: 'e6f7f7'
-                })
+            children: resHeader.map((h, i) =>
+                borderCell([
+                    para(h, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 40, after: 0 } }),
+                    para(resHeaderEn[i], { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } }),
+                ], { shading: SHADING, width: resColW[i], vAlign: 'center' })
             )
         }));
 
+        // Data rows
         if (points.length === 0) {
-            const emptyCell = borderedCell([cellParagraph('Chưa có dữ liệu điểm đo', { fontSize: 10, alignment: AlignmentType.CENTER })]);
-            resTableRows.push(new TableRow({
-                children: [emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell]
-            }));
+            const emptyCells = resColW.map(w =>
+                borderCell([para('Chưa có dữ liệu', { fontSize: 10, alignment: AlignmentType.CENTER })], { width: w })
+            );
+            resRows.push(new TableRow({ children: emptyCells }));
         } else {
-            // Nhóm theo PARAMETER_NAME
+            // Group by PARAMETER_NAME
             const grouped = [];
             let curGroup = null;
             for (const p of points) {
@@ -210,23 +448,26 @@ async function main() {
 
             for (const group of grouped) {
                 group.rows.forEach((p, idx) => {
-                    const paramName = idx === 0 ? group.paramName : '';
+                    const paramCells = idx === 0
+                        ? borderCell([
+                            para(group.paramName, { fontSize: 10, bold: true, spacing: { before: 40, after: 0 } }),
+                        ], { width: resColW[0], vAlign: 'center' })
+                        : borderCell([para('', { fontSize: 10 })], { width: resColW[0] });  // empty for continued rows
+
                     const calPt = String(p.CAL_POINT || p.cal_point || '–');
                     const asFound = String(p.AS_FOUND_VALUE || p.as_found_value || '–');
                     const unc = String(p.UNCERTAINTY || p.uncertainty || '–');
                     const tol = String(p.TOLERANCE || p.tolerance || '–');
                     const conf = String(p.CONFORMITY || p.conformity || '–');
-                    const refEq = String(p.REF_EQUIPMENT || p.ref_equipment || '–');
 
-                    resTableRows.push(new TableRow({
+                    resRows.push(new TableRow({
                         children: [
-                            borderedCell([cellParagraph(paramName, { fontSize: 9, bold: true })]),
-                            borderedCell([cellParagraph(calPt, { fontSize: 9, alignment: AlignmentType.CENTER })]),
-                            borderedCell([cellParagraph(asFound, { fontSize: 9, alignment: AlignmentType.CENTER })]),
-                            borderedCell([cellParagraph(unc, { fontSize: 9, alignment: AlignmentType.CENTER })]),
-                            borderedCell([cellParagraph(tol, { fontSize: 9, alignment: AlignmentType.CENTER })]),
-                            borderedCell([cellParagraph(conf, { fontSize: 9, alignment: AlignmentType.CENTER })]),
-                            borderedCell([cellParagraph(refEq, { fontSize: 9, alignment: AlignmentType.CENTER })]),
+                            paramCells,
+                            borderCell([para(calPt, { fontSize: 10, alignment: AlignmentType.CENTER })], { width: resColW[1] }),
+                            borderCell([para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER })], { width: resColW[2] }),
+                            borderCell([para(unc, { fontSize: 10, alignment: AlignmentType.CENTER })], { width: resColW[3] }),
+                            borderCell([para(tol, { fontSize: 10, alignment: AlignmentType.CENTER })], { width: resColW[4] }),
+                            borderCell([para(conf, { fontSize: 10, alignment: AlignmentType.CENTER })], { width: resColW[5] }),
                         ]
                     }));
                 });
@@ -235,134 +476,89 @@ async function main() {
 
         children.push(
             new Table({
-                rows: resTableRows,
-                width: { size: 100, type: WidthType.PERCENTAGE },
+                rows: resRows,
+                width: { size: 9072, type: WidthType.DXA },
             }),
-            new Paragraph({ spacing: { after: 200 } })
         );
 
-        // ── THÔNG TIN KHÁC ──
+        // ═══════════════════════════════════════════════════════════════
+        //  SECTION 17: OTHER INFORMATION
+        // ═══════════════════════════════════════════════════════════════
         children.push(
-            new Paragraph({
-                children: [new TextRun({
-                    text: '17. THÔNG TIN KHÁC / OTHER INFORMATION:',
-                    font: 'Arial', size: 22, bold: true, color: TEAL
-                })],
+            para('', { spacing: { before: 120 } }),
+            para('17. Thông tin khác / Other information:', {
+                fontSize: 10, bold: true, spacing: { before: 60, after: 60 },
+            }),
+        );
+
+        children.push(
+            para('17.1 Độ không đảm bảo đo / Uncertainty:', {
+                fontSize: 10, bold: true, spacing: { before: 40, after: 20 },
+            }),
+            para([
+                { text: 'Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy.', fontSize: 10 },
+            ], { spacing: { before: 20, after: 40 } }),
+            para([
+                { text: 'The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.', fontSize: 10, italics: true, color: '333333' },
+            ], { spacing: { before: 0, after: 40 } }),
+            para('17.2 Công bố về sự phù hợp / Statements of conformity:', {
+                fontSize: 10, bold: true, spacing: { before: 40, after: 20 },
+            }),
+            para([
+                { text: '+ A: ', bold: true, fontSize: 10 },
+                { text: 'Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép. ', fontSize: 10 },
+                { text: 'Within tolerance.', fontSize: 10, italics: true, color: '333333' },
+            ], { spacing: { before: 20, after: 20 } }),
+            para([
+                { text: '+ B: ', bold: true, fontSize: 10 },
+                { text: 'Kết quả đo nằm ngoài giới hạn cho phép. ', fontSize: 10 },
+                { text: 'Out of tolerance.', fontSize: 10, italics: true, color: '333333' },
+            ], { spacing: { before: 20, after: 20 } }),
+            para([
+                { text: '+ C: ', bold: true, fontSize: 10 },
+                { text: 'Kết quả đo có thể nằm ngoài giới hạn. Không có kết luận. ', fontSize: 10 },
+                { text: 'May be out of tolerance. No conclusion.', fontSize: 10, italics: true, color: '333333' },
+            ], { spacing: { before: 20, after: 20 } }),
+            para([
+                { text: '+ D: ', bold: true, fontSize: 10 },
+                { text: 'Tiêu chuẩn kỹ thuật không quy định dung sai. ', fontSize: 10 },
+                { text: 'No tolerance stated.', fontSize: 10, italics: true, color: '333333' },
+            ], { spacing: { before: 20, after: 20 } }),
+        );
+
+        // ── Footer ──
+        children.push(
+            para('', { spacing: { before: 300 } }),
+            para('www.labmaster.vn  |  Textile – Footwear – Children Products Safety Tester', {
+                fontSize: 8, italics: true, color: COL_GRAY,
                 alignment: AlignmentType.CENTER,
-                spacing: { before: 200, after: 120 },
             }),
-            new Paragraph({
-                children: [new TextRun({ text: '17.1 Độ không đảm bảo đo / Uncertainty:', font: 'Arial', size: 18, bold: true, color: DARK })],
-                spacing: { after: 80 },
-            }),
-            new Paragraph({
-                children: [new TextRun({
-                    text: 'Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy.',
-                    font: 'Arial', size: 18, color: DARK
-                })],
-                spacing: { after: 60 },
-            }),
-            new Paragraph({
-                children: [new TextRun({
-                    text: 'The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.',
-                    font: 'Arial', size: 16, color: GRAY, italics: true
-                })],
-                spacing: { after: 160 },
-            }),
-            new Paragraph({
-                children: [new TextRun({ text: '17.2. Công bố về sự phù hợp / Statements of conformity:', font: 'Arial', size: 18, bold: true, color: DARK })],
-                spacing: { after: 80 },
-            }),
-            ...[
-                '+ A: Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép. Within tolerance.',
-                '+ B: Kết quả đo nằm ngoài giới hạn cho phép. Out of tolerance.',
-                '+ C: Kết quả đo có thể nằm ngoài giới hạn. Không có kết luận. May be out of tolerance. No conclusion.',
-                '+ D: Tiêu chuẩn kỹ thuật không quy định dung sai. No tolerance stated.',
-            ].map(text => new Paragraph({
-                children: [new TextRun({ text, font: 'Arial', size: 17, color: DARK })],
-                spacing: { after: 60 },
-            }))
         );
 
-        // ── CHỮ KÝ ──
-        children.push(new Paragraph({ spacing: { before: 400 } }));
-
-        // Bảng chữ ký 2 cột
-        const sigTableRows = [
-            new TableRow({
-                children: [
-                    borderedCell(
-                        [cellParagraph('NGƯỜI SOÁT XÉT / REVIEWED BY', { bold: true, fontSize: 10, color: TEAL, alignment: AlignmentType.CENTER })],
-                        { shading: 'e6f7f7' }
-                    ),
-                    borderedCell(
-                        [cellParagraph('GIÁM ĐỐC / DIRECTOR', { bold: true, fontSize: 10, color: TEAL, alignment: AlignmentType.CENTER })],
-                        { shading: 'e6f7f7' }
-                    ),
-                ]
-            }),
-            new TableRow({
-                children: [
-                    borderedCell([new Paragraph({
-                        children: [new TextRun({ text: '', size: 200 })],
-                        spacing: { before: 400 },
-                    })]),
-                    borderedCell([new Paragraph({
-                        children: [new TextRun({ text: '', size: 200 })],
-                        spacing: { before: 400 },
-                    })]),
-                ]
-            }),
-            new TableRow({
-                children: [
-                    borderedCell([cellParagraph(cert.HEAD_OF_LAB || '', { fontSize: 10, alignment: AlignmentType.CENTER })]),
-                    borderedCell([cellParagraph(cert.DIRECTOR || '', { fontSize: 10, alignment: AlignmentType.CENTER })]),
-                ]
-            }),
-        ];
-
-        children.push(
-            new Table({
-                rows: sigTableRows,
-                width: { size: 100, type: WidthType.PERCENTAGE },
-            })
-        );
-
-        // ── FOOTER ──
-        children.push(new Paragraph({ spacing: { before: 300 } }));
-        children.push(
-            new Paragraph({
-                children: [new TextRun({
-                    text: 'www.labmaster.vn  |  Textile – Footwear – Children Products Safety Tester',
-                    font: 'Arial', size: 14, color: GRAY, italics: true
-                })],
-                alignment: AlignmentType.CENTER,
-            })
-        );
-
-        // ─────────────────────── TẠO DOCUMENT ───────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        //  BUILD DOCUMENT
+        // ═══════════════════════════════════════════════════════════════
         const doc = new Document({
             title: `GCN_${certNo}`,
             description: `Giấy Chứng Nhận Hiệu Chuẩn ${certNo}`,
             styles: {
                 default: {
                     document: {
-                        run: { font: 'Arial', size: 20 },
-                        paragraph: { spacing: { after: 100 } },
+                        run: { font, size: 20 },
+                        paragraph: { spacing: { after: 60 } },
                     }
                 }
             },
             sections: [{
                 properties: {
                     page: {
-                        margin: { top: 1000, bottom: 1000, left: 1200, right: 1200 },
+                        margin: { top: 1000, bottom: 1000, left: 1417, right: 1417 },
                     }
                 },
                 children: children,
             }],
         });
 
-        // ─────────────────────── XUẤT FILE ───────────────────────
         const buffer = await Packer.toBuffer(doc);
         fs.writeFileSync(OUTPUT_FILE, buffer);
         console.log(`[SUCCESS] Đã xuất: GCN_${SAFE_NAME}.docx`);
@@ -370,7 +566,7 @@ async function main() {
         process.exit(0);
 
     } catch (err) {
-        console.error('LỖI CRITICAL KHI SINH WORD:', err);
+        console.error('LỖI CRITICAL:', err);
         db.close();
         process.exit(1);
     }
