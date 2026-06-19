@@ -1367,6 +1367,36 @@ body {
 .suggestion-item:hover { background: var(--accent-light); color: var(--accent); }
 .suggestion-item strong { color: var(--teal); }
 
+.ref-eq-col {
+  min-width: 260px;
+}
+
+#calibration-table .ref-eq-val {
+  text-align: left;
+}
+
+#calibration-table .ref-eq-suggestions {
+  left: auto;
+  right: auto;
+  min-width: 360px;
+  max-width: min(620px, calc(100vw - 32px));
+  text-align: left;
+  white-space: normal;
+  overflow-x: hidden;
+  z-index: 5000;
+}
+
+#calibration-table .ref-eq-suggestions .suggestion-item {
+  display: block;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+#calibration-table .ref-eq-suggestions .suggestion-item strong {
+  display: block;
+}
+
 /* ========== CALIBRATION TABLE ========== */
 .cal-table-wrapper {
   border: 1px solid var(--border);

@@ -1732,15 +1732,17 @@ function handleRefEqSearch(input) {
         filtered.slice(0, 8).forEach(eq => {
             const label = `${eq.EQUIPMENT_ID ? eq.EQUIPMENT_ID + ' - ' : ''}${eq.NAME || ''}`;
             const div = document.createElement('div');
-            div.className = 'suggestion-item';
+            div.className = 'suggestion-item ref-eq-suggestion-item';
             div.innerHTML = `🏷 <strong>${label}</strong>${eq.MANUFACTURER ? `<br><span style="font-size:11px;color:var(--text-muted);">${eq.MANUFACTURER}</span>` : ''}`;
             div.onclick = () => {
-                input.value = eq.EQUIPMENT_ID || eq.NAME || label;
+                input.value = label;
+                input.title = label;
                 box.style.display = 'none';
             };
             box.appendChild(div);
         });
     }
+    positionRefEqSuggestions(input, box);
     box.style.display = 'block';
 }
 
@@ -1751,6 +1753,26 @@ function renderRefEqCell(value = '') {
                placeholder="🔍 Gõ tên thiết bị chuẩn..." oninput="handleRefEqSearch(this)" autocomplete="off" style="width:100%;">
         <div class="autocomplete-suggestions ref-eq-suggestions"></div>
     </div>`;
+}
+
+function positionRefEqSuggestions(input, box) {
+    const rect = input.getBoundingClientRect();
+    const viewportPadding = 16;
+    const preferredWidth = 520;
+    const maxWidth = window.innerWidth - viewportPadding * 2;
+    const width = Math.min(Math.max(rect.width, preferredWidth), maxWidth);
+    let left = rect.left;
+
+    if (left + width > window.innerWidth - viewportPadding) {
+        left = window.innerWidth - viewportPadding - width;
+    }
+    if (left < viewportPadding) left = viewportPadding;
+
+    box.style.position = 'fixed';
+    box.style.top = `${rect.bottom + 4}px`;
+    box.style.left = `${left}px`;
+    box.style.right = 'auto';
+    box.style.width = `${width}px`;
 }
 
 function checkParamForRefEq(input) {

@@ -21,14 +21,10 @@ app.get('/', (req, res) => {
 const db = new sqlite3.Database(path.join(__dirname, 'labmaster_enterprise.db'));
 
 // CẤU HÌNH TỐI ƯU CHỐNG KHÓA DATABASE (SQLITE_BUSY)
-db.run("PRAGMA journal_mode = WAL"); // Bật chế độ ghi nhật ký trước (tăng hiệu năng đa luồng)
-db.configure("busyTimeout", 5000);   // Chờ tối đa 5 giây nếu DB đang bị khóa trước khi báo lỗi
+db.run("PRAGMA journal_mode = WAL"); 
+db.configure("busyTimeout", 5000);   
 
-// ================= QUẢN LÝ BẢNG CLOCK (THIẾT BỊ CHUẨN DÙNG ĐỂ HIỆU CHUẨN) =================
-// CLOCK lưu danh sách "thiết bị chuẩn" (cân chuẩn, đồng hồ bấm giờ, panme, nhiệt kế chuẩn...).
-// Hàm này tự đọc cấu trúc bảng CLOCK hiện có trong file .db; nếu là bảng cũ/thiếu cột so với
-// cấu trúc đầy đủ mà Frontend (equipment.html) cần, nó sẽ TỰ ĐỘNG nâng cấp, đồng thời giữ lại
-// toàn bộ dữ liệu cũ (đổi tên bảng cũ thành CLOCK_LEGACY_BACKUP, không xoá).
+
 function initClockTable() {
     const FULL_COLUMNS = ['ID', 'KEY_FIELD', 'NAME', 'MANUFACTURER', 'MODEL', 'SERIAL_NUMBER', 'GCN', 'LINK', 'CAL_DATE', 'VALIDITY', 'TYPE', 'NOTES', 'CREATED_AT'];
 
