@@ -177,48 +177,7 @@ async function main() {
         renderRow('Môi trường',     'Environment',   `Nhiệt độ: ${cert.TEMP_ENV || '–'}   /   Độ ẩm: ${cert.HUMI_ENV || '–'}`);
         doc.moveDown(0.8);
 
-        // ─────────────────────── BẢNG THIẾT BỊ CHUẨN SỬ DỤNG ───────────────────────
-        setFont(doc, true);
-        doc.fontSize(11).fillColor(C.PRIMARY).text('13. CHUẨN SỬ DỤNG / STANDARDS USED:', { align: 'center' });
-        doc.moveDown(0.4);
-
-        const sx   = 45; // Căn trái cùng với các section khác (45pt = lề trái)
-        const sW   = [195, 80, 135, 80];   // cột: Tên, Mã, Liên kết, Hiệu lực (tổng = 490)
-        const sX   = [sx, sx+195, sx+275, sx+410]; 
-        const sRowH = 22;
-        let   sY   = doc.y;
-        const sTotalW = sW.reduce((a,b)=>a+b, 0);  // 490
-
-        // Header bảng chuẩn
-        doc.rect(sx, sY, sTotalW, sRowH).fill(C.PRIMARY_LIGHT);
-        doc.lineWidth(0.5).strokeColor(C.BORDER);
-        doc.moveTo(sx, sY).lineTo(sx + sTotalW, sY).stroke();
-
-        setFont(doc, true);
-        doc.fontSize(8.5).fillColor(C.PRIMARY);
-        doc.text('Tên thiết bị chuẩn (Name)',     sX[0]+4, sY+6, { width: sW[0]-4 });
-        doc.text('Mã số (ID)',                     sX[1],   sY+6, { width: sW[1], align: 'center' });
-        doc.text('Liên kết chuẩn (Traceable)',     sX[2],   sY+6, { width: sW[2], align: 'center' });
-        doc.text('Hiệu lực (Due Date)',            sX[3],   sY+6, { width: sW[3], align: 'center' });
-        doc.moveTo(sx, sY+sRowH).lineTo(sx+sTotalW, sY+sRowH).stroke();
-        sY += sRowH;
-
-        setFont(doc, false);
-        doc.fontSize(9).fillColor(C.BODY);
-
-        const stdList = standards.length > 0
-            ? standards.map(s => ({ name: s.EQ_NAME, id: s.EQ_CODE, trace: s.LINK, due: s.VALIDITY }))
-            : [{ name: '–', id: '–', trace: '–', due: '–' }];
-
-        stdList.forEach(s => {
-            doc.text(s.name  || '–', sX[0]+4, sY+6, { width: sW[0]-4 });
-            doc.text(s.id    || '–', sX[1],   sY+6, { width: sW[1], align: 'center' });
-            doc.text(s.trace || '–', sX[2],   sY+6, { width: sW[2], align: 'center' });
-            doc.text(s.due   || '–', sX[3],   sY+6, { width: sW[3], align: 'center' });
-            doc.moveTo(sx, sY+sRowH).lineTo(sx+sTotalW, sY+sRowH).stroke();
-            sY += sRowH;
-        });
-        doc.moveDown(1.5);
+        
 
         // ─────────────────────── BẢNG KẾT QUẢ HIỆU CHUẨN ───────────────────────
         setFont(doc, true);

@@ -3,175 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
     <title>Quản lý Dự Án – LabMaster Pro</title>
     <style>
-      /* Áp dụng font chữ chuẩn hỗ trợ tiếng Việt tốt nhất cho toàn bộ trang và khi in */
-    body, table, input, select, textarea, button {
-    font-family: "Arial", "Segoe UI", sans-serif !important;
-}
-
-/* Hiệu ứng loading spinner cho các ô tìm kiếm */
-.loader-inline {
-    position: absolute;
-    right: 12px;
-    bottom: 10px;
-    width: 16px;
-    height: 16px;
-    border: 2px solid #f3f3f3;
-    border-top: 2px solid var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    display: none; /* Mặc định ẩn */
-}
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-@media print {
-    /* 1. Ép hệ thống dùng font chữ Arial / Segoe UI hỗ trợ Unicode tiếng Việt tốt nhất */
-    * {
-        font-family: "Arial", "Segoe UI", "Helvetica", sans-serif !important;
-    }
-
-    /* 2. Cấu hình khổ giấy A4 dọc chuẩn văn bản pháp lý */
-    @page {
-        size: A4 portrait;
-        margin: 15mm 15mm 15mm 15mm;
-    }
-
-    /* 3. Ẩn tất cả thanh công cụ, nút thao tác để bản in sạch sẽ */
-    .header, .navbar, .btn, .btn-rm, #main-header-actions, .actions-column, button, .no-print {
-        display: none !important;
-    }
-
-    /* 4. Đặt nền phẳng trắng tinh cho toàn bộ trang */
-    body {
-        background: #ffffff !important;
-        color: #000000 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-
-    #project-detail-view, .container {
-        width: 100% !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        box-shadow: none !important;
-        border: none !important;
-    }
-
-    /* 5. Định dạng lưới thông tin dự án phía trên */
-    .admin-grid {
-        grid-template-columns: repeat(3, 1fr) !important;
-        gap: 15px !important;
-        background: transparent !important;
-        border: 1px solid #000000 !important;
-        padding: 12px !important;
-        margin-bottom: 20px !important;
-        border-radius: 0 !important; /* Bỏ bo góc để chuẩn văn bản hành chính */
-    }
-
-    .info-group {
-        background: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-    }
-
-    /* 6. XỬ LÝ TRIỆT ĐỂ Ô INPUT TRONG BẢNG: GIỮ TIẾNG VIỆT, XÓA VIỀN, KHÔNG VỠ KHUNG */
-    .lab-input-cell, input, select, textarea, td input {
-        font-family: "Arial", "Segoe UI", sans-serif !important;
-        font-size: 10pt !important;
-        color: #000000 !important;
-        border: none !important; /* Xóa bỏ ô vuông input */
-        background: transparent !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-        outline: none !important;
-        box-shadow: none !important;
-        appearance: none !important;
-        -webkit-appearance: none !important;
-    }
-
-    /* 7. Định dạng bảng dữ liệu kiểm định sắc nét với viền đen */
-    table {
-        width: 100% !important;
-        border-collapse: collapse !important;
-        margin-top: 15px !important;
-    }
-
-    th, td {
-        border: 1px solid #000000 !important; /* Viền đen rõ ràng khi in */
-        padding: 6px 8px !important;
-        font-size: 10pt !important;
-        vertical-align: middle !important;
-    }
-
-    th {
-        background-color: #f2f2f2 !important; /* Màu nền xám nhẹ cho tiêu đề bảng */
-    }
-    .ref-eq-col select, .ref-eq-col input {
-            width: 100%;
-            padding: 4px;
-            border: 1px solid #cbd5e0;
-            border-radius: 4px;
-        }
-}
-  /* CSS cho hộp tìm kiếm thông minh dạng Fixed tránh lỗi bị hide do overflow */
-    .search-container {
-        position: relative;
-        display: block;
-        width: 100%;
-    }
-    .inline-search-input {
-        width: 100%;
-        padding: 8px 12px;
-        box-sizing: border-box;
-        border: 1px solid #cbd5e1;
-        border-radius: 6px;
-        font-size: 14px;
-        outline: none;
-    }
-    .inline-search-input:focus {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-    }
-    .dropdown-results-fixed {
-        position: fixed; /* Bắt buộc sử dụng fixed để thoát khỏi layout bị overflow hide */
-        background: #ffffff;
-        border: 1px solid #cbd5e0;
-        border-radius: 6px;
-        max-height: 200px;
-        overflow-y: auto;
-        z-index: 999999; /* Luôn luôn nổi lên trên cùng màn hình */
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        text-align: left;
-        display: none;
-    }
-    .dropdown-results-fixed li {
-        padding: 10px 14px;
-        cursor: pointer;
-        font-size: 13px;
-        line-height: 1.4;
-        border-bottom: 1px solid #edf2f7;
-        color: #334155;
-    }
-    .dropdown-results-fixed li:hover {
-        background-color: #f1f5f9;
-        color: var(--primary);
-        font-weight: bold;
-    }
-    .dropdown-results-fixed li:last-child {
-        border-bottom: none;
-    }
+    
+    
     </style>
 </head>
 <body>
@@ -260,7 +97,7 @@
       </div>
       <div class="section-divider"></div>
       
-      <p style="padding:16px 24px; color:var(--muted); font-size:13.5px;">
+      <p style="padding:16px 24px; color:var(--text-muted); font-size:13.5px;">
         Thực hiện quy trình kiểm tra hiệu chuẩn thiết bị theo tiêu chuẩn phòng Lab ISO/IEC 17025:2017.
       </p>
 
@@ -308,12 +145,11 @@
     <div class="workspace-container">
       <div class="workspace-header">
         <div>
-          <div style="font-size:12px; color:var(--muted); margin-bottom:4px;">Projects / <span id="ws-title-crumb" style="color:var(--text)"></span></div>
+          <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">Projects / <span id="ws-title-crumb" style="color:var(--text)"></span></div>
           <h3>Workspace: Nhập liệu & Xuất chứng nhận</h3>
         </div>
-        <div class="workspace-header-actions">
+        <div class="workspace-header-actions" id="editor-header-actions">
           <button class="btn btn-secondary btn-sm" onclick="backToProjectDetail()">← Quay lại dự án</button>
-          <button class="btn btn-danger btn-sm" onclick="clearEditorData()">↺ Làm mới</button>
           <button class="btn btn-teal" onclick="saveCalibrationData()">💾 Lưu vào SQL DB</button>
           <button class="btn btn-primary" onclick="switchToPreview()">👁 Xem trước & In</button>
         </div>
@@ -379,7 +215,6 @@
       </div>
 
       
-
       <!-- CARD 6: MÔI TRƯỜNG -->
       <div class="form-card">
         <div class="form-card-title"><span>6</span> Nơi thực hiện & Môi trường</div>
@@ -412,14 +247,10 @@
             </thead>
             <tbody id="calibration-table-body">
               <tr><td colspan="9" class="cal-empty-state">🔍 Gõ tên thiết bị ở mục 2 để hệ thống tự tải dữ liệu, hoặc dùng nút bên dưới để nhập thủ công</td></tr>
-              <!-- Rows will be dynamically added by JavaScript -->
             </tbody>
           </table>
         </div>
-        <button class="btn-add-row" style="border-radius:0 0 10px 10px; border-top:none;" onclick="addCalResultRow()">+ Thêm dòng kết quả</button>
-
-        <!-- Simple mode (fallback) -->
-        
+        <button class="btn-add-row" style="border-radius:0 0 10px 10px;" onclick="addCalResultRow()">+ Thêm dòng kết quả</button>
       </div>
 
       <!-- CARD 8: NHÂN SỰ KÝ --> 
@@ -442,24 +273,24 @@
   <!-- PREVIEW VIEW -->
   <div id="preview-view" style="display:none;">
     <div class="preview-panel">
-      <div class="preview-toolbar">
+      <div class="preview-toolbar" id="preview-header-actions">
         <button class="btn btn-secondary btn-sm" onclick="switchToEditor()">← Sửa dữ liệu</button>
         <div class="dropdown" style="position:relative;display:inline-block;">
           <button class="btn btn-primary btn-sm" onclick="toggleExportMenu()" id="export-dropdown-btn">
             📥 Xuất file ▾
           </button>
-          <div id="export-menu" class="dropdown-menu" style="display:none;position:absolute;top:100%;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);z-index:9999;min-width:220px;padding:6px 0;margin-top:4px;">
-            <div class="dropdown-item" onclick="exportFile('pdf')" style="padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;border-radius:6px;margin:2px 6px;" onmouseover="this.style.background='#f7fafc'" onmouseout="this.style.background='transparent'">
+          <div id="export-menu" class="dropdown-menu">
+            <div class="dropdown-item" onclick="exportFile('pdf')">
               <span style="font-size:18px;">📄</span>
-              <div><strong style="font-size:14px;">PDF</strong><br><span style="font-size:11px;color:#718096;">Giấy chứng nhận chuẩn in ấn</span></div>
+              <div><strong style="font-size:13px;">PDF</strong><br><span style="font-size:10px;color:var(--text-muted);">Giấy chứng nhận chuẩn in ấn</span></div>
             </div>
-            <div class="dropdown-item" onclick="exportFile('excel')" style="padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;border-radius:6px;margin:2px 6px;" onmouseover="this.style.background='#f7fafc'" onmouseout="this.style.background='transparent'">
+            <div class="dropdown-item" onclick="exportFile('excel')">
               <span style="font-size:18px;">📊</span>
-              <div><strong style="font-size:14px;">Excel (.xlsx)</strong><br><span style="font-size:11px;color:#718096;">Dữ liệu bảng tính dễ chỉnh sửa</span></div>
+              <div><strong style="font-size:13px;">Excel (.xlsx)</strong><br><span style="font-size:10px;color:var(--text-muted);">Dữ liệu bảng tính dễ chỉnh sửa</span></div>
             </div>
-            <div class="dropdown-item" onclick="exportFile('docx')" style="padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;border-radius:6px;margin:2px 6px;" onmouseover="this.style.background='#f7fafc'" onmouseout="this.style.background='transparent'">
+            <div class="dropdown-item" onclick="exportFile('docx')">
               <span style="font-size:18px;">📝</span>
-              <div><strong style="font-size:14px;">Word (.docx)</strong><br><span style="font-size:11px;color:#718096;">Văn bản có thể chỉnh sửa</span></div>
+              <div><strong style="font-size:13px;">Word (.docx)</strong><br><span style="font-size:10px;color:var(--text-muted);">Văn bản có thể chỉnh sửa</span></div>
             </div>
           </div>
         </div>
@@ -472,7 +303,7 @@
 <!-- MODALS & OVERLAYS -->
 <div id="modal-create-project" class="modal-overlay">
     <div class="modal-card">
-        <h3 style="margin-bottom:16px;">Khởi tạo dự án mới</h3>
+        <h3 style="margin-bottom:16px; font-weight: 700; color: var(--primary);">Khởi tạo dự án mới</h3>
         <div class="field">
             <label>Tên dự án hiệu chuẩn</label>
             <input type="text" id="m-proj-name" >
@@ -485,7 +316,7 @@
             <label>Tên khách hàng</label>
             <input type="text" id="m-proj-customer">
         </div>
-        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:24px;">
             <button class="btn btn-secondary btn-sm" onclick="closeModal('modal-create-project')">Hủy</button>
             <button class="btn btn-primary btn-sm" onclick="confirmCreateProject()">Khởi tạo ngay</button>
         </div>
@@ -586,13 +417,13 @@ function handleCustomerSearch(keyword) {
     .map(x => x.item);
 
   if (filtered.length === 0) {
-    box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy khách hàng</div>`;
+    box.innerHTML = `<div class="suggestion-item" style="color:var(--text-muted);cursor:default;">❌ Không tìm thấy khách hàng</div>`;
   } else {
     filtered.slice(0, 10).forEach(c => {
       const d = document.createElement('div');
       d.className = 'suggestion-item';
       d.innerHTML = `👤 <strong>${c.NAME}</strong> – ${c.COMPANY || 'Cá nhân'} 
-                     <span style="margin-left:auto;color:var(--muted);font-size:11px;">#${c.ID}</span>`;
+                     <span style="margin-left:auto;color:var(--text-muted);font-size:11px;">#${c.ID}</span>`;
       d.onclick = () => selectCustomerInDetail(c);
       box.appendChild(d);
     });
@@ -741,9 +572,6 @@ function showProjectList() {
   document.getElementById('project-list-view').style.display='block';
   document.getElementById('project-detail-view').style.display='none';
   document.getElementById('calibration-editor-view').style.display='none';
-  document.getElementById('editor-header-actions').style.display='none';
-  document.getElementById('preview-header-actions').style.display='none';
-  document.getElementById('main-header-actions').style.display='flex';
   
   // Xóa nội dung tìm kiếm khách hàng khi quay lại danh sách
   document.getElementById('cust-search-detail').value = '';
@@ -782,12 +610,10 @@ function viewProjectDetail(id) {
   const listView = document.getElementById('project-list-view');
   const detailView = document.getElementById('project-detail-view');
   const editorView = document.getElementById('calibration-editor-view');
-  const headerActions = document.getElementById('main-header-actions');
 
   if(listView) listView.style.display = 'none';
   if(detailView) detailView.style.display = 'block';
   if(editorView) editorView.style.display = 'none';
-  if(headerActions) headerActions.style.display = 'none';
 
   // --- Đổ dữ liệu vào các thẻ hiển thị chi tiết ---
   if(document.getElementById('pd-id')) document.getElementById('pd-id').textContent = proj.ID;
@@ -894,7 +720,7 @@ function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum
       tr.dataset.equipmentName = equipmentName;
       tr.innerHTML = `
           <td style="font-weight:600; color:var(--accent);">${rowCount}</td>
-          <td style="font-weight:600;">🔧 ${equipmentName}${eq.manufacturer ? `<br><span style="font-size:12px;color:var(--muted);font-weight:400;">${eq.manufacturer}</span>` : ''}</td>
+          <td style="font-weight:600;">🔧 ${equipmentName}${eq.manufacturer ? `<br><span style="font-size:12px;color:var(--text-muted);font-weight:400;">${eq.manufacturer}</span>` : ''}</td>
           <td><span class="badge badge-${statusClass}">${currentProj?.STATUS || 'In Progress'}</span></td>
           <td><input type="text" class="lab-input-cell" placeholder="Nhập người phụ trách..." value="${currentProj?.TECH || ''}" style="min-width:140px;"></td>
           <td>${calDate}</td>
@@ -950,13 +776,13 @@ function handleEquipmentSearch(keyword) {
     });
 
     if (keys.length === 0) {
-        box.innerHTML = '<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy thiết bị trong Database</div>';
+        box.innerHTML = '<div class="suggestion-item" style="color:var(--text-muted);cursor:default;">❌ Không tìm thấy thiết bị trong Database</div>';
     } else {
         keys.slice(0, 8).forEach(key => {
             const eq = MockDatabaseEquipment[key] || {};
             const div = document.createElement('div');
             div.className = 'suggestion-item';
-            div.innerHTML = `🔍 <strong>${key}</strong>${eq.manufacturer ? ` <span style="color:var(--muted);font-size:11px;">– ${eq.manufacturer}</span>` : ''}`;
+            div.innerHTML = `🔍 <strong>${key}</strong>${eq.manufacturer ? ` <span style="color:var(--text-muted);font-size:11px;">– ${eq.manufacturer}</span>` : ''}`;
             div.onclick = () => {
                 selectEquipmentTemplate(key);
                 box.style.display = 'none';
@@ -987,7 +813,7 @@ function handleDeviceSearch(input) {
     });
 
     if (keys.length === 0) {
-        box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy mẫu thiết bị</div>`;
+        box.innerHTML = `<div class="suggestion-item" style="color:var(--text-muted);cursor:default;">❌ Không tìm thấy mẫu thiết bị</div>`;
     } else {
         keys.slice(0, 8).forEach(key => {
             const div = document.createElement('div');
@@ -1017,9 +843,6 @@ function openCalibrationForRow(btn) {
 function backToProjectDetail() {
   document.getElementById('calibration-editor-view').style.display='none';
   document.getElementById('project-detail-view').style.display='block';
-  document.getElementById('editor-header-actions').style.display='none';
-  document.getElementById('preview-header-actions').style.display='none';
-  document.getElementById('main-header-actions').style.display='none';
 }
 
 async function openCalibrationWorkspace(equipmentNameFromRow = null) {
@@ -1096,7 +919,7 @@ async function handleStandardSearch(query) {
     if (loader) loader.style.display = 'block';
 
     try {
-        // Gửi trực tiếp từ khóa 'query' người dùng gõ lên API, KHÔNG chèn thêm chữ "nhiệt độ" nữa
+        // Gửi trực tiếp từ khóa 'query' người dùng gõ lên API
         const response = await fetch(`http://localhost:18080/api/clock/search?q=${encodeURIComponent(query)}`);
         const data = await response.json();
 
@@ -1118,7 +941,6 @@ async function handleStandardSearch(query) {
                 `;
                 
                 div.onclick = function() {
-                    // Gọi hàm thêm thiết bị chuẩn vào bảng sau khi chọn
                     if (typeof addStandardToTable === 'function') {
                         addStandardToTable(item);
                     }
@@ -1167,7 +989,7 @@ function selectEquipmentTemplate(key) {
     let html = '';
     if (pt.rowspan > 0) {
       const parts = pt.paramName.split('\n');
-      html += `<td rowspan="${pt.rowspan}" class="group-header">${parts[0]}${parts[1]?`<br><span style="font-weight:400;font-style:italic;color:var(--muted);font-size:12px;">${parts[1]}</span>`:''}
+      html += `<td rowspan="${pt.rowspan}" class="group-header">${parts[0]}${parts[1]?`<br><span style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:12px;">${parts[1]}</span>`:''}
         <input type="hidden" class="group-param-name" value="${pt.paramName}">
       </td>`;
     }
@@ -1178,7 +1000,7 @@ function selectEquipmentTemplate(key) {
       <td><input type="text" class="lab-input-cell as-found-3" value="${pt.v3||''}" placeholder="Lần 3"></td>
       <td><input type="text" class="lab-input-cell uncertainty" value="${pt.uncertainty}"></td>
       <td><input type="text" class="lab-input-cell tolerance" value="${pt.tolerance}" style="font-weight:500;"></td>
-      <td><input type="text" class="lab-input-cell conformity" value="${pt.conformity}" style="font-weight:700;color:var(--teal);"></td>
+      <td><input type="text" class="lab-input-cell conformity" value="${pt.conformity}" style="font-weight:700;color:var(--accent);"></td>
     `;
     if (pt.rowspan > 0) {
       html += `<td rowspan="${pt.rowspan}" class="ref-eq-col">${renderRefEqCell(pt.standardEquipment)}</td>`;
@@ -1248,16 +1070,16 @@ function handleStandardSearch(keyword) {
     .map(x => x.item);
 
   if (filtered.length === 0) {
-    box.innerHTML = `<div class="suggestion-item" style="color:var(--hint);cursor:default;">❌ Không tìm thấy thiết bị chuẩn</div>`;
+    box.innerHTML = `<div class="suggestion-item" style="color:var(--text-muted);cursor:default;">❌ Không tìm thấy thiết bị chuẩn</div>`;
   } else {
-    filtered.slice(0, 10).forEach(eq => { // Giới hạn 10 kết quả cho sạch giao diện
+    filtered.slice(0, 10).forEach(eq => { 
       const code = eq.EQUIPMENT_ID || 'N/A';
       const name = eq.NAME || 'N/A';
       const due = eq.NEXT_DUE || '---';
       const d = document.createElement('div');
       d.className = 'suggestion-item';
       d.innerHTML = `🏷 <strong>${code}</strong> – ${name} 
-                     <span style="margin-left:auto;color:var(--muted);font-size:11px;">${eq.isStatic ? '📌 File' : '🌐 SQL'} | Hạn: ${due}</span>`;
+                     <span style="margin-left:auto;color:var(--text-muted);font-size:11px;">${eq.isStatic ? '📌 File' : '🌐 SQL'} | Hạn: ${due}</span>`;
       d.onclick = () => addStandardTag(eq);
       box.appendChild(d);
     });
@@ -1266,7 +1088,6 @@ function handleStandardSearch(keyword) {
 }
 
 function addStandardTag(eq) {
-  // Map dữ liệu từ SQL Template sang định dạng bảng Standard trong Project
   const standardEntry = {
     name: eq.NAME || '',
     id: eq.EQUIPMENT_ID || '',
@@ -1279,10 +1100,6 @@ function addStandardTag(eq) {
   document.getElementById('input-standard-search').value = '';
   document.getElementById('standard-suggestions').style.display = 'none';
 }
-
-// Removed unused selectedStandards variable and related functions
-// function renderStandardTags() { ... }
-// function removeStandardTag(i) { ... }
 
 /* ====== SIMPLE MODE TABLES ====== */
 function renderStandardsForm() {
@@ -1305,32 +1122,32 @@ function renderStandardsForm() {
 
   c.innerHTML = standards.map((s, i) => `
     <tr>
-      <td><input value="${s.name || ''}" oninput="standards[${i}].name=this.value"></td>
-      <td><input value="${s.id || ''}" oninput="standards[${i}].id=this.value"></td>
-      <td><input value="${s.trace || ''}" oninput="standards[${i}].trace=this.value"></td>
-      <td><input value="${s.due || ''}" oninput="standards[${i}].due=this.value"></td>
-      <td><button class="btn-rm" onclick="standards.splice(${i},1);renderStandardsForm()">×</button></td>
+      <td><input class="lab-input-cell" value="${s.name || ''}" oninput="standards[${i}].name=this.value"></td>
+      <td><input class="lab-input-cell" value="${s.id || ''}" oninput="standards[${i}].id=this.value"></td>
+      <td><input class="lab-input-cell" value="${s.trace || ''}" oninput="standards[${i}].trace=this.value"></td>
+      <td><input class="lab-input-cell" value="${s.due || ''}" oninput="standards[${i}].due=this.value"></td>
+      <td style="text-align:center;"><button class="btn-rm" onclick="standards.splice(${i},1);renderStandardsForm()">×</button></td>
     </tr>
   `).join('');
-  // Nếu không có hàng nào, hiển thị thông báo trống
-  if (standards.length === 0) c.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--hint);padding:10px;">Chưa có thiết bị chuẩn nào được chọn.</td></tr>';
+  if (standards.length === 0) c.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;">Chưa có thiết bị chuẩn nào được chọn.</td></tr>';
 }
 
 function addStandardRow() { standards.push({name:'',id:'',trace:'',due:''}); renderStandardsForm(); }
 
 function renderResultsForm() {
   const c = document.getElementById('res-form-body');
+  if(!c) return;
   c.innerHTML = results.map((r,i) => {
     const opts = ['A','B','C','D','--'].map(o=>`<option value="${o}" ${r.conf===o?'selected':''}>${o}</option>`).join('');
     return `
       <div class="res-row">
-        <input value="${r.param}" placeholder="Thông số" oninput="results[${i}].param=this.value">
-        <input value="${r.point}" placeholder="Điểm" oninput="results[${i}].point=this.value">
-        <input value="${r.found}" placeholder="Đo được" oninput="results[${i}].found=this.value">
-        <input value="${r.found2||''}" placeholder="Lần 2" oninput="results[${i}].found2=this.value">
-        <input value="${r.unc}" placeholder="KĐBĐ" oninput="results[${i}].unc=this.value">
-        <input value="${r.tol}" placeholder="Dung sai" oninput="results[${i}].tol=this.value">
-        <select onchange="results[${i}].conf=this.value">${opts}</select>
+        <input class="lab-input-cell" value="${r.param}" placeholder="Thông số" oninput="results[${i}].param=this.value">
+        <input class="lab-input-cell" value="${r.point}" placeholder="Điểm" oninput="results[${i}].point=this.value">
+        <input class="lab-input-cell" value="${r.found}" placeholder="Đo được" oninput="results[${i}].found=this.value">
+        <input class="lab-input-cell" value="${r.found2||''}" placeholder="Lần 2" oninput="results[${i}].found2=this.value">
+        <input class="lab-input-cell" value="${r.unc}" placeholder="KĐBĐ" oninput="results[${i}].unc=this.value">
+        <input class="lab-input-cell" value="${r.tol}" placeholder="Dung sai" oninput="results[${i}].tol=this.value">
+        <select class="lab-input-cell" onchange="results[${i}].conf=this.value">${opts}</select>
         <span></span>
         <button class="btn-rm" onclick="results.splice(${i},1);renderResultsForm()">×</button>
       </div>
@@ -1344,21 +1161,18 @@ function txt(id) { const e=document.getElementById(id); return e?e.value:''; }
 function parseDate(d) { if(!d) return ''; const p=d.split('-'); return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:d; }
 
 function collectCalibrationResults() {
-  // Try advanced table first
   const rows = document.querySelectorAll('#calibration-table-body tr');
   const res = [];
   rows.forEach(row => {
     const calPoint = row.querySelector('.cal-point');
     if (!calPoint) return;
 
-        // 1. Lấy tên thông số từ dataset (mẫu sẵn) hoặc input ở cột đầu tiên (nhập tay/DB)
         let paramName = row.dataset.parameterName || '';
         if (!paramName) {
           const pInput = row.querySelector('td:first-child input:not(.cal-point)');
           if (pInput) paramName = pInput.value;
         }
 
-        // 2. Nếu là hàng gộp (rowspan), tìm tên thông số ở hàng cha phía trên
     if (!paramName) {
       let prev = row.previousElementSibling;
       while(prev) {
@@ -1400,15 +1214,12 @@ function collectCalibrationResults() {
       refEq: refEq
     });
   });
-  // Fallback to simple mode if advanced is empty
-  if (res.length === 0) return []; // No fallback to hardcoded results
+  if (res.length === 0) return [];
   return res;
 }
 
 function collectAllStandards() {
-  // Merge selected tags + manual table
-  // The 'standards' array already holds the correctly formatted objects
-  return standards.filter(s => s.name || s.id); // Filter out any empty entries
+  return standards.filter(s => s.name || s.id);
 }
 
 function buildPrintTemplate() {
@@ -1421,7 +1232,7 @@ function buildPrintTemplate() {
     <div class="cert-header">
       <div class="cert-logo-box">
         <svg viewBox="0 0 100 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="60" rx="6" fill="#008080"/>
+            <rect width="100" height="60" rx="6" fill="#0d9488"/>
           <text x="50%" y="42%" dominant-baseline="middle" text-anchor="middle" fill="white" font-family="Arial" font-size="12" font-weight="bold">LABMASTER</text>
             <text x="50%" y="72%" dominant-baseline="middle" text-anchor="middle" fill="#e6f2f2" font-family="Arial" font-size="8">ST CO., LTD</text>
         </svg>
@@ -1630,7 +1441,7 @@ async function markProjectAsFinished(skipConfirm = false) {
   if (result.success) {
     showToast("Dự án đã được đánh dấu hoàn thành!");
     document.getElementById('pd-status').innerHTML = `<span class="badge badge-finished">Finished</span>`;
-    fetchProjects(); // Cập nhật lại danh sách và các con số thống kê
+    fetchProjects(); 
   }
 }
 
@@ -1638,7 +1449,6 @@ async function markProjectAsFinished(skipConfirm = false) {
 function toggleExportMenu() {
   const menu = document.getElementById('export-menu');
   const isVisible = menu.style.display === 'block';
-  // Đóng tất cả menu khác
   document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
   menu.style.display = isVisible ? 'none' : 'block';
 }
@@ -1652,7 +1462,6 @@ document.addEventListener('click', function(e) {
 
 // Hàm xuất file chung cho PDF / Excel / Word
 async function exportFile(format) {
-  // Đóng menu
   document.getElementById('export-menu').style.display = 'none';
   
   const certNo = (document.getElementById('f-certno')?.value || '').trim()
@@ -1668,7 +1477,6 @@ async function exportFile(format) {
   const formatEmojis = { pdf: '📄', excel: '📊', docx: '📝' };
   showToast(`${formatEmojis[format]} Đang lưu dữ liệu và sinh file ${formatNames[format]}...`, 'info');
 
-  // Thu thập điểm đo
   const pointRecords = collectCalibrationResults().map(r => ({
     parameterName: r.param,
     calPoint:      r.point,
@@ -1678,7 +1486,6 @@ async function exportFile(format) {
     conformity:    r.conf
   }));
 
-  // Thu thập thiết bị chuẩn
   const standardRecords = collectAllStandards().map(s => ({
     name:  s.name,
     id:    s.id,
@@ -1686,7 +1493,6 @@ async function exportFile(format) {
     due:   s.due
   }));
 
-  // Gom toàn bộ thông tin từ form
   const payload = {
     cert_no:        certNo,
     instrumentName: txt('f-inst-vi'),
@@ -1707,14 +1513,11 @@ async function exportFile(format) {
     standards:      standardRecords
   };
 
-  // Map format -> API endpoint
   const apiEndpoints = {
     pdf:  `${API_BASE_URL}/api/calibration/export-pdf`,
     excel: `${API_BASE_URL}/api/calibration/export-excel`,
     docx: `${API_BASE_URL}/api/calibration/export-docx`
   };
-
-  const extensions = { pdf: 'pdf', excel: 'xlsx', docx: 'docx' };
 
   try {
     const response = await fetch(apiEndpoints[format], {
@@ -1737,80 +1540,6 @@ async function exportFile(format) {
   }
 }
 
-// Giữ lại hàm cũ cho tương thích
-async function exportPDFAndFinish() {
-    // Lấy cert_no từ field nhập liệu trong workspace (f-certno)
-    const certNo = (document.getElementById('f-certno')?.value || '').trim()
-                || (typeof currentActiveCertNo !== 'undefined' && currentActiveCertNo)
-                || '';
-
-    if (!certNo || certNo === '-') {
-        showToast('Vui lòng nhập Số chứng nhận (Cert No.) trong phần thông tin thiết bị!', 'warning');
-        return;
-    }
-
-    showToast('Đang lưu dữ liệu và sinh file PDF...', 'info');
-
-    // Thu thập điểm đo từ bảng calibration-table-body (advanced mode)
-    const pointRecords = collectCalibrationResults().map(r => ({
-        parameterName: r.param,
-        calPoint:      r.point,
-        asFoundValue:  r.found,
-        uncertainty:   r.unc,
-        tolerance:     r.tol,
-        conformity:    r.conf
-    }));
-
-    // Thu thập thiết bị chuẩn đã chọn
-    const standardRecords = collectAllStandards().map(s => ({
-        name:  s.name,
-        id:    s.id,
-        trace: s.trace,
-        due:   s.due
-    }));
-
-    // Gom toàn bộ thông tin từ form editor — dùng đúng ID f-* đã khai báo trong HTML
-    const payload = {
-        cert_no:        certNo,
-        instrumentName: txt('f-inst-vi'),
-        manufacturer:   txt('f-mfr'),
-        model:          txt('f-model'),
-        equipmentId:    txt('f-id'),
-        serialNumber:   txt('f-sn'),
-        customerName:   txt('f-cust'),
-        calDate:        txt('f-caldate'),
-        reCalDate:      txt('f-recaldate'),
-        procedure:      txt('f-proc'),
-        refStandard:    txt('f-ref'),
-        tempEnv:        txt('f-temp'),
-        humiEnv:        txt('f-humi'),
-        headOfLab:      txt('f-sign1'),
-        director:       txt('f-sign2'),
-        points:         pointRecords.map((p, idx) => ({ ...p, refEq: collectCalibrationResults()[idx].refEq })),
-        standards:      standardRecords
-    };
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/calibration/export-pdf`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response.json();
-        if (result.success) {
-            showToast(result.message, 'success');
-            if (result.file_url) window.open(result.file_url, '_blank');
-            if (typeof fetchProjects === 'function') fetchProjects();
-        } else {
-            showToast(`Lỗi xử lý từ Server: ${result.message}`, 'danger');
-        }
-    } catch (error) {
-        console.error("Lỗi API xuất PDF:", error);
-        showToast('Lỗi kết nối máy chủ, không thể sinh PDF!', 'danger');
-    }
-}
-
 async function saveCalibrationData() {
     const user = JSON.parse(localStorage.getItem('labmaster_user'));
     const payload = {
@@ -1825,7 +1554,7 @@ async function saveCalibrationData() {
             uncertainty: p.unc, tolerance: p.tol, conformity: p.conf, refEq: p.refEq
         })),
         currentUser: user?.fullName || "KTV",
-        standards: collectAllStandards() // Send selected standards to backend
+        standards: collectAllStandards() 
     };
 
     const res = await fetch(`${API_URL}/calibration/save`, {
@@ -1856,19 +1585,15 @@ async function loadExistingCalibration(projectId) {
         if (response.status === 404) {
             console.log("Dự án mới, chưa có dữ liệu hiệu chuẩn cũ.");
             resetWorkspaceForm();
-            return false; // ← trả false để workspace biết chưa có dữ liệu
+            return false; 
         }
 
         if (!response.ok) throw new Error("Lỗi kết nối API lấy dữ liệu hiệu chuẩn");
 
         const result = await response.json();
-
-        // API /api/calibration/:certNo trả về { cert, points, standards }
-        // Coi là có dữ liệu nếu cert tồn tại và có ít nhất 1 điểm đo
         const hasSavedData = result && result.cert && result.points && result.points.length > 0;
 
         if (hasSavedData) {
-            // Điền thông tin thiết bị vào form
             const c = result.cert;
             const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
             setVal('f-inst-vi',   c.INSTRUMENT_NAME);
@@ -1887,10 +1612,8 @@ async function loadExistingCalibration(projectId) {
             setVal('f-sign1',     c.HEAD_OF_LAB);
             setVal('f-sign2',     c.DIRECTOR);
 
-            // Render bảng kết quả đo từ dữ liệu đã lưu
             fillCalibrationTableRows(result.points);
 
-            // Khôi phục danh sách thiết bị chuẩn đã chọn
             if (result.standards && result.standards.length > 0) {
                 standards = result.standards.map(s => ({
                     name:  s.EQ_NAME  || '',
@@ -1901,7 +1624,7 @@ async function loadExistingCalibration(projectId) {
                 renderStandardsForm();
             }
 
-            return true; // ← báo workspace đã khôi phục dữ liệu cũ
+            return true; 
         }
 
         resetWorkspaceForm();
@@ -1920,7 +1643,6 @@ function fillCalibrationTableRows(points) {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    // Gộp các hàng cùng PARAMETER_NAME thành nhóm rowspan
     const groups = [];
     let i = 0;
     while (i < points.length) {
@@ -1939,7 +1661,7 @@ function fillCalibrationTableRows(points) {
 
             if (idx === 0) {
                 const parts = group.name.split('\n');
-                const displayName = parts[0] + (parts[1] ? `<br><span style="font-weight:400;font-style:italic;color:var(--muted);font-size:12px;">${parts[1]}</span>` : '');
+                const displayName = parts[0] + (parts[1] ? `<br><span style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:12px;">${parts[1]}</span>` : '');
                 html += `<td rowspan="${group.rows.length}" class="group-header">
                     <div class="param-display">${displayName}</div>
                     <input type="hidden" class="group-param-name" value="${group.name}">
@@ -1958,7 +1680,7 @@ function fillCalibrationTableRows(points) {
               <td><input type="text" class="lab-input-cell as-found-3" value="${v3}" placeholder="Lần 3"></td>
               <td><input type="text" class="lab-input-cell uncertainty" value="${pt.UNCERTAINTY || ''}"></td>
               <td><input type="text" class="lab-input-cell tolerance" value="${pt.TOLERANCE || ''}" style="font-weight:500;"></td>
-              <td><input type="text" class="lab-input-cell conformity" value="${pt.CONFORMITY || ''}" style="font-weight:700;color:var(--teal);"></td>
+              <td><input type="text" class="lab-input-cell conformity" value="${pt.CONFORMITY || ''}" style="font-weight:700;color:var(--accent);"></td>
             `;
 
             if (idx === 0) {
@@ -1976,7 +1698,7 @@ function fillCalibrationTableRows(points) {
     updateRowCount();
 }
 
-/* ====== SMART SEARCH CHO REF-EQ-COL (CỘT THIẾT BỊ CHUẨN TRONG BẢNG KẾT QUẢ ĐO) ====== */
+/* ====== SMART SEARCH CHO REF-EQ-COL ====== */
 function handleRefEqSearch(input) {
     const wrapper = input.closest('.autocomplete-wrapper');
     if (!wrapper) return;
@@ -2005,13 +1727,13 @@ function handleRefEqSearch(input) {
         .map(x => x.item);
 
     if (filtered.length === 0) {
-        box.innerHTML = '<div class="suggestion-item" style="color:var(--hint);cursor:default;padding:8px;">❌ Không tìm thấy</div>';
+        box.innerHTML = '<div class="suggestion-item" style="color:var(--text-muted);cursor:default;padding:8px;">❌ Không tìm thấy</div>';
     } else {
         filtered.slice(0, 8).forEach(eq => {
             const label = `${eq.EQUIPMENT_ID ? eq.EQUIPMENT_ID + ' - ' : ''}${eq.NAME || ''}`;
             const div = document.createElement('div');
             div.className = 'suggestion-item';
-            div.innerHTML = `🏷 <strong>${label}</strong>${eq.MANUFACTURER ? `<br><span style="font-size:11px;color:var(--muted);">${eq.MANUFACTURER}</span>` : ''}`;
+            div.innerHTML = `🏷 <strong>${label}</strong>${eq.MANUFACTURER ? `<br><span style="font-size:11px;color:var(--text-muted);">${eq.MANUFACTURER}</span>` : ''}`;
             div.onclick = () => {
                 input.value = eq.EQUIPMENT_ID || eq.NAME || label;
                 box.style.display = 'none';
@@ -2054,23 +1776,16 @@ document.addEventListener('click', function(e) {
 fetchProjects();
 
 const userSession = localStorage.getItem('labmaster_user');
-if (!userSession) { window.location.href = 'login.html'; } // Chưa đăng nhập thì đuổi ra ngoài
+if (!userSession) { window.location.href = 'login.html'; } 
 
-// Hàm lấy tham số ID dự án từ thanh địa chỉ (Ví dụ: project.html?id=PJ001)
 function getProjectIdFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('id');
 }
 
-// Hàm đổ dữ liệu động vào vùng chứa proj-info-grid
 async function loadProjectDetail() {
     const projectId = getProjectIdFromUrl();
-    
-    // Nếu trên URL không có ?id=..., hệ thống sẽ không chạy tiếp (tránh lỗi)
-    if (!projectId) {
-        console.log("Không tìm thấy tham số ID dự án trên URL.");
-        return; 
-    }
+    if (!projectId) return; 
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`);
@@ -2078,22 +1793,10 @@ async function loadProjectDetail() {
 
         if (result.success) {
             const project = result.project;
-            
-            if (document.getElementById('view-proj-id')) 
-                document.getElementById('view-proj-id').innerText = project.ID || '-';
-            
-            if (document.getElementById('view-proj-title')) 
-                document.getElementById('view-proj-title').innerText = project.TITLE || '-';
-            
-            if (document.getElementById('view-proj-tech')) 
-                document.getElementById('view-proj-tech').innerText = project.TECH || '-';
-            
-            if (document.getElementById('view-proj-status')) 
-                document.getElementById('view-proj-status').innerText = project.STATUS || '-';
-            
-            console.log("Đã đồng bộ dữ liệu dự án động thành công!");
-        } else {
-            console.error("Không lấy được chi tiết dự án:", result.message);
+            if (document.getElementById('view-proj-id')) document.getElementById('view-proj-id').innerText = project.ID || '-';
+            if (document.getElementById('view-proj-title')) document.getElementById('view-proj-title').innerText = project.TITLE || '-';
+            if (document.getElementById('view-proj-tech')) document.getElementById('view-proj-tech').innerText = project.TECH || '-';
+            if (document.getElementById('view-proj-status')) document.getElementById('view-proj-status').innerText = project.STATUS || '-';
         }
     } catch (error) {
         console.error("Lỗi kết nối API chi tiết dự án:", error);
@@ -2105,9 +1808,6 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function resetWorkspaceForm() {
-    console.log("Đang làm sạch không gian làm việc cho dự án mới...");
-    
-    // Clear sạch các ô input an toàn bằng toán học optional chaining
     const inputs = document.querySelectorAll('#calibration-editor-view input[type=text], #calibration-editor-view textarea');
     if (inputs && inputs.length > 0) {
         inputs.forEach(el => {
@@ -2119,22 +1819,14 @@ function resetWorkspaceForm() {
     
     const tableBody = document.getElementById('calibration-table-body');
     if (tableBody) {
-        tableBody.innerHTML = '<tr><td colspan="9" class="cal-empty-state" style="text-align:center; padding: 20px; color:#9e9c96;">🔍 Dự án mới: Chọn thiết bị chuẩn và nhập kết quả điểm đo thực tế của bạn</td></tr>';
-        tableBody.innerHTML = ''; // Xóa nội dung hiện có
-        // Thêm một vài dòng mặc định để nhập liệu thủ công
-        for (let i = 0; i < 3; i++) { // Thêm 3 dòng trống mặc định
+        tableBody.innerHTML = '';
+        for (let i = 0; i < 3; i++) { 
             addCalResultRow();
         }
     }
-    
-    renderStandardTags();
 }
 
-// Hàm hiển thị Modal nhập liệu hoặc xác nhận tạo dự án mới
 function confirmCreateProject() {
-    const addModal = document.getElementById('modal-create-project');
-
-    // Nếu modal đang mở (người dùng bấm "Khởi tạo ngay" bên trong modal), lấy dữ liệu và gửi lên
     const newTitle = (document.getElementById('m-proj-name')?.value || '').trim();
     const newTech  = (document.getElementById('m-proj-tech')?.value || '').trim();
 
@@ -2162,7 +1854,7 @@ async function executeCreateProject(payload) {
         const result = await response.json();
         if (result.success) {
             showToast("Khởi tạo dự án thành công!");
-            fetchProjects(); // Cập nhật lại danh sách hiển thị
+            fetchProjects(); 
         } else {
             showToast("Lỗi: " + result.message, "danger");
         }
@@ -2171,101 +1863,6 @@ async function executeCreateProject(payload) {
         showToast("Lỗi kết nối máy chủ!", "danger");
     }
 }
-
-// Hàm gửi dữ liệu POST lên Backend để ghi vào SQLite
-async function executeCreateEquipment() {
-    const name = document.getElementById('new-name')?.value || '';
-    const eqId = document.getElementById('new-eq-id')?.value || '';
-    const manu = document.getElementById('new-manu')?.value || '';
-    const due  = document.getElementById('new-due')?.value || '';
-
-    if (!name.trim() || !eqId.trim()) {
-        alert('Lỗi cú pháp: Tên thiết bị chuẩn và Mã nhận diện bắt buộc không được để trống!');
-        return;
-    }
-
-    // Thu thập danh sách điểm đo mẫu cấu hình trong bảng của Modal
-    const points = [];
-    document.querySelectorAll('#new-calibration-table-rows tr').forEach(row => {
-        const inputs = row.querySelectorAll('input');
-        if (inputs.length >= 2 && (inputs[0].value || inputs[1].value)) {
-            points.push({
-                parameter: inputs[0].value.trim(),
-                value: inputs[1].value.trim()
-            });
-        }
-    });
-
-    const payload = {
-        equipment_id: eqId.trim(),
-        standard_name: name.trim(),
-        manufacturer: manu.trim(),
-        due_date: due,
-        points: points
-    };
-
-    try {
-        // Gọi API POST lên Server (Đảm bảo hằng số API_BASE_URL đã được bạn khai báo ở đầu file)
-        const response = await fetch(`${API_BASE_URL}/api/equipment`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response.json();
-        if (result.success) {
-            alert('Đã lưu dữ liệu thiết bị chuẩn mới vào database thành công!');
-            closeEquipmentModal(); // Đóng form xổ ra
-            
-            // Gọi hàm tải lại danh sách thiết bị chuẩn chính thức của bạn để làm tươi màn hình
-            if (typeof fetchEquipmentList === 'function') fetchEquipmentList(); 
-        } else {
-            alert(`Máy chủ báo lỗi: ${result.message}`);
-        }
-    } catch (error) {
-        console.error("Lỗi kết nối máy chủ:", error);
-        alert('Không thể kết nối đến API hệ thống để lưu thiết bị mới!');
-    }
-}
-
-// Hàm lấy danh sách thiết bị chuẩn từ localStorage và tạo các thẻ <option>
-function generateEquipmentOptions() {
-    let optionsHtml = '<option value="">-- Chọn thiết bị chuẩn --</option>';
-    try {
-        const localData = localStorage.getItem('labmaster_equipment_db');
-        if (localData) {
-            const equipmentList = JSON.parse(localData);
-            equipmentList.forEach(eq => {
-                // Kết hợp Mã - Tên - Hãng để hiển thị cho kỹ thuật viên dễ chọn
-                const displayText = `${eq.equipment_id} - ${eq.standard_name} (${eq.manufacturer})`;
-                optionsHtml += `<option value="${eq.equipment_id}">${displayText}</option>`;
-            });
-        }
-    } catch (e) {
-        console.error("Lỗi khi đọc dữ liệu thiết bị chuẩn từ localStorage:", e);
-    }
-    return optionsHtml;
-}
-
-function addCalibrationRow() {
-    const tbody = document.getElementById('calibration-table-body'); // Thay bằng ID thực tế của bạn
-    const equipmentOptions = generateEquipmentOptions(); // Lấy options đồng bộ
-
-    const row = document.createElement('tr');
-    row.innerHTML = `
-        <td><input type="text" class="cell-input" placeholder="Điểm kiểm tra"></td>
-        <td><input type="text" class="cell-input" placeholder="Giá trị chuẩn"></td>
-        <td><input type="text" class="cell-input" placeholder="Giá trị thực tế"></td>
-        <td>
-            <select class="cell-input standard-equipment-select" style="width: 100%;">
-                ${equipmentOptions}
-            </select>
-        </td>
-        <td><input type="text" class="cell-input" placeholder="Sai số"></td>
-        <td style="text-align:center;"><button type="button" class="btn-delete" onclick="this.closest('tr').remove()">&times;</button></td>
-    `;
-    tbody.appendChild(row);
-}
 </script>
 </body>
-</html
+</html>

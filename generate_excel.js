@@ -127,52 +127,7 @@ async function main() {
             r++;
         });
 
-        // --- STANDARDS SECTION ---
-        r += 1;
-        ws.mergeCells('A' + r + ':G' + r);
-        ws.getCell('A' + r).value = '13. CHUẨN SỬ DỤNG / STANDARDS USED:';
-        ws.getCell('A' + r).font = { name: 'Arial', size: 11, bold: true, color: { argb: primaryColor } };
-        ws.getCell('A' + r).alignment = { horizontal: 'center', vertical: 'middle' };
-        ws.getRow(r).height = 24;
-        r++;
-
-        var stdList = standards.length > 0
-            ? standards.map(function(s) { return { name: s.EQ_NAME || '–', id: s.EQ_CODE || '–', trace: s.LINK || '–', due: s.VALIDITY || '–' }; })
-            : [{ name: '–', id: '–', trace: '–', due: '–' }];
-
-        // Std header
-        var stdH = ['Tên thiết bị chuẩn (Name)', 'Mã số (ID)', 'Liên kết chuẩn (Traceable)', 'Hiệu lực (Due Date)'];
-        var stdCols = ['A', 'B', 'C', 'D'];
-        ws.getRow(r).height = 22;
-        stdH.forEach(function(h, i) {
-            var col = stdCols[i];
-            if (i === 3) {
-                ws.mergeCells('D' + r + ':G' + r);
-                col = 'D';
-            }
-            var cell = ws.getCell(col + r);
-            cell.value = h;
-            cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: primaryColor } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightBg } };
-            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-            cell.border = defaultBorder();
-        });
-        r++;
-
-        stdList.forEach(function(s) {
-            ws.getRow(r).height = 22;
-            var vals = [s.name, s.id, s.trace, s.due];
-            var cols = ['A', 'B', 'C', 'D'];
-            vals.forEach(function(v, i) {
-                if (i === 3) ws.mergeCells('D' + r + ':G' + r);
-                var cell = ws.getCell(cols[i] + r);
-                cell.value = v;
-                cell.font = { name: 'Arial', size: 9, color: { argb: '1a1917' } };
-                cell.alignment = { horizontal: i > 0 ? 'center' : 'left', vertical: 'middle' };
-                cell.border = defaultBorder();
-            });
-            r++;
-        });
+        
 
         // --- RESULTS TABLE ---
         r += 1;

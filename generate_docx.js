@@ -152,52 +152,10 @@ async function main() {
             );
         });
 
-        // ── THIẾT BỊ CHUẨN SỬ DỤNG ──
-        children.push(
-            new Paragraph({ spacing: { before: 200 } }),
-            new Paragraph({
-                children: [new TextRun({
-                    text: '13. CHUẨN SỬ DỤNG / STANDARDS USED:',
-                    font: 'Arial', size: 22, bold: true, color: TEAL
-                })],
-                alignment: AlignmentType.CENTER,
-                spacing: { after: 120 },
-            })
-        );
+        
 
-        const stdList = standards.length > 0
-            ? standards.map(s => ({ name: s.EQ_NAME || '–', id: s.EQ_CODE || '–', trace: s.LINK || '–', due: s.VALIDITY || '–' }))
-            : [{ name: '–', id: '–', trace: '–', due: '–' }];
+        
 
-        const stdTableRows = [];
-        // Header
-        stdTableRows.push(new TableRow({
-            tableHeader: true,
-            children: ['Tên thiết bị chuẩn (Name)', 'Mã số (ID)', 'Liên kết chuẩn (Traceable)', 'Hiệu lực (Due Date)'].map(h =>
-                borderedCell([cellParagraph(h, { bold: true, fontSize: 9, color: TEAL, alignment: AlignmentType.CENTER })], {
-                    shading: 'e6f7f7'
-                })
-            )
-        }));
-
-        stdList.forEach(s => {
-            stdTableRows.push(new TableRow({
-                children: [
-                    borderedCell([cellParagraph(s.name, { fontSize: 9 })]),
-                    borderedCell([cellParagraph(s.id, { fontSize: 9, alignment: AlignmentType.CENTER })]),
-                    borderedCell([cellParagraph(s.trace, { fontSize: 9, alignment: AlignmentType.CENTER })]),
-                    borderedCell([cellParagraph(s.due, { fontSize: 9, alignment: AlignmentType.CENTER })]),
-                ]
-            }));
-        });
-
-        children.push(
-            new Table({
-                rows: stdTableRows,
-                width: { size: 100, type: WidthType.PERCENTAGE },
-            }),
-            new Paragraph({ spacing: { after: 200 } })
-        );
 
         // ── KẾT QUẢ HIỆU CHUẨN ──
         children.push(
