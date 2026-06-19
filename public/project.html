@@ -446,9 +446,11 @@ function selectCustomerInDetail(cust) {
   document.getElementById('det-cust-addr').innerText = cust.BILLING_ADDRESS || '-';
   document.getElementById('selected-cust-details').style.display = 'grid';
 
+  // Lưu thông tin khách hàng đã chọn để dùng sau khi mở Workspace
+  window._selectedCustomer = cust;
+
   // Đồng bộ thông tin này sang Workspace (nếu đang mở Workspace)
-  if (document.getElementById('f-cust')) document.getElementById('f-cust').value = cust.COMPANY || cust.NAME;
-  if (document.getElementById('f-cust-addr')) document.getElementById('f-cust-addr').value = cust.BILLING_ADDRESS || '';
+  applyCustomerToWorkspace(cust);
 }
 
 
@@ -552,6 +554,18 @@ function showDbSyncBadge() {
   b.textContent = '🔄 Database đã được cập nhật!';
   b.style.opacity = '1';
   setTimeout(() => { b.style.opacity = '0'; }, 3000);
+}
+
+/* ====== ÁP DỤNG THÔNG TIN KHÁCH HÀNG VÀO WORKSPACE ====== */
+function applyCustomerToWorkspace(cust) {
+  if (!cust) return;
+  if (document.getElementById('f-cust')) document.getElementById('f-cust').value = cust.NAME || cust.COMPANY;
+  if (document.getElementById('f-cust-addr')) document.getElementById('f-cust-addr').value = cust.ADDRESS || cust.BILLING_ADDRESS || '';
+  if (document.getElementById('f-place')) {
+    const company = cust.COMPANY || cust.NAME || '';
+    const addr = cust.ADDRESS || cust.BILLING_ADDRESS || '';
+    document.getElementById('f-place').value = company + (addr ? ' – ' + addr : '');
+  }
 }
 
 /* ====== PROJECT DATA ====== */
@@ -899,6 +913,11 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null) {
       }
   } else {
       showToast("Đã khôi phục dữ liệu đã lưu từ Database SQL.");
+  }
+
+  // Sau khi load xong dữ liệu từ DB, nếu có customer đã chọn từ project detail thì áp dụng lại
+  if (window._selectedCustomer) {
+    applyCustomerToWorkspace(window._selectedCustomer);
   }
 
   renderStandardsForm();
@@ -1606,6 +1625,7 @@ async function loadExistingCalibration(projectId) {
             setVal('f-id',        c.EQUIPMENT_ID);
             setVal('f-sn',        c.SERIAL_NUMBER);
             setVal('f-cust',      c.CUSTOMER_NAME);
+            setVal('f-cust-addr', c.CUSTOMER_ADDRESS || '');
             setVal('f-caldate',   c.CAL_DATE);
             setVal('f-recaldate', c.RE_CAL_DATE);
             setVal('f-proc',      c.PROCEDURE);

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Standard Equipment - LabMaster</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
     <style>
     @keyframes modalFadeIn {
@@ -38,21 +39,32 @@
         #calibration-table th {
             background-color: #008080;
             color: white;
-            padding: 12px;
+            padding: 8px 4px;
+            font-size: 11.5px;
+            border: 1px solid #008080;
+            line-height: 1.3;
         }
         #calibration-table td {
             border: 1px solid #e2e8f0;
+            padding: 6px 4px;
         }
         .cell-input {
             width: 100%;
-            border: none;
+            border: 1px solid transparent;
             text-align: center;
-            padding: 8px;
+            padding: 4px 6px;
             background: transparent;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            border-radius: 4px;
+            box-sizing: border-box;
+            transition: all 0.15s;
         }
         .cell-input:focus {
             background: #f0fdfa;
-            outline: 2px solid #008080;
+            border-color: #008080;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(0,128,128,0.12);
         }
 
         /* ===== YOUTUBE-STYLE SEARCH: Cột Thiết bị chuẩn ===== */
@@ -95,6 +107,15 @@
         }
         .std-dropdown-item .item-badge.expired { background: #fff5f5; color: #c53030; }
         .std-dropdown-empty { padding: 12px 14px; color: #a0aec0; font-size: 13px; text-align: center; }
+        /* ===== CLOCK SELECT CHO NHIET DO ===== */
+        .ref-eq-clock-select {
+            width: 100%; padding: 6px 8px; border: 2px solid #008080; border-radius: 6px;
+            font-size: 13px; font-weight: 700; color: #008080; background: #f0fdfa;
+            cursor: pointer; transition: all 0.2s;
+            appearance: auto; -webkit-appearance: auto; -moz-appearance: auto;
+        }
+        .ref-eq-clock-select:hover { border-color: #005f5f; background: #e6fffa; }
+        .ref-eq-clock-select:focus { outline: none; border-color: #005f5f; box-shadow: 0 0 0 3px rgba(0,128,128,0.2); }
         /* ===== ĐỊNH DẠNG KHUNG AUTOCOMPLETE TRÊN DÒNG BẢNG ===== */
 .param-autocomplete-wrapper {
     position: relative;
@@ -271,18 +292,18 @@
             </div>
         </div>
 
-        <div style="overflow-x: auto; margin: 20px 0;">
-            <table id="calibration-table" style="width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Times New Roman', Times, serif; font-size: 14px; text-align: center; border: 1px solid #111;">
+        <div style="overflow: visible; margin: 20px 0; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.06); background: #fff;">
+            <table id="calibration-table" style="width: 100%; border-collapse: collapse; table-layout: fixed; font-family: 'Inter', sans-serif; font-size: 13px; text-align: center;">
                 <thead>
                     <tr>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 18%;">Thông số<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Parameters</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Điểm hiệu chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Calibration Points</span></th>
-                        <th colspan="3" style="border: 1px solid #111111; padding: 10px; width: 22%;">Giá trị đo được<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">As Found Value (lần 1 / 2 / 3)</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 9%;">Độ KĐBD<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Uncertainty</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 9%;">Dung sai<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Tolerance</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 10%;">Sự phù hợp<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Conformity</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 16%;">Thiết bị chuẩn<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Standard Equipment</span></th>
-                        <th style="border: 1px solid #111111; padding: 10px; width: 6%;">Thao tác<br><span style="font-style: italic; font-weight: normal; font-size: 13px;">Action</span></th>
+                        <th style="width: 20%;">Thông số<br><span>Parameters</span></th>
+                        <th style="width: 10%;">Điểm HC<br><span>Cal. Points</span></th>
+                        <th colspan="3" style="width: 18%;">Giá trị đo được<br><span>As Found (lần 1 / 2 / 3)</span></th>
+                        <th style="width: 8%;">KĐBĐ ±<br><span>Uncertainty</span></th>
+                        <th style="width: 8%;">Dung sai<br><span>Tolerance</span></th>
+                        <th style="width: 8%;">Phù hợp<br><span>Conformity</span></th>
+                        <th style="width: 18%;">Thiết bị chuẩn<br><span>Standard Equipment</span></th>
+                        <th style="width: 10%;">Xóa</th>
                     </tr>
                 </thead>
                 <tbody id="calibration-table-rows"> 
@@ -627,20 +648,22 @@
     }
 
     // Hàm render ô standard-eq-cell dùng widget mới (gọi thay cho buildStandardEqOptionsHtml)
-    function createStdSearchCell(savedValue = '') {
+    function createStdSearchCell(savedValue = '', parameterName = '') {
         const td = document.createElement('td');
         td.className = 'standard-eq-cell';
-        td.style.cssText = 'border:1px solid #111; padding:8px; vertical-align:middle; min-width:200px;';
-        td.appendChild(createStdSearchWidget(savedValue));
+        td.style.cssText = 'vertical-align:middle; min-width:140px;';
+        renderRefEqControl(td, parameterName, savedValue);
         return td;
     }
 
     // Đọc giá trị đã chọn từ widget (thay thế select.value)
     function getStdSearchValue(cell) {
         const input = cell.querySelector('.std-search-input');
-        if (!input) return '';
-        // Ưu tiên selectedId (đã chọn từ dropdown), fallback về input.value (gõ tay)
-        return input.dataset.selectedId || input.value.trim();
+        if (input) return input.dataset.selectedId || input.value.trim();
+        // Cho clock select (thông số Nhiệt độ)
+        const select = cell.querySelector('.ref-eq-val');
+        if (select) return select.value;
+        return '';
     }
 
     // Tương thích ngược: hàm cũ updateStandardEqOptions không còn dùng nữa
@@ -649,6 +672,54 @@
         // Không làm gì — đã thay bằng widget YouTube-style
     }
     function buildStandardEqOptionsHtml(currentValue) { return ''; } // stub
+
+    /* ====== NHIET DO KEYWORD: CHUYEN DOI GIUA CLOCK SELECT VA SEARCH WIDGET ====== */
+    function normalizeVietnameseKeyword(value = '') {
+        return value
+            .toString()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D')
+            .toLowerCase()
+            .trim();
+    }
+
+    function isTemperatureParameter(value = '') {
+        return normalizeVietnameseKeyword(value).includes('nhiet do');
+    }
+
+    function renderClockSelect(value = '') {
+        const selected = (value || '').trim().toUpperCase();
+        const options = ['', 'DH1', 'DH2', 'DH3'].map(opt => {
+            const label = opt || '-- Chọn đồng hồ --';
+            return `<option value="${opt}"${selected === opt ? ' selected' : ''}>${label}</option>`;
+        }).join('');
+        return `<select class="cell-input ref-eq-val ref-eq-clock-select" title="Chọn đồng hồ cho thông số Nhiệt độ">${options}</select>`;
+    }
+
+    // Render ô standard-eq-cell: dùng appendChild cho search widget (giữ event listeners)
+    // và innerHTML cho clock select (nhiệt độ)
+    function renderRefEqControl(stdCell, parameterName, savedValue) {
+        stdCell.innerHTML = '';
+        if (isTemperatureParameter(parameterName)) {
+            stdCell.innerHTML = renderClockSelect(savedValue);
+        } else {
+            stdCell.appendChild(createStdSearchWidget(savedValue));
+        }
+    }
+
+    function checkParamForRefEq(input) {
+        const row = input.closest('tr');
+        const stdCell = row.querySelector('.standard-eq-cell');
+        if (!stdCell) return;
+
+        let selectedValue = '';
+        const existing = stdCell.querySelector('.ref-eq-val');
+        if (existing) selectedValue = existing.value;
+
+        renderRefEqControl(stdCell, input.value, selectedValue);
+    }
 
     async function fetchEquipmentTemplates() {
         // Load song song: danh sách thiết bị (equipment-templates) + thiết bị chuẩn từ CLOCK
@@ -802,8 +873,8 @@
                 let html = '';
 
                 if (k === i) {
-                    html += `<td rowspan="${groupSize}" class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
-                        <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;">${groupName}</textarea>
+                    html += `<td rowspan="${groupSize}" class="group-header" style="text-align:left;font-weight:600;background:#f8fafc;vertical-align:middle;">
+                        <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:'Inter',sans-serif; font-weight:600; font-size:13px; resize:vertical; min-height:36px;">${groupName}</textarea>
                     </td>`;
                     html += renderCells(
                         pt.CAL_POINT || pt.calPoint || pt.point || pt.value || '',
@@ -813,7 +884,7 @@
                         pt.CONFORMITY || pt.conformity || ''
                     );
                     // placeholder rowspan cho standard-eq-cell
-                    html += `<td rowspan="${groupSize}" class="standard-eq-cell" style="border:1px solid #111;padding:8px;vertical-align:middle;min-width:200px;"></td>`;
+                    html += `<td rowspan="${groupSize}" class="standard-eq-cell" style="vertical-align:middle;min-width:140px;"></td>`;
                 } else {
                     html += renderCells(
                         pt.CAL_POINT || pt.calPoint || pt.point || pt.value || '',
@@ -824,15 +895,17 @@
                     );
                 }
 
-                html += `<td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>`;
+                html += `<td style="padding:4px;"><button onclick="deleteRow(this)" style="color:#e53e3e;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;padding:4px 8px;transition:all 0.15s;line-height:1;" onmouseover="this.style.background='#fed7d7';this.style.borderColor='#fc8181'" onmouseout="this.style.background='#fff5f5';this.style.borderColor='#fed7d7'">✖</button></td>`;
                 tr.innerHTML = html;
                 tbody.appendChild(tr);
 
-                // Gắn widget vào ô standard-eq-cell của hàng đầu nhóm
+                // Gắn oninput handler + widget vào ô standard-eq-cell của hàng đầu nhóm
                 if (k === i) {
+                    const textarea = tr.querySelector('.param-input');
+                    if (textarea) textarea.oninput = function() { checkParamForRefEq(this); };
                     const stdCell = tr.querySelector('.standard-eq-cell');
                     const savedVal = pt.STANDARD_EQUIPMENT || pt.standardEquipment || '';
-                    if (stdCell) stdCell.appendChild(createStdSearchWidget(savedVal));
+                    if (stdCell) renderRefEqControl(stdCell, groupName, savedVal);
                 }
             }
             i = j;
@@ -853,13 +926,13 @@
         const displayTol = tol || '± 3';
 
         return `
-            <td class="point-cell" style="border:1px solid #111;padding:4px;font-weight:bold;background:#fafafa;"><input type="text" value="${p}" class="cell-input point-input" style="font-weight:bold;text-align:center;"></td>
-            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${val1}" class="cell-input v1" placeholder="Lần 1"></td>
-            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${val2}" class="cell-input v2" placeholder="Lần 2"></td>
-            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${val3}" class="cell-input v3" placeholder="Lần 3"></td>
-            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${displayUnc}" class="cell-input unc"></td>
-            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${displayTol}" class="cell-input tol"></td>
-            <td style="border:1px solid #111;padding:4px;"><input type="text" value="${conf}" class="cell-input conf" style="font-weight:bold;"></td>
+            <td class="point-cell" style="padding:4px;font-weight:600;background:#f8fafc;"><input type="text" value="${p}" class="cell-input point-input" style="font-weight:600;text-align:center;"></td>
+            <td style="padding:4px;"><input type="text" value="${val1}" class="cell-input v1" placeholder="Lần 1"></td>
+            <td style="padding:4px;"><input type="text" value="${val2}" class="cell-input v2" placeholder="Lần 2"></td>
+            <td style="padding:4px;"><input type="text" value="${val3}" class="cell-input v3" placeholder="Lần 3"></td>
+            <td style="padding:4px;"><input type="text" value="${displayUnc}" class="cell-input unc"></td>
+            <td style="padding:4px;"><input type="text" value="${displayTol}" class="cell-input tol"></td>
+            <td style="padding:4px;"><input type="text" value="${conf}" class="cell-input conf" style="font-weight:600;"></td>
         `;
     }
 
@@ -873,21 +946,25 @@
         tr.setAttribute('data-group', 'manual-row-' + Date.now() + Math.random().toString(36).substr(2, 5));
 
         let html = `
-            <td class="group-header" style="border:1px solid #111;padding:10px;text-align:left;font-weight:bold;background:#fafafa;vertical-align:middle;">
-                <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:inherit; font-weight:bold; font-size:14px; resize:vertical; min-height:40px;" placeholder="Tên thông số (Parameter)"></textarea>
+            <td class="group-header" style="text-align:left;font-weight:600;background:#f8fafc;vertical-align:middle;">
+                <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:'Inter',sans-serif; font-weight:600; font-size:13px; resize:vertical; min-height:36px;" placeholder="Tên thông số (Parameter)"></textarea>
             </td>
         `;
         html += renderCells('', '', '', '', '');
         // placeholder cho ô standard-eq-cell (sẽ được gắn sau)
-        html += `<td class="standard-eq-cell" style="border:1px solid #111;padding:8px;vertical-align:middle;min-width:200px;"></td>`;
-        html += `<td style="border:1px solid #111;padding:4px;"><button onclick="deleteRow(this)" style="color:#ff4d4d;background:none;border:none;cursor:pointer;font-weight:bold;">✖</button></td>`;
+        html += `<td class="standard-eq-cell" style="vertical-align:middle;min-width:140px;"></td>`;
+        html += `<td style="padding:4px;"><button onclick="deleteRow(this)" style="color:#e53e3e;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;padding:4px 8px;transition:all 0.15s;line-height:1;" onmouseover="this.style.background='#fed7d7';this.style.borderColor='#fc8181'" onmouseout="this.style.background='#fff5f5';this.style.borderColor='#fed7d7'">✖</button></td>`;
 
         tr.innerHTML = html;
         tbody.appendChild(tr);
 
-        // Gắn widget vào ô standard-eq-cell
+        // Gắn widget/clock-select vào ô standard-eq-cell theo keyword
+        const textarea = tr.querySelector('.param-input');
+        if (textarea) {
+            textarea.oninput = function() { checkParamForRefEq(this); };
+        }
         const stdCell = tr.querySelector('.standard-eq-cell');
-        stdCell.appendChild(createStdSearchWidget(''));
+        renderRefEqControl(stdCell, '', '');
     }
 
     async function saveEq() {
