@@ -26,26 +26,26 @@
             <a href="equipment.html" id="nav-equipment" >Standard Equipment Database</a>
             <a href="databasequipment.html" id="nav-databasequipment">Database Equipment</a>
         </nav>
-        <button class="btn-shiny" onclick="location.href='signin.html'">Sign In</button>
+        <button class="btn-shiny" onclick="location.href='login.html'">Sign In</button>
     </div>
 </header>
 
 <!-- ====================================================================== -->
 <!--  VIEW 1: PROJECT LIST                                                   -->
 <!-- ====================================================================== -->
-<main id="project-list-view">
+<main id="project-list-view" class="anim-page-in">
   <div class="main-container">
     <div class="stats-grid">
-      <div class="stat-card"><h4>Tổng dự án</h4><p id="stat-total">4</p></div>
-      <div class="stat-card"><h4>Đang thực hiện</h4><p id="stat-progress">3</p></div>
-      <div class="stat-card"><h4>Đã hoàn thành</h4><p id="stat-finished">1</p></div>
-      <div class="stat-card"><h4>Chứng nhận tháng này</h4><p id="stat-certs">7</p></div>
+      <div class="stat-card reveal" style="animation-delay:0.1s"><h4>Tổng dự án</h4><p id="stat-total">4</p></div>
+      <div class="stat-card reveal" style="animation-delay:0.2s"><h4>Đang thực hiện</h4><p id="stat-progress">3</p></div>
+      <div class="stat-card reveal" style="animation-delay:0.3s"><h4>Đã hoàn thành</h4><p id="stat-finished">1</p></div>
+      <div class="stat-card reveal" style="animation-delay:0.4s"><h4>Chứng nhận tháng này</h4><p id="stat-certs">7</p></div>
     </div>
 
-    <div class="panel">
+    <div class="panel reveal" style="animation-delay:0.3s">
       <div class="panel-header">
-        <h2>Danh sách dự án hiệu chuẩn</h2>
-        <button class="btn btn-primary" onclick="openModal('modal-create-project')">+ Khởi tạo dự án mới</button>
+        <h2>Danh sách dự án hiệu chuẩn <span id="project-count-badge" class="badge badge-finished" style="margin-left:8px;font-size:10px;">0</span></h2>
+        <button class="btn btn-primary ripple-btn" onclick="openModal('modal-create-project')"><i class="fas fa-plus-circle"></i> Khởi tạo dự án mới</button>
       </div>
       <div class="panel-body">
         <table class="data-table">
@@ -69,7 +69,7 @@
 <!-- ====================================================================== -->
 <!--  VIEW 2: PROJECT DETAIL                                                 -->
 <!-- ====================================================================== -->
-<main id="project-detail-view" style="display:none;">
+<main id="project-detail-view" style="display:none;" class="anim-page-in">
   <div class="main-container">
     <div class="panel">
       <div class="detail-back-bar">
@@ -124,13 +124,13 @@
       </div>
 
       <div class="proj-actions-bar">
-        <button class="btn btn-primary" onclick="openCalibrationWorkspace()">
-          📋 Mở không gian nhập liệu & Xuất chứng nhận
+        <button class="btn btn-primary ripple-btn" onclick="openCalibrationWorkspace()">
+          <i class="fas fa-clipboard-list"></i> Mở không gian nhập liệu & Xuất chứng nhận
         </button>
-        <button class="btn btn-success" onclick="markProjectAsFinished()">
-          ✅ Đánh dấu hoàn thành
+        <button class="btn btn-success ripple-btn" onclick="markProjectAsFinished()">
+          <i class="fas fa-check-circle"></i> Đánh dấu hoàn thành
         </button>
-        <button class="btn btn-secondary" onclick="showProjectList()">← Quay lại</button>
+        <button class="btn btn-secondary" onclick="showProjectList()"><i class="fas fa-arrow-left"></i> Quay lại</button>
       </div>
     </div>
   </div>
@@ -139,7 +139,7 @@
 <!-- ====================================================================== -->
 <!--  VIEW 3: CALIBRATION WORKSPACE (EDITOR + PREVIEW)                      -->
 <!-- ====================================================================== -->
-<main id="calibration-editor-view" style="display:none;">
+<main id="calibration-editor-view" style="display:none;" class="anim-page-in">
 
   <!-- EDITOR VIEW -->
   <div id="editor-view">
@@ -1843,6 +1843,52 @@ document.addEventListener('click', function(e) {
   if (!e.target.closest('.autocomplete-wrapper')) {
     document.querySelectorAll('.autocomplete-suggestions').forEach(b=>b.style.display='none');
   }
+});
+
+/* ─── Scroll Reveal ─── */
+function initScrollReveal() {
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+
+    document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => observer.observe(el));
+}
+
+/* ─── Ripple effect ─── */
+function initRippleEffect() {
+    document.querySelectorAll('.ripple-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            const rect = this.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const ripple = document.createElement('span');
+            ripple.style.cssText = `
+                position: absolute;
+                top: ${y}px;
+                left: ${x}px;
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: rgba(255,255,255,0.4);
+                transform: translate(-50%, -50%) scale(0);
+                animation: ripple 0.6s ease-out;
+                pointer-events: none;
+            `;
+            this.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 700);
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initScrollReveal();
+    initRippleEffect();
+    setTimeout(initScrollReveal, 800);
 });
 
 /* ====== INIT ====== */

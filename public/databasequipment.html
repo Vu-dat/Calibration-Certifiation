@@ -6,158 +6,248 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
     <style>
-    @keyframes modalFadeIn {
-        from { opacity: 0; transform: translateY(-20px); }
-        to { opacity: 1; transform: translateY(0); }
+    /* ════════════════════════════════════════════
+       DATABASE EQUIPMENT — Premium Design
+       ════════════════════════════════════════════ */
+    :root {
+        --teal: var(--accent);
+        --teal-dark: var(--accent-hover);
+        --teal-mid: var(--accent-dark);
+        --teal-light: var(--accent-light);
+        --teal-glow: var(--accent-glow);
     }
-        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
-        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
-        .stat-card { background: white; padding: 25px; border-radius: 12px; box-shadow: var(--card-shadow); text-align: center; border-bottom: 4px solid #ddd; }
-        .stat-card h4 { margin: 0; color: #777; text-transform: uppercase; font-size: 0.85rem; }
-        .stat-card p { font-size: 2rem; font-weight: 800; margin: 10px 0 0 0; color: #333; }
-        
-        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #edf2f7; }
-        .section-header h2 { margin: 0; color: #2d3748; font-size: 1.5rem; }
-        
-        .admin-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            margin-bottom: 30px;
-            background: #f8fafc;
-            padding: 20px;
-            border-radius: 12px;
-        }
-        .lab-input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #cbd5e0;
-            border-radius: 6px;
-            font-family: 'Roboto', sans-serif;
-        }
 
-        #calibration-table th {
-            background-color: #008080;
-            color: white;
-            padding: 8px 4px;
-            font-size: 11.5px;
-            border: 1px solid #008080;
-            line-height: 1.3;
-        }
-        #calibration-table td {
-            border: 1px solid #e2e8f0;
-            padding: 6px 4px;
-        }
-        .cell-input {
-            width: 100%;
-            border: 1px solid transparent;
-            text-align: center;
-            padding: 4px 6px;
-            background: transparent;
-            font-family: 'Inter', sans-serif;
-            font-size: 13px;
-            border-radius: 4px;
-            box-sizing: border-box;
-            transition: all 0.15s;
-        }
-        .cell-input:focus {
-            background: #f0fdfa;
-            border-color: #008080;
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(0,128,128,0.12);
-        }
+    .db-container { max-width: 1200px; margin: 28px auto; padding: 0 24px; }
 
-        /* ===== YOUTUBE-STYLE SEARCH: Cột Thiết bị chuẩn ===== */
-        .std-search-wrapper { position: relative; width: 100%; }
-        .std-search-input {
-            width: 100%; padding: 6px 10px;
-            border: 1px solid #cbd5e0; border-radius: 6px;
-            font-size: 13px; font-weight: 600; color: #008080;
-            box-sizing: border-box; background: #f0fdfa;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .std-search-input:focus {
-            outline: none; border-color: #008080; background: #fff;
-            box-shadow: 0 0 0 3px rgba(0,128,128,0.15);
-        }
-        .std-search-input.has-value { background: #e6fffa; border-color: #38a169; color: #276749; }
-        .std-dropdown {
-            position: fixed; /* fixed để thoát khỏi overflow:hidden của table */
-            background: #fff; border: 1px solid #cbd5e0; border-radius: 8px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.18); z-index: 99999;
-            max-height: 260px; overflow-y: auto; overflow-x: hidden; display: none;
-            min-width: 360px; max-width: min(620px, calc(100vw - 32px));
-            text-align: left;
-        }
-        .std-dropdown.open { display: block; }
-        .std-dropdown-item {
-            padding: 9px 14px; cursor: pointer; font-size: 13px;
-            display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px;
-            border-bottom: 1px solid #f7fafc; transition: background 0.12s;
-            white-space: normal;
-            overflow-wrap: anywhere;
-        }
-        .std-dropdown-item:last-child { border-bottom: none; }
-        .std-dropdown-item:hover, .std-dropdown-item.active { background: #e6fffa; }
-        .std-dropdown-item .item-id { font-weight: 700; color: #008080; min-width: 95px; font-size: 12px; flex-shrink: 0; }
-        .std-dropdown-item .item-name { color: #2d3748; flex: 1; }
-        .std-dropdown-item .item-badge {
-            font-size: 11px; padding: 2px 7px; border-radius: 10px;
-            background: #e8f5e9; color: #276749; font-weight: 600; flex-shrink: 0;
-        }
-        .std-dropdown-item .item-badge.expired { background: #fff5f5; color: #c53030; }
-        .std-dropdown-empty { padding: 12px 14px; color: #a0aec0; font-size: 13px; text-align: center; }
-        /* ===== CLOCK SELECT CHO NHIET DO ===== */
-        .ref-eq-clock-select {
-            width: 100%; padding: 6px 8px; border: 2px solid #008080; border-radius: 6px;
-            font-size: 13px; font-weight: 700; color: #008080; background: #f0fdfa;
-            cursor: pointer; transition: all 0.2s;
-            appearance: auto; -webkit-appearance: auto; -moz-appearance: auto;
-        }
-        .ref-eq-clock-select:hover { border-color: #005f5f; background: #e6fffa; }
-        .ref-eq-clock-select:focus { outline: none; border-color: #005f5f; box-shadow: 0 0 0 3px rgba(0,128,128,0.2); }
-        /* ===== ĐỊNH DẠNG KHUNG AUTOCOMPLETE TRÊN DÒNG BẢNG ===== */
-.param-autocomplete-wrapper {
-    position: relative;
-    width: 100%;
-}
+    /* ─── Stats Cards ─── */
+    .db-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 36px; }
+    .db-stat {
+        background: var(--surface); border-radius: var(--radius-lg);
+        padding: 24px 26px; border: 1px solid var(--border);
+        border-left: 4px solid var(--accent);
+        box-shadow: var(--shadow-sm); transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+        position: relative; overflow: hidden;
+    }
+    .db-stat::after {
+        content: ''; position: absolute; top: 0; right: 0;
+        width: 100px; height: 100px; border-radius: 50%;
+        background: radial-gradient(circle, rgba(13,148,136,0.06), transparent);
+        pointer-events: none;
+    }
+    .db-stat:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+    .db-stat .stat-icon { font-size: 26px; margin-bottom: 10px; display: block; }
+    .db-stat h4 { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+    .db-stat p { font-size: 28px; font-weight: 800; color: var(--primary); line-height: 1.2; }
 
-.param-suggestions-box {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: #ffffff;
-    border: 1px solid #cbd5e0;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    max-height: 180px;
-    overflow-y: auto;
-    z-index: 99999; /* Luôn nổi lên trên các thành phần khác của bảng */
-    display: none;
-}
+    /* ─── Section Header ─── */
+    .db-section-header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 22px; padding-bottom: 14px;
+        border-bottom: 2px solid var(--border);
+    }
+    .db-section-header h2 {
+        font-size: 1.35rem; font-weight: 800; color: var(--primary);
+        display: flex; align-items: center; gap: 10px;
+    }
+    .db-section-header h2 i { color: var(--accent); }
+    .db-section-header .header-actions { display: flex; gap: 10px; }
 
-.param-suggestion-item {
-    padding: 8px 12px;
-    cursor: pointer;
-    font-size: 13px;
-    border-bottom: 1px solid #edf2f7;
-    text-align: left;
-    color: #2d3748;
-    transition: background 0.15s ease;
-}
+    /* ─── Search Bar ─── */
+    .db-search {
+        margin-bottom: 22px; background: var(--surface);
+        padding: 16px 20px; border-radius: var(--radius-lg);
+        border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+        display: flex; align-items: center; gap: 12px;
+    }
+    .db-search .search-icon { color: var(--text-hint); font-size: 18px; flex-shrink: 0; }
+    .db-search input {
+        flex: 1; border: none; background: transparent; outline: none;
+        font-family: var(--font); font-size: 14px; color: var(--text);
+    }
+    .db-search input::placeholder { color: var(--text-hint); }
 
-.param-suggestion-item:last-child {
-    border-bottom: none;
-}
+    /* ─── Table ─── */
+    .db-table-wrap {
+        background: var(--surface); border-radius: var(--radius-lg);
+        border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+        overflow: hidden; margin-bottom: 24px;
+    }
+    .db-table { width: 100%; border-collapse: collapse; }
+    .db-table thead th {
+        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+        color: white; padding: 13px 18px;
+        font-size: 11px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.05em; text-align: left;
+        border-bottom: none;
+    }
+    .db-table thead th:last-child { text-align: center; }
+    .db-table td {
+        padding: 13px 18px; border-bottom: 1px solid var(--border-light);
+        font-size: 13px; color: var(--text); vertical-align: middle;
+    }
+    .db-table tbody tr {
+        transition: background 0.2s ease, transform 0.15s ease;
+        animation: fadeIn 0.4s ease forwards; opacity: 0;
+    }
+    .db-table tbody tr:nth-child(1) { animation-delay: 0.05s; }
+    .db-table tbody tr:nth-child(2) { animation-delay: 0.10s; }
+    .db-table tbody tr:nth-child(3) { animation-delay: 0.15s; }
+    .db-table tbody tr:nth-child(4) { animation-delay: 0.20s; }
+    .db-table tbody tr:nth-child(5) { animation-delay: 0.25s; }
+    .db-table tbody tr:last-child td { border-bottom: none; }
+    .db-table tbody tr:hover { background: #f0fdfa; }
+    .db-table tbody tr:active { transform: scale(0.998); }
+    .db-table .eq-code-cell { font-weight: 700; color: var(--accent); font-family: var(--font-mono); font-size: 12px; }
+    .db-table .eq-name-cell { font-weight: 600; }
 
-.param-suggestion-item:hover {
-    background: #ebf8ff;
-    color: #2b6cb0;
-}
+    /* ─── Admin Grid ─── */
+    .db-admin-grid {
+        background: var(--surface); border-radius: var(--radius-lg);
+        border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+        padding: 24px; margin-bottom: 24px;
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 18px;
+    }
+    .db-admin-grid .field-group label {
+        font-size: 12px; font-weight: 600; color: var(--text-secondary);
+        text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block;
+    }
+    .db-admin-grid input {
+        width: 100%; padding: 10px 14px;
+        border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+        font-family: var(--font); font-size: 13px; outline: none;
+        transition: all var(--transition); box-sizing: border-box;
+    }
+    .db-admin-grid input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+    /* ─── Buttons ─── */
+    .btn-save {
+        background: linear-gradient(135deg, var(--accent), #14b8a6);
+        color: white; border: none; padding: 10px 28px;
+        border-radius: var(--radius-md); font-family: var(--font);
+        font-size: 14px; font-weight: 700; cursor: pointer;
+        transition: all var(--transition);
+        display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-save:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(13,148,136,0.3); }
+
+    /* ─── Continue using index.css button classes ─── */
+    #calibration-table {
+        width: 100%; border-collapse: collapse; table-layout: fixed;
+        font-family: 'Inter', sans-serif; font-size: 13px; text-align: center;
+    }
+    #calibration-table th {
+        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+        color: white; padding: 10px 6px; font-size: 11px;
+        font-weight: 600; line-height: 1.3;
+        border: 1px solid var(--accent);
+    }
+    #calibration-table th span { font-weight: 400; font-size: 10px; opacity: 0.85; display: block; }
+    #calibration-table td {
+        border: 1px solid var(--border); padding: 6px 4px;
+        background: var(--surface);
+    }
+    .cell-input {
+        width: 100%; border: 1px solid transparent; text-align: center;
+        padding: 5px 6px; background: transparent;
+        font-family: 'Inter', sans-serif; font-size: 13px;
+        border-radius: 4px; box-sizing: border-box;
+        transition: all 0.15s;
+    }
+    .cell-input:focus {
+        background: var(--accent-light); border-color: var(--accent);
+        outline: none; box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+    .group-header {
+        background: #f8fafc !important; font-weight: 600 !important;
+        text-align: left !important; padding: 10px !important;
+        vertical-align: middle !important;
+    }
+
+    /* ─── Modal ─── */
+    .modal-backdrop {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(15,23,42,0.6); z-index: 9999;
+        justify-content: center; align-items: center;
+        backdrop-filter: blur(4px); display: none;
+    }
+    .modal-backdrop.active { display: flex; }
+    .modal-content {
+        background: var(--surface); padding: 28px; border-radius: var(--radius-lg);
+        width: calc(100% - 32px); max-width: 540px;
+        box-shadow: var(--shadow-xl);
+        animation: modalFadeIn 0.25s ease-out forwards;
+        max-height: 90vh; overflow-y: auto;
+    }
+    @keyframes modalFadeIn {
+        from { opacity: 0; transform: translateY(-16px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ─── YouTube-style Search Widget (for standard-eq-cell) ─── */
+    .std-search-wrapper { position: relative; width: 100%; }
+    .std-search-input {
+        width: 100%; padding: 6px 10px;
+        border: 1.5px solid var(--border); border-radius: 6px;
+        font-size: 13px; font-weight: 600; color: var(--accent);
+        box-sizing: border-box; background: var(--accent-light);
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .std-search-input:focus {
+        outline: none; border-color: var(--accent); background: #fff;
+        box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .std-search-input.has-value { background: #e6fffa; border-color: #38a169; color: #276749; }
+    .std-dropdown {
+        position: fixed; background: var(--surface);
+        border: 1px solid var(--border); border-radius: var(--radius);
+        box-shadow: var(--shadow-lg); z-index: 99999;
+        max-height: 260px; overflow-y: auto; display: none;
+        min-width: 360px; max-width: min(620px, calc(100vw - 32px));
+        text-align: left;
+    }
+    .std-dropdown.open { display: block; }
+    .std-dropdown-item {
+        padding: 10px 14px; cursor: pointer; font-size: 13px;
+        display: flex; align-items: center; gap: 8px;
+        border-bottom: 1px solid var(--border-light); transition: background 0.12s;
+        white-space: normal; overflow-wrap: anywhere;
+    }
+    .std-dropdown-item:last-child { border-bottom: none; }
+    .std-dropdown-item:hover, .std-dropdown-item.active { background: var(--accent-light); }
+    .std-dropdown-empty { padding: 12px 14px; color: var(--text-muted); font-size: 13px; text-align: center; }
+
+    .ref-eq-clock-select {
+        width: 100%; padding: 6px 8px;
+        border: 2px solid var(--accent); border-radius: 6px;
+        font-size: 13px; font-weight: 700; color: var(--accent);
+        background: var(--accent-light); cursor: pointer; transition: all 0.2s;
+    }
+    .ref-eq-clock-select:hover { border-color: var(--accent-hover); background: #ccfbf1; }
+    .ref-eq-clock-select:focus { outline: none; border-color: var(--accent-hover); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+    .param-autocomplete-wrapper { position: relative; width: 100%; }
+    .param-suggestions-box {
+        position: absolute; top: 100%; left: 0; right: 0;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 6px; box-shadow: var(--shadow-lg);
+        max-height: 180px; overflow-y: auto; z-index: 99999; display: none;
+    }
+    .param-suggestion-item {
+        padding: 8px 12px; cursor: pointer; font-size: 13px;
+        border-bottom: 1px solid var(--border-light); text-align: left;
+        color: var(--text); transition: background 0.15s;
+    }
+    .param-suggestion-item:last-child { border-bottom: none; }
+    .param-suggestion-item:hover { background: var(--accent-light); }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
     </style>
 </head>
-<body>
+<body class="anim-page-in">
 
 <header class="header">
     <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer; display: flex; align-items: center;">
@@ -172,127 +262,140 @@
             <a href="equipment.html" id="nav-equipment">Standard Equipment Database</a>
             <a href="databasequipment.html" id="nav-databasequipment" class="active">Database Equipment</a>
         </nav>
-        <button class="btn-shiny" onclick="location.href='signin.html'">Sign In</button>
+        <button class="btn-shiny" onclick="location.href='login.html'">Sign In</button>
     </div>
 </header>
 
-<main class="container">
-    <div class="dashboard-grid">
-        <div class="stat-card" style="border-color: #3182ce;">
+<main class="db-container anim-page-in">
+    <div class="db-stats">
+        <div class="db-stat reveal" style="animation-delay:0.1s">
+            <span class="stat-icon"><i class="fas fa-microchip" style="color:var(--accent)"></i></span>
             <h4>Mẫu thiết bị</h4>
-            <p>128</p>
+            <p id="stat-equipments">--</p>
         </div>
-        <div class="stat-card" style="border-color: #38a169;">
+        <div class="db-stat reveal" style="animation-delay:0.2s;border-left-color:var(--success)">
+            <span class="stat-icon"><i class="fas fa-file-pdf" style="color:var(--success)"></i></span>
             <h4>Đã đồng bộ PDF</h4>
-            <p>120</p>
+            <p id="stat-pdf">--</p>
         </div>
-        <div class="stat-card" style="border-color: #e53e3e;">
+        <div class="db-stat reveal" style="animation-delay:0.3s;border-left-color:var(--danger)">
+            <span class="stat-icon"><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i></span>
             <h4>Chưa có quy trình</h4>
-            <p>08</p>
+            <p id="stat-noprocedure">--</p>
         </div>
     </div>
 
-    <section id="list-view" class="detail-section">
-        <div class="section-header">
-            <h2>Database Equipment Template</h2>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn-shiny" style="background: #e53e3e;" onclick="resetDatabase()">🗑 Xóa dữ liệu tùy chỉnh</button>
-                <button class="btn-shiny" onclick="openAddView()">+ Thêm mẫu thiết bị</button>
+    <section id="list-view" class="reveal" style="animation-delay:0.4s">
+        <div class="db-section-header">
+            <h2><i class="fas fa-database"></i> Database Equipment Templates</h2>
+            <div class="header-actions">
+                <button class="btn btn-danger ripple-btn" onclick="resetDatabase()"><i class="fas fa-trash-alt"></i> Xóa dữ liệu</button>
+                <button class="btn btn-primary ripple-btn" onclick="openAddView()"><i class="fas fa-plus-circle"></i> Thêm mẫu thiết bị</button>
             </div>
         </div>
 
-        <!-- Thanh tìm kiếm nhanh mẫu thiết bị (Templates) -->
-        <div class="search-container" style="margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #edf2f7; display: flex; align-items: center; gap: 12px;">
-            <div style="font-size: 1.2rem;">🔍</div>
-            <input type="text" id="template-search-input" class="lab-input" placeholder="Tìm nhanh theo tên thiết bị, mã mẫu hoặc hãng sản xuất..." oninput="filterTemplates()" style="flex: 1; border: none; background: transparent; outline: none; font-size: 0.95rem;">
-        </div>                        <table class="detail-table">
+        <div class="db-search">
+            <span class="search-icon"><i class="fas fa-search"></i></span>
+            <input type="text" id="template-search-input" placeholder="Tìm nhanh theo tên thiết bị, mã mẫu hoặc hãng sản xuất..." oninput="filterTemplates()">
+        </div>
+
+        <div class="db-table-wrap">
+        <table class="db-table">
             <thead>
                 <tr>
                     <th>Code</th>
                     <th>Name</th>
                     <th>Manufacturer</th>
                     <th>Next Due</th>
-                    <th style="width: 80px;">Actions</th>
+                    <th style="width: 100px; text-align:center;">Actions</th>
                 </tr>
             </thead>
             <tbody id="eq-body">
             </tbody>
         </table>
+        </div>
 
-        <div id="modal-create-equipment" class="modal-backdrop" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
-            <div class="modal-content" style="background: #ffffff; padding: 24px; border-radius: 8px; width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); font-family: Arial, sans-serif;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #edf2f7;">
-                    <h3 style="margin: 0; color: #2d3748; font-size: 1.25rem; font-weight: 600;">🛠️ Thêm Thiết Bị Chuẩn Mới</h3>
-                    <span style="cursor: pointer; font-size: 24px; color: #aaa; line-height: 1;" onclick="closeEquipmentModal()">&times;</span>
+        <div id="modal-create-equipment" class="modal-backdrop" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px);">                    <div class="modal-content">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid var(--border);">
+                    <h3 style="margin:0;font-size:1.25rem;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:10px;">
+                        <i class="fas fa-plus-circle" style="color:var(--accent)"></i> Thêm Thiết Bị Chuẩn Mới
+                    </h3>
+                    <button style="background:none;border:none;font-size:24px;color:var(--text-hint);cursor:pointer;padding:4px;line-height:1;" onclick="closeEquipmentModal()">&times;</button>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 14px; max-height: 450px; overflow-y: auto; padding-right: 5px;">
+                <div style="display:flex;flex-direction:column;gap:18px;max-height:450px;overflow-y:auto;padding-right:4px;">
                     <div>
-                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Tên thiết bị chuẩn (Standard Name)</label>
-                        <input type="text" id="new-name" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;" placeholder="Ví dụ: Thermo-Hygrometer">
+                        <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Tên thiết bị chuẩn <span style="color:var(--danger)">*</span></label>
+                        <input type="text" id="new-name" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font);font-size:14px;outline:none;transition:all 0.2s;box-sizing:border-box;" placeholder="Ví dụ: Thermo-Hygrometer">
                     </div>
-                    <div>
-                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Mã nhận diện (Equipment ID)</label>
-                        <input type="text" id="new-eq-id" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;" placeholder="Ví dụ: LAB-THER_H.01">
-                    </div>
-                    <div>
-                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Nhà sản xuất (Manufacturer)</label>
-                        <input type="text" id="new-manu" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;" placeholder="Ví dụ: Fluke Corporation">
-                    </div>
-                    <div>
-                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: #4a5568;">Hạn hiệu chuẩn (Due Date)</label>
-                        <input type="date" id="new-due" class="cell-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
-                    </div>
-                    <div style="margin-top: 10px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <label style="font-size: 13px; font-weight: 600; color: #2d3748;">📋 Cấu hình thông số điểm chuẩn mặc định</label>
-                            <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;" onclick="addNewRowToAddForm()">+ Thêm hàng</button>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Mã nhận diện</label>
+                            <input type="text" id="new-eq-id" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font);font-size:14px;outline:none;transition:all 0.2s;box-sizing:border-box;" placeholder="LAB-THER_H.01">
                         </div>
-                        <table style="width: 100%; border-collapse: collapse;">
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Nhà sản xuất</label>
+                            <input type="text" id="new-manu" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font);font-size:14px;outline:none;transition:all 0.2s;box-sizing:border-box;" placeholder="Fluke Corporation">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Hạn hiệu chuẩn</label>
+                        <input type="date" id="new-due" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font);font-size:14px;outline:none;transition:all 0.2s;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                            <label style="font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;">
+                                <i class="fas fa-list" style="color:var(--accent)"></i> Cấu hình thông số điểm chuẩn mặc định
+                            </label>
+                            <button class="btn btn-secondary btn-sm" onclick="addNewRowToAddForm()"><i class="fas fa-plus"></i> Thêm hàng</button>
+                        </div>
+                        <div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
+                        <table style="width:100%;border-collapse:collapse;">
                             <thead>
-                                <tr style="background: #f7fafc; font-size: 12px; text-align: left; border-bottom: 2px solid #edf2f7;">
-                                    <th style="padding: 6px;">Thông số (Parameter)</th>
-                                    <th style="padding: 6px; width: 140px;">Giá trị mẫu</th>
-                                    <th style="padding: 6px; width: 40px; text-align: center;">Xóa</th>
+                                <tr style="background:#f8fafc;font-size:11px;text-align:left;border-bottom:2px solid var(--border);">
+                                    <th style="padding:8px 10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Thông số (Parameter)</th>
+                                    <th style="padding:8px 10px;width:140px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Giá trị mẫu</th>
+                                    <th style="padding:8px 10px;width:40px;text-align:center;font-weight:600;color:var(--text-secondary);">Xóa</th>
                                 </tr>
                             </thead>
                             <tbody id="new-calibration-table-rows"></tbody>
                         </table>
+                        </div>
                     </div>
                 </div>
-                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 15px; border-top: 1px solid #edf2f7;">
-                    <button class="btn btn-secondary" type="button" onclick="closeEquipmentModal()">Hủy bỏ</button>
-                    <button class="btn btn-primary" type="button" onclick="executeCreateEquipment()">💾 Lưu thiết bị</button>
+                <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
+                    <button class="btn btn-secondary" onclick="closeEquipmentModal()"><i class="fas fa-times"></i> Hủy bỏ</button>
+                    <button class="btn btn-primary ripple-btn" onclick="executeCreateEquipment()"><i class="fas fa-save"></i> Lưu thiết bị</button>
                 </div>
             </div>
         </div>
     </section>
 
-    <section id="edit-view" style="display:none;">
-        <div class="section-header">
-            <h2 id="edit-title">Chi tiết mẫu thiết bị</h2>
-            <button class="btn-shiny" style="background: #4a5568;" onclick="showView('list-view')"><b>🔙 Trở lại</b></button>
+    <section id="edit-view" style="display:none;" class="anim-fade-in">
+        <div class="db-section-header">
+            <h2><i class="fas fa-edit"></i> <span id="edit-title">Chi tiết mẫu thiết bị</span></h2>
+            <button class="btn btn-secondary ripple-btn" onclick="showView('list-view')"><i class="fas fa-arrow-left"></i> Trở lại</button>
         </div>
 
-        <div class="admin-grid">
-            <div>
-                <label>Quy trình hiệu chuẩn:</label>
-                <input type="text" id="in-procedure" class="lab-input" placeholder="Ví dụ: LAB-F-01, LAB-T-02">
+        <div class="db-admin-grid">
+            <div class="field-group">
+                <label><i class="fas fa-tasks"></i> Quy trình hiệu chuẩn</label>
+                <input type="text" id="in-procedure" placeholder="Ví dụ: LAB-F-01, LAB-T-02">
             </div>
-            <div>
-                <label>Tiêu chuẩn tham chiếu:</label>
-                <input type="text" id="in-ref-standard" class="lab-input" placeholder="Ví dụ: ISO 6330">
+            <div class="field-group">
+                <label><i class="fas fa-book"></i> Tiêu chuẩn tham chiếu</label>
+                <input type="text" id="in-ref-standard" placeholder="Ví dụ: ISO 6330">
             </div>
-            <div>
-                <label>Nhà sản xuất mặc định:</label>
-                <input type="text" id="in-nsx" class="lab-input" placeholder="Nhà sản xuất">
+            <div class="field-group">
+                <label><i class="fas fa-industry"></i> Nhà sản xuất mặc định</label>
+                <input type="text" id="in-nsx" placeholder="Nhà sản xuất">
             </div>
-            <div>
-                <label>Hạn hiệu chuẩn mẫu:</label>
-                <input type="text" id="in-due" class="lab-input" placeholder="YYYY-MM-DD">
+            <div class="field-group">
+                <label><i class="fas fa-calendar-alt"></i> Hạn hiệu chuẩn mẫu</label>
+                <input type="text" id="in-due" placeholder="YYYY-MM-DD">
             </div>
         </div>
 
-        <div style="overflow: visible; margin: 20px 0; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.06); background: #fff;">
+        <div style="overflow: visible; margin: 20px 0; border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); background: var(--surface);">
             <table id="calibration-table" style="width: 100%; border-collapse: collapse; table-layout: fixed; font-family: 'Inter', sans-serif; font-size: 13px; text-align: center;">
                 <thead>
                     <tr>
@@ -312,12 +415,10 @@
             </table>
         </div>
 
-        <div style="margin: 15px 0;">
-            <button type="button" class="btn-shiny" style="background: #3182ce; padding: 8px 20px; font-size: 13px;" onclick="addCalibrationRow()">+ Thêm hàng (Add Row)</button>
-        </div>
-
-        <div style="text-align:right; margin-top: 30px;">
-            <button class="btn-save" onclick="saveEq()" style="padding: 10px 30px; cursor: pointer;">Save Changes</button>
+        <div style="display:flex; gap:10px; margin: 15px 0;">
+            <button class="btn btn-secondary ripple-btn" onclick="addCalibrationRow()"><i class="fas fa-plus-circle"></i> Thêm hàng (Add Row)</button>
+            <div style="flex:1"></div>
+            <button class="btn-save ripple-btn" onclick="saveEq()"><i class="fas fa-save"></i> Save Changes</button>
         </div>
     </section>
 </main>
@@ -774,7 +875,7 @@
         if (!tbody) return;
         tbody.innerHTML = "";
 
-        const statEl = document.querySelector('.stat-card p');
+        const statEl = document.getElementById('stat-equipments');
         if (statEl && isFromAPI) statEl.textContent = String(equipments ? equipments.length : 0).padStart(2, '0');
 
         if (!equipments || equipments.length === 0) {
@@ -1258,6 +1359,19 @@
         `;
         tbody.appendChild(row);
     }
+
+    // ─── Scroll Reveal ───
+    document.addEventListener('DOMContentLoaded', function() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    });
 
     function resetDatabase() {
         if (confirm("Xóa toàn bộ dữ liệu tùy chỉnh trong localStorage?")) {

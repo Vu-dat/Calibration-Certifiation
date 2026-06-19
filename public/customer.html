@@ -495,21 +495,21 @@
 
     <!-- STATS ROW -->
     <div class="stats-row">
-        <div class="stat-card">
+        <div class="stat-card reveal" style="animation-delay:0.1s">
             <div class="stat-icon"><i class="fas fa-building"></i></div>
             <div class="stat-info">
                 <h4>Tổng Khách Hàng</h4>
                 <p id="stat-total">–</p>
             </div>
         </div>
-        <div class="stat-card blue">
+        <div class="stat-card blue reveal" style="animation-delay:0.2s">
             <div class="stat-icon"><i class="fas fa-crown"></i></div>
             <div class="stat-info">
                 <h4>Đối Tác VIP</h4>
                 <p id="stat-vip">–</p>
             </div>
         </div>
-        <div class="stat-card green">
+        <div class="stat-card green reveal" style="animation-delay:0.3s">
             <div class="stat-icon"><i class="fas fa-database"></i></div>
             <div class="stat-info">
                 <h4>Hệ Thống Dữ Liệu</h4>
@@ -832,9 +832,18 @@ let pendingDeleteLabel  = '';
    BOOTSTRAP
 ────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
-    loadCustomers();
+    loadCustomers();        // ─── Scroll Reveal for stat cards ───
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    revealObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+        document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => revealObserver.observe(el));
 
-    // Close modals on outside click
+        // Close modals on outside click
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', e => {
             if (e.target === overlay) {

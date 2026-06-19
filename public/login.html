@@ -2,78 +2,108 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Đăng Nhập Hệ Thống - LabMaster Pro</title>
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng Nhập – LabMaster Enterprise</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: 'Be Vietnam Pro', sans-serif; background: #eceae5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 400px; }
-        .login-card h2 { color: #007a78; margin-bottom: 25px; text-align: center; font-size: 1.6rem; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0f172a;
+            position: relative;
+            overflow: hidden;
+        }
+        .bg-orb { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; animation: orbFloat 20s ease-in-out infinite alternate; }
+        .bg-orb:nth-child(1) { width: 600px; height: 600px; background: rgba(13,148,136,0.12); top: -15%; left: -10%; }
+        .bg-orb:nth-child(2) { width: 500px; height: 500px; background: rgba(13,148,136,0.08); bottom: -20%; right: -10%; animation-delay: -7s; }
+        .bg-orb:nth-child(3) { width: 300px; height: 300px; background: rgba(59,130,246,0.06); top: 50%; left: 50%; transform: translate(-50%,-50%); animation-delay: -14s; }
+        @keyframes orbFloat { 0% { transform: translate(0,0) scale(1); } 33% { transform: translate(40px,-30px) scale(1.05); } 66% { transform: translate(-20px,40px) scale(0.95); } 100% { transform: translate(30px,20px) scale(1.02); } }
+        .grid-overlay { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px); background-size: 60px 60px; pointer-events: none; }
+
+        .login-wrapper { position: relative; z-index: 1; width: 100%; max-width: 420px; padding: 20px; opacity: 0; animation: fadeInUp 0.8s ease 0.2s forwards; }
+        .login-card { background: rgba(255,255,255,0.04); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 44px 36px 36px; box-shadow: 0 24px 80px rgba(0,0,0,0.4); position: relative; overflow: hidden; }
+        .login-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #0d9488, #14b8a6, #0d9488, transparent); background-size: 200% 100%; animation: shimmerBorder 3s ease-in-out infinite; }
+        @keyframes shimmerBorder { 0%,100% { background-position: 200% 0; } 50% { background-position: -200% 0; } }
+        .logo-area { text-align: center; margin-bottom: 32px; }
+        .logo-icon { width: 64px; height: 64px; border-radius: 16px; background: linear-gradient(135deg, #0d9488, #14b8a6); display: inline-flex; align-items: center; justify-content: center; font-size: 28px; color: #fff; margin-bottom: 16px; box-shadow: 0 8px 24px rgba(13,148,136,0.3); animation: float 4s ease-in-out infinite; }
+        .logo-area h1 { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
+        .logo-area h1 span { color: #0d9488; }
+        .logo-area p { font-size: 13px; color: rgba(255,255,255,0.45); margin-top: 6px; }
         .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem; color: #6b6860; }
-        .form-control { width: 100%; padding: 12px; border: 1px solid #e0ddd6; border-radius: 6px; font-family: inherit; font-size: 1rem; box-sizing: border-box; }
-        .form-control:focus { outline: none; border-color: #008080; background-color: #e6f7f7; }
-        .btn-login { width: 100%; background: #008080; color: white; border: none; padding: 14px; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 10px; }
-        .btn-login:hover { background: #005a5a; }
-        .error-msg { color: #c0392b; font-size: 0.85rem; margin-top: 10px; text-align: center; display: none; }
+        .form-group label { display: block; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+        .input-wrap { position: relative; }
+        .input-wrap i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.25); font-size: 14px; pointer-events: none; transition: color 0.2s; }
+        .input-wrap input { width: 100%; padding: 13px 14px 13px 42px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; font-family: 'Inter',sans-serif; font-size: 14px; color: #fff; outline: none; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+        .input-wrap input::placeholder { color: rgba(255,255,255,0.2); }
+        .input-wrap input:focus { background: rgba(255,255,255,0.08); border-color: rgba(13,148,136,0.5); box-shadow: 0 0 0 3px rgba(13,148,136,0.12); transform: scale(1.01); }
+        .input-wrap input:focus + i { color: #0d9488; }
+        .btn-login { width: 100%; padding: 14px; background: linear-gradient(135deg, #0d9488, #14b8a6); color: white; border: none; border-radius: 10px; font-family: 'Inter',sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.25s; position: relative; overflow: hidden; margin-top: 8px; }
+        .btn-login:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(13,148,136,0.35); }
+        .btn-login:active { transform: translateY(0) scale(0.98); }
+        .btn-login::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle, rgba(255,255,255,0.25) 10%, transparent 10%); background-position: center; background-repeat: no-repeat; background-size: 0%; transition: none; pointer-events: none; }
+        .btn-login:active::after { background-size: 1000%; transition: background-size 0.6s; }
+        .btn-login.loading { pointer-events: none; opacity: 0.8; }
+        .btn-login.loading .btn-text { visibility: hidden; }
+        .btn-login.loading .spinner { display: block; }
+        .spinner { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 20px; height: 20px; border: 2.5px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+        .error-msg { color: #fca5a5; font-size: 13px; font-weight: 500; margin-top: 14px; text-align: center; display: none; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 10px 14px; }
+        .login-footer { text-align: center; margin-top: 24px; }
+        .login-footer p { font-size: 12px; color: rgba(255,255,255,0.25); }
+        .flash-overlay { position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(13,148,136,0.15), transparent 70%); opacity: 0; pointer-events: none; transition: opacity 0.5s; border-radius: 20px; }
+        .flash-overlay.active { opacity: 1; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 480px) { .login-card { padding: 32px 24px 28px; } .logo-area h1 { font-size: 18px; } body { align-items: flex-start; padding-top: 40px; } }
     </style>
 </head>
 <body>
-
-<div class="login-card">
-    <h2>🔒 LabMaster Pro OS</h2>
-    <div class="form-group">
-        <label>Tên đăng nhập</label>
-        <input type="text" id="username" class="form-control" placeholder="Nhập tài khoản (Ví dụ: ktv1, tplab)">
+    <div class="bg-orb" style="animation: orbFloat 20s ease-in-out infinite alternate;"></div>
+    <div class="bg-orb" style="animation: orbFloat 20s ease-in-out infinite alternate; animation-delay: -7s;"></div>
+    <div class="bg-orb" style="animation: orbFloat 20s ease-in-out infinite alternate; animation-delay: -14s;"></div>
+    <div class="grid-overlay"></div>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="flash-overlay" id="flash"></div>
+            <div class="logo-area">
+                <div class="logo-icon"><i class="fas fa-flask"></i></div>
+                <h1>Lab<span>Master</span></h1>
+                <p>Enterprise Calibration System</p>
+            </div>
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>Tên đăng nhập</label>
+                    <div class="input-wrap">
+                        <input type="text" id="username" placeholder="Nhập tài khoản..." autocomplete="username" required>
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Mật khẩu</label>
+                    <div class="input-wrap">
+                        <input type="password" id="password" placeholder="Nhập mật khẩu..." autocomplete="current-password" required>
+                        <i class="fas fa-lock"></i>
+                    </div>
+                </div>
+                <button type="submit" class="btn-login" id="login-btn">
+                    <span class="btn-text">Đăng Nhập</span>
+                    <span class="spinner"></span>
+                </button>
+                <div id="error-box" class="error-msg"></div>
+            </form>
+            <div class="login-footer">
+                <p>&copy; 2026 LabMaster System. All rights reserved.</p>
+            </div>
+        </div>
     </div>
-    <div class="form-group">
-        <label>Mật khẩu</label>
-        <input type="password" id="password" class="form-control" placeholder="Nhập mật khẩu">
-    </div>
-    <button class="btn-login" onclick="handleLogin()">Đăng Nhập</button>
-    <div id="error-box" class="error-msg"></div>
-</div>
-
-<script>
-    // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
-    const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:18080' 
-    : window.location.origin;
-    async function handleLogin() {
-        const u = document.getElementById('username').value;
-        const p = document.getElementById('password').value;
-        const errorBox = document.getElementById('error-box');
-        
-        errorBox.style.display = 'none';
-
-        if(!u || !p) {
-            errorBox.innerText = "Vui lòng nhập đầy đủ tài khoản và mật khẩu!";
-            errorBox.style.display = 'block';
-            return;
-        }
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: u, password: p })
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                // Lưu dữ liệu phiên đăng nhập vào trình duyệt
-                localStorage.setItem('labmaster_user', JSON.stringify(result.user));
-                // Chuyển hướng thẳng vào không gian làm việc chính
-                window.location.href = 'project.html';
-            } else {
-                errorBox.innerText = result.message;
-                errorBox.style.display = 'block';
-            }
-        } catch (error) {
-            errorBox.innerText = "Lỗi kết nối tới Server. Hãy đảm bảo NodeJS đang chạy!";
-            errorBox.style.display = 'block';
-        }
-    }
-</script>
-</body>
-</html>
+    <script>
+        const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? 'http://localhost:18080' : window.location.origin;
+        async function handleLogin(

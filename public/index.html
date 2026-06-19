@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LabMaster - Calibration Management System</title>
     <link rel="stylesheet" href="index.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -23,28 +24,28 @@
             <a href="equipment.html" id="nav-equipment">Standard Equipment Database</a>
             <a href="databasequipment.html" id="nav-databasequipment">Database Equipment</a>
         </nav>
-            <button class="btn-shiny" onclick="navigate('signin')">Sign In</button>    
+            <button class="btn-shiny" onclick="location.href='login.html'">Sign In</button>    
     </div>
 </header>
 
-<main id="home-section" class="container">
+<main id="home-section" class="container anim-page-in">
     <div class="hero-card">
         <div class="hero-content">
             <div class="hero-text-wrapper">
-                <h2 class="slogan-text">LabMaster Pro <span style="font-size: 1.2rem; font-weight: 300; display: block; margin-top: 5px;">Hệ thống Quản lý Hiệu chuẩn Doanh nghiệp</span></h2>
-                <p class="welcome-msg">Chào mừng trở lại! Hệ thống đã sẵn sàng cho ngày làm việc mới.</p>
-                <div class="hero-actions">
-                    <button class="btn-shiny" onclick="location.href='project.html'">+ Khởi tạo Dự án</button>
-                    <button class="btn-shiny" style="background: rgba(255,255,255,0.2); backdrop-filter: blur(5px); border: 1px solid white;" onclick="location.href='equipment.html'">Tra cứu Thiết bị</button>
+                <h2 class="slogan-text" id="hero-title">LabMaster Pro <span style="font-size: 1.2rem; font-weight: 300; display: block; margin-top: 5px; opacity: 0; animation: fadeInUp 0.8s ease 0.3s forwards;">Hệ thống Quản lý Hiệu chuẩn Doanh nghiệp</span></h2>
+                <p class="welcome-msg" id="hero-subtitle" style="opacity: 0; animation: fadeInUp 0.6s ease 0.6s forwards;">Chào mừng trở lại! Hệ thống đã sẵn sàng cho ngày làm việc mới.</p>
+                <div class="hero-actions" style="opacity: 0; animation: fadeInUp 0.6s ease 0.8s forwards;">
+                    <button class="btn-shiny ripple-btn" onclick="location.href='project.html'"><i class="fas fa-plus-circle"></i> Khởi tạo Dự án</button>
+                    <button class="btn-soft ripple-btn" onclick="location.href='equipment.html'"><i class="fas fa-search"></i> Tra cứu Thiết bị</button>
                 </div>
             </div>
-            <div class="hero-stats-mini">
+            <div class="hero-stats-mini" style="opacity: 0; animation: fadeInUp 0.6s ease 1.0s forwards;">
                 <div class="mini-stat">
-                    <span class="val">98%</span>
+                    <span class="val count-up" data-target="98">0%</span>
                     <span class="lbl">Compliance</span>
                 </div>
                 <div class="mini-stat">
-                    <span class="val">1.2k</span>
+                    <span class="val count-up" data-target="1200">0</span>
                     <span class="lbl">Certificates</span>
                 </div>
             </div>
@@ -99,7 +100,7 @@
 
         <div class="info-card stat-main chart-card">
             <div class="card-header">
-                <div class="icon-bg teal">📊</div>
+                <div class="icon-bg teal anim-float">📊</div>
             </div>
             <h3>Phân bổ Trạng thái</h3>
             <p>Tỷ lệ hoàn thành công việc hệ thống.</p>
@@ -110,7 +111,7 @@
     </div>
 
     <div class="recent-activity-section" style="padding: 40px 5%;">
-        <div class="info-card" style="width: 100%; text-align: left;">
+        <div class="info-card reveal" style="width: 100%; text-align: left;">
             <h3 style="border-bottom: 1px solid #edf2f7; padding-bottom: 15px; margin-bottom: 20px;">🕒 Hoạt động gần đây</h3>
             <div class="activity-list">
                 <div class="activity-item" style="display: flex; gap: 15px; padding: 10px 0; border-bottom: 1px dashed #f0f0f0;">
@@ -148,8 +149,7 @@
         </form>
     </div>
     </div>
-</section>
-<footer class="footer">
+</section>    <footer class="footer reveal">
     <div class="footer-container">
         <div class="footer-column brand-col">
             <h2 class="footer-logo">Lab<span>Master</span></h2>
@@ -227,6 +227,26 @@ function updateDashboardStats() {
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ─── Chart entrance animation ───
+function animateChart(ctx) {
+    if (!ctx) return;
+    const chart = Chart.getChart(ctx);
+    if (!chart) return;
+    
+    chart.options.animation = {
+        animateRotate: true,
+        duration: 1200,
+        easing: 'easeOutQuart'
+    };
+    chart.update('none');
+    
+    // Re-animate with delay
+    setTimeout(() => {
+        chart.options.animation.duration = 1200;
+        chart.update();
+    }, 300);
 }
 
 // Khởi tạo Biểu đồ Dự án
@@ -325,10 +345,98 @@ async function submitCalibrationFormAndPrint() {
     }
 }
 
+// ─── Scroll Reveal using IntersectionObserver ───
+function initScrollReveal() {
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+
+    document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => observer.observe(el));
+}
+
+// ─── Count-up animation ───
+function initCountUp() {
+    document.querySelectorAll('.count-up').forEach(el => {
+        const target = parseFloat(el.dataset.target);
+        if (isNaN(target)) return;
+        const duration = 1200;
+        const suffix = el.textContent.includes('%') ? '%' : '';
+        const isK = el.textContent.includes('k');
+        const startTime = performance.now();
+        
+        function update(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+            const current = Math.round(eased * target);
+            
+            if (isK) {
+                el.textContent = (current / 1000).toFixed(1) + 'k';
+            } else if (suffix) {
+                el.textContent = current + suffix;
+            } else {
+                el.textContent = current;
+            }
+            
+            if (progress < 1) {
+                requestAnimationFrame(update);
+            } else {
+                el.textContent = isK ? (target / 1000).toFixed(1) + 'k' : (suffix ? target + suffix : target);
+            }
+        }
+        
+        requestAnimationFrame(update);
+    });
+}
+
+// ─── Ripple effect on buttons ───
+function initRippleEffect() {
+    document.querySelectorAll('.ripple-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            const rect = this.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const ripple = document.createElement('span');
+            ripple.style.cssText = `
+                position: absolute;
+                top: ${y}px;
+                left: ${x}px;
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: rgba(255,255,255,0.4);
+                transform: translate(-50%, -50%) scale(0);
+                animation: ripple 0.6s ease-out;
+                pointer-events: none;
+            `;
+            this.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 700);
+        });
+    });
+}
+
 // Chạy khi trang load xong
 window.addEventListener('DOMContentLoaded', (event) => {
     initProjectChart();
-    updateDashboardStats(); // Đồng bộ số liệu trên card Quản lý dự án
+    updateDashboardStats();
+    initScrollReveal();
+    initCountUp();
+    initRippleEffect();
+
+    // Re-observe after chart renders
+    setTimeout(initScrollReveal, 500);
+    
+    // Animate chart entrance
+    setTimeout(() => {
+        const chartCanvas = document.getElementById('projectStatusChart');
+        if (chartCanvas) animateChart(chartCanvas);
+    }, 600);
 });
 </script>
 </body>
