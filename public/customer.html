@@ -454,7 +454,111 @@
             .form-grid-2 { grid-template-columns: 1fr; }
             .form-group.span-2 { grid-column: span 1; }
         }
-        @media (max-width: 600px) {
+        /* ─── PREMIUM REVEAL ANIMATIONS ─── */
+        .stat-card.reveal {
+            transform: translateY(40px) scale(0.94);
+            opacity: 0;
+            transition: all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card.reveal.visible {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+        .stat-card.reveal.visible::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: custStatShine 1.2s ease forwards;
+            pointer-events: none;
+        }
+        @keyframes custStatShine {
+            0%   { left: -100%; }
+            100% { left: 150%; }
+        }
+        .stat-card:hover {
+            transform: translateY(-6px) scale(1.02) !important;
+            box-shadow: 0 12px 32px -8px rgba(0,128,128,0.25) !important;
+        }
+        .stat-card.blue:hover { box-shadow: 0 12px 32px -8px rgba(59,130,246,0.25) !important; }
+        .stat-card.green:hover { box-shadow: 0 12px 32px -8px rgba(16,185,129,0.25) !important; }
+        .stat-card.reveal.visible .stat-info p {
+            animation: custStatCountIn 0.6s 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+        @keyframes custStatCountIn {
+            0%   { opacity: 0; transform: scale(0.5) translateY(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* ─── Table rows cascade ─── */
+        .card-table tbody tr {
+            animation: custTableRowIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+            opacity: 0;
+        }
+        @keyframes custTableRowIn {
+            0%   { opacity: 0; transform: translateX(-20px) scale(0.95); }
+            100% { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        .card-table tbody tr:nth-child(1) { animation-delay: 0.55s; }
+        .card-table tbody tr:nth-child(2) { animation-delay: 0.62s; }
+        .card-table tbody tr:nth-child(3) { animation-delay: 0.69s; }
+        .card-table tbody tr:nth-child(4) { animation-delay: 0.76s; }
+        .card-table tbody tr:nth-child(5) { animation-delay: 0.83s; }
+        .card-table tbody tr:nth-child(6) { animation-delay: 0.90s; }
+        .card-table tbody tr:nth-child(7) { animation-delay: 0.97s; }
+        .card-table tbody tr:nth-child(8) { animation-delay: 1.04s; }
+        .card-table tbody tr:nth-child(9) { animation-delay: 1.11s; }
+        .card-table tbody tr:nth-child(10) { animation-delay: 1.18s; }
+
+        /* ─── Section header entrance ─── */
+        .section-header {
+            animation: custSectionIn 0.6s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+        @keyframes custSectionIn {
+            0%   { opacity: 0; transform: translateY(-10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+
+        /* ─── PAGE TRANSITION ANIMATIONS ─── */
+        @keyframes pageSlideOut {
+            0%   { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-20px) scale(0.96); }
+        }
+        @keyframes pageSlideIn {
+            0%   { opacity: 0; transform: translateY(24px) scale(0.96); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .page-out {
+            animation: pageSlideOut 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+            pointer-events: none;
+        }
+        .page-in {
+            animation: pageSlideIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+        }
+
+        /* ─── Crossfade overlay ─── */
+        .page-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--bg);
+            z-index: 999;
+            pointer-events: none;
+            opacity: 0;
+            will-change: opacity;
+            transition: opacity 0.25s ease;
+        }
+        .page-overlay.show {
+            opacity: 1;
+        }
+
+                @media (max-width: 600px) {
             .stats-row { grid-template-columns: 1fr; }
             .detail-grid { grid-template-columns: 1fr; }
             .detail-card.span-2, .detail-card.span-3 { grid-column: span 1; }
@@ -486,6 +590,7 @@
 <!-- ════════════════════════════════════════════ -->
 <!--   TOAST CONTAINER                           -->
 <!-- ════════════════════════════════════════════ -->
+<div id="page-transition-overlay" class="page-overlay"></div>
 <div id="toast-container"></div>
 
 <!-- ════════════════════════════════════════════ -->
@@ -864,6 +969,23 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ──────────────────────────────────────────────
    DATA: LOAD
 ────────────────────────────────────────────── */
+function renderCustomerSkeleton(count) {
+  const tbody = document.getElementById('customer-table-body');
+  const rows = count || 5;
+  let html = '';
+  for (let i = 0; i < rows; i++) {
+    html += '<tr class="skeleton-row">' +
+      '<td><div class="skeleton-cell narrow"></div></td>' +
+      '<td><div class="skeleton-cell"></div></td>' +
+      '<td><div class="skeleton-cell wide"></div></td>' +
+      '<td><div class="skeleton-cell" style="max-width:140px"></div></td>' +
+      '<td><div class="skeleton-cell badge"></div></td>' +
+      '<td style="text-align:center;"><div class="skeleton-cell circle"></div></td>' +
+      '</tr>';
+  }
+  tbody.innerHTML = html;
+}
+
 async function loadCustomers() {
     const tbody = document.getElementById('customer-table-body');
     tbody.innerHTML = `
@@ -1057,18 +1179,44 @@ function viewCustomerDetail(id) {
 
     setEditState(false);
 
-    document.getElementById('customer-list-view').style.display   = 'none';
-    document.getElementById('customer-item-detail').style.display = 'block';
+    const custListView = document.getElementById('customer-list-view');
+    const custDetailView = document.getElementById('customer-item-detail');
+    transitionPage(custListView, custDetailView);
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+
+/* ─── PAGE TRANSITION HELPER ─── */
+function transitionPage(fromView, toView) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('page-transition-overlay');
+    if (overlay) overlay.classList.add('show');
+    fromView.classList.add('page-out');
+    setTimeout(() => {
+      fromView.style.display = 'none';
+      fromView.classList.remove('page-out');
+      toView.style.display = 'block';
+      toView.classList.add('page-in');
+      setTimeout(() => {
+        if (overlay) overlay.classList.remove('show');
+      }, 80);
+      setTimeout(() => {
+        toView.classList.remove('page-in');
+        resolve();
+      }, 450);
+    }, 350);
+  });
+}
+
 function showList() {
-    document.getElementById('customer-item-detail').style.display = 'none';
-    document.getElementById('customer-list-view').style.display   = 'block';
+    const detailView = document.getElementById('customer-item-detail');
+    const listView = document.getElementById('customer-list-view');
     currentViewingId = null;
     setEditState(false);
-    loadCustomers();
+    transitionPage(detailView, listView).then(() => {
+        loadCustomers();
+    });
 }
 
 /* ──────────────────────────────────────────────

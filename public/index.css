@@ -1501,7 +1501,73 @@ textarea {
   margin-bottom: 12px;
 }
 
-/* Count-up number animation */
+/* ─── Skeleton Table Row ─── */
+.skeleton-row td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.skeleton-row td:first-child {
+  padding-left: 16px;
+}
+
+.skeleton-cell {
+  height: 16px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 37%, #f0f0f0 63%);
+  background-size: 400% 100%;
+  animation: shimmerLoading 1.4s ease infinite;
+  border-radius: 4px;
+  width: 100%;
+  max-width: 120px;
+}
+
+.skeleton-cell.wide {
+  max-width: 200px;
+}
+
+.skeleton-cell.narrow {
+  max-width: 60px;
+}
+
+.skeleton-cell.circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin: 0 auto;
+}
+
+.skeleton-cell.badge {
+  width: 70px;
+  height: 22px;
+  border-radius: 20px;
+  margin: 0;
+}
+
+/* ─── Skeleton stats card ─── */
+.skeleton-stat {
+  pointer-events: none;
+}
+
+.skeleton-stat h4 {
+  width: 100px;
+  height: 12px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 37%, #f0f0f0 63%);
+  background-size: 400% 100%;
+  animation: shimmerLoading 1.4s ease infinite;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.skeleton-stat p {
+  width: 60px;
+  height: 28px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 37%, #f0f0f0 63%);
+  background-size: 400% 100%;
+  animation: shimmerLoading 1.4s ease infinite;
+  border-radius: 6px;
+}
+
+/* ─── Count-up number animation ─── */
 .count-up {
   display: inline-block;
   animation: countUp 0.3s ease;

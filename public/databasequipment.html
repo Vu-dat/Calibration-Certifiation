@@ -245,6 +245,74 @@
         from { opacity: 0; transform: translateY(10px); }
         to   { opacity: 1; transform: translateY(0); }
     }
+
+    /* ─── PREMIUM REVEAL ANIMATIONS ─── */
+    .db-stat.reveal {
+        transform: translateY(40px) scale(0.94);
+        opacity: 0;
+        transition: all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .db-stat.reveal.visible {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+    .db-stat.reveal.visible::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 60%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+        animation: dbStatShine 1.2s ease forwards;
+        pointer-events: none;
+    }
+    @keyframes dbStatShine {
+        0%   { left: -100%; }
+        100% { left: 150%; }
+    }
+    .db-stat:hover {
+        transform: translateY(-6px) scale(1.02) !important;
+        box-shadow: 0 12px 32px -8px rgba(13,148,136,0.25) !important;
+    }
+    .db-stat.reveal.visible p {
+        animation: dbStatCountIn 0.6s 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    @keyframes dbStatCountIn {
+        0%   { opacity: 0; transform: scale(0.5) translateY(10px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* ─── Section header entrance ─── */
+    #list-view.reveal {
+        transform: translateY(40px) scale(0.96);
+        opacity: 0;
+        transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    #list-view.reveal.visible {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+
+    /* ─── Table rows cascade ─── */
+    .db-table tbody tr {
+        animation: dbTableRowIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        opacity: 0;
+    }
+    @keyframes dbTableRowIn {
+        0%   { opacity: 0; transform: translateX(-20px) scale(0.95); }
+        100% { opacity: 1; transform: translateX(0) scale(1); }
+    }
+    .db-table tbody tr:nth-child(1) { animation-delay: 0.55s; }
+    .db-table tbody tr:nth-child(2) { animation-delay: 0.62s; }
+    .db-table tbody tr:nth-child(3) { animation-delay: 0.69s; }
+    .db-table tbody tr:nth-child(4) { animation-delay: 0.76s; }
+    .db-table tbody tr:nth-child(5) { animation-delay: 0.83s; }
+    .db-table tbody tr:nth-child(6) { animation-delay: 0.90s; }
+    .db-table tbody tr:nth-child(7) { animation-delay: 0.97s; }
+    .db-table tbody tr:nth-child(8) { animation-delay: 1.04s; }
+    .db-table tbody tr:nth-child(9) { animation-delay: 1.11s; }
+    .db-table tbody tr:nth-child(10) { animation-delay: 1.18s; }
     </style>
 </head>
 <body class="anim-page-in">
@@ -822,7 +890,25 @@
         renderRefEqControl(stdCell, input.value, selectedValue);
     }
 
-    async function fetchEquipmentTemplates() {
+    function renderDbEquipmentSkeleton(count) {
+  const tbody = document.getElementById('eq-body');
+  if (!tbody) return;
+  const rows = count || 5;
+  let html = '';
+  for (let i = 0; i < rows; i++) {
+    html += '<tr class="skeleton-row">' +
+      '<td><div class="skeleton-cell narrow"></div></td>' +
+      '<td><div class="skeleton-cell wide"></div></td>' +
+      '<td><div class="skeleton-cell"></div></td>' +
+      '<td><div class="skeleton-cell narrow"></div></td>' +
+      '<td style="text-align:center;"><div class="skeleton-cell circle"></div></td>' +
+      '</tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+async function fetchEquipmentTemplates() {
+        renderDbEquipmentSkeleton(5);
         // Load song song: danh sách thiết bị (equipment-templates) + thiết bị chuẩn từ CLOCK
         try {
             const [equipRes] = await Promise.all([

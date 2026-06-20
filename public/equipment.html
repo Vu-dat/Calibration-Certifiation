@@ -207,6 +207,98 @@
             from { opacity: 0; transform: translateX(100%); }
             to   { opacity: 1; transform: translateX(0); }
         }
+
+        /* ─── PREMIUM REVEAL ANIMATIONS ─── */
+        .eq-stat.reveal {
+            transform: translateY(40px) scale(0.94);
+            opacity: 0;
+            transition: all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .eq-stat.reveal.visible {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+        .eq-stat.reveal.visible::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: eqStatShine 1.2s ease forwards;
+            pointer-events: none;
+        }
+        @keyframes eqStatShine {
+            0%   { left: -100%; }
+            100% { left: 150%; }
+        }
+        .eq-stat:hover {
+            transform: translateY(-6px) scale(1.02) !important;
+            box-shadow: 0 12px 32px -8px rgba(13,148,136,0.25) !important;
+        }
+        .eq-stat.valid:hover { box-shadow: 0 12px 32px -8px rgba(16,185,129,0.25) !important; }
+        .eq-stat.expired:hover { box-shadow: 0 12px 32px -8px rgba(239,68,68,0.25) !important; }
+        .eq-stat.reveal.visible p {
+            animation: eqStatCountIn 0.6s 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+        @keyframes eqStatCountIn {
+            0%   { opacity: 0; transform: scale(0.5) translateY(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* ─── Section header entrance ─── */
+        .eq-header.reveal {
+            transform: translateY(30px) scale(0.96);
+            opacity: 0;
+            transition: all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .eq-header.reveal.visible {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+
+        /* ─── Search bar entrance ─── */
+        .eq-search.reveal {
+            transform: translateY(30px);
+            opacity: 0;
+            transition: all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .eq-search.reveal.visible {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* ─── Table wrap entrance ─── */
+        .eq-table-wrap.reveal {
+            transform: translateY(40px) scale(0.96);
+            opacity: 0;
+            transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .eq-table-wrap.reveal.visible {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+
+        /* ─── Table rows cascade ─── */
+        .eq-table tbody tr {
+            animation: eqTableRowIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+            opacity: 0;
+        }
+        @keyframes eqTableRowIn {
+            0%   { opacity: 0; transform: translateX(-20px) scale(0.95); }
+            100% { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        .eq-table tbody tr:nth-child(1) { animation-delay: 0.55s; }
+        .eq-table tbody tr:nth-child(2) { animation-delay: 0.62s; }
+        .eq-table tbody tr:nth-child(3) { animation-delay: 0.69s; }
+        .eq-table tbody tr:nth-child(4) { animation-delay: 0.76s; }
+        .eq-table tbody tr:nth-child(5) { animation-delay: 0.83s; }
+        .eq-table tbody tr:nth-child(6) { animation-delay: 0.90s; }
+        .eq-table tbody tr:nth-child(7) { animation-delay: 0.97s; }
+        .eq-table tbody tr:nth-child(8) { animation-delay: 1.04s; }
+        .eq-table tbody tr:nth-child(9) { animation-delay: 1.11s; }
+        .eq-table tbody tr:nth-child(10) { animation-delay: 1.18s; }
     </style>
 </head>
 <body>
@@ -373,9 +465,32 @@
     // ════════════════════════════════════
     //   DATA LOADING
     // ════════════════════════════════════
-    async function loadEquipment() {
+    function renderEquipmentSkeleton(count) {
+  const tbody = document.getElementById('equipment-table-body');
+  const rows = count || 5;
+  let html = '';
+  for (let i = 0; i < rows; i++) {
+    html += '<tr class="skeleton-row">' +
+      '<td><div class="skeleton-cell narrow"></div></td>' +
+      '<td><div class="skeleton-cell narrow"></div></td>' +
+      '<td><div class="skeleton-cell wide"></div></td>' +
+      '<td><div class="skeleton-cell"></div></td>' +
+      '<td><div class="skeleton-cell narrow"></div></td>' +
+      '<td><div class="skeleton-cell narrow"></div></td>' +
+      '<td><div class="skeleton-cell narrow"></div></td>' +
+      '<td><div class="skeleton-cell"></div></td>' +
+      '<td><div class="skeleton-cell narrow"></div></td>' +
+      '<td><div class="skeleton-cell narrow"></div></td>' +
+      '<td><div class="skeleton-cell badge"></div></td>' +
+      '<td style="text-align:center;"><div class="skeleton-cell circle"></div></td>' +
+      '</tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+async function loadEquipment() {
         const tbody = document.getElementById('equipment-table-body');
-        tbody.innerHTML = `<tr><td colspan="12" class="eq-empty"><span class="empty-icon"><i class="fas fa-spinner fa-spin"></i></span><p>Loading equipment data...</p><small>Connecting to database</small></td></tr>`;
+        renderEquipmentSkeleton(5);
 
         try {
             const res = await fetch(`${API_BASE_URL}/api/clock`);

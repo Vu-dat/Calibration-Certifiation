@@ -7,8 +7,361 @@
     <link rel="stylesheet" href="index.css">
     <title>Quản lý Dự Án – LabMaster Pro</title>
     <style>
-    
-    
+    /* ─── PREMIUM MODAL ─── */
+    .modal-premium {
+        padding: 0 !important;
+        max-width: 520px !important;
+        border-radius: 16px !important;
+        overflow: hidden;
+        box-shadow: 0 25px 60px rgba(0,0,0,0.25) !important;
+    }
+
+    .modal-premium-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0d9488 100%);
+        padding: 28px 32px 24px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .modal-premium-header::before {
+        content: '';
+        position: absolute;
+        top: -60%;
+        right: -20%;
+        width: 280px;
+        height: 280px;
+        background: radial-gradient(circle, rgba(13,148,136,0.2), transparent);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .modal-premium-header::after {
+        content: '';
+        position: absolute;
+        bottom: -40%;
+        left: -10%;
+        width: 200px;
+        height: 200px;
+        background: radial-gradient(circle, rgba(255,255,255,0.04), transparent);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .modal-premium-icon {
+        width: 48px;
+        height: 48px;
+        background: rgba(255,255,255,0.12);
+        backdrop-filter: blur(8px);
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fbbf24;
+        flex-shrink: 0;
+        position: relative;
+        z-index: 1;
+        animation: modalFloat 3s ease-in-out infinite;
+    }
+
+    @keyframes modalFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-4px); }
+    }
+
+    .modal-premium-header h3 {
+        color: #fff;
+        font-size: 20px;
+        font-weight: 800;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+        letter-spacing: -0.3px;
+    }
+
+    .modal-premium-sub {
+        color: rgba(255,255,255,0.6);
+        font-size: 13px;
+        margin: 4px 0 0 0;
+        position: relative;
+        z-index: 1;
+    }
+
+    .modal-premium-body {
+        padding: 24px 32px 20px;
+        background: var(--surface);
+    }
+
+    .modal-premium-body .field label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+    }
+
+    .modal-premium-body .field label svg {
+        color: var(--accent);
+        flex-shrink: 0;
+    }
+
+    .modal-premium-body input[type="text"] {
+        padding: 11px 14px;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        font-size: 14px;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        background: #fafbfc;
+    }
+
+    .modal-premium-body input[type="text"]:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px var(--accent-glow);
+        background: #fff;
+        transform: translateY(-1px);
+    }
+
+    .modal-premium-body input[type="text"]:hover:not(:focus) {
+        border-color: #cbd5e1;
+        background: var(--surface);
+    }
+
+    .modal-premium-body input[type="text"]::placeholder {
+        color: #94a3b8;
+        font-size: 13px;
+    }
+
+    .modal-premium-body input[readonly] {
+        background: #f1f5f9;
+        color: var(--text-muted);
+        cursor: default;
+        border-style: dashed;
+    }
+
+    .modal-premium-footer {
+        padding: 16px 32px 24px;
+        background: var(--bg);
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .btn-premium {
+        padding: 10px 24px !important;
+        border-radius: 10px !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        background: linear-gradient(135deg, var(--accent), #14b8a6) !important;
+        border: none !important;
+        box-shadow: 0 4px 14px rgba(13,148,136,0.35) !important;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        gap: 8px !important;
+    }
+
+    .btn-premium:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 24px rgba(13,148,136,0.45) !important;
+    }
+
+    .btn-premium:active {
+        transform: translateY(0) !important;
+    }
+
+    .btn-premium svg {
+        color: #fbbf24;
+    }
+
+    /* ─── Modal entrance animation override ─── */
+    #modal-create-project {
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(6px);
+    }
+
+    .modal-premium {
+        animation: premiumModalIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+        opacity: 0;
+        transform: scale(0.9) translateY(20px);
+    }
+
+    @keyframes premiumModalIn {
+        from { opacity: 0; transform: scale(0.92) translateY(24px); }
+        to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* ─── PREMIUM STAT CARDS ANIMATION ─── */
+    .stat-card.reveal {
+        transform: translateY(40px) scale(0.94);
+        opacity: 0;
+        transition: all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card.reveal.visible {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+
+    /* Glow sweep on visible */
+    .stat-card.reveal.visible::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 60%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+        animation: statShine 1.2s ease forwards;
+        pointer-events: none;
+    }
+
+    @keyframes statShine {
+        0%   { left: -100%; }
+        100% { left: 150%; }
+    }
+
+    /* Premium stat card hover */
+    .stat-card:hover {
+        transform: translateY(-6px) scale(1.02) !important;
+        box-shadow: 0 12px 32px -8px rgba(13,148,136,0.25) !important;
+        border-left-color: var(--accent) !important;
+    }
+
+    /* Different accent colors per stat */
+    .stat-card:nth-child(1) { border-left-color: #0d9488 !important; }
+    .stat-card:nth-child(2) { border-left-color: #3b82f6 !important; }
+    .stat-card:nth-child(3) { border-left-color: #10b981 !important; }
+    .stat-card:nth-child(4) { border-left-color: #f59e0b !important; }
+
+    .stat-card:nth-child(1):hover { box-shadow: 0 12px 32px -8px rgba(13,148,136,0.3) !important; }
+    .stat-card:nth-child(2):hover { box-shadow: 0 12px 32px -8px rgba(59,130,246,0.25) !important; }
+    .stat-card:nth-child(3):hover { box-shadow: 0 12px 32px -8px rgba(16,185,129,0.25) !important; }
+    .stat-card:nth-child(4):hover { box-shadow: 0 12px 32px -8px rgba(245,158,11,0.25) !important; }
+
+    /* Stat number entrance */
+    .stat-card.reveal.visible p {
+        animation: statCountIn 0.6s 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    @keyframes statCountIn {
+        0%   { opacity: 0; transform: scale(0.5) translateY(10px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* ─── PREMIUM PANEL ANIMATION ─── */
+    .panel.reveal {
+        transform: translateY(50px) scale(0.96);
+        opacity: 0;
+        transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .panel.reveal.visible {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+
+    /* Panel header entrance */
+    .panel.reveal.visible .panel-header {
+        animation: panelHeaderIn 0.6s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    @keyframes panelHeaderIn {
+        0%   { opacity: 0; transform: translateY(-10px); }
+        100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Table rows cascade entrance */
+    .panel.reveal.visible .data-table tbody tr {
+        animation: tableRowIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    @keyframes tableRowIn {
+        0%   { opacity: 0; transform: translateX(-16px) scale(0.97); }
+        100% { opacity: 1; transform: translateX(0) scale(1); }
+    }
+
+    /* Enhance existing stagger with better timing */
+    .data-table tbody tr:nth-child(1) { animation-delay: 0.05s; }
+    .data-table tbody tr:nth-child(2) { animation-delay: 0.10s; }
+    .data-table tbody tr:nth-child(3) { animation-delay: 0.15s; }
+    .data-table tbody tr:nth-child(4) { animation-delay: 0.20s; }
+    .data-table tbody tr:nth-child(5) { animation-delay: 0.25s; }
+    .data-table tbody tr:nth-child(6) { animation-delay: 0.30s; }
+    .data-table tbody tr:nth-child(7) { animation-delay: 0.35s; }
+    .data-table tbody tr:nth-child(8) { animation-delay: 0.40s; }
+    .data-table tbody tr:nth-child(9) { animation-delay: 0.45s; }
+    .data-table tbody tr:nth-child(10) { animation-delay: 0.50s; }
+
+    /* ─── Premium badge entrance ─── */
+    .panel.reveal.visible .badge {
+        animation: badgePop 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55) both;
+    }
+
+    .panel.reveal.visible .badge:nth-of-type(1) { animation-delay: 0.3s; }
+    .panel.reveal.visible .badge:nth-of-type(2) { animation-delay: 0.4s; }
+    .panel.reveal.visible .badge:nth-of-type(3) { animation-delay: 0.5s; }
+
+    /* ─── Responsive ─── */
+
+    /* ─── PAGE TRANSITION ANIMATIONS ─── */
+    .page-transition {
+        position: relative;
+    }
+    @keyframes pageSlideOut {
+        0%   { opacity: 1; transform: translateY(0) scale(1); }
+        100% { opacity: 0; transform: translateY(-20px) scale(0.96); }
+    }
+    @keyframes pageSlideIn {
+        0%   { opacity: 0; transform: translateY(24px) scale(0.96); }
+        100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .page-out {
+        animation: pageSlideOut 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+        pointer-events: none;
+    }
+    .page-in {
+        animation: pageSlideIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+    }
+    /* ─── Crossfade overlay ─── */
+    .page-overlay {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: var(--bg);
+        z-index: 999;
+        pointer-events: none;
+        opacity: 0;
+        will-change: opacity;
+        transition: opacity 0.25s ease;
+    }
+    .page-overlay.show {
+        opacity: 1;
+    }
+
+
+    @media (max-width: 560px) {
+
+        .modal-premium {
+            max-width: 94vw !important;
+            border-radius: 14px !important;
+        }
+        .modal-premium-header {
+            padding: 22px 20px 18px;
+        }
+        .modal-premium-body {
+            padding: 20px 20px 16px;
+        }
+        .modal-premium-footer {
+            padding: 12px 20px 20px;
+            flex-wrap: wrap;
+        }
+    }
     </style>
 </head>
 <body>
@@ -303,26 +656,39 @@
 
 <!-- MODALS & OVERLAYS -->
 <div id="modal-create-project" class="modal-overlay">
-    <div class="modal-card">
-        <h3 style="margin-bottom:16px; font-weight: 700; color: var(--primary);">Khởi tạo dự án mới</h3>
-        <div class="field">
-            <label>Tên dự án hiệu chuẩn</label>
-            <input type="text" id="m-proj-name" >
+    <div class="modal-card modal-premium">
+        <div class="modal-premium-header">
+            <div class="modal-premium-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+            </div>
+            <div>
+                <h3>Khởi tạo dự án mới</h3>
+                <p class="modal-premium-sub">Điền thông tin để bắt đầu một dự án hiệu chuẩn</p>
+            </div>
         </div>
-        <div class="field" style="margin-top:12px;">
-            <label>Kỹ thuật viên phụ trách</label>
-            <input type="text" id="m-proj-tech">
+        <div class="modal-premium-body">
+            <div class="field">
+                <label><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Tên dự án hiệu chuẩn</label>
+                <input type="text" id="m-proj-name" placeholder="VD: Máy giặt Wascator - Đợt 1">
+            </div>
+            <div class="field" style="margin-top:16px;">
+                <label><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Kỹ thuật viên phụ trách</label>
+                <input type="text" id="m-proj-tech" placeholder="Nhập tên kỹ thuật viên...">
+            </div>
+
         </div>
-        <div class="field" style="margin-top:12px;">
-            <label>Tên khách hàng</label>
-            <input type="text" id="m-proj-customer">
-        </div>
-        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:24px;">
-            <button class="btn btn-secondary btn-sm" onclick="closeModal('modal-create-project')">Hủy</button>
-            <button class="btn btn-primary btn-sm" onclick="confirmCreateProject()">Khởi tạo ngay</button>
+        <div class="modal-premium-footer">
+            <button class="btn btn-ghost" onclick="closeModal('modal-create-project')">Hủy bỏ</button>
+            <button class="btn btn-primary btn-premium ripple-btn" onclick="confirmCreateProject()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                Khởi tạo dự án
+            </button>
         </div>
     </div>
 </div>
+<div id="page-transition-overlay" class="page-overlay"></div>
 <div id="toast-container"></div>
 
 <script>
@@ -584,15 +950,60 @@ let results = [];
 let selectedStandards = [];
 
 /* ====== NAVIGATION ====== */
+
+/* ====== PAGE TRANSITION HELPER ====== */
+function transitionPage(fromView, toView) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('page-transition-overlay');
+    
+    // Show crossfade overlay
+    if (overlay) overlay.classList.add('show');
+    
+    // Animate out the current view
+    fromView.classList.add('page-out');
+    
+    setTimeout(() => {
+      fromView.style.display = 'none';
+      fromView.classList.remove('page-out');
+      
+      // Animate in the new view
+      toView.style.display = 'block';
+      toView.classList.add('page-in');
+      
+      // Hide overlay with slight delay for smooth crossfade
+      setTimeout(() => {
+        if (overlay) overlay.classList.remove('show');
+      }, 80);
+      
+      setTimeout(() => {
+        toView.classList.remove('page-in');
+        resolve();
+      }, 450);
+    }, 350);
+  });
+}
+
 function showProjectList() {
-  document.getElementById('project-list-view').style.display='block';
-  document.getElementById('project-detail-view').style.display='none';
-  document.getElementById('calibration-editor-view').style.display='none';
+  const listView = document.getElementById('project-list-view');
+  const detailView = document.getElementById('project-detail-view');
+  const editorView = document.getElementById('calibration-editor-view');
   
   // Xóa nội dung tìm kiếm khách hàng khi quay lại danh sách
   document.getElementById('cust-search-detail').value = '';
   document.getElementById('selected-cust-details').style.display = 'none';
-  fetchProjects();
+  
+  // Determine which view is currently visible
+  const currentView = detailView.style.display !== 'none' && detailView.style.display !== '' ? detailView :
+                      editorView.style.display !== 'none' && editorView.style.display !== '' ? editorView : null;
+  
+  if (currentView) {
+    transitionPage(currentView, listView).then(() => {
+      fetchProjects();
+    });
+  } else {
+    listView.style.display = 'block';
+    fetchProjects();
+  }
 }
 
 function viewProjectDetail(id) {
@@ -627,8 +1038,8 @@ function viewProjectDetail(id) {
   const detailView = document.getElementById('project-detail-view');
   const editorView = document.getElementById('calibration-editor-view');
 
-  if(listView) listView.style.display = 'none';
-  if(detailView) detailView.style.display = 'block';
+  // Animate transition
+  transitionPage(listView, detailView);
   if(editorView) editorView.style.display = 'none';
 
   // --- Đổ dữ liệu vào các thẻ hiển thị chi tiết ---
@@ -857,8 +1268,9 @@ function openCalibrationForRow(btn) {
 }
 
 function backToProjectDetail() {
-  document.getElementById('calibration-editor-view').style.display='none';
-  document.getElementById('project-detail-view').style.display='block';
+  const editorView = document.getElementById('calibration-editor-view');
+  const detailView = document.getElementById('project-detail-view');
+  transitionPage(editorView, detailView);
 }
 
 async function openCalibrationWorkspace(equipmentNameFromRow = null) {
@@ -1412,7 +1824,27 @@ async function updateStats() {
   document.getElementById('stat-certs').textContent = summary.certCount || 0;
 }
 
+function renderProjectSkeleton(count) {
+  const tbody = document.getElementById('project-table-body');
+  tbody.innerHTML = '';
+  const rows = count || 5;
+  for (let i = 0; i < rows; i++) {
+    const tr = document.createElement('tr');
+    tr.className = 'skeleton-row';
+    tr.innerHTML = [
+      '<td><div class="skeleton-cell narrow"></div></td>',
+      '<td><div class="skeleton-cell wide"></div></td>',
+      '<td><div class="skeleton-cell"></div></td>',
+      '<td><div class="skeleton-cell narrow"></div></td>',
+      '<td><div class="skeleton-cell badge"></div></td>',
+      '<td style="text-align:center;"><div class="skeleton-cell circle"></div></td>'
+    ].join('\n');
+    tbody.appendChild(tr);
+  }
+}
+
 async function fetchProjects() {
+  renderProjectSkeleton(5);
   const res = await fetch(`${API_URL}/projects`);
   projectsList = await res.json();
   const tbody = document.getElementById('project-table-body');
