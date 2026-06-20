@@ -409,10 +409,8 @@
         .confirm-actions button { flex: 1; justify-content: center; }
 
         /* ══════════════════════════════════════════
-           LOADING SPINNER
+           LOADING SPINNER (replaced by skeleton loading in JS)
         ══════════════════════════════════════════ */
-        .loading-state { text-align: center; padding: 50px 20px !important; color: var(--slate); }
-        .loading-state .spin-icon { font-size: 2rem; color: var(--teal); display: block; margin-bottom: 12px; }
 
         /* ══════════════════════════════════════════
            TOAST
@@ -659,12 +657,6 @@
                     </tr>
                 </thead>
                 <tbody id="customer-table-body">
-                    <tr>
-                        <td colspan="6" class="loading-state">
-                            <i class="fas fa-spinner fa-spin spin-icon"></i>
-                            <p>Đang kết nối cơ sở dữ liệu LabMaster SQL...</p>
-                        </td>
-                    </tr>
                 </tbody>
             </table>
         </div>
@@ -988,13 +980,7 @@ function renderCustomerSkeleton(count) {
 
 async function loadCustomers() {
     const tbody = document.getElementById('customer-table-body');
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="6" class="loading-state">
-                <i class="fas fa-spinner fa-spin spin-icon"></i>
-                <p>Đang đồng bộ từ SQL Server…</p>
-            </td>
-        </tr>`;
+    renderCustomerSkeleton(5);
 
     try {
         const res = await fetch(`${API_BASE_URL}/api/customers`);

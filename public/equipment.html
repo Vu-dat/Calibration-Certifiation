@@ -165,7 +165,7 @@
             font-family: var(--font); font-size: 14px; outline: none;
             box-sizing: border-box; transition: all var(--transition);
         }
-        .form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+        .form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); transform: translateY(-1px); }
         .form-group.full { grid-column: span 2; }
         .form-actions {
             grid-column: span 2; display: flex; gap: 12px;
@@ -186,6 +186,68 @@
         }
         .toast.warning { border-left-color: var(--warning); }
         .toast.danger { border-left-color: var(--danger); }
+
+        
+    /* ─── Form panel enhanced ─── */
+    #equipment-create-view .form-panel {
+        transform-origin: top center;
+    }
+    #equipment-create-view .form-panel h2 {
+        position: relative;
+    }
+    #equipment-create-view .form-panel h2::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60px;
+        height: 3px;
+        background: var(--accent);
+        border-radius: 2px;
+    }        /* ─── Enhanced stat card hover ─── */
+        .eq-stat:hover .stat-icon i {
+            transform: scale(1.15);
+            display: inline-block;
+        }
+        .eq-stat .stat-icon {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .eq-stat .stat-icon i {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .eq-table .eq-actions .eq-action-btn {
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .eq-table .eq-actions .eq-action-btn:hover {
+            transform: scale(1.15);
+        }
+
+        /* ─── Form panel heading decoration ─── */
+        .form-panel h2 {
+            position: relative;
+        }
+        .form-panel h2::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        /* ─── Form input enhanced focus ─── */
+        .form-group input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+            transform: translateY(-1px);
+        }
+        .form-group select:focus {
+            border-color: var(--accent);
+        }
 
         /* ─── Responsive ─── */
         @media (max-width: 768px) {
