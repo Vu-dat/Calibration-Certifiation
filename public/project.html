@@ -432,9 +432,9 @@
       <div class="proj-info-grid">
         <div class="admin-grid" id="proj-info-grid">
           <div class="info-group">
-      <label>Khách hàng (Tìm kiếm YouTube style)</label>
+      <label>Nhập tên khách hàng </label>
       <div class="autocomplete-wrapper">
-          <input type="text" id="cust-search-detail" class="lab-input-cell" placeholder="Gõ tên khách hàng để gợi ý..." oninput="handleCustomerSearch(this.value)" autocomplete="off">
+          <input type="text" id="cust-search-detail" class="lab-input-cell" placeholder="Gõ tên khách hàng ..." oninput="handleCustomerSearch(this.value)" autocomplete="off">
           <div id="cust-loader" class="loader-inline"></div>
           <div id="cust-suggestions" class="autocomplete-suggestions"></div>
       </div>
@@ -2157,45 +2157,116 @@ function fillCalibrationTableRows(points) {
 function handleRefEqSearch(input) {
     const wrapper = input.closest('.autocomplete-wrapper');
     if (!wrapper) return;
-    const box = wrapper.querySelector('.autocomplete-suggestions');
+    // Use body-level floating dropdown to escape overflow containers
+    const box = getRefEqDropdown();
+    // Using body-level floating dropdown that escapes overflow containers
     if (!box) return;
     
     const keyword = input.value.trim();
     box.innerHTML = '';
     if (!keyword) { box.style.display = 'none'; return; }
 
-    const keyLower = keyword.toLowerCase();
+    // YouTube-style smart search: normalize Vietnamese + multi-field scoring
+    const keyNorm = normalizeVietnameseKeyword(keyword);
+    const keyL = keyword.toLowerCase();
     const combinedDB = getCombinedStandardsDB();
     
     const filtered = combinedDB
         .map(eq => {
+            const codeNorm = normalizeVietnameseKeyword(eq.EQUIPMENT_ID || '');
+            const nameNorm = normalizeVietnameseKeyword(eq.NAME || '');
+            const manuNorm = normalizeVietnameseKeyword(eq.MANUFACTURER || '');
             const code = (eq.EQUIPMENT_ID || '').toLowerCase();
             const name = (eq.NAME || '').toLowerCase();
+            const manu = (eq.MANUFACTURER || '').toLowerCase();
+            
             let score = 100;
-            if (code === keyLower || name === keyLower) score = 0;
-            else if (code.startsWith(keyLower) || name.startsWith(keyLower)) score = 10;
-            else if (code.includes(keyLower) || name.includes(keyLower)) score = 20;
+            
+            // Exact match (ưu tiên cao nhất)
+            if (codeNorm === keyNorm || nameNorm === keyNorm) score = 0;
+            else if (code === keyL || name === keyL) score = 0;
+            
+            // Code prefix match (gõ ID rất nhanh)
+            else if (code.startsWith(keyL) || codeNorm.startsWith(keyNorm)) score = 5;
+            
+            // Name starts with
+            else if (name.startsWith(keyL) || nameNorm.startsWith(keyNorm)) score = 10;
+            
+            // Word boundary match (mỗi từ bắt đầu bằng từ khóa)
+            else if (name.split(/[\s\-\/]+/).some(w => w.startsWith(keyL) || normalizeVietnameseKeyword(w).startsWith(keyNorm))) score = 12;
+            
+            // Name includes
+            else if (name.includes(keyL) || nameNorm.includes(keyNorm)) score = 15;
+            
+            // Code includes
+            else if (code.includes(keyL) || codeNorm.includes(keyNorm)) score = 18;
+            
+            // Manufacturer match
+            else if (manu.includes(keyL) || manuNorm.includes(keyNorm)) score = 25;
+
             return { item: eq, score };
         })
         .filter(x => x.score < 100)
-        .sort((a, b) => a.score - b.score)
+        .sort((a, b) => {
+            if (a.score !== b.score) return a.score - b.score;
+            return (a.item.NAME || '').localeCompare(b.item.NAME || '');
+        })
         .map(x => x.item);
 
     if (filtered.length === 0) {
-        box.innerHTML = '<div class="suggestion-item" style="color:var(--text-muted);cursor:default;padding:8px;">❌ Không tìm thấy</div>';
+        box.innerHTML = '<div class="suggestion-item" style="color:var(--text-muted);cursor:default;padding:10px;text-align:center;">❌ Không tìm thấy thiết bị chuẩn phù hợp</div>';
     } else {
-        filtered.slice(0, 8).forEach(eq => {
-            const label = `${eq.EQUIPMENT_ID ? eq.EQUIPMENT_ID + ' - ' : ''}${eq.NAME || ''}`;
+        const maxResults = Math.min(filtered.length, 10);
+        for (let i = 0; i < maxResults; i++) {
+            const eq = filtered[i];
+            const code = eq.EQUIPMENT_ID || '';
+            const name = eq.NAME || '';
+            const manu = eq.MANUFACTURER || '';
+            const due = eq.NEXT_DUE || '';
+            const label = code ? code + ' - ' + name : name;
+
+            // Check validity status badge
+            let statusBadge = '';
+            if (due) {
+                const dueDate = new Date(due);
+                const today = new Date();
+                const daysLeft = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+                if (daysLeft < 0) {
+                    statusBadge = '<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:#fef2f2;color:#dc2626;font-weight:600;">❌ Hết hạn</span>';
+                } else if (daysLeft <= 30) {
+                    statusBadge = '<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:#fffbeb;color:#d97706;font-weight:600;">⚠ Sắp hết hạn</span>';
+                } else {
+                    const dueStr = dueDate.toLocaleDateString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric'});
+                    statusBadge = '<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:#f0fdf4;color:#16a34a;font-weight:600;">✅ ' + dueStr + '</span>';
+                }
+            }
+
             const div = document.createElement('div');
             div.className = 'suggestion-item ref-eq-suggestion-item';
-            div.innerHTML = `🏷 <strong>${label}</strong>${eq.MANUFACTURER ? `<br><span style="font-size:11px;color:var(--text-muted);">${eq.MANUFACTURER}</span>` : ''}`;
+            div.innerHTML = '<div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">' +
+                '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+                '<strong style="font-size:13px;color:#0f172a;">' + label + '</strong>' +
+                // manufacturer shown in factory line below
+                statusBadge +
+                '</div>' +
+                (code ? '<span style="font-size:11px;color:var(--text-muted);">🏭 ' + (manu || '—') + '</span>' : '') +
+                '</div>';
             div.onclick = () => {
                 input.value = label;
                 input.title = label;
                 box.style.display = 'none';
             };
             box.appendChild(div);
-        });
+        }
+        
+        // Show count indicator if there are more results
+        if (filtered.length > maxResults) {
+            const more = document.createElement('div');
+            more.className = 'suggestion-item';
+            more.style.cssText = 'text-align:center;color:var(--text-muted);font-size:11px;padding:6px;cursor:default;background:#f8fafc;border-top:1px solid var(--border);';
+            more.textContent = '… và ' + (filtered.length - maxResults) + ' kết quả khác';
+            box.appendChild(more);
+        }
     }
     positionRefEqSuggestions(input, box);
     box.style.display = 'block';
@@ -2205,8 +2276,7 @@ function renderRefEqCell(value = '') {
     const escapedValue = (value || '').replace(/"/g, '&quot;');
     return `<div class="autocomplete-wrapper" style="position:relative;display:inline-block;width:100%;">
         <input type="text" class="lab-input-cell ref-eq-val" value="${escapedValue}" 
-               placeholder="🔍 Gõ tên thiết bị chuẩn..." oninput="handleRefEqSearch(this)" autocomplete="off" style="width:100%;">
-        <div class="autocomplete-suggestions ref-eq-suggestions"></div>
+               placeholder="🔍 Gõ tên thiết bị chuẩn..." autocomplete="off" style="width:100%;">
     </div>`;
 }
 
@@ -2240,10 +2310,11 @@ function renderRefEqControl(parameterName = '', value = '') {
 
 function positionRefEqSuggestions(input, box) {
     const rect = input.getBoundingClientRect();
-    const viewportPadding = 16;
-    const preferredWidth = 520;
+    const viewportPadding = 12;
+    // Dynamic width: min 280px, max viewport minus padding
+    const minWidth = Math.max(rect.width, 280);
     const maxWidth = window.innerWidth - viewportPadding * 2;
-    const width = Math.min(Math.max(rect.width, preferredWidth), maxWidth);
+    const width = Math.min(minWidth, maxWidth);
     let left = rect.left;
 
     if (left + width > window.innerWidth - viewportPadding) {
@@ -2251,11 +2322,24 @@ function positionRefEqSuggestions(input, box) {
     }
     if (left < viewportPadding) left = viewportPadding;
 
-    box.style.position = 'fixed';
-    box.style.top = `${rect.bottom + 4}px`;
-    box.style.left = `${left}px`;
-    box.style.right = 'auto';
-    box.style.width = `${width}px`;
+    // Auto-position: show below if room, otherwise show above (Google-style)
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const estHeight = 240;
+
+    box.style.position = "fixed";
+    box.style.width = width + "px";
+    box.style.left = left + "px";
+    box.style.right = "auto";
+    box.style.maxHeight = "320px";
+
+    if (spaceBelow >= estHeight + 8 || spaceBelow > spaceAbove) {
+        box.style.top = (rect.bottom + 4) + "px";
+        box.style.bottom = "auto";
+    } else {
+        box.style.top = "auto";
+        box.style.bottom = (window.innerHeight - rect.top + 4) + "px";
+    }
 }
 
 function checkParamForRefEq(input) {
@@ -2272,10 +2356,32 @@ function checkParamForRefEq(input) {
 
 /* ====== CLOSE DROPDOWNS ON OUTSIDE CLICK ====== */
 document.addEventListener('click', function(e) {
-  if (!e.target.closest('.autocomplete-wrapper')) {
+  // Hide suggestions but keep floating dropdown open if clicking inside it
+  if (!e.target.closest('.autocomplete-wrapper') && !e.target.closest('#ref-eq-floating-dropdown')) {
     document.querySelectorAll('.autocomplete-suggestions').forEach(b=>b.style.display='none');
   }
 });
+
+/* ====== EVENT DELEGATION: Ref. Equipment Search ====== */
+document.addEventListener('input', function(e) {
+  const target = e.target;
+  if (target.classList.contains('ref-eq-val') && target.tagName === 'INPUT') {
+    handleRefEqSearch(target);
+  }
+});
+
+/* ====== FLOATING DROPDOWN (escapes overflow containers) ====== */
+let refEqDropdown = null;
+function getRefEqDropdown() {
+    if (!refEqDropdown) {
+        refEqDropdown = document.createElement('div');
+        refEqDropdown.id = 'ref-eq-floating-dropdown';
+        refEqDropdown.className = 'autocomplete-suggestions';
+        refEqDropdown.style.cssText = 'position:fixed;z-index:9999;display:none;';
+        document.body.appendChild(refEqDropdown);
+    }
+    return refEqDropdown;
+}
 
 /* ─── Scroll Reveal ─── */
 function initScrollReveal() {
