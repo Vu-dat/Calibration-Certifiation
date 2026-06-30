@@ -2,11 +2,34 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const path = require('path');
+const os = require('os');
 const { exec } = require('child_process');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const app = express();
 const port = process.env.PORT || 18080;
+
+// Dò tìm IP LAN (ưu tiên không phải 127.0.0.1)
+function getLANIP() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return null;
+}
+
+// Lấy base URL: ưu tiên PUBLIC_URL (dùng khi deploy cloud), fallback LAN IP, cuối cùng là localhost
+function getBaseUrl() {
+    if (process.env.PUBLIC_URL) {
+        return process.env.PUBLIC_URL.replace(/\/+$/, '');
+    }
+    const LAN_IP = getLANIP();
+    return LAN_IP ? `http://${LAN_IP}:${port}` : `http://localhost:${port}`;
+}
 
 app.use(cors());
 app.use(express.json());
@@ -871,19 +894,22 @@ app.post('/api/calibration/export-pdf', (req, res) => {
     saveCalibrationDataToDB(data, cert_no, (err) => {
         if (err) return res.status(500).json({ success: false, error: err.message });
 
-        exec(`node "${scriptPath}" "${cert_no}"`, (error, stdout, stderr) => {
+        const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+        const baseUrl = getBaseUrl();
+        const downloadUrl = `${baseUrl}/static/${fileName}`;
+
+        exec(`node "${scriptPath}" "${cert_no}" "${downloadUrl}"`, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Lỗi thực thi generate_pdf.js: ${error.message}`);
                 return res.status(500).json({ success: false, message: "Lỗi hệ thống khi sinh PDF." });
             }
 
-            const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
             logActivity("Hệ thống / KTV", "EXPORT_PDF", "CERTIFICATES", cert_no, `Xuất PDF: ${fileName}`);
 
             return res.json({
                 success: true,
                 message: `Đã xuất thành công GCN_${cert_no}.pdf`,
-                file_url: `http://localhost:${process.env.PORT || 18080}/static/${fileName}`
+                file_url: `${baseUrl}/static/${fileName}`
             });
         });
     });
@@ -915,7 +941,7 @@ app.post('/api/calibration/export-excel', (req, res) => {
             return res.json({
                 success: true,
                 message: `Đã xuất thành công GCN_${cert_no}.xlsx`,
-                file_url: `http://localhost:${process.env.PORT || 18080}/static/${fileName}`
+                file_url: `${getBaseUrl()}/static/${fileName}`
             });
         });
     });
@@ -947,9 +973,20 @@ app.post('/api/calibration/export-docx', (req, res) => {
             return res.json({
                 success: true,
                 message: `Đã xuất thành công GCN_${cert_no}.docx`,
-                file_url: `http://localhost:${process.env.PORT || 18080}/static/${fileName}`
+                file_url: `${getBaseUrl()}/static/${fileName}`
             });
         });
+    });
+});
+
+// ================= API THÔNG TIN SERVER (CHO QR CODE TRONG HTML PREVIEW) =================
+app.get('/api/server/info', (req, res) => {
+    const baseUrl = getBaseUrl();
+    res.json({
+        baseUrl,
+        lanIp: getLANIP(),
+        port: port,
+        publicUrl: process.env.PUBLIC_URL || null
     });
 });
 

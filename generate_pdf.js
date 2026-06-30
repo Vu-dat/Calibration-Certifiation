@@ -9,10 +9,13 @@
 const fs          = require('fs');
 const path        = require('path');
 const PDFDocument = require('pdfkit');
+const QRCode      = require('qrcode');
 const sqlite3     = require('sqlite3').verbose();
 
 // ─────────────────────── KIỂM TRA CLI ───────────────────────
 const certNo = process.argv[2];
+const downloadUrl = process.argv[3] || '';
+
 if (!certNo) {
     console.error('Lỗi: Vui lòng cung cấp mã số chứng nhận. Ví dụ: node generate_pdf.js 328344');
     process.exit(1);
@@ -103,6 +106,21 @@ function setFont(doc, bold = false) {
 // ─────────────────────── LUỒNG CHÍNH ───────────────────────
 async function main() {
     try {
+        // Sinh QR code từ URL tải file (nếu có)
+        let qrBuffer = null;
+        if (downloadUrl) {
+            try {
+                qrBuffer = await QRCode.toBuffer(downloadUrl, {
+                    width: 120,
+                    margin: 1,
+                    color: { dark: '#007a78', light: '#ffffff' }
+                });
+                console.log(`[QR] Đã sinh QR code: ${downloadUrl}`);
+            } catch (e) {
+                console.warn('Không thể sinh QR code:', e.message);
+            }
+        }
+
         // 1. Lấy thông tin Giấy Chứng Nhận từ DB (đúng schema CERTIFICATES)
         const cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [certNo]);
 
@@ -143,6 +161,13 @@ async function main() {
         };
 
         // ─────────────────────── HEADER ───────────────────────
+        // QR code ở góc phải (nếu có)
+        if (qrBuffer) {
+            doc.image(qrBuffer, 495, 38, { width: 45, height: 45 });
+            setFont(doc, false);
+            doc.fontSize(6).fillColor(C.MUTED).text('Scan QR\ntải PDF', 495, 85, { width: 45, align: 'center' });
+        }
+
         setFont(doc, true);
         doc.fontSize(16).fillColor(C.PRIMARY).text('GIẤY CHỨNG NHẬN HIỆU CHUẨN', { align: 'center' });
         setFont(doc, false);

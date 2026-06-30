@@ -1037,6 +1037,8 @@ textarea {
 .cert-company-name { font-size: 14pt; font-weight: 800; color: #004d4d; text-transform: uppercase; }
 .cert-company-detail { font-size: 8.5pt; color: #333; line-height: 1.4; }
 .cert-iso { border: 1.5px solid #004d4d; padding: 4px 10px; font-size: 9pt; font-weight: 700; color: #004d4d; }
+.cert-qr-box { display:flex;flex-direction:column;align-items:center; }
+.cert-qr-label { font-size:6.5pt;color:#004d4d;margin-top:2px;font-weight:600; }
 .cert-title-block { text-align: center; margin-bottom: 24px; }
 .cert-title-vi { font-size: 18pt; font-weight: 800; text-transform: uppercase; }
 .cert-title-en { font-size: 11pt; font-style: italic; color: #444; }
