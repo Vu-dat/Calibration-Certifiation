@@ -48,9 +48,9 @@ function parseDate(d) {
 }
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────
-const COL_DARK    = '1a1917';
-const COL_GRAY    = '6b6860';
-const BORDER_S    = { style: BorderStyle.SINGLE, size: 4, color: '767171' };
+const COL_DARK    = '1a1a1a';
+const COL_GRAY    = '555555';
+const BORDER_S    = { style: BorderStyle.SINGLE, size: 4, color: '000000' };
 const BORDER_NONE = { style: BorderStyle.NONE,   size: 0,  color: 'auto' };
 const SHADING     = 'F2F2F2';
 
@@ -563,7 +563,7 @@ async function main() {
                                             data: logoData,
                                             transformation: { width: 110, height: 42 },
                                         })
-                                    ] : [new TextRun({ text: 'LABMASTER', font: 'Arial', size: 28, bold: true, color: '0d9488' })],
+                                    ] : [new TextRun({ text: 'LABMASTER', font: 'Arial', size: 28, bold: true, color: '004d4d' })],
                                 })
                             ],
                             width: { size: 2335, type: WidthType.DXA },
