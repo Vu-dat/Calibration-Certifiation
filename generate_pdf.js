@@ -147,22 +147,57 @@ async function main() {
     bro.push([{text:'14. Noi hieu chuan:\nPlace of Calibration',align:'left',size:7,bold:true},{text:(cert.CUSTOMER_NAME||'')+'\n'+(cert.CUSTOMER_ADDRESS||''),align:'left',size:7,bold:true,color:'#000000'},{text:'',align:'left',size:7},{text:'',align:'left',size:7}]);
     bro.push([{text:'15. Moi truong hieu chuan:\nCal. Environment',align:'left',size:7,bold:true},{text:'+ Nhiet do / Temperature:',align:'left',size:7},{text:'',align:'left',size:7},{text:cert.TEMP_ENV||'-',align:'left',size:7}]);
     bro.push([{text:'',align:'left',size:7},{text:'+ Do am / Humidity:',align:'left',size:7},{text:'',align:'left',size:7},{text:cert.HUMI_ENV||'-',align:'left',size:7}]);
-    for (var i=0; i<5; i++) bro.push([{text:'',align:'center',size:6},{text:'',align:'center',size:6},{text:'',align:'center',size:6},{text:'',align:'center',size:6}]);
-    bro.push([{text:'PHU TRACH PHONG HIEU CHUAN\nHEAD OF CAL. LAB.',align:'center',size:7,bold:true},{text:'',align:'center',size:7},{text:'',align:'center',size:7},{text:'GIAM DOC\nDIRECTOR',align:'center',size:7,bold:true}]);
-    bro.push([{text:'',align:'center',size:6},{text:'',align:'center',size:6},{text:'',align:'center',size:6},{text:'',align:'center',size:6}]);
-    bro.push([{text:cert.HEAD_OF_LAB||'',align:'center',size:7.5,bold:true,color:'#000000'},{text:'',align:'center',size:7},{text:'',align:'center',size:7},{text:cert.DIRECTOR||'',align:'center',size:7.5,bold:true,color:'#000000'}]);
+    for (var i=0; i<3; i++) bro.push([{text:'',align:'center',size:6},{text:'',align:'center',size:6},{text:'',align:'center',size:6},{text:'',align:'center',size:6}]);
     var by = drawT(doc, bhds, bro, {startX:ML,startY:doc.y,rowHeight:20,minRowH:18,borderColor:CB,headerBg:CH,_logo:logo});
-    doc.y = by + 4;
+    doc.y = by + 6;
+
+    // === CHU KY CHUYEN NGHIEP ===
+    if (doc.y > PH-130) { doc.addPage(); drawH(doc, logo); doc.y = MT; }
+    var sigY = doc.y;
+    var sigColW = (CW - 20) / 2;
+    var sigLeftX = ML;
+    var sigRightX = ML + sigColW + 20;
+
+    // Left: Head of Calibration Lab
+    sf(doc, true); doc.fontSize(8).fillColor(CT);
+    doc.text('PHU TRACH PHONG HIEU CHUAN', sigLeftX, sigY, {align:'center',width:sigColW});
+    var subY = sigY + 14;
+    sf(doc, false); doc.fontSize(7.5).fillColor(CG);
+    doc.text('HEAD OF CALIBRATION LAB.', sigLeftX, subY, {align:'center',width:sigColW});
+
+    // Right: Director
+    sf(doc, true); doc.fontSize(8).fillColor(CT);
+    doc.text('GIAM DOC', sigRightX, sigY, {align:'center',width:sigColW});
+    sf(doc, false); doc.fontSize(7.5).fillColor(CG);
+    doc.text('DIRECTOR', sigRightX, subY, {align:'center',width:sigColW});
+
+    // Signature lines
+    var lineY = subY + 46;
+    doc.lineWidth(0.8).strokeColor('#000000');
+    doc.moveTo(sigLeftX + 20, lineY).lineTo(sigLeftX + sigColW - 20, lineY).stroke();
+    doc.moveTo(sigRightX + 20, lineY).lineTo(sigRightX + sigColW - 20, lineY).stroke();
+
+    // Names below lines
+    if (cert.HEAD_OF_LAB) {
+      sf(doc, false); doc.fontSize(8).fillColor(CT);
+      doc.text(cert.HEAD_OF_LAB, sigLeftX, lineY + 4, {align:'center',width:sigColW});
+    }
+    if (cert.DIRECTOR) {
+      sf(doc, false); doc.fontSize(8).fillColor(CT);
+      doc.text(cert.DIRECTOR, sigRightX, lineY + 4, {align:'center',width:sigColW});
+    }
+
+    doc.y = lineY + 22;
 
     sf(doc, false); doc.fontSize(7.5).fillColor(CT);
     doc.text('So GCN / Certificate No.: '+certNo, ML, doc.y, {align:'right',width:CW}); doc.moveDown(0.5);
 
     sf(doc, true); doc.fontSize(8).fillColor(CT);
     doc.text('16. Ket qua hieu chuan / Cal. Results:', ML, doc.y, {align:'left'}); doc.moveDown(0.4);
-    var rH = [{text:'Thong so\nParameters',width:75,align:'center',size:7},{text:'Diem hieu chuan\nCal. Points',width:72,align:'center',size:7},{text:'Gia tri do duoc\nAs Found Value',width:70,align:'center',size:7},{text:'Do KDBD\nUncertainty',width:65,align:'center',size:7},{text:'Dung sai\nTolerance',width:60,align:'center',size:7},{text:'Su phu hop\nConformity',align:'center',size:7}];
+    var rH = [{text:'Thong so\nParameters',width:62,align:'center',size:6.5},{text:'Diem HC\nCal. Point',width:52,align:'center',size:6.5},{text:'Gia tri do duoc\nAs Found Value',width:60,align:'center',size:6.5},{text:'Do KDBD\nUncertainty',width:55,align:'center',size:6.5},{text:'Dung sai\nTolerance',width:50,align:'center',size:6.5},{text:'Thiet bi chuan\nStd. Equipment',width:72,align:'center',size:6.5},{text:'Su phu hop\nConformity',align:'center',size:6.5}];
     var rD = [];
-    if (pts.length===0) { rD.push([{text:'Chua co du lieu',align:'center',size:7,color:CG},{text:'',align:'center',size:7},{text:'',align:'center',size:7},{text:'',align:'center',size:7},{text:'',align:'center',size:7},{text:'',align:'center',size:7}]); }
-    else { for (var pi=0; pi<pts.length; pi++) { var p=pts[pi]; rD.push([{text:p.PARAMETER_NAME||p.parameter_name||'-',align:'left',size:7,bold:true},{text:String(p.CAL_POINT||p.cal_point||'-'),align:'center',size:7},{text:String(p.AS_FOUND_VALUE||p.as_found_value||'-'),align:'center',size:7},{text:String(p.UNCERTAINTY||p.uncertainty||'-'),align:'center',size:7},{text:String(p.TOLERANCE||p.tolerance||'-'),align:'center',size:7},{text:String(p.CONFORMITY||p.conformity||'-'),align:'center',size:7}]); } }
+    if (pts.length===0) { rD.push([{text:'Chua co du lieu',align:'center',size:7,color:CG},{text:'',align:'center',size:7},{text:'',align:'center',size:7},{text:'',align:'center',size:7},{text:'',align:'center',size:7},{text:'',align:'center',size:7},{text:'',align:'center',size:7}]); }
+    else { for (var pi=0; pi<pts.length; pi++) { var p=pts[pi]; rD.push([{text:p.PARAMETER_NAME||p.parameter_name||'-',align:'left',size:6.5,bold:true},{text:String(p.CAL_POINT||p.cal_point||'-'),align:'center',size:6.5},{text:String(p.AS_FOUND_VALUE||p.as_found_value||'-'),align:'center',size:6.5},{text:String(p.UNCERTAINTY||p.uncertainty||'-'),align:'center',size:6.5},{text:String(p.TOLERANCE||p.tolerance||'-'),align:'center',size:6.5},{text:String(p.REF_EQUIPMENT||p.STANDARD_EQUIPMENT||p.ref_equipment||p.standard_equipment||'–'),align:'left',size:6},{text:String(p.CONFORMITY||p.conformity||'-'),align:'center',size:6.5}]); } }
     var ry = drawT(doc, rH, rD, {startX:ML,startY:doc.y,rowHeight:24,minRowH:22,borderColor:CB,headerBg:CH,_logo:logo});
     doc.y = ry + 8;
 

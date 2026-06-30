@@ -342,52 +342,99 @@ async function main() {
             ]
         }));
 
-        // ── Signature spacer ──
-        for (let i = 0; i < 4; i++) {
-            bigRows.push(new TableRow({
-                children: [
-                    borderCell([emptyPara()], { width: COL_W[0] }),
-                    borderCell([emptyPara()], { width: COL_W[1] }),
-                    borderCell([emptyPara()], { width: COL_W[2] }),
-                    borderCell([emptyPara()], { width: COL_W[3] }),
-                ]
-            }));
-        }
-
-        // ── Signature ──
-        bigRows.push(new TableRow({
-            children: [
-                borderCell([
-                    para('Người soát xét', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 60, after: 0 } }),
-                    para('Reviewed by', { fontSize: 10, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } }),
-                ], { width: COL_W[0] + COL_W[1] + COL_W[2], colSpan: 3, vAlign: 'center' }),
-                borderCell([
-                    para('Giám đốc', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 60, after: 0 } }),
-                    para('Director', { fontSize: 10, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } }),
-                ], { width: COL_W[3], vAlign: 'center' }),
-            ]
-        }));
-
-        // ── Signature names ──
-        bigRows.push(new TableRow({
-            children: [
-                borderCell([para('', { spacing: { before: 400 } })], { width: COL_W[0] + COL_W[1] + COL_W[2], colSpan: 3, vAlign: 'center' }),
-                borderCell([para('', { spacing: { before: 400 } })], { width: COL_W[3], vAlign: 'center' }),
-            ]
-        }));
-
-        bigRows.push(new TableRow({
-            children: [
-                borderCell([para(cert.HEAD_OF_LAB || '', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER })],
-                          { width: COL_W[0] + COL_W[1] + COL_W[2], colSpan: 3, vAlign: 'center' }),
-                borderCell([para(cert.DIRECTOR || '', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER })],
-                          { width: COL_W[3], vAlign: 'center' }),
-            ]
-        }));
-
         children.push(
             new Table({
                 rows: bigRows,
+                width: { size: 9072, type: WidthType.DXA },
+                alignment: AlignmentType.CENTER,
+            }),
+        );
+
+        // ── Professional Signature Section (outside table) ──
+        // Professional signature: uses 2-column borderless table below
+
+        children.push(
+            para('', { spacing: { before: 200 } }),
+            // Signature table: 2 columns, no border
+            new Table({
+                rows: [
+                    new TableRow({
+                        children: [
+                            new TableCell({
+                                children: [
+                                    para('PHỤ TRÁCH PHÒNG HIỆU CHUẨN', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 60, after: 0 } }),
+                                    para('HEAD OF CALIBRATION LAB.', { fontSize: 10, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } }),
+                                ],
+                                width: { size: 4536, type: WidthType.DXA },
+                                verticalAlign: 'center',
+                                borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE },
+                            }),
+                            new TableCell({
+                                children: [
+                                    para('GIÁM ĐỐC', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 60, after: 0 } }),
+                                    para('DIRECTOR', { fontSize: 10, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } }),
+                                ],
+                                width: { size: 4536, type: WidthType.DXA },
+                                verticalAlign: 'center',
+                                borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE },
+                            }),
+                        ]
+                    }),
+                    // Signature line row
+                    new TableRow({
+                        children: [
+                            new TableCell({
+                                children: [
+                                    new Paragraph({
+                                        spacing: { before: 300 },
+                                        alignment: AlignmentType.CENTER,
+                                        children: [
+                                            new TextRun({ text: '________________________________________', font, size: 16, color: '555555' }),
+                                        ],
+                                    }),
+                                ],
+                                width: { size: 4536, type: WidthType.DXA },
+                                verticalAlign: 'center',
+                                borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE },
+                            }),
+                            new TableCell({
+                                children: [
+                                    new Paragraph({
+                                        spacing: { before: 300 },
+                                        alignment: AlignmentType.CENTER,
+                                        children: [
+                                            new TextRun({ text: '________________________________________', font, size: 16, color: '555555' }),
+                                        ],
+                                    }),
+                                ],
+                                width: { size: 4536, type: WidthType.DXA },
+                                verticalAlign: 'center',
+                                borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE },
+                            }),
+                        ]
+                    }),
+                    // Names row
+                    new TableRow({
+                        children: [
+                            new TableCell({
+                                children: [
+                                    para(cert.HEAD_OF_LAB || '', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 60, after: 40 } }),
+                                ],
+                                width: { size: 4536, type: WidthType.DXA },
+                                verticalAlign: 'center',
+                                borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE },
+                            }),
+                            new TableCell({
+                                children: [
+                                    para(cert.DIRECTOR || '', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 60, after: 40 } }),
+                                ],
+                                width: { size: 4536, type: WidthType.DXA },
+                                verticalAlign: 'center',
+                                borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE },
+                            }),
+                        ]
+                    }),
+                ],
                 width: { size: 9072, type: WidthType.DXA },
                 alignment: AlignmentType.CENTER,
             }),
@@ -412,10 +459,10 @@ async function main() {
         );
 
         // Results header (6 columns matching reference)
-        const resHeader = ['Thông số', 'Điểm hiệu chuẩn', 'Giá trị đo được', 'Độ KĐBĐ', 'Dung sai', 'Sự phù hợp'];
-        const resHeaderEn = ['Parameters', 'Calibration Points', 'As Found Value', 'Uncertainty', 'Tolerance', 'Conformity'];
+        const resHeader = ['Thông số', 'Điểm hiệu chuẩn', 'Giá trị đo được', 'Độ KĐBĐ', 'Dung sai', 'Sự phù hợp', 'Thiết bị chuẩn'];
+        const resHeaderEn = ['Parameters', 'Calibration Points', 'As Found Value', 'Uncertainty', 'Tolerance', 'Conformity', 'Std. Equipment'];
         // Widths: scaled to fit A4 page with 2.5cm margins: total 9072
-        const resColW = [1998, 1731, 1649, 1251, 1149, 1294];
+        const resColW = [1500, 1500, 1300, 1200, 1100, 1100, 1372];
 
         const resRows = [];
 
@@ -424,8 +471,8 @@ async function main() {
             tableHeader: true,
             children: resHeader.map((h, i) =>
                 borderCell([
-                    para(h, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 40, after: 0 } }),
-                    para(resHeaderEn[i], { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } }),
+                    para(h, { fontSize: 9, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 40, after: 0 } }),
+                    para(resHeaderEn[i], { fontSize: 9, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } }),
                 ], { shading: SHADING, width: resColW[i], vAlign: 'center' })
             )
         }));
@@ -433,7 +480,7 @@ async function main() {
         // Data rows
         if (points.length === 0) {
             const emptyCells = resColW.map(w =>
-                borderCell([para('Chưa có dữ liệu', { fontSize: 10, alignment: AlignmentType.CENTER })], { width: w })
+                borderCell([para('Chưa có dữ liệu', { fontSize: 9, alignment: AlignmentType.CENTER })], { width: w })
             );
             resRows.push(new TableRow({ children: emptyCells }));
         } else {
@@ -453,24 +500,26 @@ async function main() {
                 group.rows.forEach((p, idx) => {
                     const paramCells = idx === 0
                         ? borderCell([
-                            para(group.paramName, { fontSize: 10, bold: true, spacing: { before: 40, after: 0 } }),
+                            para(group.paramName, { fontSize: 9, bold: true, spacing: { before: 40, after: 0 } }),
                         ], { width: resColW[0], vAlign: 'center' })
-                        : borderCell([para('', { fontSize: 10 })], { width: resColW[0] });  // empty for continued rows
+                        : borderCell([para('', { fontSize: 9 })], { width: resColW[0] });  // empty for continued rows
 
                     const calPt = String(p.CAL_POINT || p.cal_point || '–');
                     const asFound = String(p.AS_FOUND_VALUE || p.as_found_value || '–');
                     const unc = String(p.UNCERTAINTY || p.uncertainty || '–');
                     const tol = String(p.TOLERANCE || p.tolerance || '–');
                     const conf = String(p.CONFORMITY || p.conformity || '–');
+                    const stdEq = String(p.REF_EQUIPMENT || p.STANDARD_EQUIPMENT || p.ref_equipment || p.standard_equipment || '–');
 
                     resRows.push(new TableRow({
                         children: [
                             paramCells,
-                            borderCell([para(calPt, { fontSize: 10, alignment: AlignmentType.CENTER })], { width: resColW[1] }),
-                            borderCell([para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER })], { width: resColW[2] }),
-                            borderCell([para(unc, { fontSize: 10, alignment: AlignmentType.CENTER })], { width: resColW[3] }),
-                            borderCell([para(tol, { fontSize: 10, alignment: AlignmentType.CENTER })], { width: resColW[4] }),
-                            borderCell([para(conf, { fontSize: 10, alignment: AlignmentType.CENTER })], { width: resColW[5] }),
+                            borderCell([para(calPt, { fontSize: 9, alignment: AlignmentType.CENTER })], { width: resColW[1] }),
+                            borderCell([para(asFound, { fontSize: 9, alignment: AlignmentType.CENTER })], { width: resColW[2] }),
+                            borderCell([para(unc, { fontSize: 9, alignment: AlignmentType.CENTER })], { width: resColW[3] }),
+                            borderCell([para(tol, { fontSize: 9, alignment: AlignmentType.CENTER })], { width: resColW[4] }),
+                            borderCell([para(conf, { fontSize: 9, alignment: AlignmentType.CENTER })], { width: resColW[5] }),
+                            borderCell([para(stdEq, { fontSize: 9, alignment: AlignmentType.CENTER })], { width: resColW[6] }),
                         ]
                     }));
                 });
