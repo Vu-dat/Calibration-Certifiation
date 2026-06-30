@@ -678,6 +678,14 @@
                 <input type="text" id="m-proj-tech" placeholder="Nhập tên kỹ thuật viên...">
             </div>
 
+            <!-- Paste button -->
+            <div style="margin-top:16px; padding-top:14px; border-top:1px dashed var(--border);">
+                <button class="btn btn-secondary btn-sm" onclick="pasteCopiedProject()" id="btn-paste-project" style="width:100%; padding:10px; font-size:13px;" disabled>
+                    📋 Dán dữ liệu từ dự án đã copy
+                </button>
+                <div id="paste-info" style="margin-top:6px; font-size:11px; color:var(--text-muted); text-align:center;"></div>
+            </div>
+
         </div>
         <div class="modal-premium-footer">
             <button class="btn btn-ghost" onclick="closeModal('modal-create-project')">Hủy bỏ</button>
@@ -1810,7 +1818,12 @@ function showToast(msg, type='success') {
     container.appendChild(t);
     setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(), 500); }, 3000);
 }
-function openModal(id) { document.getElementById(id).style.display='flex'; }
+function openModal(id) { 
+    document.getElementById(id).style.display='flex'; 
+    if (id === 'modal-create-project') {
+        setTimeout(checkCopiedData, 100);
+    }
+}
 function closeModal(id) { document.getElementById(id).style.display='none'; }
 
 /* ====== PROJECT MANAGEMENT ====== */
@@ -1860,6 +1873,7 @@ async function fetchProjects() {
           <td>${createdDate}</td>
           <td><span class="badge badge-${proj.STATUS==='Finished'?'finished':'progress'}">${proj.STATUS}</span></td>
           <td style="text-align:center;" onclick="event.stopPropagation()">
+            <button class="btn-sm" onclick="copyProjectData('${proj.ID}')" title="Copy dữ liệu dự án" style="border:none;background:none;cursor:pointer;font-size:16px;padding:4px 6px;border-radius:6px;">📋</button>
             <button class="delete-btn" onclick="deleteProject('${proj.ID}')">🗑</button>
           </td>
       `;
@@ -2511,6 +2525,57 @@ async function executeCreateProject(payload) {
         const result = await response.json();
         if (result.success) {
             showToast("Khởi tạo dự án thành công!");
+
+            // Auto-duplicate calibration data if copied from another project
+            const newId = result.id;
+            if (newId && typeof _copiedProjectData !== 'undefined' && _copiedProjectData && _copiedProjectData.calibration && _copiedProjectData.calibration.cert) {
+                (async () => {
+                    try {
+                        const c = _copiedProjectData.calibration;
+                        const p = {
+                            certNo: newId.replace('PRJ-', ''),
+                            instrumentName: c.cert?.INSTRUMENT_NAME || payload.title || '',
+                            manufacturer: c.cert?.MANUFACTURER || '',
+                            model: c.cert?.MODEL || '',
+                            equipmentId: c.cert?.EQUIPMENT_ID || '',
+                            serialNumber: c.cert?.SERIAL_NUMBER || '',
+                            customerName: c.cert?.CUSTOMER_NAME || '',
+                            calDate: '',
+                            reCalDate: '',
+                            procedure: c.cert?.PROCEDURE || '',
+                            refStandard: c.cert?.REF_STANDARD || '',
+                            tempEnv: c.cert?.TEMP_ENV || '',
+                            humiEnv: c.cert?.HUMI_ENV || '',
+                            headOfLab: c.cert?.HEAD_OF_LAB || '',
+                            director: c.cert?.DIRECTOR || '',
+                            points: (c.points || []).map(pt => ({
+                                parameterName: pt.PARAMETER_NAME || '',
+                                calPoint: pt.CAL_POINT || '',
+                                asFoundValue: pt.AS_FOUND_VALUE || '',
+                                uncertainty: pt.UNCERTAINTY || '',
+                                tolerance: pt.TOLERANCE || '',
+                                conformity: pt.CONFORMITY || '',
+                                refEq: pt.REF_EQUIPMENT || pt.STANDARD_EQUIPMENT || ''
+                            })),
+                            standards: (c.standards || []).map(s => ({
+                                name: s.EQ_NAME || '',
+                                id: s.EQ_CODE || '',
+                                trace: s.LINK || '',
+                                due: s.VALIDITY || ''
+                            })),
+                            currentUser: (JSON.parse(localStorage.getItem('labmaster_user') || '{}'))?.fullName || 'KTV'
+                        };
+                        const r = await fetch(API_URL + '/calibration/save', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(p)
+                        });
+                        const j = await r.json();
+                        if (j.success) showToast('✅ Đã duplicate dữ liệu hiệu chuẩn sang dự án mới!');
+                    } catch(e) { console.warn('Lỗi duplicate:', e); }
+                })();
+            }
+
             fetchProjects(); 
         } else {
             showToast("Lỗi: " + result.message, "danger");
@@ -2518,6 +2583,106 @@ async function executeCreateProject(payload) {
     } catch (error) {
         console.error("Lỗi khi tạo dự án:", error);
         showToast("Lỗi kết nối máy chủ!", "danger");
+    }
+}
+
+/* ====== COPY / PASTE PROJECT DATA ====== */
+let _copiedProjectData = null;
+
+async function copyProjectData(projectId) {
+    try {
+        const proj = projectsList.find(p => p.ID === projectId);
+        if (!proj) {
+            showToast('Không tìm thấy dự án!', 'warning');
+            return;
+        }
+        if (!confirm(`Xác nhận sao chép toàn bộ dữ liệu của dự án "${proj.TITLE}" (${projectId})? Dữ liệu này sẽ được dùng để tạo dự án mới.`)) {
+            return;
+        }
+        showToast('📋 Đang sao chép dữ liệu dự án...', 'info');
+        const certNo = projectId.replace('PRJ-', '');
+        let calibrationData = null;
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/calibration/${certNo}`);
+            if (response.ok) {
+                calibrationData = await response.json();
+            }
+        } catch (e) {
+            console.warn('Không có dữ liệu hiệu chuẩn cũ:', e);
+        }
+        const clipboardData = {
+            project: { title: proj.TITLE, tech: proj.TECH, status: proj.STATUS },
+            customer: window._selectedCustomer || null,
+            calibration: calibrationData,
+            copiedAt: new Date().toISOString()
+        };
+        localStorage.setItem('labmaster_copied_project', JSON.stringify(clipboardData));
+        _copiedProjectData = clipboardData;
+        const pasteBtn = document.getElementById('btn-paste-project');
+        if (pasteBtn) {
+            pasteBtn.disabled = false;
+            pasteBtn.style.opacity = '1';
+            pasteBtn.style.cursor = 'pointer';
+        }
+        showToast(`✅ Đã sao chép dự án: ${proj.TITLE}`, 'success');
+    } catch (error) {
+        console.error('Lỗi copy dự án:', error);
+        showToast('Lỗi khi sao chép dự án!', 'danger');
+    }
+}
+
+function pasteCopiedProject() {
+    let stored = localStorage.getItem('labmaster_copied_project');
+    if (stored) {
+        try { _copiedProjectData = JSON.parse(stored); } catch (e) {}
+    }
+    if (!_copiedProjectData || !_copiedProjectData.project) {
+        showToast('Không có dữ liệu dự án nào đã được copy!', 'warning');
+        return;
+    }
+    const data = _copiedProjectData.project;
+    const nameInput = document.getElementById('m-proj-name');
+    const techInput = document.getElementById('m-proj-tech');
+    if (nameInput) {
+        let newTitle = data.title || '';
+        const currentYear = new Date().getFullYear().toString();
+        const match = data.title?.match(/\b(20\d{2})\b/);
+        if (match) {
+            const oldYear = match[1];
+            if (oldYear !== currentYear) {
+                newTitle = data.title.replace(oldYear, currentYear);
+            }
+        }
+        nameInput.value = newTitle;
+    }
+    if (techInput) techInput.value = data.tech || '';
+    const info = document.getElementById('paste-info');
+    if (info) {
+        const copiedAt = _copiedProjectData.copiedAt ? new Date(_copiedProjectData.copiedAt).toLocaleString('vi-VN') : 'không rõ';
+        const hasCal = _copiedProjectData.calibration ? '✅ Có dữ liệu hiệu chuẩn' : '❌ Không có dữ liệu hiệu chuẩn';
+        info.innerHTML = `Đã dán từ "<strong>${data.title}</strong>" (${copiedAt})<br>${hasCal}`;
+    }
+    showToast(`📋 Đã dán dữ liệu từ: ${data.title}`, 'success');
+}
+
+function checkCopiedData() {
+    const stored = localStorage.getItem('labmaster_copied_project');
+    const pasteBtn = document.getElementById('btn-paste-project');
+    const info = document.getElementById('paste-info');
+    if (stored && pasteBtn) {
+        try {
+            const data = JSON.parse(stored);
+            if (data && data.project) {
+                pasteBtn.disabled = false;
+                pasteBtn.style.opacity = '1';
+                pasteBtn.style.cursor = 'pointer';
+                _copiedProjectData = data;
+                if (info) {
+                    const copiedAt = data.copiedAt ? new Date(data.copiedAt).toLocaleString('vi-VN') : '';
+                    info.innerHTML = `📋 Có dữ liệu từ "<strong>${data.project.title}</strong>"${copiedAt ? ' (' + copiedAt + ')' : ''}`;
+                }
+            }
+        } catch (e) {}
     }
 }
 </script>
