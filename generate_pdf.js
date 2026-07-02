@@ -59,15 +59,16 @@ function drawH(doc, logo, cno, cdate, qr, pg) {
   sf(doc, true); doc.fontSize(8).fillColor(BCLR);
   doc.text('ISO/IEC 17025:2017', ML, y, {align:'left'});
   // Logo - between ISO and company name (in the gap area)
-  if (logo) { try { doc.image(logo, ML + CW * 0.33, y - 6, {width:64,height:24}); } catch(e) {} }
-  // Company name - far right (same font size as ISO)
+  if (logo) { try { doc.image(logo, ML + 55, y - 6, {width:55,height:20}); } catch(e) {} }
+  // Company info block - right-aligned, ends at x≈300 (matching reference position)
+  var cwBlock = 260;
   sf(doc, true); doc.fontSize(8).fillColor(BCLR);
-  doc.text('LabMaster ST Co., Ltd', ML, y, {align:'right',width:CW});
-  // Address - right aligned
+  doc.text('LabMaster ST Co., Ltd', ML, y, {align:'right',width:cwBlock});
+  // Address - right aligned in same block
   sf(doc, false); doc.fontSize(7).fillColor(BCLR);
-  doc.text('No.17 street 179, Tang Nhon Phu ward, HCMC', ML, y+12, {align:'right',width:CW});
-  // Email/Phone - right aligned
-  doc.text('Email: sale@labmaster.vn / Phone: (+84) 938 088 239', ML, y+21, {align:'right',width:CW});
+  doc.text('No.17 street 179, Tang Nhon Phu ward, HCMC', ML, y+12, {align:'right',width:cwBlock});
+  // Email/Phone - right aligned in same block
+  doc.text('Email: sale@labmaster.vn / Phone: (+84) 938 088 239', ML, y+21, {align:'right',width:cwBlock});
   // Title block - centered, matching reference spacing
   var ty = y + 40;
   sf(doc, true); doc.fontSize(14).fillColor(TC); doc.text(VN.title1, ML, ty, {align:'center',width:CW});

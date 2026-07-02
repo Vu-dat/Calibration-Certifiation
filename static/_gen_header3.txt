@@ -1,0 +1,59 @@
+ISO/IEC 17025:2017                                                                                                        LabMaster ST Co., Ltd
+
+                                                                                                    No.17 street 179, Tang Nhon Phu ward, HCMC
+                                                                                           Email: sale@labmaster.vn / Phone: (+84) 938 088 239
+
+                    GIY CHNG NHN HIU CHUN O LNG
+
+                      CERTIFICATE OF CALIBRATION ­ MEASUREMENT
+
+                                       S GCN/Certificate No: 000002 Ngày cp/Date of issue: 01.01.2024
+
+1. Khách hàng:                         Test
+                                       Customer
+
+2. Tên thit b:                         Test
+                                       Instrument
+
+3. Nhà sn xut:      Test                                                   5. Kiu:  Test
+                    Manufacturer                                                    Model
+
+4. Mã qun lý: Test                                                         6. S sn xut: Test
+                              ID
+                                                                                    Serial No.
+               7. c trng k thut
+                        Specification              Phm vi o:   phân gii:            8. Quy trình thc hin                 9. Tiêu chun tham kho
+                                                       Range     Resolution                  Procedure                        Reference Standard
+
+Lc tác dng / Downward force:
+Hành trình / Stroke:
+ng kính u ma sát / Finger Diameter:
+Tc  / Speed:
+
+11. Ni thc hin:                        Test
+
+                                       Place of Performance
+
+12. Ngày thc hin: 01.01.2024                                               13. Ngày thc hin tip theo:                    01.01.2025
+                                                                                                                         Date of next performance
+                    Date of performance
+                                                                                                                                             Hiu lc
+14. iu kin môi trng:                   Nhit : 25C  m: 50%                                                                                     Due date
+
+                                       Environment Temperature: 25C Humidity: 50%
+
+15. Chun s dng / Standards Used :
+
+   Tên thit b                          S qun lý    S chng nhn                       Liên kt chun
+Name of Standard                             ID      Certificate No.                   Traceable to
+
+                                                                      ...
+
+PH TRÁCH PHÒNG HIU CHUN                                                                              GIÁM C
+
+        HEAD OF CALIBRATION LAB.                                                                      DIRECTOR
+
+                      Quang                                                                            Thong
+
+                                       www.labmaster.vn | Textile ­ Footwear ­ Leather - Children product Safety Tester  Trang/Page: 1/2
+
