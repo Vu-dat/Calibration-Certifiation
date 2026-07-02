@@ -8,17 +8,24 @@
 const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
+const QRCode = require('qrcode');
 const {
     Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-    AlignmentType, WidthType, BorderStyle,
+    AlignmentType, WidthType, BorderStyle, PageBorders,
     Header, Footer, ImageRun
 } = require('docx');
 
 // ─── CLI ───────────────────────────────────────────────────────────
 const certNo = process.argv[2];
+let downloadUrl = process.argv[3] || '';
 if (!certNo) {
-    console.error('Lỗi: node generate_docx.js <CERT_NO>');
+    console.error('Lỗi: node generate_docx.js <CERT_NO> [download_url]');
     process.exit(1);
+}
+// Auto-generate download URL if not provided (for QR code)
+if (!downloadUrl) {
+    const SAFE_N = certNo.replace(/[^a-zA-Z0-9]/g, '_');
+    downloadUrl = `http://localhost:18080/static/GCN_${SAFE_N}.docx`;
 }
 
 const BASE_DIR   = __dirname;
@@ -50,12 +57,14 @@ function parseDate(d) {
 // ─── CONSTANTS ──────────────────────────────────────────────────────
 const COL_DARK    = '1a1a1a';
 const COL_GRAY    = '555555';
-const BORDER_S    = { style: BorderStyle.SINGLE, size: 4, color: '000000' };
+const COL_TEAL    = '008080';
+const BORDER_S    = { style: BorderStyle.SINGLE, size: 2, color: '767171' };
 const BORDER_NONE = { style: BorderStyle.NONE,   size: 0,  color: 'auto' };
 const SHADING     = 'F2F2F2';
 
 // Column widths (DXA) — scaled to fit A4 page with 2.5cm margins: total 9072
-const COL_W = [1675, 3426, 2513, 1458];
+// [label1, value1, label2, value2]
+const COL_W = [1500, 3036, 2500, 2036];
 
 // ─── HELPERS ────────────────────────────────────────────────────────
 const font = 'Arial';
@@ -90,7 +99,7 @@ function para(text, opts = {}) {
 
 function labelPara(viText, enText) {
     return [
-        para(viText, { fontSize: 10, bold: true, spacing: { before: 60, after: 0 } }),
+        para(viText, { fontSize: 10, bold: true, spacing: { before: 40, after: 0 } }),
         para(enText, { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
     ];
 }
@@ -121,7 +130,7 @@ function borderCell(children, opts = {}) {
     return mkCell(children, {
         ...opts,
         borders: { top: BORDER_S, bottom: BORDER_S, left: BORDER_S, right: BORDER_S },
-        margins: opts.margins || { top: 80, bottom: 80, left: 100, right: 150 },
+        margins: opts.margins || { top: 60, bottom: 60, left: 100, right: 120 },
     });
 }
 
@@ -134,8 +143,16 @@ async function main() {
             db.close(); process.exit(1);
         }
 
-        const points   = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [certNo]);
-        const standards = await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [certNo]);
+        const points    = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [certNo]);
+        const standards  = await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [certNo]);
+
+        // Generate QR code if download URL provided
+        let qrBuffer = null;
+        if (downloadUrl) {
+            try {
+                qrBuffer = await QRCode.toBuffer(downloadUrl, {width:120,margin:1,color:{dark:'#004d4d',light:'#ffffff'}});
+            } catch(e) { /* ignore QR errors */ }
+        }
 
         const children = [];
 
@@ -143,13 +160,13 @@ async function main() {
         //  TITLE
         // ═══════════════════════════════════════════════════════════════
         children.push(
-            para('GIẤY CHỨNG NHẬN HIỆU CHUẨN', {
-                fontSize: 18, bold: true, color: '000000',
-                alignment: AlignmentType.CENTER, spacing: { before: 120, after: 0 },
+            para('GIẤY CHỨNG NHẬN HIỆU CHUẨN – ĐO LƯỜNG', {
+                fontSize: 18, bold: true, color: COL_TEAL,
+                alignment: AlignmentType.CENTER, spacing: { before: 80, after: 0 },
             }),
-            para('CERTIFICATE OF CALIBRATION', {
-                fontSize: 16, bold: true, italics: true, color: COL_DARK,
-                alignment: AlignmentType.CENTER, spacing: { before: 0, after: 120 },
+            para('CERTIFICATE OF CALIBRATION – MEASUREMENT', {
+                fontSize: 16, bold: true, italics: true, color: COL_TEAL,
+                alignment: AlignmentType.CENTER, spacing: { before: 0, after: 100 },
             }),
         );
 
@@ -169,47 +186,40 @@ async function main() {
             '10': ['10. Ngày hiệu chuẩn tiếp theo:', 'Re-calibration Date'],
         };
 
-        function infoRow(labelKey, val1, labelKey2, val2) {
+        // Build info rows — borderless table matching PDF clean style
+        function infoRowBL(labelKey, val1, labelKey2, val2) {
             const [vi1, en1] = infoLabels[labelKey] || [labelKey, ''];
             const [vi2, en2] = infoLabels[labelKey2] || [labelKey2, ''];
-
-            const c1Contents = en1 ? [...labelPara(vi1, en1)] : [para(vi1, { fontSize: 10, bold: true, spacing: { before: 60, after: 40 } })];
-            const c3Contents = en2 ? [...labelPara(vi2, en2)] : [para(vi2 || '', { fontSize: 10, bold: true, spacing: { before: 60, after: 40 } })];
-
+                        const c1Contents = en1 ? [...labelPara(vi1, en1)] : [para(vi1, { fontSize: 10, bold: true, spacing: { before: 40, after: 40 } })];
+            const c3Contents = en2 ? [...labelPara(vi2, en2)] : [para(vi2 || '', { fontSize: 10, bold: true, spacing: { before: 40, after: 40 } })];
             return new TableRow({
                 children: [
-                    borderCell(c1Contents, { width: COL_W[0] }),
-                    borderCell([valPara(val1)], { width: COL_W[1] }),
-                    borderCell(c3Contents, { width: COL_W[2] }),
-                    borderCell([valPara(val2)], { width: COL_W[3] }),
+                    mkCell(c1Contents, { width: COL_W[0], margins: { top: 20, bottom: 20, left: 0, right: 60 } }),
+                    mkCell([valPara(val1)], { width: COL_W[1], margins: { top: 20, bottom: 20, left: 0, right: 60 } }),
+                    mkCell(c3Contents, { width: COL_W[2], margins: { top: 20, bottom: 20, left: 0, right: 60 } }),
+                    mkCell([valPara(val2)], { width: COL_W[3], margins: { top: 20, bottom: 20, left: 0, right: 0 } }),
+                ]
+            });
+        }
+        function infoRowFullBL(labelKey, val, colSpan = 3) {
+            const [vi, en] = infoLabels[labelKey] || [labelKey, ''];
+                        const c1Contents = en ? [...labelPara(vi, en)] : [para(vi, { fontSize: 10, bold: true, spacing: { before: 40, after: 40 } })];
+            return new TableRow({
+                children: [
+                    mkCell(c1Contents, { width: COL_W[0], margins: { top: 20, bottom: 20, left: 0, right: 60 } }),
+                    mkCell([valPara(val, { bold: true })], { width: COL_W[1] + COL_W[2] + COL_W[3], colSpan, margins: { top: 20, bottom: 20, left: 0, right: 0 } }),
                 ]
             });
         }
 
-        function infoRowFull(labelKey, val, colSpan = 3) {
-            const [vi, en] = infoLabels[labelKey] || [labelKey, ''];
-            const c1Contents = en ? [...labelPara(vi, en)] : [para(vi, { fontSize: 10, bold: true, spacing: { before: 60, after: 40 } })];
-            const col1 = borderCell(c1Contents, { width: COL_W[0] });
-            const valCellWidth = colSpan === 3 ? COL_W[1] + COL_W[2] + COL_W[3] : 0;
-
-            const valueCells = [
-                borderCell([valPara(val, { bold: true })], {
-                    width: valCellWidth, colSpan
-                }),
-            ];
-
-            return new TableRow({ children: [col1, ...valueCells] });
-        }
-
-        // Build info rows
         const infoRows = [
-            infoRow('1', cert.INSTRUMENT_NAME || '–', '8', cert.CERT_NO || certNo),
-            infoRow('2', cert.MANUFACTURER || '–', '9', parseDate(cert.CAL_DATE || '')),
-            infoRow('3', cert.MODEL || '–', '10', parseDate(cert.RE_CAL_DATE || '')),
-            infoRow('4', cert.EQUIPMENT_ID || '–', '', ''),
-            infoRow('5', cert.SERIAL_NUMBER || '–', '', ''),
-            infoRowFull('6', cert.CUSTOMER_NAME || '–', 3),
-            infoRowFull('7', cert.CUSTOMER_ADDRESS || '–', 3),
+            infoRowBL('1', cert.INSTRUMENT_NAME || '–', '8', cert.CERT_NO || certNo),
+            infoRowBL('2', cert.MANUFACTURER || '–', '9', parseDate(cert.CAL_DATE || '')),
+            infoRowBL('3', cert.MODEL || '–', '10', parseDate(cert.RE_CAL_DATE || '')),
+            infoRowBL('4', cert.EQUIPMENT_ID || '–', '', ''),
+            infoRowBL('5', cert.SERIAL_NUMBER || '–', '', ''),
+            infoRowFullBL('6', cert.CUSTOMER_NAME || '–', 3),
+            infoRowFullBL('7', cert.CUSTOMER_ADDRESS || '–', 3),
         ];
 
         children.push(
@@ -218,7 +228,13 @@ async function main() {
                 width: { size: 9072, type: WidthType.DXA },
                 alignment: AlignmentType.CENTER,
             }),
-            para('', { spacing: { before: 80, after: 80 } }), // spacer
+            para('', { spacing: { before: 40, after: 10 } }), // spacer
+            // Separator line like PDF
+            new Paragraph({
+                spacing: { before: 0, after: 60 },
+                border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '000000' } },
+                children: [],
+            }),
         );
 
         // ═══════════════════════════════════════════════════════════════
@@ -466,14 +482,14 @@ async function main() {
 
         const resRows = [];
 
-        // Header row
+        // Header row with teal background matching PDF style
         resRows.push(new TableRow({
             tableHeader: true,
             children: resHeader.map((h, i) =>
                 borderCell([
-                    para(h, { fontSize: 9, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 40, after: 0 } }),
-                    para(resHeaderEn[i], { fontSize: 9, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } }),
-                ], { shading: SHADING, width: resColW[i], vAlign: 'center' })
+                    para(h, { fontSize: 9, bold: true, alignment: AlignmentType.CENTER, color: 'ffffff', spacing: { before: 40, after: 0 } }),
+                    para(resHeaderEn[i], { fontSize: 9, bold: true, italics: true, alignment: AlignmentType.CENTER, color: 'ffffff', spacing: { before: 0, after: 40 } }),
+                ], { shading: COL_TEAL, width: resColW[i], vAlign: 'center', margins: { top: 60, bottom: 60, left: 80, right: 120 } })
             )
         }));
 
@@ -615,7 +631,7 @@ async function main() {
                                     ] : [new TextRun({ text: 'LABMASTER', font: 'Arial', size: 28, bold: true, color: '004d4d' })],
                                 })
                             ],
-                            width: { size: 2335, type: WidthType.DXA },
+                            width: { size: 1800, type: WidthType.DXA },
                             verticalAlign: 'center',
                         }),
                         new TableCell({
@@ -633,14 +649,29 @@ async function main() {
                                     children: [new TextRun({ text: 'Email: sale@labmaster.vn / Phone: (+84) 938 088 239', font: 'Arial', size: 18 })],
                                 }),
                             ],
-                            width: { size: 8285, type: WidthType.DXA },
+                            width: { size: 6600, type: WidthType.DXA },
                             verticalAlign: 'center',
                             shading: { fill: 'FFFFFF' },
+                        }),
+                        new TableCell({
+                            children: [
+                                new Paragraph({
+                                    alignment: AlignmentType.CENTER,
+                                    children: qrBuffer ? [
+                                        new ImageRun({
+                                            data: qrBuffer,
+                                            transformation: { width: 80, height: 80 },
+                                        })
+                                    ] : [new TextRun({ text: '', font: 'Arial', size: 10 })],
+                                })
+                            ],
+                            width: { size: 1346, type: WidthType.DXA },
+                            verticalAlign: 'center',
                         }),
                     ]
                 }),
             ],
-            width: { size: 10620, type: WidthType.DXA },
+            width: { size: 9746, type: WidthType.DXA },
         });
 
         // ISO line below header
@@ -648,7 +679,7 @@ async function main() {
             headerTable,
             new Paragraph({
                 spacing: { before: 0, after: 0 },
-                children: [new TextRun({ text: 'ISO/IEC 17025:2017', font: 'Arial', size: 24, bold: true })],
+                children: [new TextRun({ text: 'ISO/IEC 17025:2017', font: 'Arial', size: 24, bold: true, color: '000000' })],
                 alignment: AlignmentType.RIGHT,
             }),
             new Paragraph({
@@ -691,9 +722,15 @@ async function main() {
             sections: [{
                 properties: {
                     page: {
-                        margin: { top: 1440, bottom: 1080, left: 1080, right: 1080 },
-                        header: { space: 450 },
-                        footer: { space: 43 },
+                        margin: { top: 1260, bottom: 900, left: 1080, right: 1080 },
+                        header: { space: 540 },
+                        footer: { space: 360 },
+                        pageBorders: new PageBorders({
+                            top:    { style: BorderStyle.SINGLE, size: 8, color: '000000', space: 12 },
+                            right:  { style: BorderStyle.SINGLE, size: 8, color: '000000', space: 12 },
+                            bottom: { style: BorderStyle.SINGLE, size: 8, color: '000000', space: 12 },
+                            left:   { style: BorderStyle.SINGLE, size: 8, color: '000000', space: 12 },
+                        })
                     }
                 },
                 headers: {

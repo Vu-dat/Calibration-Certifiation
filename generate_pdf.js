@@ -1,12 +1,4 @@
 'use strict';
-
-/**
- * generate_pdf.js - Tao Giay Chung Nhan Hieu Chuan (PDF)
- * Thiet ke theo mau DOCX: co header (logo + cong ty + ISO),
- * bang border #767171, header bg #F2F2F2, day du cac muc 1-17.
- * Su dung: node generate_pdf.js <CERT_NO> [download_url]
- */
-
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
@@ -24,74 +16,164 @@ if (!fs.existsSync(SD)) fs.mkdirSync(SD, { recursive: true });
 const SN = certNo.replace(/[^a-zA-Z0-9]/g, '_');
 const OF = path.join(SD, 'GCN_' + SN + '.pdf');
 
-const fpr = [path.join(BD, 'arial.ttf'), 'C:\\Windows\\Fonts\\arial.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'];
-const fpb = [path.join(BD, 'arialbd.ttf'), 'C:\\Windows\\Fonts\\arialbd.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'];
+const fpr = [path.join(BD, 'fonts', 'arial.ttf'), path.join(BD, 'arial.ttf'), 'C:\\Windows\\Fonts\\arial.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'];
+const fpb = [path.join(BD, 'fonts', 'arialbd.ttf'), path.join(BD, 'arialbd.ttf'), 'C:\\Windows\\Fonts\\arialbd.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'];
+const fpi = [path.join(BD, 'fonts', 'ariali.ttf'), path.join(BD, 'ariali.ttf'), 'C:\\Windows\\Fonts\\ariali.ttf'];
+const fpbi = [path.join(BD, 'fonts', 'arialbi.ttf'), path.join(BD, 'arialbi.ttf'), 'C:\\Windows\\Fonts\\arialbi.ttf'];
+
 function ff(ps) { for (var i = 0; i < ps.length; i++) { try { if (fs.existsSync(ps[i])) return ps[i]; } catch(e) {} } return null; }
-var FR = ff(fpr); var FB = ff(fpb);
-var FNR = 'AR'; var FNB = 'AB';
+var FR = ff(fpr), FB = ff(fpb), FI = ff(fpi), FBI = ff(fpbi);
+var FNR = 'AR', FNB = 'AB', FNI = 'AI', FNBI = 'ABI';
 
 var db = new sqlite3.Database(DP);
-db.run('PRAGMA journal_mode = WAL'); db.configure('busyTimeout', 5000);
+db.run('PRAGMA journal_mode = WAL');
+db.configure('busyTimeout', 5000);
+
 function g(sql, p) { return new Promise(function(r, j) { db.get(sql, p, function(e, d) { if(e) j(e); else r(d); }); }); }
 function a(sql, p) { return new Promise(function(r, j) { db.all(sql, p, function(e, d) { if(e) j(e); else r(d); }); }); }
 
 function pd(d) { if (!d) return ''; var p = d.split('-'); return p.length === 3 ? p[2]+'.'+p[1]+'.'+p[0] : d; }
-function sf(doc, b) {
+
+function sf(doc, b, ital) {
   if (b === undefined) b = false;
-  if (b && FB) { try { doc.font(FNB); } catch(e) { doc.font('Helvetica-Bold'); } }
+  if (ital === undefined) ital = false;
+  if (b && ital && FBI) { try { doc.font(FNBI); } catch(e) { doc.font('Helvetica-BoldOblique'); } }
+  else if (ital && FI) { try { doc.font(FNI); } catch(e) { doc.font('Helvetica-Oblique'); } }
+  else if (b && FB) { try { doc.font(FNB); } catch(e) { doc.font('Helvetica-Bold'); } }
   else if (!b && FR) { try { doc.font(FNR); } catch(e) { doc.font('Helvetica'); } }
   else { doc.font(b ? 'Helvetica-Bold' : 'Helvetica'); }
 }
 
-// DOCX design constants
-var CB = '#767171', CH = '#F2F2F2', CT = '#1a1a1a', CG = '#555555', PW = 595.28, PH = 841.89, ML = 45, MR = 45, MT = 130, CW = PW - ML - MR;
+var TC = '#008080', PW = 595.28, PH = 841.89;
+var ML = 40, MR = 40, MT = 130, CW = PW - ML - MR;
+var BCLR = '#000000';
+var VN = {"title1":"GIẤY CHỨNG NHẬN HIỆU CHUẨN ĐO LƯỜNG","title2":"CERTIFICATE OF CALIBRATION – MEASUREMENT","certNo":"Số GCN/Certificate No: ","date":"Ngày cấp/Date of issue: ","sec1":"Khách hàng","sec2":"Tên thiết bị","sec3":"Nhà sản xuất","sec4":"Mã quản lý","sec5":"Kiểu","sec6":"Số sản xuất","sec11":"Nơi thực hiện","sec12":"Ngày thực hiện","sec13":"Ngày thực hiện tiếp theo","sec14":"Điều kiện môi trường","sec15":"15. Chuẩn sử dụng / Standards Used :","sec16":"16. Kết quả / Results:","sec17":"17. Thông tin khác / Other information:","spec":"7. Đặc trưng kỹ thuật","range":"Phạm vi đo:","resolution":"Độ phân giải:","procedure":"8. Quy trình thực hiện","refStd":"9. Tiêu chuẩn tham khảo","temp":"Nhiệt độ:","humi":"Độ ẩm:","sigL":"PHỤ TRÁCH PHÒNG HIỆU CHUẨN","sigR":"GIÁM ĐỐC","headEn":"HEAD OF CALIBRATION LAB.","dirEn":"DIRECTOR","param":"Thông số","foundVal":"Giá trị đo được","uncert":"KĐBĐ","refVal":"Giá trị tham chiếu","tol":"Dung sai","conc":"Kết luận","paramEn":"Parameter","foundEn":"As found value","uncertEn":"Uncertainty","refEn":"Reference Value","tolEn":"Tolerance","concEn":"Conclusion","note":"Ghi chú / Note:","note1":"* Đánh giá theo thông số kỹ thuật của nhà sản xuất / Acceptance limit base on Manufacturer’s specifications.","note2":"* Đánh giá theo yêu cầu kỹ thuật của khách hàng / Acceptance limit base on Customer request.","uncertTitle":"17.1 Độ không đảm bảo đo / Uncertainty:","uncertVN":"Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy.","uncertEN":"The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.","confTitle":"17.2. Công bố về sự phù hợp / Statements of conformity:","conf":["+ A: Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép của tiêu chuẩn đánh giá. | The measurement reported with expanded uncertainty is within tolerance of standards.","+ B: Kết quả đo khi tính cả độ không đảm bảo đo hoàn toàn nằm ngoài giới hạn cho phép của tiêu chuẩn đánh giá. | The measurement reported with expanded uncertainty is out of tolerance of standards.","+ C: Kết quả đo khi tính cả độ không đảm bảo đo có thể nằm ngoài giới hạn cho phép của tiêu chuẩn. Không có kết luận trong trường hợp này. | The measurement reported with expanded uncertainty may be out of tolerance of standards. There is no conclusion for this measurement.","+ D: Tiêu chuẩn kỹ thuật không quy định dung sai của thông số đo. | There is no tolerance stated in technical standard and there is no conclusion for this measurement."],"otherTitle":"17.3 Khác / Other:","otherVN":"Các thông số có dấu (*) là không được công nhận ISO/IEC 17025","otherEN":"The characteristics marked with (*) is not accredited to comply with ISO/IEC 17025","legal1":"Giấy chứng nhận này không được sao chép dưới bất kỳ hình thức nào nếu không có sự đồng ý bằng văn bản của LabMaster./ This form shall not be reproduced, without the expressed written consent of LabMaster.","legal2":"Phương tiện đo này không được sử dụng định lượng hàng hóa, dịch vụ trong mua bán, thanh toán, đảm bảo an toàn, bảo vệ sức khỏe cộng đồng, bảo vệ môi trường, trong thanh tra, kiểm tra, giám định tư pháp và trong các hoạt động công vụ khác. Phương tiện đo này không được sử dụng trực tiếp để kiểm định phương tiện đo nhóm 2.","legal3":"This instrument do not used for quantifying goods, service in trading, payment, safety assurance, social heathcare, protecting the enviroment, inspection law and in other public service activities. This instrument shall not be used directly for the verification of group 2 instruments.","legal4":"Chúng tôi cung cấp khả năng truy xuất nguồn gốc phép đo theo các tiêu chuẩn quốc gia được công nhận hoặc các phòng thí nghiệm tiêu chuẩn quốc gia được công nhận khác.","legal5":"This certificate provides traceability of measurement to recognised national standards or other national standards laboratories.","footer":"www.labmaster.vn  |  Textile – Footwear – Leather - Children product Safety Tester","page":"Trang/Page: ","specItems":["Lực tác dụng / Downward force:","Hành trình / Stroke:","Đường kính đầu ma sát / Finger Diameter:","Tốc độ / Speed:"]};
 
-function drawH(doc, logo) {
-  var y = 15;
-  if (logo) { try { doc.image(logo, ML - 5, y, {width:68,height:26}); } catch(e) {} }
-  sf(doc, true); doc.fontSize(10).fillColor('#000000');
-  doc.text('Labmaster ST Company Limited', ML, y, {align:'right',width:CW});
-  sf(doc, false); doc.fontSize(7.5).fillColor(CT);
-  doc.text('17 street 179, Tang Nhon Phu ward, Ho Chi Minh city', ML, y+14, {align:'right',width:CW});
-  doc.text('Email: sale@labmaster.vn / Phone: (+84) 938 088 239', ML, y+24, {align:'right',width:CW});
-  sf(doc, true); doc.fontSize(8).fillColor(CT);
-  doc.text('ISO/IEC 17025:2017', ML, y+42, {align:'right',width:CW});
-  doc.lineWidth(1).strokeColor(CB).moveTo(ML, y+56).lineTo(PW-MR, y+56).stroke();
+var curPage = 1;
+
+function drawH(doc, logo, cno, cdate, qr, pg) {
+  var y = 18;
+  // QR at top-right corner
+  if (qr) { try { doc.image(qr, PW - MR - 28, 15, {width:26,height:26}); } catch(e) {} }
+  // ISO badge - far left edge (Y ĐÚC reference)
+  sf(doc, true); doc.fontSize(8).fillColor(BCLR);
+  doc.text('ISO/IEC 17025:2017', ML, y, {align:'left'});
+  // Logo - between ISO and company name (in the gap area)
+  if (logo) { try { doc.image(logo, ML + CW * 0.33, y - 6, {width:64,height:24}); } catch(e) {} }
+  // Company name - far right (same font size as ISO)
+  sf(doc, true); doc.fontSize(8).fillColor(BCLR);
+  doc.text('LabMaster ST Co., Ltd', ML, y, {align:'right',width:CW});
+  // Address - right aligned
+  sf(doc, false); doc.fontSize(7).fillColor(BCLR);
+  doc.text('No.17 street 179, Tang Nhon Phu ward, HCMC', ML, y+12, {align:'right',width:CW});
+  // Email/Phone - right aligned
+  doc.text('Email: sale@labmaster.vn / Phone: (+84) 938 088 239', ML, y+21, {align:'right',width:CW});
+  // Title block - centered, matching reference spacing
+  var ty = y + 40;
+  sf(doc, true); doc.fontSize(14).fillColor(TC); doc.text(VN.title1, ML, ty, {align:'center',width:CW});
+  sf(doc, false); doc.fontSize(12).fillColor(TC); doc.text(VN.title2, ML, ty+17, {align:'center',width:CW});
+  // Cert No & Date - single line, centered (matching reference)
+  var ciy = ty + 38;
+  sf(doc, false); doc.fontSize(8).fillColor(BCLR);
+  var certLine = VN.certNo + (cno||'...........') + '    ' + VN.date + (cdate||'............');
+  doc.text(certLine, ML, ciy, {align:'center',width:CW});
+  return ciy + 14;
 }
 
-function drawT(doc, hds, rows, opts) {
-  if (!opts) opts = {};
-  var sx = opts.startX||ML, sy = opts.startY||doc.y, rh = opts.rowHeight||22, mh = opts.minRowH||22, hbg = opts.headerBg||CH, bc = opts.borderColor||CB;
-  var y = sy;
-  var tot = 0; for (var i = 0; i < hds.length-1; i++) tot += (hds[i].width||80);
-  var rem = CW - tot, cw = [];
-  for (var i = 0; i < hds.length; i++) cw.push(i < hds.length-1 ? (hds[i].width||80) : Math.max(rem, 60));
-  if (y + (hds.length?rh:0) + rows.length*rh + 8 > PH-50) { doc.addPage(); drawH(doc, opts._logo); y = MT; }
-  doc.lineWidth(0.5).strokeColor(bc);
-  var x = sx;
-  for (var i = 0; i < hds.length; i++) {
-    doc.rect(x, y, cw[i], rh).fill(hbg).stroke(bc);
-    sf(doc, true); doc.fontSize(hds[i].size||8).fillColor(CT);
-    doc.text(hds[i].text, x+3, y+4, {width:cw[i]-6,align:hds[i].align||'center',lineBreak:false});
-    x += cw[i];
-  }
-  y += rh;
-  for (var ri = 0; ri < rows.length; ri++) {
-    x = sx;
-    var arh = Math.max(rh, mh);
-    if (y + arh > PH-50) { doc.addPage(); drawH(doc, opts._logo); y = MT; x = sx; for (var i = 0; i < hds.length; i++) { doc.rect(x, y, cw[i], rh).fill(hbg).stroke(bc); sf(doc, true); doc.fontSize(hds[i].size||8).fillColor(CT); doc.text(hds[i].text, x+3, y+4, {width:cw[i]-6,align:hds[i].align||'center',lineBreak:false}); x += cw[i]; } y += rh; x = sx; }
-    var row = rows[ri];
-    for (var ci = 0; ci < row.length; ci++) {
-      var cell = row[ci];
-      doc.rect(x, y, cw[ci], arh).stroke(bc);
-      sf(doc, cell.bold||false);
-      doc.fontSize(cell.size||7.5).fillColor(cell.color||CT);
-      doc.text(String(cell.text||''), x+3, y+4, {width:cw[ci]-6,align:cell.align||'center',lineBreak:false});
-      x += cw[ci];
+function drawFooter(doc, pg, totalPg) {
+  var fy = PH-30;
+  sf(doc, false); doc.fontSize(7).fillColor('#555555');
+  doc.text(VN.footer, ML, fy, {align:'center',width:CW});
+  sf(doc, false); doc.fontSize(7).fillColor('#555555');
+  doc.text(VN.page + pg + '/' + totalPg, ML, fy, {align:'right',width:CW});
+}
+
+function newPage(doc, logo, cno, cdate, qr) {
+  doc.addPage(); curPage++;
+  return drawH(doc, logo, cno, cdate, qr, curPage);
+}
+
+function drawLabelVal(doc, label, val, x, y, lw, vw, boldVal, en) {
+  sf(doc, true); doc.fontSize(8.5).fillColor(BCLR);
+  doc.text(label, x, y, {width:lw||90});
+  sf(doc, boldVal||false); doc.fontSize(8.5).fillColor(BCLR);
+  doc.text(' ' + (val&&val!=='null'?val:''), x+(lw||90), y, {width:vw-(lw||90)});
+  if (en) { sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR); doc.text(en, x+(lw||90), y+12, {width:vw-(lw||90)}); }
+}
+
+function drawSpecTable(doc, specs, cx, startY) {
+  var y = startY;
+  var cw = [CW*0.30, CW*0.14, CW*0.12, CW*0.22, CW*0.22];
+  var h1 = [VN.spec, VN.range, VN.resolution, VN.procedure, VN.refStd];
+  var h2 = ['Specification','Range','Resolution','Procedure','Reference Standard'];
+  var hx = cx;
+  sf(doc, true); doc.fontSize(7.5).fillColor(BCLR);
+  for (var i = 0; i < h1.length; i++) { doc.text(h1[i], hx, y, {width:cw[i]-2, align:'center'}); hx += cw[i]; }
+  var hy = y + 10; hx = cx;
+  sf(doc, false, true); doc.fontSize(7).fillColor(BCLR);
+  for (var i = 0; i < h2.length; i++) { doc.text(h2[i], hx, hy, {width:cw[i]-2, align:'center'}); hx += cw[i]; }
+  var cy = hy + 13; doc.lineWidth(0.3).strokeColor(BCLR).moveTo(cx,cy).lineTo(cx+CW,cy).stroke(); cy += 2;
+  if (specs && specs.length > 0) {
+    for (var si = 0; si < specs.length; si++) {
+      var s = specs[si]; hx = cx;
+      var cl = [s.param||'', s.range||'', s.resolution||'', s.procedure||'', s.refStandard||''];
+      sf(doc, false); doc.fontSize(7.5).fillColor(BCLR);
+      for (var ci = 0; ci < cl.length; ci++) { doc.text(cl[ci], hx, cy, {width:cw[ci]-3, align:ci===0?'left':'center'}); hx += cw[ci]; }
+      cy += 15;
     }
-    y += arh;
+  } else {
+    for (var ei = 0; ei < VN.specItems.length; ei++) {
+      sf(doc, false); doc.fontSize(7.5).fillColor(BCLR);
+      doc.text(VN.specItems[ei], cx+2, cy, {width:cw[0]-4}); cy += 13;
+    }
   }
-  return y;
+  doc.lineWidth(0.3).strokeColor(BCLR).moveTo(cx,cy).lineTo(cx+CW,cy).stroke();
+  return cy + 5;
+}
+
+function drawStandardsTable(doc, stds, cx, startY) {
+  var y = startY;
+  var cols = [CW*0.22, CW*0.14, CW*0.16, CW*0.28, CW*0.20];
+  sf(doc, true); doc.fontSize(8).fillColor(BCLR); doc.text(VN.sec15, cx, y); y += 14;
+  var hl = ['Tên thiết bị','Số quản lý','Số chứng nhận','Liên kết chuẩn','Hiệu lực'];
+  var hle = ['Name of Standard','ID','Certificate No.','Traceable to','Due date'];
+  var hx = cx;
+  sf(doc, true); doc.fontSize(7).fillColor(BCLR);
+  for (var i = 0; i < hl.length; i++) { doc.text(hl[i], hx, y, {width:cols[i]-3, align:'center'}); hx += cols[i]; }
+  hx = cx;
+  sf(doc, false, true); doc.fontSize(6.5).fillColor(BCLR);
+  for (var i = 0; i < hle.length; i++) { doc.text(hle[i], hx, y+9, {width:cols[i]-3, align:'center'}); hx += cols[i]; }
+  y += 22; doc.lineWidth(0.3).strokeColor(BCLR).moveTo(cx,y).lineTo(cx+CW,y).stroke(); y += 2;
+  if (stds && stds.length > 0) {
+    for (var si = 0; si < stds.length; si++) {
+      var s = stds[si]; hx = cx;
+      var vs = [s.EQ_NAME||'-', s.EQ_CODE||'-', '-', s.LINK||'-', s.VALIDITY||'-'];
+      sf(doc, false); doc.fontSize(7).fillColor(BCLR);
+      for (var ci = 0; ci < vs.length; ci++) { doc.text(vs[ci], hx, y, {width:cols[ci]-3, align:ci===0?'left':'center'}); hx += cols[ci]; }
+      y += 14;
+    }
+  } else { sf(doc,false); doc.fontSize(7).fillColor(BCLR); doc.text('...',cx,y,{width:CW,align:'center'}); y += 12; }
+  return y + 3;
+}
+
+function drawSignature(doc, headOfLab, director, cx, startY) {
+  var y = startY;
+  var sw = (CW - 20) / 2;
+  sf(doc, true); doc.fontSize(9).fillColor(BCLR);
+  doc.text(VN.sigL, cx, y, {align:'center',width:sw});
+  sf(doc, false); doc.fontSize(7.5).fillColor(BCLR);
+  doc.text(VN.headEn, cx, y+12, {align:'center',width:sw});
+  sf(doc, true); doc.fontSize(9).fillColor(BCLR);
+  doc.text(VN.sigR, cx+sw+20, y, {align:'center',width:sw});
+  sf(doc, false); doc.fontSize(7.5).fillColor(BCLR);
+  doc.text(VN.dirEn, cx+sw+20, y+12, {align:'center',width:sw});
+  var ly = y + 34;
+  doc.lineWidth(0.8).strokeColor(BCLR);
+  doc.moveTo(cx+15, ly).lineTo(cx+sw-15, ly).stroke();
+  doc.moveTo(cx+sw+35, ly).lineTo(cx+sw*2+5, ly).stroke();
+  if (headOfLab) { sf(doc,false); doc.fontSize(8.5).fillColor(BCLR); doc.text(headOfLab, cx, ly+5, {align:'center',width:sw}); }
+  if (director) { sf(doc,false); doc.fontSize(8.5).fillColor(BCLR); doc.text(director, cx+sw+20, ly+5, {align:'center',width:sw}); }
+  return ly + 24;
 }
 
 async function main() {
@@ -105,125 +187,174 @@ async function main() {
     var lp = path.join(BD, '_ref_logo.png');
     var logo = null;
     try { if (fs.existsSync(lp)) logo = fs.readFileSync(lp); } catch(e) {}
-
-    var doc = new PDFDocument({size:'A4',margins:{top:MT,bottom:40,left:ML,right:MR}});
+    
+    var doc = new PDFDocument({size:'A4', margins:{top:MT,bottom:20,left:ML,right:MR}, autoFirstPage: false});
     var ws = fs.createWriteStream(OF);
     doc.pipe(ws);
-    try { if (FR) doc.registerFont(FNR, FR); if (FB) doc.registerFont(FNB, FB); } catch(e) {}
-    doc.on('pageAdded', function() { drawH(doc, logo); });
-    drawH(doc, logo); doc.y = MT;
-    if (qr) doc.image(qr, PW-MR-55, MT-22, {width:40,height:40});
-
-    sf(doc, true); doc.fontSize(15).fillColor('#000000');
-    doc.text('GIAY CHUNG NHAN HIEU CHUAN', ML, doc.y, {align:'center',width:CW}); doc.moveDown(0.2);
-    sf(doc, false); doc.fontSize(13).fillColor(CT);
-    doc.text('CERTIFICATE OF CALIBRATION', ML, doc.y, {align:'center',width:CW}); doc.moveDown(0.8);
-
-    var lw = 95, hw = Math.floor((CW-lw*2)/2)+10, hw2 = hw-20;
-    var ir = [
-      [{text:'1. Ten thiet bi:\nInstrument',align:'left',size:7.5,bold:true},{text:cert.INSTRUMENT_NAME||'-',align:'left',size:7.5},{text:'8. So GCN:\nCertificate No.',align:'left',size:7.5,bold:true},{text:cert.CERT_NO||certNo,align:'left',size:7.5}],
-      [{text:'2. Nha san xuat:\nManufacturer',align:'left',size:7.5,bold:true},{text:cert.MANUFACTURER||'-',align:'left',size:7.5},{text:'9. Ngay hieu chuan:\nCal. Date',align:'left',size:7.5,bold:true},{text:pd(cert.CAL_DATE||''),align:'left',size:7.5}],
-      [{text:'3. Kieu:\nModel',align:'left',size:7.5,bold:true},{text:cert.MODEL||'-',align:'left',size:7.5},{text:'10. Ngay HC tiep theo:\nRe-cal. Date',align:'left',size:7.5,bold:true},{text:pd(cert.RE_CAL_DATE||''),align:'left',size:7.5}],
-      [{text:'4. ID:',align:'left',size:7.5,bold:true},{text:cert.EQUIPMENT_ID||'-',align:'left',size:7.5},{text:'',align:'left',size:7.5},{text:'',align:'left',size:7.5}],
-      [{text:'5. So san xuat:\nSN',align:'left',size:7.5,bold:true},{text:cert.SERIAL_NUMBER||'-',align:'left',size:7.5},{text:'',align:'left',size:7.5},{text:'',align:'left',size:7.5}],
-      [{text:'6. Ten khach hang:\nCustomer',align:'left',size:7.5,bold:true},{text:cert.CUSTOMER_NAME||'-',align:'left',size:7.5,bold:true,color:'#000000'},{text:'',align:'left',size:7.5},{text:'',align:'left',size:7.5}],
-      [{text:'7. Dia chi:\nAddress',align:'left',size:7.5,bold:true},{text:cert.CUSTOMER_ADDRESS||'-',align:'left',size:7.5,bold:true,color:'#000000'},{text:'',align:'left',size:7.5},{text:'',align:'left',size:7.5}]
-    ];
-    var iy = drawT(doc, [{text:'Muc / Item',width:lw,align:'center',size:7.5},{text:'Noi dung / Content',width:hw,align:'center',size:7.5},{text:'Muc / Item',width:lw,align:'center',size:7.5},{text:'Noi dung / Content',width:hw2,align:'center',size:7.5}], ir, {startX:ML,startY:doc.y,rowHeight:26,minRowH:26,borderColor:CB,headerBg:CH,_logo:logo});
-    doc.y = iy + 6;
-
-    var cl = 95, cv1 = Math.floor((CW-cl*2)*0.55), cv2 = CW-cl*2-cv1;
-    var bhds = [{text:'Muc / Item',width:cl,align:'center',size:7.5},{text:'Noi dung / Content',width:cv1,align:'center',size:7.5},{text:'Muc / Item',width:cl,align:'center',size:7.5},{text:'Noi dung / Content',width:cv2,align:'center',size:7.5}];
-    var bro = [];
-    bro.push([{text:'11. Quy trinh hieu chuan:\nCal. Procedure',align:'left',size:7,bold:true},{text:cert.PROCEDURE||'-',align:'left',size:7},{text:'12. Tieu chuan tham chieu:\nRef. Standard',align:'left',size:7,bold:true},{text:cert.REF_STANDARD||'-',align:'left',size:7}]);
-    if (stds.length > 0) {
-      bro.push([{text:'13. Chuan su dung / Standards Used:',align:'left',size:7,bold:true,color:CT},{text:'',align:'left',size:7},{text:'',align:'left',size:7},{text:'',align:'left',size:7}]);
-      bro.push([{text:'Ten thiet bi chuan / Standard Name',align:'center',size:7,bold:true,color:CT},{text:'ID',align:'center',size:7,bold:true,color:CT},{text:'Lien ket / Traceableto',align:'center',size:7,bold:true,color:CT},{text:'Hieu luc / Due date',align:'center',size:7,bold:true,color:CT}]);
-      for (var si=0; si<stds.length; si++) {
-        var s=stds[si]; bro.push([{text:s.EQ_NAME||'-',align:'left',size:7},{text:s.EQ_CODE||'-',align:'left',size:7},{text:s.LINK||'-',align:'center',size:7},{text:s.VALIDITY||'-',align:'center',size:7}]);
+    try { if (FR) doc.registerFont(FNR, FR); if (FB) doc.registerFont(FNB, FB); if (FI) doc.registerFont(FNI, FI); if (FBI) doc.registerFont(FNBI, FBI); } catch(e) {}
+    curPage = 1;
+    
+    // ===== PAGE 1 =====
+    doc.addPage();
+    var curY = drawH(doc, logo, certNo, pd(cert.CAL_DATE), qr, 1);
+    
+    // 1. Customer
+    var custEn = 'Customer';
+    if (cert.CUSTOMER_ADDRESS && cert.CUSTOMER_ADDRESS !== 'null') custEn += ' ' + cert.CUSTOMER_ADDRESS;
+    drawLabelVal(doc, '1. ' + VN.sec1 + ':', cert.CUSTOMER_NAME, ML, curY, 130, CW, true, custEn);
+    curY += 24;
+    
+    // 2. Instrument
+    drawLabelVal(doc, '2. ' + VN.sec2 + ':', cert.INSTRUMENT_NAME, ML, curY, 130, CW, false, 'Instrument');
+    curY += 24;
+    
+    // 3-6: 2-column
+    var cw2 = Math.floor((CW-10)/2);
+    var c3x = ML;
+    var c5x = ML + cw2 + 10;
+    
+    // Row A: 3 left, 5 right
+    drawLabelVal(doc, '3. ' + VN.sec3 + ':', cert.MANUFACTURER, c3x, curY, 85, cw2, false, 'Manufacturer');
+    drawLabelVal(doc, '5. ' + VN.sec5 + ':', cert.MODEL, c5x, curY, 55, cw2, false, 'Model');
+    curY += 24;
+    // Row B: 4 left, 6 right
+    drawLabelVal(doc, '4. ' + VN.sec4 + ':', cert.EQUIPMENT_ID, c3x, curY, 75, cw2, false, 'ID');
+    drawLabelVal(doc, '6. ' + VN.sec6 + ':', cert.SERIAL_NUMBER, c5x, curY, 75, cw2, false, 'Serial No.');
+    curY += 24;
+    
+    // 7. Spec table
+    var specs = [];
+    if (pts && pts.length > 0) {
+      var seen = {};
+      for (var pi = 0; pi < pts.length; pi++) {
+        var pp = pts[pi];
+        var pn = pp.PARAMETER_NAME || pp.parameter_name;
+        if (pn && !seen[pn]) { seen[pn] = true; specs.push({param:pn, range:pp.CAL_POINT||pp.cal_point||'', resolution:'', procedure:'', refStandard:''}); }
       }
     }
-    bro.push([{text:'',align:'left',size:6},{text:'',align:'left',size:6},{text:'',align:'left',size:6},{text:'',align:'left',size:6}]);
-    bro.push([{text:'14. Noi hieu chuan:\nPlace of Calibration',align:'left',size:7,bold:true},{text:(cert.CUSTOMER_NAME||'')+'\n'+(cert.CUSTOMER_ADDRESS||''),align:'left',size:7,bold:true,color:'#000000'},{text:'',align:'left',size:7},{text:'',align:'left',size:7}]);
-    bro.push([{text:'15. Moi truong hieu chuan:\nCal. Environment',align:'left',size:7,bold:true},{text:'+ Nhiet do / Temperature:',align:'left',size:7},{text:'',align:'left',size:7},{text:cert.TEMP_ENV||'-',align:'left',size:7}]);
-    bro.push([{text:'',align:'left',size:7},{text:'+ Do am / Humidity:',align:'left',size:7},{text:'',align:'left',size:7},{text:cert.HUMI_ENV||'-',align:'left',size:7}]);
-    for (var i=0; i<3; i++) bro.push([{text:'',align:'center',size:6},{text:'',align:'center',size:6},{text:'',align:'center',size:6},{text:'',align:'center',size:6}]);
-    var by = drawT(doc, bhds, bro, {startX:ML,startY:doc.y,rowHeight:20,minRowH:18,borderColor:CB,headerBg:CH,_logo:logo});
-    doc.y = by + 6;
-
-    // === CHU KY CHUYEN NGHIEP ===
-    if (doc.y > PH-130) { doc.addPage(); drawH(doc, logo); doc.y = MT; }
-    var sigY = doc.y;
-    var sigColW = (CW - 20) / 2;
-    var sigLeftX = ML;
-    var sigRightX = ML + sigColW + 20;
-
-    // Left: Head of Calibration Lab
-    sf(doc, true); doc.fontSize(8).fillColor(CT);
-    doc.text('PHU TRACH PHONG HIEU CHUAN', sigLeftX, sigY, {align:'center',width:sigColW});
-    var subY = sigY + 14;
-    sf(doc, false); doc.fontSize(7.5).fillColor(CG);
-    doc.text('HEAD OF CALIBRATION LAB.', sigLeftX, subY, {align:'center',width:sigColW});
-
-    // Right: Director
-    sf(doc, true); doc.fontSize(8).fillColor(CT);
-    doc.text('GIAM DOC', sigRightX, sigY, {align:'center',width:sigColW});
-    sf(doc, false); doc.fontSize(7.5).fillColor(CG);
-    doc.text('DIRECTOR', sigRightX, subY, {align:'center',width:sigColW});
-
-    // Signature lines
-    var lineY = subY + 46;
-    doc.lineWidth(0.8).strokeColor('#000000');
-    doc.moveTo(sigLeftX + 20, lineY).lineTo(sigLeftX + sigColW - 20, lineY).stroke();
-    doc.moveTo(sigRightX + 20, lineY).lineTo(sigRightX + sigColW - 20, lineY).stroke();
-
-    // Names below lines
-    if (cert.HEAD_OF_LAB) {
-      sf(doc, false); doc.fontSize(8).fillColor(CT);
-      doc.text(cert.HEAD_OF_LAB, sigLeftX, lineY + 4, {align:'center',width:sigColW});
+    curY = drawSpecTable(doc, specs, ML, curY);
+    
+    // 11. Place
+    var placeEn = 'Place of Performance';
+    if (cert.CUSTOMER_ADDRESS && cert.CUSTOMER_ADDRESS !== 'null') placeEn += ' ' + cert.CUSTOMER_ADDRESS;
+    drawLabelVal(doc, '11. ' + VN.sec11 + ':', cert.CUSTOMER_NAME, ML, curY, 160, CW, false, placeEn);
+    curY += 24;
+    
+    // 12-13: dates
+    drawLabelVal(doc, '12. ' + VN.sec12 + ':', cert.CAL_DATE ? pd(cert.CAL_DATE) : '', ML, curY, 95, cw2, false, 'Date of performance');
+    drawLabelVal(doc, '13. ' + VN.sec13 + ':', cert.RE_CAL_DATE ? pd(cert.RE_CAL_DATE) : '', c5x, curY, 140, cw2, false, 'Date of next performance');
+    curY += 24;
+    
+    // 14. Environment
+    var tempStr = (cert.TEMP_ENV && cert.TEMP_ENV !== 'null') ? cert.TEMP_ENV : '';
+    var humiStr = (cert.HUMI_ENV && cert.HUMI_ENV !== 'null') ? cert.HUMI_ENV : '';
+    sf(doc, true); doc.fontSize(8.5).fillColor(BCLR);
+    doc.text('14. ' + VN.sec14 + ':', ML, curY, {width:130});
+    sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
+    doc.text(VN.temp + ' ' + tempStr + '    ' + VN.humi + ' ' + humiStr, ML + 130, curY, {width: CW - 130});
+    curY += 14;
+    sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR);
+    doc.text('Environment     Temperature: ' + tempStr + '    Humidity: ' + humiStr, ML + 130, curY, {width: CW - 130});
+    curY += 14;
+    
+    // 15. Standards
+    curY = drawStandardsTable(doc, stds, ML, curY);
+    
+    // Signature
+    curY = drawSignature(doc, cert.HEAD_OF_LAB, cert.DIRECTOR, ML, curY);
+    drawFooter(doc, 1, 2);
+    
+    // ===== PAGE 2 =====
+    curY = newPage(doc, logo, certNo, pd(cert.CAL_DATE), qr);
+    
+    // 16. Results
+    sf(doc, true); doc.fontSize(8.5).fillColor(BCLR);
+    doc.text(VN.sec16, ML, curY); curY += 15;
+    var rCols = [CW*0.22, CW*0.20, CW*0.13, CW*0.18, CW*0.13, CW*0.14];
+    var rHl = [VN.param, VN.foundVal, VN.uncert, VN.refVal, VN.tol, VN.conc];
+    var rHle = [VN.paramEn, VN.foundEn, VN.uncertEn, VN.refEn, VN.tolEn, VN.concEn];
+    var hx = ML;
+    doc.lineWidth(0.3).strokeColor(BCLR);
+    for (var i = 0; i < rHl.length; i++) {
+      doc.rect(hx, curY, rCols[i], 20).fill('#F2F2F2').stroke(BCLR);
+      sf(doc, true); doc.fontSize(6.5).fillColor(BCLR);
+      doc.text(rHl[i], hx+2, curY+2, {width:rCols[i]-4, align:'center'});
+      sf(doc, false, true); doc.fontSize(6).fillColor(BCLR);
+      doc.text(rHle[i], hx+2, curY+10, {width:rCols[i]-4, align:'center'});
+      hx += rCols[i];
     }
-    if (cert.DIRECTOR) {
-      sf(doc, false); doc.fontSize(8).fillColor(CT);
-      doc.text(cert.DIRECTOR, sigRightX, lineY + 4, {align:'center',width:sigColW});
+    curY += 20;
+    
+    if (pts && pts.length > 0) {
+      var grps = [], cg = null;
+      for (var pi = 0; pi < pts.length; pi++) {
+        var p = pts[pi];
+        var pn = p.PARAMETER_NAME || p.parameter_name || '-';
+        if (!cg || cg.name !== pn) { cg = {name: pn, rows: []}; grps.push(cg); }
+        cg.rows.push(p);
+      }
+      for (var gi = 0; gi < grps.length; gi++) {
+        var g2 = grps[gi];
+        for (var ri = 0; ri < g2.rows.length; ri++) {
+          var r = g2.rows[ri];
+          if (curY > PH - 60) { curY = newPage(doc, logo, certNo, pd(cert.CAL_DATE), qr); }
+          var pt = ri === 0 ? g2.name : '';
+          var vs = [pt, String(r.AS_FOUND_VALUE||r.as_found_value||''), String(r.UNCERTAINTY||r.uncertainty||''), String(r.REFERENCE_VALUE||r.reference_value||''), String(r.TOLERANCE||r.tolerance||''), String(r.CONFORMITY||r.conformity||'')];
+          hx = ML;
+          for (var ci2 = 0; ci2 < vs.length; ci2++) {
+            doc.rect(hx, curY, rCols[ci2], 16).stroke(BCLR);
+            sf(doc, ri===0 && ci2===0);
+            doc.fontSize(7).fillColor(BCLR);
+            doc.text(vs[ci2], hx+2, curY+2, {width:rCols[ci2]-4, align:ci2===0?'left':'center'});
+            hx += rCols[ci2];
+          }
+          curY += 16;
+        }
+      }
+    } else {
+      sf(doc, false); doc.fontSize(7).fillColor(BCLR);
+      doc.text('Chưa có dữ liệu', ML, curY, {width:CW, align:'center'}); curY += 14;
     }
-
-    doc.y = lineY + 22;
-
-    sf(doc, false); doc.fontSize(7.5).fillColor(CT);
-    doc.text('So GCN / Certificate No.: '+certNo, ML, doc.y, {align:'right',width:CW}); doc.moveDown(0.5);
-
-    sf(doc, true); doc.fontSize(8).fillColor(CT);
-    doc.text('16. Ket qua hieu chuan / Cal. Results:', ML, doc.y, {align:'left'}); doc.moveDown(0.4);
-    var rH = [{text:'Thong so\nParameters',width:62,align:'center',size:6.5},{text:'Diem HC\nCal. Point',width:52,align:'center',size:6.5},{text:'Gia tri do duoc\nAs Found Value',width:60,align:'center',size:6.5},{text:'Do KDBD\nUncertainty',width:55,align:'center',size:6.5},{text:'Dung sai\nTolerance',width:50,align:'center',size:6.5},{text:'Thiet bi chuan\nStd. Equipment',width:72,align:'center',size:6.5},{text:'Su phu hop\nConformity',align:'center',size:6.5}];
-    var rD = [];
-    if (pts.length===0) { rD.push([{text:'Chua co du lieu',align:'center',size:7,color:CG},{text:'',align:'center',size:7},{text:'',align:'center',size:7},{text:'',align:'center',size:7},{text:'',align:'center',size:7},{text:'',align:'center',size:7},{text:'',align:'center',size:7}]); }
-    else { for (var pi=0; pi<pts.length; pi++) { var p=pts[pi]; rD.push([{text:p.PARAMETER_NAME||p.parameter_name||'-',align:'left',size:6.5,bold:true},{text:String(p.CAL_POINT||p.cal_point||'-'),align:'center',size:6.5},{text:String(p.AS_FOUND_VALUE||p.as_found_value||'-'),align:'center',size:6.5},{text:String(p.UNCERTAINTY||p.uncertainty||'-'),align:'center',size:6.5},{text:String(p.TOLERANCE||p.tolerance||'-'),align:'center',size:6.5},{text:String(p.REF_EQUIPMENT||p.STANDARD_EQUIPMENT||p.ref_equipment||p.standard_equipment||'–'),align:'left',size:6},{text:String(p.CONFORMITY||p.conformity||'-'),align:'center',size:6.5}]); } }
-    var ry = drawT(doc, rH, rD, {startX:ML,startY:doc.y,rowHeight:24,minRowH:22,borderColor:CB,headerBg:CH,_logo:logo});
-    doc.y = ry + 8;
-
-    sf(doc, true); doc.fontSize(8).fillColor(CT);
-    doc.text('17. Thong tin khac / Other information:', ML, doc.y, {align:'left'}); doc.moveDown(0.4);
-    sf(doc, true); doc.fontSize(7.5).fillColor(CT);
-    doc.text('17.1 Do khong dam bao do / Uncertainty:', ML, doc.y); doc.moveDown(0.2);
-    sf(doc, false); doc.fontSize(7).fillColor(CT);
-    doc.text('Do khong dam bao do la do khong dam bao do mo rong duoc tinh tu do khong dam bao do chuan nhan voi he so phu k=2, phan bo chuan tuong duong voi 95% do tin cay.', ML, doc.y, {align:'left',width:CW}); doc.moveDown(0.1);
-    doc.fontSize(7).fillColor('#555555');
-    doc.text('The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.', ML, doc.y, {align:'left',width:CW}); doc.moveDown(0.4);
-    sf(doc, true); doc.fontSize(7.5).fillColor(CT);
-    doc.text('17.2 Cong bo ve su phu hop / Statements of conformity:', ML, doc.y); doc.moveDown(0.2);
-    var cs = [{l:'A: ',v:'Ket qua do khi tinh ca do khong dam bao do nam trong gioi han cho phep.',e:'Within tolerance.'},{l:'B: ',v:'Ket qua do nam ngoai gioi han cho phep.',e:'Out of tolerance.'},{l:'C: ',v:'Ket qua do co the nam ngoai gioi han. Khong co ket luan.',e:'May be out of tolerance. No conclusion.'},{l:'D: ',v:'Tieu chuan ky thuat khong quy dinh dung sai.',e:'No tolerance stated.'}];
-    for (var ci=0; ci<cs.length; ci++) {
-      var c=cs[ci]; sf(doc,true); doc.fontSize(7).fillColor(CT); doc.text('+ '+c.l,{continued:true});
-      sf(doc,false); doc.fontSize(7).fillColor(CT); doc.text(c.v+' ',{continued:true});
-      doc.fontSize(7).fillColor('#555555'); doc.text(c.e); doc.moveDown(0.1);
+    curY += 4;
+    
+    // Notes
+    sf(doc, true); doc.fontSize(8).fillColor(BCLR); doc.text(VN.note, ML, curY); curY += 13;
+    sf(doc, false); doc.fontSize(7).fillColor(BCLR); doc.text(VN.note1, ML, curY, {width:CW}); curY += 12;
+    doc.text(VN.note2, ML, curY, {width:CW}); curY += 16;
+    
+    // 17
+    sf(doc, true); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.sec17, ML, curY); curY += 15;
+    sf(doc, true); doc.fontSize(8).fillColor(BCLR); doc.text(VN.uncertTitle, ML, curY); curY += 12;
+    sf(doc, false); doc.fontSize(7).fillColor(BCLR); doc.text(VN.uncertVN, ML, curY, {width:CW}); curY += 11;
+    sf(doc, false, true); doc.fontSize(7).fillColor(BCLR); doc.text(VN.uncertEN, ML, curY, {width:CW}); curY += 15;
+    
+    // 17.2
+    sf(doc, true); doc.fontSize(8).fillColor(BCLR); doc.text(VN.confTitle, ML, curY); curY += 12;
+    for (var ci = 0; ci < VN.conf.length; ci++) {
+      var parts = VN.conf[ci].split(' | ');
+      sf(doc, true); doc.fontSize(7).fillColor(BCLR);
+      doc.text(parts[0], ML, curY, {width:CW * 0.48});
+      sf(doc, false, true); doc.fontSize(7).fillColor(BCLR);
+      doc.text(parts[1], ML + CW * 0.48 + 5, curY, {width:CW * 0.5 - 5});
+      curY += 22;
     }
-    doc.moveDown(2);
-    sf(doc, false); doc.fontSize(7).fillColor(CG);
-    doc.text('www.labmaster.vn  |  Textile - Footwear - Children Products Safety Tester', ML, PH-35, {align:'center',width:CW});
+    curY += 4;
+    
+    // 17.3
+    sf(doc, true); doc.fontSize(8).fillColor(BCLR); doc.text(VN.otherTitle, ML, curY); curY += 12;
+    sf(doc, false); doc.fontSize(7).fillColor(BCLR); doc.text(VN.otherVN, ML, curY, {width:CW}); curY += 11;
+    sf(doc, false, true); doc.fontSize(7).fillColor(BCLR); doc.text(VN.otherEN, ML, curY, {width:CW}); curY += 15;
+    
+    // Legal
+    sf(doc, false); doc.fontSize(6.5).fillColor(BCLR); doc.text(VN.legal1, ML, curY, {width:CW}); curY += 12;
+    doc.text(VN.legal2, ML, curY, {width:CW}); curY += 16;
+    doc.text(VN.legal3, ML, curY, {width:CW}); curY += 16;
+    doc.text(VN.legal4, ML, curY, {width:CW}); curY += 11;
+    sf(doc, false, true); doc.fontSize(6.5).fillColor(BCLR); doc.text(VN.legal5, ML, curY, {width:CW}); curY += 14;
+    
+    drawFooter(doc, 2, 2);
     doc.end();
     ws.on('finish', function() { console.log('[SUCCESS] Da xuat: GCN_'+SN+'.pdf'); db.close(); process.exit(0); });
   } catch(err) { console.error('LOI:', err); db.close(); process.exit(1); }
 }
 main();
-
-// END

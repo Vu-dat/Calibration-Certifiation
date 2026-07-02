@@ -961,13 +961,15 @@ app.post('/api/calibration/export-docx', (req, res) => {
     saveCalibrationDataToDB(data, cert_no, (err) => {
         if (err) return res.status(500).json({ success: false, error: err.message });
 
-        exec(`node "${scriptPath}" "${cert_no}"`, (error, stdout, stderr) => {
+        const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.docx`;
+        const downloadUrl = `${getBaseUrl()}/static/${fileName}`;
+
+        exec(`node "${scriptPath}" "${cert_no}" "${downloadUrl}"`, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Lỗi thực thi generate_docx.js: ${error.message}`);
                 return res.status(500).json({ success: false, message: "Lỗi hệ thống khi sinh Word." });
             }
 
-            const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.docx`;
             logActivity("Hệ thống / KTV", "EXPORT_DOCX", "CERTIFICATES", cert_no, `Xuất Word: ${fileName}`);
 
             return res.json({
