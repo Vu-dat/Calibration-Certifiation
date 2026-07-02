@@ -1,0 +1,56 @@
+ISO/IEC 17025:2017                     LabMaster ST Co., Ltd
+
+                                       No.17 street 179, Tang Nhon Phu ward, HCMC
+                                   Email: sale@labmaster.vn/ Phone: (+84) 938 088 239
+
+                  GIY CHNG NHN HIU CHUN ­ O LNG
+
+                           CERTIFICATE OF CALIBRATION ­ MEASUREMENT
+
+                    S GCN/Certificate No: 345189  Ngay câp/Date of issue: 25/06/2026
+
+1. Khách hàng:      Công ty TNHH May Alliance One
+Customer            Khu B (Lô B1, B2, B5, B6, B7, B8, B9, B10, B11, B12), KCN Giao Long, Xã Giao Long, Tnh
+                    Vnh Long, Vit Nam
+
+2. Tên thit b:      Máy th bn màu ma sát
+Instrument          Crocking meter
+
+3. Nhà sn xuât:     James Heal                              5. Kiu:                    CROCKMASTER HD
+Manufacturer        QV0388113                               Model                                    TM092026
+
+4. Mã qun lý                                                6. S sn xuât:
+ID                                                          Serial No.
+
+7. c trng k thut    Phm vi o:                   phân gii:   8. Quy trình thc hin       9. Tiêu chun tham kho
+Spectification      Range                      Resolution   Procedure                  Reference Standard
+
+                    Lc t/Downward force: 9 N            --  FORCE-02:2026              AATCC TM 8, 165
+                    Hành trình/Stroke: 104 mm           --  LINEAR-08:2026             ISO 105:X12, D02
+                    ng kính u ma sát: 16 mm             --  LINEAR-05:2026
+                    Finger Diameter                     --
+                    Tc /Speed: --
+
+11. Ni thc hin:     Công ty TNHH May Alliance One
+Place of            Khu B (Lô B1, B2, B5, B6, B7, B8, B9, B10, B11, B12), KCN Giao Long, Xã Giao Long, Tnh
+Performance         Vnh Long, Vit Nam
+
+12. Ngày thc hin: 25/06/2026                                13. Ngày thc hin tip theo:               25/06/2027
+Date of performance                                         Date of next performance
+
+14. iu kin môi      Nhit :          [22 ± 1] °C              m:                        [65 ± 1] %RH
+trng:               Temperature                             Humidity
+Environment
+
+15. Chun s dng / Standards Used :
+
+Tên thit b          S qun lý        S chng nhn              Liên kt chun               Hiu lc
+Name of Standard    ID              Certificate No.         Traceable to               Due date
+
+PH TRÁCH PHÒNG HIU CHUN                                               GIÁM C
+   HEAD OF CALIBRATION LAB.                                           DIRECTOR
+
+                  Lê Cnh Nht Quang                          Lu Ngc Thng
+
+www.labmaster.vn    Textile ­ Footwear ­ Leather - Children product Safety Tester      Trang/Page: 1/2
+
