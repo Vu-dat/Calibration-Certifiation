@@ -1,0 +1,125 @@
+ISO/IEC 17025:2017                         LabMaster ST Co., Ltd
+
+                                           No.17 street 179, Tang Nhon Phu ward, HCMC
+                                       Email: sale@labmaster.vn / Phone: (+84) 938 088 239
+
+                         GIY CHNG NHN HIU CHUN ­ O LNG
+
+                             CERTIFICATE OF CALIBRATION ­ MEASUREMENT
+
+                                       S GCN/Certificate No: 000012 Ngày cp/Date of issue: 30.06.2026
+
+1. Khách hàng:           Mai Hoàng Anh
+
+                         Customer 72, ng Ra Ga, Phng Bình Chánh, TP.HCM
+
+2. Tên thit b:           Fan
+
+                         Instrument
+
+3. Nhà sn xut: B ào Nha                                                      5. Kiu:  CROCKMASTER HD
+
+                         Manufacturer                                                 Model
+
+4. Mã qun lý: H.045                                                          6. S sn xut: 65796
+
+                 ID                                                                   Serial No.
+
+       7. c trng k thut                          Phm vi o:   phân gii:                8. Quy trình thc hin               9. Tiêu chun tham kho
+             Specification                           Range    Resolution                      Procedure                      Reference Standard
+
+Tc  quay                                         30                                   LAB_H1346                                     IOS207
+                                                                                                                                    IOS207
+Nhit                                             53                                   LAB_H1346
+
+11. Ni thc hin:          Mai Hoàng Anh
+
+                         Place of Performance 72, ng Ra Ga, Phng Bình Chánh, TP.HCM
+
+12. Ngày thc hin:        30.06.2026                                          13. Ngày thc hin tip 16.06.2000
+                         Date of performance
+                                                                             theo:               Date of next performance
+
+14. iu kin môi trng:          Nhit : [25 ± 2] °C                                       m: [63 ± 5] %RH
+
+                              Temperature                                             Humidity
+
+15. Chun s dng / Standards Used :
+
+          Tên thit b                   S qun lý      S chng nhn                       Liên kt chun                         Hiu lc
+       Name of Standard                      ID        Certificate No.                   Traceable to                      Due date
+
+                                                                        ...
+
+          PH TRÁCH PHÒNG HIU CHUN                                                                      GIÁM C
+
+                  HEAD OF CALIBRATION LAB.                                                              DIRECTOR
+
+                         Lê Cnh Nht Quang                                                       Lu Ngc Thng
+
+                                       www.labmaster.vn | Textile ­ Footwear ­ Leather - Children product Safety Tester    Trang/Page: 1/2
+ISO/IEC 17025:2017                  LabMaster ST Co., Ltd
+
+                                    No.17 street 179, Tang Nhon Phu ward, HCMC
+                                Email: sale@labmaster.vn / Phone: (+84) 938 088 239
+
+                                GIY CHNG NHN HIU CHUN ­ O LNG
+
+                                    CERTIFICATE OF CALIBRATION ­ MEASUREMENT
+
+                                S GCN/Certificate No: 000012 Ngày cp/Date of issue: 30.06.2026
+
+16. Kt qu / Results:            Giá tr o c                   KB           Giá tr tham chiu                        Dung sai   Kt lun
+                                 As found value            Uncertainty      Reference Value                       Tolerance  Conclusion
+                   Thông s        32 / 35 / 54
+                     Parameter                                 0.3                                                   ±3           A
+Tc  quay                           12 / 3 / 23
+                                                               0.3                                                   ±3           A
+Nhit                              23 / 32 / 42
+                                                               0.3                                                   ±3           A
+                                   34 / 1 / 23
+                                                               0.3                                                   ±3           A
+
+Ghi chú / Note:
+* ánh giá theo thông s k thut ca nhà sn xut / Acceptance limit base on Manufacturer's specifications.
+* ánh giá theo yêu cu k thut ca khách hàng / Acceptance limit base on Customer request.
+
+17. Thông tin khác / Other information:
+
+17.1  không m bo o / Uncertainty:
+
+ không m bo o là  không m bo o m rng c tính t  không m bo o chun nhân vi h s ph k=2, phân b chun tng ng vi 95% 
+Ttinhecrey.ported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution
+corresponds to a coverage probability of approximately 95%.
+17.2. Công b v s phù hp / Statements of conformity:
+
++ A: Kt qu o khi tính c  không m bo o nm trong gii hn cho The measurement reported with expanded uncertainty is within tolerance of
+
+phép ca tiêu chun ánh giá.                                    standards.
+
++ B: Kt qu o khi tính c  không m bo o hoàn toàn nm ngoài      The measurement reported with expanded uncertainty is out of tolerance of
+gii hn cho phép ca tiêu chun ánh giá.                         standards.
+
++ C: Kt qu o khi tính c  không m bo o có th nm ngoài gii      The measurement reported with expanded uncertainty may be out of tolerance
+hn cho phép ca tiêu chun. Không có kt lun trong trng hp này.  of standards. There is no conclusion for this measurement.
+
++ D: Tiêu chun k thut không quy nh dung sai ca thông s o.     There is no tolerance stated in technical standard and there is no conclusion for
+                                                              this measurement.
+
+17.3 Khác / Other:
+Các thông s có du (*) là không c công nhn ISO/IEC 17025
+
+The characteristics marked with (*) is not accredited to comply with ISO/IEC 17025
+
+Giy chng nhn này không c sao chép di bt k hình thc nào nu không có s ng ý bng vn bn ca LabMaster./ This form shall not be reproduced, without the
+expressed written consent of LabMaster.
+Phng tin o này không c s dng nh lng hàng hóa, dch v trong mua bán, thanh toán, m bo an toàn, bo v sc khe cng ng, bo v môi trng, trong
+thanh tra, kim tra, giám nh t pháp và trong các hot ng công v khác. Phng tin o này không c s dng trc tip  kim nh phng tin o nhóm 2.
+This instrument do not used for quantifying goods, service in trading, payment, safety assurance, social heathcare, protecting the enviroment, inspection law and in other public
+service activities. This instrument shall not be used directly for the verification of group 2 instruments.
+Chúng tôi cung cp kh nng truy xut ngun gc phép o theo các tiêu chun quc gia c công nhn hoc các phòng thí nghim tiêu chun quc gia c công nhn khác.
+
+This certificate provides traceability of measurement to recognised national standards or other national standards laboratories.
+
+                                www.labmaster.vn | Textile ­ Footwear ­ Leather - Children product Safety Tester             Trang/Page: 2/2
+

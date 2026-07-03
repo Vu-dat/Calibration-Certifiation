@@ -1,0 +1,2 @@
+Page 1 err: t.getViewport is not a function
+Page 2 err: t.getViewport is not a function
