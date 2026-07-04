@@ -146,12 +146,18 @@ function dr(doc, cx, y, lw, vw, label, val, en, boldVal) {
 }
 
 function dr2(doc, cx, cy, cw, l1, v1, e1, l2, v2, e2, lw1, lw2) {
-  // Draw a 2-column grid row with dynamic height
-  if (lw1===undefined) lw1=85;
-  if (lw2===undefined) lw2=75;
+  // Draw a 2-column grid row with dynamic height.
+  // Left column: value LEFT-aligned right after the label, value x fixed
+  //   at cx+lw1 so sections 1/2/3/4/11/12 all line up on the same guide.
+  // Right column: value RIGHT-aligned to the row's right edge (cx+cw) so
+  //   sections 5/6/13 line up with each other regardless of label length
+  //   -- matching the reference certificate layout.
+  if (lw1===undefined) lw1=100;
+  if (lw2===undefined) lw2=90;
   var w2 = Math.floor((cw-10)/2);
   var x1 = cx;
   var x2 = cx + w2 + 10;
+  var rightEdge = cx + cw;
   // Step 1: Draw & measure left VN (label + value)
   sf(doc, true); doc.fontSize(9).fillColor(BCLR);
   doc.text(l1, x1, cy, {width:lw1-2});
@@ -161,14 +167,16 @@ function dr2(doc, cx, cy, cw, l1, v1, e1, l2, v2, e2, lw1, lw2) {
   doc.text(v1Str, x1+lw1, cy, {width:w2-lw1});
   var v1H = doc.heightOfString(v1Str, {width:w2-lw1});
   var leftVnH = Math.max(l1H, v1H);
-  // Step 2: Draw & measure right VN (label + value)
+  // Step 2: Draw & measure right VN (label left-aligned, value right-aligned to rightEdge)
   sf(doc, true); doc.fontSize(9).fillColor(BCLR);
   doc.text(l2, x2, cy, {width:lw2-2});
   var l2H = doc.heightOfString(l2, {width:lw2-2});
   sf(doc, false); doc.fontSize(9).fillColor(BCLR);
   var v2Str = '' + (v2&&v2!=='null'?v2:'');
-  doc.text(v2Str, x2+lw2, cy, {width:w2-lw2});
-  var v2H = doc.heightOfString(v2Str, {width:w2-lw2});
+  var v2X = x2 + lw2;
+  var v2W = rightEdge - v2X;
+  doc.text(v2Str, v2X, cy, {width:v2W, align:'right'});
+  var v2H = doc.heightOfString(v2Str, {width:v2W});
   var rightVnH = Math.max(l2H, v2H);
   // Step 3: Unified max VN height for English alignment
   var maxVnH = Math.max(leftVnH, rightVnH);
@@ -181,8 +189,8 @@ function dr2(doc, cx, cy, cw, l1, v1, e1, l2, v2, e2, lw1, lw2) {
   }
   if (e2) {
     sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
-    doc.text(e2, x2+lw2, cy + maxVnH + 3, {width:w2-lw2});
-    rightEnH = doc.heightOfString(e2, {width:w2-lw2});
+    doc.text(e2, v2X, cy + maxVnH + 3, {width:v2W, align:'right'});
+    rightEnH = doc.heightOfString(e2, {width:v2W});
   }
   var maxEnH = Math.max(leftEnH, rightEnH);
   return cy + maxVnH + 3 + maxEnH + 4;
@@ -330,16 +338,18 @@ async function main() {
     var modelSerial = (cert.MODEL_SERIAL && cert.MODEL_SERIAL!=='null') ? cert.MODEL_SERIAL : DEMO.MODEL_SERIAL;
     
     // Row A: 3 (Manufacturer) left, 5 (Model) right
+    // NOTE: lw1/lw2 must match Row B exactly so the left value column
+    // (3 vs 4) and the right value column (5 vs 6) both line up vertically.
     curY = dr2(doc, ML, curY, CW, 
       '3. ' + VN.sec3 + ':', manufVal, 'Manufacturer ' + (manufId||''),
       '5. ' + VN.sec5 + ':', modelVal, 'Model ' + (modelSerial||''),
-      85, 55);
+      100, 90);
     
     // Row B: 4 (ID) left, 6 (Serial No.) right
     curY = dr2(doc, ML, curY, CW,
       '4. ' + VN.sec4 + ':', equipId, 'ID',
       '6. ' + VN.sec6 + ':', serialVal, 'Serial No.',
-      75, 75);
+      100, 90);
     curY += 6;
     
     // 7. Spec table
@@ -358,7 +368,7 @@ async function main() {
     var calDate = cert.CAL_DATE ? pd(cert.CAL_DATE) : DEMO.CAL_DATE;
     var reCalDate = cert.RE_CAL_DATE ? pd(cert.RE_CAL_DATE) : DEMO.RE_CAL_DATE;
     var placeEn = 'Place of Performance ' + custAddr;
-    curY = dr(doc, ML, curY, 110, CW, '11. ' + VN.sec11 + ':', custName, placeEn, false);
+    curY = dr(doc, ML, curY, 100, CW, '11. ' + VN.sec11 + ':', custName, placeEn, false);
     
     // 12-13: Dates in 2-column grid
     curY = dr2(doc, ML, curY, CW,
@@ -403,7 +413,7 @@ async function main() {
     curY = newPage(doc, logo, certNo, pd(cert.CAL_DATE), qr);
     
     // 16. Results
-    sf(doc, true); doc.fontSize(9).fillColor(BCLR);
+    sf(doc, true); doc.fontSize(10).fillColor(BCLR);
     doc.text(VN.sec16, ML, curY); curY += 16;
     var rCols = [CW*0.22, CW*0.20, CW*0.13, CW*0.18, CW*0.13, CW*0.14];
     var rHl = [VN.param, VN.foundVal, VN.uncert, VN.refVal, VN.tol, VN.conc];
@@ -411,14 +421,14 @@ async function main() {
     var hx = ML;
     doc.lineWidth(0.3).strokeColor(BCLR);
     for (var i = 0; i < rHl.length; i++) {
-      doc.rect(hx, curY, rCols[i], 22).fill('#F2F2F2').stroke(BCLR);
-      sf(doc, true); doc.fontSize(7).fillColor(BCLR);
+      doc.rect(hx, curY, rCols[i], 24).fill('#F2F2F2').stroke(BCLR);
+      sf(doc, true); doc.fontSize(8).fillColor(BCLR);
       doc.text(rHl[i], hx+2, curY+2, {width:rCols[i]-4, align:'center'});
-      sf(doc, false, true); doc.fontSize(6.5).fillColor(BCLR);
-      doc.text(rHle[i], hx+2, curY+11, {width:rCols[i]-4, align:'center'});
+      sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR);
+      doc.text(rHle[i], hx+2, curY+12, {width:rCols[i]-4, align:'center'});
       hx += rCols[i];
     }
-    curY += 22;
+    curY += 24;
     
     if (pts && pts.length > 0) {
       var grps = [], cg = null;
@@ -432,62 +442,95 @@ async function main() {
         var g2 = grps[gi];
         for (var ri = 0; ri < g2.rows.length; ri++) {
           var r = g2.rows[ri];
-          if (curY > PH - 60) { curY = newPage(doc, logo, certNo, pd(cert.CAL_DATE), qr); }
+          if (curY > PH - 80) { curY = newPage(doc, logo, certNo, pd(cert.CAL_DATE), qr); }
           var pt = ri === 0 ? g2.name : '';
           var confVal = String(r.CONFORMITY||r.conformity||'');
           if (!confVal) confVal = 'A';
           var vs = [pt, String(r.AS_FOUND_VALUE||r.as_found_value||''), String(r.UNCERTAINTY||r.uncertainty||''), String(r.REFERENCE_VALUE||r.reference_value||''), String(r.TOLERANCE||r.tolerance||''), confVal];
           hx = ML;
           for (var ci2 = 0; ci2 < vs.length; ci2++) {
-            doc.rect(hx, curY, rCols[ci2], 18).stroke(BCLR);
+            doc.rect(hx, curY, rCols[ci2], 22).stroke(BCLR);
             sf(doc, ri===0 && ci2===0);
-            doc.fontSize(7.5).fillColor(BCLR);
-            doc.text(vs[ci2], hx+2, curY+3, {width:rCols[ci2]-4, align:ci2===0?'left':'center'});
+            doc.fontSize(8.5).fillColor(BCLR);
+            doc.text(vs[ci2], hx+2, curY+4, {width:rCols[ci2]-4, align:ci2===0?'left':'center'});
             hx += rCols[ci2];
           }
-          curY += 18;
+          curY += 22;
         }
       }
     } else {
-      sf(doc, false); doc.fontSize(7).fillColor(BCLR);
-      doc.text('Chưa có dữ liệu', ML, curY, {width:CW, align:'center'}); curY += 14;
+      sf(doc, false); doc.fontSize(8).fillColor(BCLR);
+      doc.text('Chưa có dữ liệu', ML, curY, {width:CW, align:'center'}); curY += 16;
     }
-    curY += 4;
+    curY += 6;
     
     // Notes
-    sf(doc, true); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.note, ML, curY); curY += 14;
-    sf(doc, false); doc.fontSize(7.5).fillColor(BCLR); doc.text(VN.note1, ML, curY, {width:CW}); curY += 13;
-    doc.text(VN.note2, ML, curY, {width:CW}); curY += 17;
+    sf(doc, true); doc.fontSize(9).fillColor(BCLR); doc.text(VN.note, ML, curY); curY += 16;
+    sf(doc, false); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.note1, ML, curY, {width:CW}); curY += 15;
+    doc.text(VN.note2, ML, curY, {width:CW}); curY += 19;
     
     // 17
-    sf(doc, true); doc.fontSize(9).fillColor(BCLR); doc.text(VN.sec17, ML, curY); curY += 16;
-    sf(doc, true); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.uncertTitle, ML, curY); curY += 14;
-    sf(doc, false); doc.fontSize(7.5).fillColor(BCLR); doc.text(VN.uncertVN, ML, curY, {width:CW}); curY += 12;
-    sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR); doc.text(VN.uncertEN, ML, curY, {width:CW}); curY += 16;
+    sf(doc, true); doc.fontSize(10).fillColor(BCLR); doc.text(VN.sec17, ML, curY); curY += 18;
+    sf(doc, true); doc.fontSize(9.5).fillColor(BCLR); doc.text(VN.uncertTitle, ML, curY); curY += 16;
+    // Use heightOfString for 17.1 to prevent VN/EN text overlap
+    sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
+    var uvh = doc.heightOfString(VN.uncertVN, {width:CW});
+    doc.text(VN.uncertVN, ML, curY, {width:CW}); curY += uvh + 3;
+    sf(doc, false, true); doc.fontSize(8.5).fillColor(BCLR);
+    var ueh = doc.heightOfString(VN.uncertEN, {width:CW});
+    doc.text(VN.uncertEN, ML, curY, {width:CW}); curY += ueh + 4;
     
     // 17.2
-    sf(doc, true); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.confTitle, ML, curY); curY += 14;
+    sf(doc, true); doc.fontSize(9.5).fillColor(BCLR); doc.text(VN.confTitle, ML, curY); curY += 16;
     for (var ci = 0; ci < VN.conf.length; ci++) {
       var parts = VN.conf[ci].split(' | ');
-      sf(doc, true); doc.fontSize(7.5).fillColor(BCLR);
-      doc.text(parts[0], ML, curY, {width:CW * 0.48});
-      sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR);
-      doc.text(parts[1], ML + CW * 0.48 + 5, curY, {width:CW * 0.5 - 5});
-      curY += 22;
+      var vnPart = parts[0];
+      var enPart = parts[1];
+      // Extract letter (A/B/C/D) from format "+ X: ..."
+      var vnPrefix = vnPart.substring(0, 2); // "+ "
+      var letter = vnPart.charAt(2);          // "A"
+      var vnSuffix = vnPart.substring(3);     // ": ..."
+      
+      // Pre-measure VN height with regular font
+      sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
+      var vnH = doc.heightOfString(vnPart, {width: CW - 5});
+      
+      // Draw VN: prefix (regular) + letter (bold) + suffix (regular) on same line
+      sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
+      doc.text(vnPrefix, ML, curY, {continued: true});
+      sf(doc, true); doc.fontSize(8.5).fillColor(BCLR);
+      doc.text(letter, {continued: true});
+      sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
+      doc.text(vnSuffix, {width: CW - 5});
+      curY += vnH + 3;
+      
+      // Draw EN below (italic, not bold)
+      sf(doc, false, true); doc.fontSize(8.5).fillColor(BCLR);
+      var enH = doc.heightOfString(enPart, {width: CW - 5});
+      doc.text(enPart, ML, curY, {width: CW - 5});
+      curY += enH + 3;
     }
-    curY += 4;
+    curY += 6;
     
     // 17.3
-    sf(doc, true); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.otherTitle, ML, curY); curY += 14;
-    sf(doc, false); doc.fontSize(7.5).fillColor(BCLR); doc.text(VN.otherVN, ML, curY, {width:CW}); curY += 12;
-    sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR); doc.text(VN.otherEN, ML, curY, {width:CW}); curY += 16;
+    sf(doc, true); doc.fontSize(9.5).fillColor(BCLR); doc.text(VN.otherTitle, ML, curY); curY += 16;
+    sf(doc, false); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.otherVN, ML, curY, {width:CW}); curY += 14;
+    sf(doc, false, true); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.otherEN, ML, curY, {width:CW}); curY += 18;
     
-    // Legal
-    sf(doc, false); doc.fontSize(7).fillColor(BCLR); doc.text(VN.legal1, ML, curY, {width:CW}); curY += 13;
-    doc.text(VN.legal2, ML, curY, {width:CW}); curY += 17;
-    doc.text(VN.legal3, ML, curY, {width:CW}); curY += 17;
-    doc.text(VN.legal4, ML, curY, {width:CW}); curY += 12;
-    sf(doc, false, true); doc.fontSize(7).fillColor(BCLR); doc.text(VN.legal5, ML, curY, {width:CW}); curY += 15;
+    // Legal - use heightOfString for each block to prevent overlapping
+    sf(doc, false); doc.fontSize(8).fillColor(BCLR);
+    var legalH1 = doc.heightOfString(VN.legal1, {width:CW});
+    doc.text(VN.legal1, ML, curY, {width:CW}); curY += legalH1 + 4;
+    var legalH2 = doc.heightOfString(VN.legal2, {width:CW});
+    doc.text(VN.legal2, ML, curY, {width:CW}); curY += legalH2 + 4;
+    var legalH3 = doc.heightOfString(VN.legal3, {width:CW});
+    doc.text(VN.legal3, ML, curY, {width:CW}); curY += legalH3 + 4;
+    var legalH4 = doc.heightOfString(VN.legal4, {width:CW});
+    sf(doc, false); doc.fontSize(8).fillColor(BCLR);
+    doc.text(VN.legal4, ML, curY, {width:CW}); curY += legalH4 + 4;
+    var legalH5 = doc.heightOfString(VN.legal5, {width:CW});
+    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
+    doc.text(VN.legal5, ML, curY, {width:CW}); curY += legalH5 + 4;
     
     drawFooter(doc, 2, 2);
     doc.end();
