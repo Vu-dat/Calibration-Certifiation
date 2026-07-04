@@ -123,58 +123,90 @@ function newPage(doc, logo, cno, cdate, qr) {
 }
 
 function dr(doc, cx, y, lw, vw, label, val, en, boldVal) {
-  // Draw a single grid row (like a table with hidden borders)
+  // Draw a single grid row with dynamic height
   var lx = cx;
   var vx = cx + lw;
-  sf(doc, true); doc.fontSize(8.5).fillColor(BCLR);
+  // Label (bold)
+  sf(doc, true); doc.fontSize(9).fillColor(BCLR);
   doc.text(label, lx, y, {width:lw-2});
-  sf(doc, boldVal||false); doc.fontSize(8.5).fillColor(BCLR);
-  doc.text('' + (val&&val!=='null'?val:''), vx, y, {width:vw-lw});
-  if (en) { sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR); doc.text(en, vx, y+12, {width:vw-lw}); }
-  return y + 24;
+  var labelH = doc.heightOfString(label, {width:lw-2});
+  // Value
+  sf(doc, boldVal||false); doc.fontSize(9).fillColor(BCLR);
+  var valStr = '' + (val&&val!=='null'?val:'');
+  doc.text(valStr, vx, y, {width:vw-lw});
+  var valH = doc.heightOfString(valStr, {width:vw-lw});
+  var vnH = Math.max(labelH, valH);
+  if (en) {
+    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
+    doc.text(en, vx, y + vnH + 3, {width:vw-lw});
+    var enH = doc.heightOfString(en, {width:vw-lw});
+    return y + vnH + 3 + enH + 4;
+  }
+  return y + vnH + 5;
 }
 
 function dr2(doc, cx, cy, cw, l1, v1, e1, l2, v2, e2, lw1, lw2) {
-  // Draw a 2-column grid row (table with hidden borders)
+  // Draw a 2-column grid row with dynamic height
   if (lw1===undefined) lw1=85;
   if (lw2===undefined) lw2=75;
   var w2 = Math.floor((cw-10)/2);
   var x1 = cx;
   var x2 = cx + w2 + 10;
-  
-  // Left cell: label
-  sf(doc, true); doc.fontSize(8.5).fillColor(BCLR);
+  // Step 1: Draw & measure left VN (label + value)
+  sf(doc, true); doc.fontSize(9).fillColor(BCLR);
   doc.text(l1, x1, cy, {width:lw1-2});
-  // Left cell: value
-  sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
-  doc.text('' + (v1&&v1!=='null'?v1:''), x1+lw1, cy, {width:w2-lw1});
-  // Left cell: English
-  if (e1) { sf(doc,false,true); doc.fontSize(7.5).fillColor(BCLR); doc.text(e1, x1+lw1, cy+12, {width:w2-lw1}); }
-  
-  // Right cell: label
-  sf(doc, true); doc.fontSize(8.5).fillColor(BCLR);
+  var l1H = doc.heightOfString(l1, {width:lw1-2});
+  sf(doc, false); doc.fontSize(9).fillColor(BCLR);
+  var v1Str = '' + (v1&&v1!=='null'?v1:'');
+  doc.text(v1Str, x1+lw1, cy, {width:w2-lw1});
+  var v1H = doc.heightOfString(v1Str, {width:w2-lw1});
+  var leftVnH = Math.max(l1H, v1H);
+  // Step 2: Draw & measure right VN (label + value)
+  sf(doc, true); doc.fontSize(9).fillColor(BCLR);
   doc.text(l2, x2, cy, {width:lw2-2});
-  // Right cell: value
-  sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
-  doc.text('' + (v2&&v2!=='null'?v2:''), x2+lw2, cy, {width:w2-lw2});
-  // Right cell: English
-  if (e2) { sf(doc,false,true); doc.fontSize(7.5).fillColor(BCLR); doc.text(e2, x2+lw2, cy+12, {width:w2-lw2}); }
-  
-  return cy + 24;
+  var l2H = doc.heightOfString(l2, {width:lw2-2});
+  sf(doc, false); doc.fontSize(9).fillColor(BCLR);
+  var v2Str = '' + (v2&&v2!=='null'?v2:'');
+  doc.text(v2Str, x2+lw2, cy, {width:w2-lw2});
+  var v2H = doc.heightOfString(v2Str, {width:w2-lw2});
+  var rightVnH = Math.max(l2H, v2H);
+  // Step 3: Unified max VN height for English alignment
+  var maxVnH = Math.max(leftVnH, rightVnH);
+  // Step 4: Draw both English texts at the SAME height
+  var leftEnH = 0, rightEnH = 0;
+  if (e1) {
+    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
+    doc.text(e1, x1+lw1, cy + maxVnH + 3, {width:w2-lw1});
+    leftEnH = doc.heightOfString(e1, {width:w2-lw1});
+  }
+  if (e2) {
+    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
+    doc.text(e2, x2+lw2, cy + maxVnH + 3, {width:w2-lw2});
+    rightEnH = doc.heightOfString(e2, {width:w2-lw2});
+  }
+  var maxEnH = Math.max(leftEnH, rightEnH);
+  return cy + maxVnH + 3 + maxEnH + 4;
 }
 
 function drawSpecTable(doc, specs, proc, refStd, cx, startY) {
   var y = startY;
-  var cw = [CW*0.30, CW*0.14, CW*0.12, CW*0.22, CW*0.22];
-  var h1 = [VN.spec, VN.range, VN.resolution, VN.procedure, VN.refStd];
-  var h2 = ['Specification','Range','Resolution','Procedure','Reference Standard'];
+  
+  // Section header: 7. \u0110\u1eb7c tr\u01b0ng k\u1ef9 thu\u1eadt - full width, left-aligned like sections 1-6
+  sf(doc, true); doc.fontSize(9).fillColor(BCLR);
+  doc.text(VN.spec, cx, y, {width:CW});
+  y += 16;
+  
+  // Sub-table headers
+  var cw = [CW*0.28, CW*0.18, CW*0.16, CW*0.19, CW*0.19];
+  var h1 = [VN.param, VN.range.replace(':',''), VN.resolution.replace(':',''), VN.procedure, VN.refStd];
+  var h2 = ['Parameter', 'Range', 'Resolution', 'Procedure', 'Reference Standard'];
   var hx = cx;
-  sf(doc, false); doc.fontSize(7.5).fillColor(BCLR);
+  sf(doc, false); doc.fontSize(8).fillColor(BCLR);
   for (var i = 0; i < h1.length; i++) { doc.text(h1[i], hx, y, {width:cw[i]-2, align:'center'}); hx += cw[i]; }
-  var hy = y + 10; hx = cx;
-  sf(doc, false, true); doc.fontSize(7).fillColor(BCLR);
+  var hy = y + 11; hx = cx;
+  sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR);
   for (var i = 0; i < h2.length; i++) { doc.text(h2[i], hx, hy, {width:cw[i]-2, align:'center'}); hx += cw[i]; }
-  var cy = hy + 13; doc.lineWidth(0.3).strokeColor(BCLR).moveTo(cx,cy).lineTo(cx+CW,cy).stroke(); cy += 3;
+  var cy = hy + 14; doc.lineWidth(0.3).strokeColor(BCLR).moveTo(cx,cy).lineTo(cx+CW,cy).stroke(); cy += 3;
   
   var procVal = (proc && proc!=='null' ? proc : '');
   var refVal = (refStd && refStd!=='null' ? refStd : '');
@@ -187,10 +219,10 @@ function drawSpecTable(doc, specs, proc, refStd, cx, startY) {
     }
   } else {
     rows = [
-      ['L\u1ef1c t\u00e1c d\u1ee5ng / Downward force:  9 N','--','--','FORCE-02:2026','AATCC TM 8, 165'],
-      ['H\u00e0nh tr\u00ecnh / Stroke:  104 mm','--','--','LINEAR-08:2026','ISO 105:X12, D02'],
-      ['\u0110\u01b0\u1eddng k\u00ednh \u0111\u1ea7u ma s\u00e1t / Finger Diameter:  16 mm','--','--','LINEAR-05:2026','--'],
-      ['T\u1ed1c \u0111\u1ed9 / Speed:  --','--','--','--','--']
+      ['L\u1ef1c t\u00e1c d\u1ee5ng / Downward force', '9 N', '1 N', 'FORCE-02:2026', 'AATCC TM 8, 165'],
+      ['H\u00e0nh tr\u00ecnh / Stroke', '104 mm', '1 mm', 'LINEAR-08:2026', 'ISO 105:X12, D02'],
+      ['\u0110\u01b0\u1eddng k\u00ednh \u0111\u1ea7u ma s\u00e1t / Finger Diameter', '16 mm', '0.1 mm', 'LINEAR-05:2026', ''],
+      ['T\u1ed1c \u0111\u1ed9 / Speed', '--', '--', '', '']
     ];
   }
   for (var ri = 0; ri < rows.length; ri++) {
@@ -200,9 +232,9 @@ function drawSpecTable(doc, specs, proc, refStd, cx, startY) {
       cy += 2;
     }
     var cl = rows[ri]; hx = cx;
-    sf(doc, false); doc.fontSize(7.5).fillColor(BCLR);
+    sf(doc, false); doc.fontSize(8).fillColor(BCLR);
     for (var ci = 0; ci < cl.length; ci++) { doc.text(cl[ci], hx, cy, {width:cw[ci]-3, align:ci===0?'left':'center'}); hx += cw[ci]; }
-    cy += 15;
+    cy += 17;
   }
   doc.lineWidth(0.3).strokeColor(BCLR).moveTo(cx,cy).lineTo(cx+CW,cy).stroke();
   return cy + 5;
@@ -210,26 +242,27 @@ function drawSpecTable(doc, specs, proc, refStd, cx, startY) {
 
 function drawStandardsTable(doc, stds, cx, startY) {
   var y = startY;
+  y += 6;
   var cols = [CW*0.22, CW*0.14, CW*0.16, CW*0.28, CW*0.20];
-  sf(doc, false); doc.fontSize(8).fillColor(BCLR); doc.text(VN.sec15, cx, y); y += 14;
+  sf(doc, true); doc.fontSize(9).fillColor(BCLR); doc.text(VN.sec15, cx, y); y += 15;
   var hl = ['Tên thiết bị','Số quản lý','Số chứng nhận','Liên kết chuẩn','Hiệu lực'];
   var hle = ['Name of Standard','ID','Certificate No.','Traceable to','Due date'];
   var hx = cx;
-  sf(doc, false); doc.fontSize(7).fillColor(BCLR);
+  sf(doc, false); doc.fontSize(7.5).fillColor(BCLR);
   for (var i = 0; i < hl.length; i++) { doc.text(hl[i], hx, y, {width:cols[i]-3, align:'center'}); hx += cols[i]; }
   hx = cx;
-  sf(doc, false, true); doc.fontSize(6.5).fillColor(BCLR);
-  for (var i = 0; i < hle.length; i++) { doc.text(hle[i], hx, y+9, {width:cols[i]-3, align:'center'}); hx += cols[i]; }
-  y += 22; doc.lineWidth(0.3).strokeColor(BCLR).moveTo(cx,y).lineTo(cx+CW,y).stroke(); y += 2;
+  sf(doc, false, true); doc.fontSize(7).fillColor(BCLR);
+  for (var i = 0; i < hle.length; i++) { doc.text(hle[i], hx, y+10, {width:cols[i]-3, align:'center'}); hx += cols[i]; }
+  y += 24; doc.lineWidth(0.3).strokeColor(BCLR).moveTo(cx,y).lineTo(cx+CW,y).stroke(); y += 2;
   if (stds && stds.length > 0) {
     for (var si = 0; si < stds.length; si++) {
       var s = stds[si]; hx = cx;
       var vs = [s.EQ_NAME||'-', s.EQ_CODE||'-', '-', s.LINK||'-', s.VALIDITY||'-'];
-      sf(doc, false); doc.fontSize(7).fillColor(BCLR);
+      sf(doc, false); doc.fontSize(7.5).fillColor(BCLR);
       for (var ci = 0; ci < vs.length; ci++) { doc.text(vs[ci], hx, y, {width:cols[ci]-3, align:ci===0?'left':'center'}); hx += cols[ci]; }
-      y += 14;
+      y += 16;
     }
-  } else { sf(doc,false); doc.fontSize(7).fillColor(BCLR); doc.text('...',cx,y,{width:CW,align:'center'}); y += 12; }
+  } else { sf(doc,false); doc.fontSize(7.5).fillColor(BCLR); doc.text('...',cx,y,{width:CW,align:'center'}); y += 14; }
   return y + 3;
 }
 
@@ -307,6 +340,7 @@ async function main() {
       '4. ' + VN.sec4 + ':', equipId, 'ID',
       '6. ' + VN.sec6 + ':', serialVal, 'Serial No.',
       75, 75);
+    curY += 6;
     
     // 7. Spec table
     var specs = [];
@@ -319,6 +353,7 @@ async function main() {
     }
     curY = drawSpecTable(doc, specs, cert.PROCEDURE, cert.REF_STANDARD, ML, curY);
     
+    curY += 8;
     // 11. Place - full width
     var calDate = cert.CAL_DATE ? pd(cert.CAL_DATE) : DEMO.CAL_DATE;
     var reCalDate = cert.RE_CAL_DATE ? pd(cert.RE_CAL_DATE) : DEMO.RE_CAL_DATE;
@@ -330,29 +365,30 @@ async function main() {
       '12. ' + VN.sec12 + ':', calDate, 'Date of performance',
       '13. ' + VN.sec13 + ':', reCalDate, 'Date of next performance',
       100, 155);
+    curY += 6;
     
     // 14. Environment
     var tempStr = (cert.TEMP_ENV && cert.TEMP_ENV !== 'null') ? cert.TEMP_ENV : DEMO.TEMP_ENV;
     var humiStr = (cert.HUMI_ENV && cert.HUMI_ENV !== 'null') ? cert.HUMI_ENV : DEMO.HUMI_ENV;
-    // Label: 14. Điều kiện môi trường:
-    sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
+    // Label: 14. Điều kiện môi trường: (BOLD)
+    sf(doc, true); doc.fontSize(9).fillColor(BCLR);
     doc.text('14. ' + VN.sec14 + ':', ML, curY, {width:120, align:'left'});
     // Temperature: Nhiệt độ + value
     var envX = ML + 120;
-    sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
+    sf(doc, false); doc.fontSize(9).fillColor(BCLR);
     doc.text(VN.temp + ' ' + tempStr, envX, curY, {width:CW-120-10, align:'left'});
-    sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR);
-    doc.text('Temperature', envX, curY+12, {width:100, align:'left'});
+    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
+    doc.text('Temperature', envX, curY+13, {width:100, align:'left'});
     // Humidity
     var humX = envX + (CW-120)/2 + 5;
-    sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
+    sf(doc, false); doc.fontSize(9).fillColor(BCLR);
     doc.text(VN.humi + ' ' + humiStr, humX, curY, {width:(CW-120)/2-5, align:'left'});
-    sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR);
-    doc.text('Humidity', humX, curY+12, {width:100, align:'left'});
+    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
+    doc.text('Humidity', humX, curY+13, {width:100, align:'left'});
     // Environment - third line to match demo
-    sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR);
-    doc.text('Environment', ML+5, curY+24, {width:110, align:'left'});
-    curY += 34;
+    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
+    doc.text('Environment', ML+5, curY+26, {width:110, align:'left'});
+    curY += 42;
     
     // 15. Standards
     curY = drawStandardsTable(doc, stds, ML, curY);
@@ -367,22 +403,22 @@ async function main() {
     curY = newPage(doc, logo, certNo, pd(cert.CAL_DATE), qr);
     
     // 16. Results
-    sf(doc, true); doc.fontSize(8.5).fillColor(BCLR);
-    doc.text(VN.sec16, ML, curY); curY += 15;
+    sf(doc, true); doc.fontSize(9).fillColor(BCLR);
+    doc.text(VN.sec16, ML, curY); curY += 16;
     var rCols = [CW*0.22, CW*0.20, CW*0.13, CW*0.18, CW*0.13, CW*0.14];
     var rHl = [VN.param, VN.foundVal, VN.uncert, VN.refVal, VN.tol, VN.conc];
     var rHle = [VN.paramEn, VN.foundEn, VN.uncertEn, VN.refEn, VN.tolEn, VN.concEn];
     var hx = ML;
     doc.lineWidth(0.3).strokeColor(BCLR);
     for (var i = 0; i < rHl.length; i++) {
-      doc.rect(hx, curY, rCols[i], 20).fill('#F2F2F2').stroke(BCLR);
-      sf(doc, true); doc.fontSize(6.5).fillColor(BCLR);
+      doc.rect(hx, curY, rCols[i], 22).fill('#F2F2F2').stroke(BCLR);
+      sf(doc, true); doc.fontSize(7).fillColor(BCLR);
       doc.text(rHl[i], hx+2, curY+2, {width:rCols[i]-4, align:'center'});
-      sf(doc, false, true); doc.fontSize(6).fillColor(BCLR);
-      doc.text(rHle[i], hx+2, curY+10, {width:rCols[i]-4, align:'center'});
+      sf(doc, false, true); doc.fontSize(6.5).fillColor(BCLR);
+      doc.text(rHle[i], hx+2, curY+11, {width:rCols[i]-4, align:'center'});
       hx += rCols[i];
     }
-    curY += 20;
+    curY += 22;
     
     if (pts && pts.length > 0) {
       var grps = [], cg = null;
@@ -403,13 +439,13 @@ async function main() {
           var vs = [pt, String(r.AS_FOUND_VALUE||r.as_found_value||''), String(r.UNCERTAINTY||r.uncertainty||''), String(r.REFERENCE_VALUE||r.reference_value||''), String(r.TOLERANCE||r.tolerance||''), confVal];
           hx = ML;
           for (var ci2 = 0; ci2 < vs.length; ci2++) {
-            doc.rect(hx, curY, rCols[ci2], 16).stroke(BCLR);
+            doc.rect(hx, curY, rCols[ci2], 18).stroke(BCLR);
             sf(doc, ri===0 && ci2===0);
-            doc.fontSize(7).fillColor(BCLR);
-            doc.text(vs[ci2], hx+2, curY+2, {width:rCols[ci2]-4, align:ci2===0?'left':'center'});
+            doc.fontSize(7.5).fillColor(BCLR);
+            doc.text(vs[ci2], hx+2, curY+3, {width:rCols[ci2]-4, align:ci2===0?'left':'center'});
             hx += rCols[ci2];
           }
-          curY += 16;
+          curY += 18;
         }
       }
     } else {
@@ -419,39 +455,39 @@ async function main() {
     curY += 4;
     
     // Notes
-    sf(doc, true); doc.fontSize(8).fillColor(BCLR); doc.text(VN.note, ML, curY); curY += 13;
-    sf(doc, false); doc.fontSize(7).fillColor(BCLR); doc.text(VN.note1, ML, curY, {width:CW}); curY += 12;
-    doc.text(VN.note2, ML, curY, {width:CW}); curY += 16;
+    sf(doc, true); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.note, ML, curY); curY += 14;
+    sf(doc, false); doc.fontSize(7.5).fillColor(BCLR); doc.text(VN.note1, ML, curY, {width:CW}); curY += 13;
+    doc.text(VN.note2, ML, curY, {width:CW}); curY += 17;
     
     // 17
-    sf(doc, true); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.sec17, ML, curY); curY += 15;
-    sf(doc, true); doc.fontSize(8).fillColor(BCLR); doc.text(VN.uncertTitle, ML, curY); curY += 12;
-    sf(doc, false); doc.fontSize(7).fillColor(BCLR); doc.text(VN.uncertVN, ML, curY, {width:CW}); curY += 11;
-    sf(doc, false, true); doc.fontSize(7).fillColor(BCLR); doc.text(VN.uncertEN, ML, curY, {width:CW}); curY += 15;
+    sf(doc, true); doc.fontSize(9).fillColor(BCLR); doc.text(VN.sec17, ML, curY); curY += 16;
+    sf(doc, true); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.uncertTitle, ML, curY); curY += 14;
+    sf(doc, false); doc.fontSize(7.5).fillColor(BCLR); doc.text(VN.uncertVN, ML, curY, {width:CW}); curY += 12;
+    sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR); doc.text(VN.uncertEN, ML, curY, {width:CW}); curY += 16;
     
     // 17.2
-    sf(doc, true); doc.fontSize(8).fillColor(BCLR); doc.text(VN.confTitle, ML, curY); curY += 12;
+    sf(doc, true); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.confTitle, ML, curY); curY += 14;
     for (var ci = 0; ci < VN.conf.length; ci++) {
       var parts = VN.conf[ci].split(' | ');
-      sf(doc, true); doc.fontSize(7).fillColor(BCLR);
+      sf(doc, true); doc.fontSize(7.5).fillColor(BCLR);
       doc.text(parts[0], ML, curY, {width:CW * 0.48});
-      sf(doc, false, true); doc.fontSize(7).fillColor(BCLR);
+      sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR);
       doc.text(parts[1], ML + CW * 0.48 + 5, curY, {width:CW * 0.5 - 5});
       curY += 22;
     }
     curY += 4;
     
     // 17.3
-    sf(doc, true); doc.fontSize(8).fillColor(BCLR); doc.text(VN.otherTitle, ML, curY); curY += 12;
-    sf(doc, false); doc.fontSize(7).fillColor(BCLR); doc.text(VN.otherVN, ML, curY, {width:CW}); curY += 11;
-    sf(doc, false, true); doc.fontSize(7).fillColor(BCLR); doc.text(VN.otherEN, ML, curY, {width:CW}); curY += 15;
+    sf(doc, true); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.otherTitle, ML, curY); curY += 14;
+    sf(doc, false); doc.fontSize(7.5).fillColor(BCLR); doc.text(VN.otherVN, ML, curY, {width:CW}); curY += 12;
+    sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR); doc.text(VN.otherEN, ML, curY, {width:CW}); curY += 16;
     
     // Legal
-    sf(doc, false); doc.fontSize(6.5).fillColor(BCLR); doc.text(VN.legal1, ML, curY, {width:CW}); curY += 12;
-    doc.text(VN.legal2, ML, curY, {width:CW}); curY += 16;
-    doc.text(VN.legal3, ML, curY, {width:CW}); curY += 16;
-    doc.text(VN.legal4, ML, curY, {width:CW}); curY += 11;
-    sf(doc, false, true); doc.fontSize(6.5).fillColor(BCLR); doc.text(VN.legal5, ML, curY, {width:CW}); curY += 14;
+    sf(doc, false); doc.fontSize(7).fillColor(BCLR); doc.text(VN.legal1, ML, curY, {width:CW}); curY += 13;
+    doc.text(VN.legal2, ML, curY, {width:CW}); curY += 17;
+    doc.text(VN.legal3, ML, curY, {width:CW}); curY += 17;
+    doc.text(VN.legal4, ML, curY, {width:CW}); curY += 12;
+    sf(doc, false, true); doc.fontSize(7).fillColor(BCLR); doc.text(VN.legal5, ML, curY, {width:CW}); curY += 15;
     
     drawFooter(doc, 2, 2);
     doc.end();
