@@ -30,8 +30,8 @@ if (!SUPABASE_HOST || !SUPABASE_USER || !SUPABASE_PASSWORD) {
     database: SUPABASE_DB,
     username: SUPABASE_USER,
     password: SUPABASE_PASSWORD,
-    ssl: SUPABASE_SSL,
-    prepare: false, // Vô hiệu hoá prepared statements để hỗ trợ PgBouncer/Supabase Pooler (cổng 6543/5432 pooler)
+    ssl: { rejectUnauthorized: false },
+    prepare: false,
     max: 10,
     idle_timeout: 30,
     connect_timeout: 15,
