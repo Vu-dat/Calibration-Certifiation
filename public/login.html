@@ -276,7 +276,7 @@
                         document.getElementById('password').focus();
                     }, 1200);
                 } else {
-                    errBox.textContent = data.message || 'Đăng ký thất bại!';
+                    errBox.textContent = data.message || data.error || 'Đăng ký thất bại!';
                     errBox.style.display = 'block';
                 }
             } catch (err) {

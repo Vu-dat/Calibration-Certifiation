@@ -297,6 +297,28 @@ app.use('/api', async (req, res, next) => {
     }
 });
 
+// Debug endpoint (tạm thời) — kiểm tra kết nối DB trên Vercel
+app.get('/api/debug/health', async (req, res) => {
+    const info = {
+        env_check: {
+            SUPABASE_HOST: process.env.SUPABASE_HOST ? '✅ set' : '❌ missing',
+            SUPABASE_PORT: process.env.SUPABASE_PORT || '(default)',
+            SUPABASE_DB: process.env.SUPABASE_DB || '(default)',
+            SUPABASE_USER: process.env.SUPABASE_USER ? '✅ set' : '❌ missing',
+            SUPABASE_PASSWORD: process.env.SUPABASE_PASSWORD ? '✅ set (' + process.env.SUPABASE_PASSWORD.length + ' chars)' : '❌ missing',
+            SUPABASE_SSL: process.env.SUPABASE_SSL || '(default)',
+        },
+        db_test: null
+    };
+    try {
+        const result = await sql`SELECT 1 as ok`;
+        info.db_test = '✅ Connected successfully';
+    } catch (err) {
+        info.db_test = '❌ ' + err.message;
+    }
+    res.json(info);
+});
+
 // ================= API CRUD CHO BẢNG CLOCK =================
 
 app.get('/api/clock', async (req, res) => {
