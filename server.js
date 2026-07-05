@@ -206,13 +206,15 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS CALIBRATION_POINTS (
         ID INTEGER PRIMARY KEY AUTOINCREMENT,
         CERT_NO TEXT,
+        EQUIPMENT_NAME TEXT,
         PARAMETER_NAME TEXT,
         CAL_POINT TEXT,
         AS_FOUND_VALUE TEXT,
+        REFERENCE_VALUE TEXT,
         UNCERTAINTY TEXT,
         TOLERANCE TEXT,
         CONFORMITY TEXT,
-        REF_EQUIPMENT TEXT, -- Hoặc STANDARD_EQUIPMENT tùy thuộc vào cấu trúc của generate_pdf.js
+        REF_EQUIPMENT TEXT,
         FOREIGN KEY(CERT_NO) REFERENCES CERTIFICATES(CERT_NO) ON DELETE CASCADE
     )`);
 
@@ -261,6 +263,7 @@ db.serialize(() => {
         PARAMETER_NAME TEXT,
         CAL_POINT TEXT,
         AS_FOUND_VALUE TEXT,
+        REFERENCE_VALUE TEXT,
         UNCERTAINTY TEXT,
         TOLERANCE TEXT,
         CONFORMITY TEXT,
@@ -277,8 +280,11 @@ db.serialize(() => {
     db.run(`ALTER TABLE EQUIPMENT_TEMPLATES ADD COLUMN REF_STANDARD TEXT`, () => {});
     db.run(`ALTER TABLE TEMPLATE_POINTS ADD COLUMN AS_FOUND_VALUE TEXT`, () => {});
     db.run(`ALTER TABLE TEMPLATE_POINTS ADD COLUMN STANDARD_EQUIPMENT TEXT`, () => {});
+    db.run(`ALTER TABLE TEMPLATE_POINTS ADD COLUMN REFERENCE_VALUE TEXT`, () => {});
     db.run(`ALTER TABLE CALIBRATION_POINTS ADD COLUMN REF_EQUIPMENT TEXT`, () => {});
-    db.run(`ALTER TABLE CALIBRATION_POINTS ADD COLUMN STANDARD_EQUIPMENT TEXT`, () => {}); // Bổ sung cột đồng bộ theo Yêu cầu số 4
+    db.run(`ALTER TABLE CALIBRATION_POINTS ADD COLUMN STANDARD_EQUIPMENT TEXT`, () => {});
+    db.run(`ALTER TABLE CALIBRATION_POINTS ADD COLUMN REFERENCE_VALUE TEXT`, () => {});
+    db.run(`ALTER TABLE CALIBRATION_POINTS ADD COLUMN EQUIPMENT_NAME TEXT`, () => {});
     db.run(`ALTER TABLE CERTIFICATES ADD COLUMN CUSTOMER_ADDRESS TEXT`, () => {});
 
     // Migration bảng CUSTOMERS
@@ -287,6 +293,78 @@ db.serialize(() => {
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN CONTACT TEXT`,         () => {});
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN TAX TEXT`,             () => {});
     db.run(`ALTER TABLE CUSTOMERS ADD COLUMN EMAIL TEXT`,           () => {});
+
+    // ═══════════════════════════════════════════════════════════════
+    // MIGRATION: Dọn dữ liệu CALIBRATION_POINTS cũ có EQUIPMENT_NAME trống/NULL
+    // Kể từ bản fix SQL, các dòng EQUIPMENT_NAME = '' / NULL sẽ không còn
+    // được truy vấn nữa. Cần gán EQUIPMENT_NAME = INSTRUMENT_NAME từ
+    // CERTIFICATES nếu có thể, hoặc xóa nếu không xác định được.
+    // ═══════════════════════════════════════════════════════════════
+    db.all(`
+        SELECT DISTINCT cp.CERT_NO, c.INSTRUMENT_NAME
+        FROM CALIBRATION_POINTS cp
+        LEFT JOIN CERTIFICATES c ON cp.CERT_NO = c.CERT_NO
+        WHERE cp.EQUIPMENT_NAME IS NULL OR cp.EQUIPMENT_NAME = ''
+    `, [], (migrateErr, orphanCerts) => {
+        if (migrateErr) {
+            console.error('❌ Migration: Lỗi đọc dữ liệu cũ CALIBRATION_POINTS:', migrateErr.message);
+            return;
+        }
+        if (!orphanCerts || orphanCerts.length === 0) {
+            console.log('✅ Migration: Không có dòng CALIBRATION_POINTS cũ cần dọn.');
+            return;
+        }
+
+        console.log(`⚠️  Migration: Phát hiện ${orphanCerts.length} chứng nhận có CALIBRATION_POINTS với EQUIPMENT_NAME trống. Đang xử lý...`);
+
+        let updatedCount = 0;
+        let deletedCount = 0;
+        let idx = 0;
+
+        const next = () => {
+            if (idx >= orphanCerts.length) {
+                console.log(`✅ Migration hoàn tất: ${updatedCount} dòng cập nhật, ${deletedCount} dòng xóa.`);
+                return;
+            }
+
+            const row = orphanCerts[idx++];
+            const certNo = row.CERT_NO;
+            const instrName = row.INSTRUMENT_NAME || '';
+
+            if (instrName) {
+                // Có INSTRUMENT_NAME → gán EQUIPMENT_NAME cho tất cả dòng NULL/empty của cert này
+                db.run(
+                    "UPDATE CALIBRATION_POINTS SET EQUIPMENT_NAME = ? WHERE CERT_NO = ? AND (EQUIPMENT_NAME IS NULL OR EQUIPMENT_NAME = '')",
+                    [instrName, certNo],
+                    function(updErr) {
+                        if (updErr) {
+                            console.error(`❌ Migration: Lỗi cập nhật CERT_NO=${certNo}:`, updErr.message);
+                        } else {
+                            updatedCount += this.changes || 0;
+                            console.log(`  → Đã gán EQUIPMENT_NAME = "${instrName}" cho ${this.changes} dòng (CERT_NO=${certNo})`);
+                        }
+                        next();
+                    }
+                );
+            } else {
+                // Không có CERTIFICATES tương ứng → xóa toàn bộ dòng orphan của cert này
+                db.run(
+                    "DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND (EQUIPMENT_NAME IS NULL OR EQUIPMENT_NAME = '')",
+                    [certNo],
+                    function(delErr) {
+                        if (delErr) {
+                            console.error(`❌ Migration: Lỗi xóa orphan CERT_NO=${certNo}:`, delErr.message);
+                        } else {
+                            deletedCount += this.changes || 0;
+                            console.log(`  → Đã xóa ${this.changes} dòng orphan (CERT_NO=${certNo}) — không tìm thấy CERTIFICATES tương ứng.`);
+                        }
+                        next();
+                    }
+                );
+            }
+        };
+        next();
+    });
 });
 
 // Hàm tiện ích tự động ghi nhật ký hệ thống ngầm
@@ -535,10 +613,19 @@ app.delete('/api/projects/:id', (req, res) => {
 
 app.get('/api/calibration/:certNo', (req, res) => {
     const certNo = req.params.certNo;
+    const eqName = req.query.equipment_name || '';
     db.get("SELECT * FROM CERTIFICATES WHERE CERT_NO = ?", [certNo], (err, cert) => {
         if (err || !cert) return res.status(404).json({ success: false, message: "Không tìm thấy số GCN" });
 
-        db.all("SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ?", [certNo], (err, points) => {
+        let pointsQuery = "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ?";
+        let pointsParams = [certNo];
+        if (eqName) {
+            // CHỈ lấy points của đúng thiết bị này — không OR với NULL/rỗng
+            pointsQuery = "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ?";
+            pointsParams = [certNo, eqName];
+        }
+
+        db.all(pointsQuery, pointsParams, (err, points) => {
             db.all("SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ?", [certNo], (err, standards) => {
                 res.json({ cert, points, standards });
             });
@@ -568,20 +655,27 @@ app.post('/api/calibration/save', (req, res) => {
         certStmt.finalize();
         
         db.run("DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ?", [data.certNo]);
-        db.run("DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ?", [data.certNo], (err) => {
+        // Xóa points cũ của thiết bị này (hoặc tất cả nếu không có tên thiết bị)
+        const deletePointsSQL = data.equipmentName 
+            ? "DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ?"
+            : "DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ?";
+        const deletePointsParams = data.equipmentName ? [data.certNo, data.equipmentName] : [data.certNo];
+        db.run(deletePointsSQL, deletePointsParams, (err) => {
             if (err) return res.status(500).json({ success: false, error: err.message });
             
+            const eqName = data.equipmentName || '';
             const pointStmt = db.prepare(`
                 INSERT INTO CALIBRATION_POINTS 
-                (CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT) 
-                VALUES (?,?,?,?,?,?,?,?,?)
+                (CERT_NO, EQUIPMENT_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, REFERENCE_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT) 
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
             `);
             
             if (data.points && Array.from(data.points).length > 0) {
                 data.points.forEach(p => {
                     // Đảm bảo đồng bộ lưu cả hai trường tương đương phòng ngừa
                     const refEqValue = p.refEq || p.standardEquipment || p.refEquipment || '';
-                    pointStmt.run(data.certNo, p.parameterName, p.calPoint, p.asFoundValue, p.uncertainty, p.tolerance, p.conformity, refEqValue, refEqValue);
+                    const refValValue = p.referenceValue || p.refValue || p.reference_value || '';
+                    pointStmt.run(data.certNo, eqName, p.parameterName, p.calPoint, p.asFoundValue, refValValue, p.uncertainty, p.tolerance, p.conformity, refEqValue, refEqValue);
                 });
             }
             
@@ -663,8 +757,8 @@ app.post('/api/equipment', (req, res) => {
 
                 if (points && points.length > 0) {
                     const stmtPoint = db.prepare(`
-                        INSERT INTO TEMPLATE_POINTS (TEMPLATE_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, STANDARD_EQUIPMENT)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO TEMPLATE_POINTS (TEMPLATE_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, REFERENCE_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, STANDARD_EQUIPMENT)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `);
 
                     points.forEach(p => {
@@ -673,6 +767,7 @@ app.post('/api/equipment', (req, res) => {
                             p.parameter || p.parameterName || '',
                             p.value || p.calPoint || '',
                             p.asFoundValue || '',
+                            p.referenceValue || p.refValue || '',
                             p.uncertainty || '',
                             p.tolerance || '',
                             p.conformity || '',
@@ -841,22 +936,28 @@ function saveCalibrationDataToDB(data, cert_no, callback) {
         ]);
         certStmt.finalize();
 
-        db.run("DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ?", [cert_no]);
+        const eqName = data.equipmentName || data.equipment_name || '';
+        // Xóa points cũ của đúng thiết bị này (không OR với NULL/rỗng để tránh rò dữ liệu)
+        const delPtSQL = eqName 
+            ? "DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ?"
+            : "DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ?";
+        const delPtParams = eqName ? [cert_no, eqName] : [cert_no];
+        db.run(delPtSQL, delPtParams);
         db.run("DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ?", [cert_no]);
 
         const points = data.points || [];
         if (points.length > 0) {
             const ptStmt = db.prepare(`
                 INSERT INTO CALIBRATION_POINTS
-                (CERT_NO, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT)
-                VALUES (?,?,?,?,?,?,?,?,?)
+                (CERT_NO, EQUIPMENT_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, REFERENCE_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
             `);
-            points.forEach(p => {
-                const standardVal = p.refEq || p.standardEquipment || p.standard_equipment || '';
-                ptStmt.run([
-                    cert_no, p.parameterName || p.param || '', p.calPoint || p.point || '', p.asFoundValue || p.found || '',
-                    p.uncertainty || p.unc || '', p.tolerance || p.tol || '', p.conformity || p.conf || '', standardVal, standardVal
-                ]);
+            points.forEach(p => {                    const standardVal = p.refEq || p.standardEquipment || p.standard_equipment || '';
+                    ptStmt.run([
+                        cert_no, eqName, p.parameterName || p.param || '', p.calPoint || p.point || '', p.asFoundValue || p.found || '',
+                        p.referenceValue || p.refValue || p.reference_value || '',
+                        p.uncertainty || p.unc || '', p.tolerance || p.tol || '', p.conformity || p.conf || '', standardVal, standardVal
+                    ]);
             });
             ptStmt.finalize();
         }
@@ -897,8 +998,9 @@ app.post('/api/calibration/export-pdf', (req, res) => {
         const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
         const baseUrl = getBaseUrl();
         const downloadUrl = `${baseUrl}/static/${fileName}`;
+        const eqName = data.equipmentName || data.equipment_name || '';
 
-        exec(`node "${scriptPath}" "${cert_no}" "${downloadUrl}"`, (error, stdout, stderr) => {
+        exec(`node "${scriptPath}" "${cert_no}" "${downloadUrl}" "${eqName}"`, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Lỗi thực thi generate_pdf.js: ${error.message}`);
                 return res.status(500).json({ success: false, message: "Lỗi hệ thống khi sinh PDF." });

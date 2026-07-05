@@ -504,6 +504,7 @@
                         <th style="width: 10%;">Điểm HC<br><span>Cal. Points</span></th>
                         <th colspan="3" style="width: 18%;">Giá trị đo được<br><span>As Found (lần 1 / 2 / 3)</span></th>
                         <th style="width: 8%;">KĐBĐ ±<br><span>Uncertainty</span></th>
+                        <th style="width: 8%;">Giá trị tham chiếu<br><span>Reference Value</span></th>
                         <th style="width: 8%;">Dung sai<br><span>Tolerance</span></th>
                         <th style="width: 8%;">Phù hợp<br><span>Conformity</span></th>
                         <th style="width: 18%;">Thiết bị chuẩn<br><span>Standard Equipment</span></th>
@@ -1100,6 +1101,7 @@ async function fetchEquipmentTemplates() {
                         pt.CAL_POINT || pt.calPoint || pt.point || pt.value || '',
                         pt.AS_FOUND_VALUE || pt.asFoundValue || pt.v1 || '',
                         pt.UNCERTAINTY || pt.uncertainty || '',
+                        pt.REFERENCE_VALUE || pt.refValue || '',
                         pt.TOLERANCE || pt.tolerance || '',
                         pt.CONFORMITY || pt.conformity || ''
                     );
@@ -1110,6 +1112,7 @@ async function fetchEquipmentTemplates() {
                         pt.CAL_POINT || pt.calPoint || pt.point || pt.value || '',
                         pt.AS_FOUND_VALUE || pt.asFoundValue || pt.v1 || '',
                         pt.UNCERTAINTY || pt.uncertainty || '',
+                        pt.REFERENCE_VALUE || pt.refValue || '',
                         pt.TOLERANCE || pt.tolerance || '',
                         pt.CONFORMITY || pt.conformity || ''
                     );
@@ -1133,7 +1136,7 @@ async function fetchEquipmentTemplates() {
     }
 
     // Hàm render các cột giá trị trung gian
-    function renderCells(p, v1, unc, tol, conf) {
+    function renderCells(p, v1, unc, refVal, tol, conf) {
         let val1 = v1 || '', val2 = '', val3 = '';
         if (typeof v1 === 'string' && v1.includes(' / ')) {
             const parts = v1.split(' / ');
@@ -1143,15 +1146,17 @@ async function fetchEquipmentTemplates() {
         }
 
         const displayUnc = unc || '0.3';
+        const displayRefVal = refVal || '';
         const displayTol = tol || '± 3';
 
         return `
             <td class="point-cell" style="padding:4px;font-weight:600;background:#f8fafc;"><input type="text" value="${p}" class="cell-input point-input" style="font-weight:600;text-align:center;"></td>
-            <td style="padding:4px;"><input type="text" value="${val1}" class="cell-input v1" placeholder="Lần 1"></td>
-            <td style="padding:4px;"><input type="text" value="${val2}" class="cell-input v2" placeholder="Lần 2"></td>
-            <td style="padding:4px;"><input type="text" value="${val3}" class="cell-input v3" placeholder="Lần 3"></td>
-            <td style="padding:4px;"><input type="text" value="${displayUnc}" class="cell-input unc"></td>
-            <td style="padding:4px;"><input type="text" value="${displayTol}" class="cell-input tol"></td>
+            <td style="padding:4px;"><input type="text" value="${val1}" class="cell-input v1" placeholder="Lần 1" oninput="calculateConformity(this.closest('tr'))"></td>
+            <td style="padding:4px;"><input type="text" value="${val2}" class="cell-input v2" placeholder="Lần 2" oninput="calculateConformity(this.closest('tr'))"></td>
+            <td style="padding:4px;"><input type="text" value="${val3}" class="cell-input v3" placeholder="Lần 3" oninput="calculateConformity(this.closest('tr'))"></td>
+            <td style="padding:4px;"><input type="text" value="${displayUnc}" class="cell-input unc" oninput="calculateConformity(this.closest('tr'))"></td>
+            <td style="padding:4px;"><input type="text" value="${displayRefVal}" class="cell-input ref-val" placeholder="Giá trị tham chiếu" oninput="calculateConformity(this.closest('tr'))"></td>
+            <td style="padding:4px;"><input type="text" value="${displayTol}" class="cell-input tol" oninput="calculateConformity(this.closest('tr'))"></td>
             <td style="padding:4px;"><input type="text" value="${conf}" class="cell-input conf" style="font-weight:600;"></td>
         `;
     }
@@ -1170,7 +1175,7 @@ async function fetchEquipmentTemplates() {
                 <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:'Inter',sans-serif; font-weight:600; font-size:13px; resize:vertical; min-height:36px;" placeholder="Tên thông số (Parameter)"></textarea>
             </td>
         `;
-        html += renderCells('', '', '', '', '');
+        html += renderCells('', '', '', '', '', '');
         // placeholder cho ô standard-eq-cell (sẽ được gắn sau)
         html += `<td class="standard-eq-cell" style="vertical-align:middle;min-width:140px;"></td>`;
         html += `<td style="padding:4px;"><button onclick="deleteRow(this)" style="color:#e53e3e;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;padding:4px 8px;transition:all 0.15s;line-height:1;" onmouseover="this.style.background='#fed7d7';this.style.borderColor='#fc8181'" onmouseout="this.style.background='#fff5f5';this.style.borderColor='#fed7d7'">✖</button></td>`;
@@ -1227,6 +1232,7 @@ async function fetchEquipmentTemplates() {
                 calPoint: pointInput ? pointInput.value : '',
                 asFoundValue: mergedAsFound,
                 uncertainty: row.querySelector('.unc') ? row.querySelector('.unc').value : '',
+                referenceValue: row.querySelector('.ref-val') ? row.querySelector('.ref-val').value : '',
                 tolerance:   row.querySelector('.tol') ? row.querySelector('.tol').value : '',
                 conformity:  row.querySelector('.conf') ? row.querySelector('.conf').value : ''
             });
@@ -1275,6 +1281,7 @@ async function fetchEquipmentTemplates() {
                     PARAMETER_NAME: p.parameterName,
                     CAL_POINT: p.calPoint,
                     AS_FOUND_VALUE: p.asFoundValue,
+                    REFERENCE_VALUE: p.referenceValue,
                     UNCERTAINTY: p.uncertainty,
                     TOLERANCE: p.tolerance,
                     CONFORMITY: p.conformity,
@@ -1528,6 +1535,71 @@ async function fetchEquipmentTemplates() {
             }, 350);
         });
     }
+
+/* ====== TINH TOAN DO PHU HOP TU DONG (Copy from project.html) ====== */
+function calculateConformity(row) {
+  try {
+    var v1 = parseFloat((row.querySelector('.v1')||{}).value || '');
+    var v2 = parseFloat((row.querySelector('.v2')||{}).value || '');
+    var v3 = parseFloat((row.querySelector('.v3')||{}).value || '');
+    var refVal = parseFloat((row.querySelector('.ref-val')||{}).value || '');
+    var uncert = parseFloat((row.querySelector('.unc')||{}).value || '');
+    var tolVal = (row.querySelector('.tol')||{}).value || '';
+
+    var vals = [];
+    if (!isNaN(v1)) vals.push(v1);
+    if (!isNaN(v2)) vals.push(v2);
+    if (!isNaN(v3)) vals.push(v3);
+    var avg = vals.length > 0 ? vals.reduce(function(a,b){return a+b;}, 0) / vals.length : NaN;
+
+    if (isNaN(avg) && vals.length === 0) {
+      var combined = (row.querySelector('.v1')||{}).value || '';
+      if (combined) {
+        var parts = combined.split('/');
+        var nums = [];
+        for (var pi = 0; pi < parts.length; pi++) {
+          var n = parseFloat(parts[pi].trim());
+          if (!isNaN(n)) nums.push(n);
+        }
+        if (nums.length > 0) {
+          avg = nums.reduce(function(a,b){return a+b;}, 0) / nums.length;
+        }
+      }
+    }
+
+    var e = !isNaN(avg) && !isNaN(refVal) ? Math.abs(avg - refVal) : NaN;
+    var U = !isNaN(uncert) ? Math.abs(uncert) : NaN;
+
+    var T = NaN;
+    var trimmed = tolVal.trim();
+    if (trimmed && trimmed !== 'N/A' && trimmed !== '--' && trimmed !== '-') {
+      var tolClean = tolVal.replace(/[\u00b1+\/\-\s]/g, '').trim();
+      var tolNum = parseFloat(tolClean);
+      if (!isNaN(tolNum)) T = Math.abs(tolNum);
+    }
+
+    var conformity = '';
+    if (isNaN(T)) {
+      conformity = 'D';
+    } else if (!isNaN(e) && !isNaN(U)) {
+      if (e + U <= T) {
+        conformity = 'A';
+      } else if (e - U > T) {
+        conformity = 'B';
+      } else {
+        conformity = 'C';
+      }
+    } else if (!isNaN(e)) {
+      conformity = e <= T ? 'A' : 'B';
+    }
+
+    if (conformity) {
+      var confEl = row.querySelector('.conf');
+      if (confEl) confEl.value = conformity;
+    }
+  } catch(e) {}
+}
+
 </script>
 </body>
 </html>
