@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const os = require('os');
+const bcrypt = require('bcrypt');
 // exec removed — generator functions are called directly (not via child_process)
 const { generatePDF } = require('./generate_pdf');
 const { generateExcel } = require('./generate_excel');
@@ -10,6 +11,8 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const app = express();
 const port = process.env.PORT || 18080;
+
+const SALT_ROUNDS = 10;
 
 // Database connection (centralized) - Gọi file db.js mới của bạn
 const sql = require('./db');
@@ -241,8 +244,32 @@ async function logActivity(userName, actionType, targetTable, targetId, descript
     }
 }
 
+// Seed user admin mặc định nếu USERS trống
+async function seedDefaultUsers() {
+    try {
+        // Always ensure admin account exists (re-hash if necessary)
+        const adminExists = await sql`SELECT USERNAME FROM USERS WHERE USERNAME = 'admin'`;
+        if (adminExists.length > 0) {
+            // Re-hash admin password on every startup for migration from plaintext
+            const hashedPw = await bcrypt.hash('admin', SALT_ROUNDS);
+            await sql`UPDATE USERS SET PASSWORD = ${hashedPw}, FULL_NAME = 'Quản trị viên', ROLE = 'admin' WHERE USERNAME = 'admin'`;
+            console.log('✅ Đã cập nhật mật khẩu admin');
+        } else {
+            const hashedPassword = await bcrypt.hash('admin', SALT_ROUNDS);
+            await sql`
+                INSERT INTO USERS (USERNAME, PASSWORD, FULL_NAME, ROLE)
+                VALUES ('admin', ${hashedPassword}, 'Quản trị viên', 'admin')
+                ON CONFLICT (USERNAME) DO NOTHING
+            `;
+            console.log("✅ Đã tạo tài khoản admin mặc định (admin/admin)");
+        }
+    } catch (err) {
+        console.error("❌ Lỗi seed user mặc định:", err.message);
+    }
+}
+
 // Gọi tiến trình đồng bộ cấu trúc database lúc khởi động
-initDatabaseSchema();
+initDatabaseSchema().then(() => seedDefaultUsers());
 
 // ================= API CRUD CHO BẢNG CLOCK =================
 
@@ -779,13 +806,57 @@ app.get('/api/server/info', (req, res) => {
     res.json({ baseUrl: getBaseUrl(), lanIp: getLANIP(), port: port, publicUrl: process.env.PUBLIC_URL || null });
 });
 
-app.post('/api/auth/login', async (req, res) => {
-    const { username, password } = req.body;
+// ================= AUTH — LOGIN & REGISTER =================
+
+app.post('/api/auth/register', async (req, res) => {
+    let { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: "Vui lòng nhập tên đăng nhập và mật khẩu!" });
+    }
+    username = username.trim().toLowerCase();
+    if (username.length < 3) {
+        return res.status(400).json({ success: false, message: "Tên đăng nhập phải có ít nhất 3 ký tự!" });
+    }
+    if (!/^[a-zA-Z0-9_.-]+$/.test(username)) {
+        return res.status(400).json({ success: false, message: "Tên đăng nhập chỉ được chứa chữ cái, số, dấu gạch dưới và dấu gạch ngang!" });
+    }
+    if (password.length < 4) {
+        return res.status(400).json({ success: false, message: "Mật khẩu phải có ít nhất 4 ký tự!" });
+    }
     try {
-        const rows = await sql`SELECT * FROM USERS WHERE USERNAME = ${username} AND PASSWORD = ${password}`;
-        if (rows.length === 0) return res.status(401).json({ success: false, message: "Tài khoản hoặc mật khẩu không chính xác!" });
-        
+        const existing = await sql`SELECT USERNAME FROM USERS WHERE USERNAME = ${username}`;
+        if (existing.length > 0) {
+            return res.status(409).json({ success: false, message: "Tên đăng nhập đã tồn tại!" });
+        }
+        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+        await sql`
+            INSERT INTO USERS (USERNAME, PASSWORD, FULL_NAME, ROLE)
+            VALUES (${username}, ${hashedPassword}, ${username}, 'user')
+        `;
+        logActivity(username, "REGISTER", "USERS", username, `Tài khoản mới đăng ký: ${username}`);
+        res.json({ success: true, message: "Đăng ký tài khoản thành công!" });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    let { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: "Vui lòng nhập tên đăng nhập và mật khẩu!" });
+    }
+    username = username.trim().toLowerCase();
+    try {
+        const rows = await sql`SELECT * FROM USERS WHERE USERNAME = ${username}`;
+        if (rows.length === 0) {
+            return res.status(401).json({ success: false, message: "Tài khoản hoặc mật khẩu không chính xác!" });
+        }
         const user = rows[0];
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        if (!passwordMatch) {
+            return res.status(401).json({ success: false, message: "Tài khoản hoặc mật khẩu không chính xác!" });
+        }
+        logActivity(user.full_name || username, "LOGIN", "USERS", username, `Đăng nhập hệ thống`);
         res.json({ success: true, user: { username: user.username, fullName: user.full_name, role: user.role } });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });

@@ -34,6 +34,7 @@
         .logo-area h1 { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
         .logo-area h1 span { color: #80c0c0; }
         .logo-area p { font-size: 13px; color: rgba(255,255,255,0.45); margin-top: 6px; }
+        .logo-area .subtitle { font-size: 12px; color: rgba(255,255,255,0.3); margin-top: 2px; letter-spacing: 0.02em; }
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
         .input-wrap { position: relative; }
@@ -53,10 +54,17 @@
         .spinner { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 20px; height: 20px; border: 2.5px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
         @keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
         .error-msg { color: #fca5a5; font-size: 13px; font-weight: 500; margin-top: 14px; text-align: center; display: none; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 10px 14px; }
+        .success-msg { color: #86efac; font-size: 13px; font-weight: 500; margin-top: 14px; text-align: center; display: none; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); border-radius: 8px; padding: 10px 14px; }
         .login-footer { text-align: center; margin-top: 24px; }
         .login-footer p { font-size: 12px; color: rgba(255,255,255,0.25); }
+        .auth-toggle { text-align: center; margin-top: 18px; }
+        .auth-toggle a { color: rgba(255,255,255,0.4); font-size: 13px; cursor: pointer; text-decoration: none; transition: color 0.2s; }
+        .auth-toggle a:hover { color: #80c0c0; }
+        .auth-toggle a i { margin-right: 4px; font-size: 11px; }
         .flash-overlay { position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(0,128,128,0.15), transparent 70%); opacity: 0; pointer-events: none; transition: opacity 0.5s; border-radius: 12px; }
         .flash-overlay.active { opacity: 1; }
+        .form-switch { transition: opacity 0.25s ease, transform 0.25s ease; }
+        .form-switch.hidden { display: none; opacity: 0; transform: translateY(8px); }
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(30px); }
             to   { opacity: 1; transform: translateY(0); }
@@ -65,9 +73,9 @@
     </style>
 </head>
 <body>
-    <div class="bg-orb" style="animation: orbFloat 20s ease-in-out infinite alternate;"></div>
-    <div class="bg-orb" style="animation: orbFloat 20s ease-in-out infinite alternate; animation-delay: -7s;"></div>
-    <div class="bg-orb" style="animation: orbFloat 20s ease-in-out infinite alternate; animation-delay: -14s;"></div>
+    <div class="bg-orb"></div>
+    <div class="bg-orb" style="animation-delay: -7s;"></div>
+    <div class="bg-orb" style="animation-delay: -14s;"></div>
     <div class="grid-overlay"></div>
     <div class="login-wrapper">
         <div class="login-card">
@@ -77,7 +85,9 @@
                 <h1>Lab<span>Master</span></h1>
                 <p>Enterprise Calibration System</p>
             </div>
-            <form id="login-form" onsubmit="handleLogin(event)">
+
+            <!-- Login Form -->
+            <form id="login-form" class="form-switch" onsubmit="handleLogin(event)">
                 <div class="form-group">
                     <label>Tên đăng nhập</label>
                     <div class="input-wrap">
@@ -97,7 +107,45 @@
                     <span class="spinner"></span>
                 </button>
                 <div id="error-box" class="error-msg"></div>
+                <div class="auth-toggle">
+                    <a onclick="toggleAuthMode()"><i class="fas fa-user-plus"></i> Chưa có tài khoản? Đăng ký ngay</a>
+                </div>
             </form>
+
+            <!-- Register Form -->
+            <form id="register-form" class="form-switch hidden" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label>Tên đăng nhập</label>
+                    <div class="input-wrap">
+                        <input type="text" id="reg-username" placeholder="Chọn tên đăng nhập..." autocomplete="off" required>
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Mật khẩu</label>
+                    <div class="input-wrap">
+                        <input type="password" id="reg-password" placeholder="Tạo mật khẩu..." autocomplete="new-password" required>
+                        <i class="fas fa-lock"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Nhập lại mật khẩu</label>
+                    <div class="input-wrap">
+                        <input type="password" id="reg-confirm" placeholder="Nhập lại mật khẩu..." autocomplete="new-password" required>
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+                <button type="submit" class="btn-login" id="register-btn">
+                    <span class="btn-text">Đăng Ký</span>
+                    <span class="spinner"></span>
+                </button>
+                <div id="reg-error-box" class="error-msg"></div>
+                <div id="reg-success-box" class="success-msg"></div>
+                <div class="auth-toggle">
+                    <a onclick="toggleAuthMode()"><i class="fas fa-sign-in-alt"></i> Đã có tài khoản? Đăng nhập</a>
+                </div>
+            </form>
+
             <div class="login-footer">
                 <p>&copy; 2026 LabMaster System. All rights reserved.</p>
             </div>
@@ -106,4 +154,153 @@
     <script>
         const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
             ? 'http://localhost:18080' : window.location.origin;
-        async function handleLogin(
+
+        function showFlash() {
+            const el = document.getElementById('flash');
+            el.classList.add('active');
+            setTimeout(() => el.classList.remove('active'), 500);
+        }
+
+        function toggleAuthMode() {
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const isLoginHidden = loginForm.classList.contains('hidden');
+            
+            loginForm.classList.toggle('hidden');
+            registerForm.classList.toggle('hidden');
+            
+            // Clear form fields and messages
+            document.getElementById('error-box').style.display = 'none';
+            document.getElementById('reg-error-box').style.display = 'none';
+            document.getElementById('reg-success-box').style.display = 'none';
+            
+            // Reset register form when switching to login
+            if (!isLoginHidden) {
+                document.getElementById('register-form').reset();
+            }
+            
+            showFlash();
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('login-btn');
+            const errBox = document.getElementById('error-box');
+
+            if (!username || !password) {
+                errBox.textContent = 'Vui lòng nhập đầy đủ thông tin!';
+                errBox.style.display = 'block';
+                return;
+            }
+
+            btn.classList.add('loading');
+            errBox.style.display = 'none';
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showFlash();
+                    localStorage.setItem('labmaster_user', JSON.stringify(data.user));
+                    setTimeout(() => { window.location.href = '/index.html'; }, 400);
+                } else {
+                    errBox.textContent = data.message || 'Đăng nhập thất bại!';
+                    errBox.style.display = 'block';
+                }
+            } catch (err) {
+                errBox.textContent = 'Lỗi kết nối đến máy chủ!';
+                errBox.style.display = 'block';
+            } finally {
+                btn.classList.remove('loading');
+            }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const username = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value;
+            const confirm = document.getElementById('reg-confirm').value;
+            const btn = document.getElementById('register-btn');
+            const errBox = document.getElementById('reg-error-box');
+            const successBox = document.getElementById('reg-success-box');
+
+            errBox.style.display = 'none';
+            successBox.style.display = 'none';
+
+            if (!username || !password || !confirm) {
+                errBox.textContent = 'Vui lòng điền đầy đủ thông tin!';
+                errBox.style.display = 'block';
+                return;
+            }
+            if (username.length < 3) {
+                errBox.textContent = 'Tên đăng nhập phải có ít nhất 3 ký tự!';
+                errBox.style.display = 'block';
+                return;
+            }
+            if (password.length < 4) {
+                errBox.textContent = 'Mật khẩu phải có ít nhất 4 ký tự!';
+                errBox.style.display = 'block';
+                return;
+            }
+            if (password !== confirm) {
+                errBox.textContent = 'Mật khẩu nhập lại không khớp!';
+                errBox.style.display = 'block';
+                return;
+            }
+
+            btn.classList.add('loading');
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    successBox.textContent = 'Đăng ký thành công! Chuyển đến đăng nhập...';
+                    successBox.style.display = 'block';
+                    showFlash();
+                    setTimeout(() => {
+                        document.getElementById('reg-username').value = '';
+                        document.getElementById('reg-password').value = '';
+                        document.getElementById('reg-confirm').value = '';
+                        toggleAuthMode();
+                        document.getElementById('username').value = username;
+                        document.getElementById('password').focus();
+                    }, 1200);
+                } else {
+                    errBox.textContent = data.message || 'Đăng ký thất bại!';
+                    errBox.style.display = 'block';
+                }
+            } catch (err) {
+                errBox.textContent = 'Lỗi kết nối đến máy chủ!';
+                errBox.style.display = 'block';
+            } finally {
+                btn.classList.remove('loading');
+            }
+        }
+
+        // Auto-fill username from register
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user is already logged in
+            const saved = localStorage.getItem('labmaster_user');
+            if (saved) {
+                try {
+                    const user = JSON.parse(saved);
+                    if (user && user.username) {
+                        window.location.href = '/index.html';
+                        return;
+                    }
+                } catch(e) {}
+            }
+        });
+    </script>
+</body>
+</html>
