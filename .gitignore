@@ -1,0 +1,27 @@
+# Environment variables (chứa Supabase credentials)
+.env
+
+# Node dependencies
+node_modules/
+
+# Generated static files (PDF, Excel, Word generated at runtime)
+static/*.pdf
+static/*.xlsx
+static/*.docx
+
+# Database files (SQLite — local dev only)
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.agents/
+build/

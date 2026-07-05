@@ -7,8 +7,24 @@
 
 const fs = require('fs');
 const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
 const QRCode = require('qrcode');
+
+// Database connection (centralized) — Postgres via db.js
+const db = require('./db');
+
+// Adapter: SQLite ? → PostgreSQL $1, $2 for backward-compatible queries
+async function dbGet(query, params) {
+  const pgQuery = query.replace(/\?/g, () => `$${++dbGet._idx}`);
+  dbGet._idx = 0;
+  const rows = await db.unsafe(pgQuery, params);
+  return rows[0] || null;
+}
+async function dbAll(query, params) {
+  const pgQuery = query.replace(/\?/g, () => `$${++dbAll._idx}`);
+  dbAll._idx = 0;
+  return await db.unsafe(pgQuery, params);
+}
+
 const {
     Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
     AlignmentType, WidthType, BorderStyle, PageBorders,
@@ -18,35 +34,10 @@ const {
 // ─── CLI ───────────────────────────────────────────────────────────
 const certNo = process.argv[2];
 let downloadUrl = process.argv[3] || '';
-if (!certNo) {
-    console.error('Lỗi: node generate_docx.js <CERT_NO> [download_url]');
-    process.exit(1);
-}
-// Auto-generate download URL if not provided (for QR code)
-if (!downloadUrl) {
-    const SAFE_N = certNo.replace(/[^a-zA-Z0-9]/g, '_');
-    downloadUrl = `http://localhost:18080/static/GCN_${SAFE_N}.docx`;
-}
 
 const BASE_DIR   = __dirname;
-const DB_PATH    = path.join(BASE_DIR, 'labmaster_enterprise.db');
-const STATIC_DIR = path.join(BASE_DIR, 'static');
-if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
 
-const SAFE_NAME   = certNo.replace(/[^a-zA-Z0-9]/g, '_');
-const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.docx`);
 
-const db = new sqlite3.Database(DB_PATH, (err) => {
-    if (err) { console.error('Lỗi SQLite:', err.message); process.exit(1); }
-});
-db.configure("busyTimeout", 5000);
-
-function dbGet(sql, params) {
-    return new Promise((resolve, reject) => db.get(sql, params, (err, row) => err ? reject(err) : resolve(row)));
-}
-function dbAll(sql, params) {
-    return new Promise((resolve, reject) => db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows)));
-}
 
 function parseDate(d) {
     if (!d) return '';
@@ -135,22 +126,33 @@ function borderCell(children, opts = {}) {
 }
 
 // ─── MAIN ──────────────────────────────────────────────────────────
-async function main() {
+async function main(opts) {
     try {
-        const cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [certNo]);
+        // Accept params from both CLI (process.argv) and direct call (opts object)
+        const cNo = (opts && opts.certNo) || certNo;
+        if (!cNo) { console.error('Lỗi: node generate_docx.js <CERT_NO> [download_url]'); process.exit(1); }
+        // Resolve downloadUrl: ưu tiên opts, fallback process.argv
+        const dUrl = (opts && opts.downloadUrl) || downloadUrl || '';
+        const finalDUrl = dUrl || `http://localhost:18080/static/GCN_${cNo.replace(/[^a-zA-Z0-9]/g, '_')}.docx`;
+        // Compute output paths inside main() (cNo is guaranteed valid here)
+        const STATIC_DIR = path.join(BASE_DIR, 'static');
+        if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
+        const SAFE_NAME   = cNo.replace(/[^a-zA-Z0-9]/g, '_');
+        const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.docx`);
+        const cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [cNo]);
         if (!cert) {
             console.error(`Lỗi: Không tìm thấy dữ liệu cho mã [${certNo}].`);
-            db.close(); process.exit(1);
+            process.exit(1);
         }
 
-        const points    = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [certNo]);
-        const standards  = await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [certNo]);
+        const points    = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]);
+        const standards  = await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]);
 
         // Generate QR code if download URL provided
         let qrBuffer = null;
-        if (downloadUrl) {
+        if (finalDUrl) {
             try {
-                qrBuffer = await QRCode.toBuffer(downloadUrl, {width:120,margin:1,color:{dark:'#004d4d',light:'#ffffff'}});
+                qrBuffer = await QRCode.toBuffer(finalDUrl, {width:120,margin:1,color:{dark:'#004d4d',light:'#ffffff'}});
             } catch(e) { /* ignore QR errors */ }
         }
 
@@ -709,8 +711,8 @@ async function main() {
         //  BUILD DOCUMENT
         // ═══════════════════════════════════════════════════════════════
         const doc = new Document({
-            title: `GCN_${certNo}`,
-            description: `Giấy Chứng Nhận Hiệu Chuẩn ${certNo}`,
+            title: `GCN_${cNo}`,
+            description: `Giấy Chứng Nhận Hiệu Chuẩn ${cNo}`,
             styles: {
                 default: {
                     document: {
@@ -746,14 +748,14 @@ async function main() {
         const buffer = await Packer.toBuffer(doc);
         fs.writeFileSync(OUTPUT_FILE, buffer);
         console.log(`[SUCCESS] Đã xuất: GCN_${SAFE_NAME}.docx`);
-        db.close();
         process.exit(0);
 
     } catch (err) {
         console.error('LỖI CRITICAL:', err);
-        db.close();
         process.exit(1);
     }
 }
 
-main();
+module.exports = { generateDocx: main };
+
+if (require.main === module) { main(); }

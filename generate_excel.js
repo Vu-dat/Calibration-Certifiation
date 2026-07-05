@@ -8,37 +8,29 @@
 
 const fs = require('fs');
 const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
 const ExcelJS = require('exceljs');
 
-// ─────────────────────── KIỂM TRA CLI ───────────────────────
-const certNo = process.argv[2];
-if (!certNo) {
-    console.error('Lỗi: Vui lòng cung cấp mã số chứng nhận. Ví dụ: node generate_excel.js 328344');
-    process.exit(1);
+// Database connection (centralized) — Postgres via db.js
+const db = require('./db');
+
+// Adapter: SQLite ? → PostgreSQL $1, $2 for backward-compatible queries
+async function dbGet(query, params) {
+  const pgQuery = query.replace(/\?/g, () => `$${++dbGet._idx}`);
+  dbGet._idx = 0;
+  const rows = await db.unsafe(pgQuery, params);
+  return rows[0] || null;
+}
+async function dbAll(query, params) {
+  const pgQuery = query.replace(/\?/g, () => `$${++dbAll._idx}`);
+  dbAll._idx = 0;
+  return await db.unsafe(pgQuery, params);
 }
 
 // ─────────────────────── CẤU HÌNH ĐƯỜNG DẪN ───────────────────────
+const certNo = process.argv[2];
 const BASE_DIR   = __dirname;
-const DB_PATH    = path.join(BASE_DIR, 'labmaster_enterprise.db');
-const STATIC_DIR = path.join(BASE_DIR, 'static');
-if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
 
-const SAFE_NAME   = certNo.replace(/[^a-zA-Z0-9]/g, '_');
-const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.xlsx`);
 
-// ─────────────────────── KẾT NỐI DATABASE ───────────────────────
-const db = new sqlite3.Database(DB_PATH, (err) => {
-    if (err) { console.error('Không thể kết nối SQLite:', err.message); process.exit(1); }
-});
-db.configure("busyTimeout", 5000);
-
-function dbGet(sql, params) {
-    return new Promise((resolve, reject) => db.get(sql, params, (err, row) => err ? reject(err) : resolve(row)));
-}
-function dbAll(sql, params) {
-    return new Promise((resolve, reject) => db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows)));
-}
 
 function parseDate(d) {
     if (!d) return '';
@@ -59,16 +51,24 @@ function defaultBorder() {
     };
 }
 
-async function main() {
+async function main(opts) {
     try {
-        const cert = await dbGet('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [certNo]);
+        // Accept params from both CLI (process.argv) and direct call (opts object)
+        const cNo = (opts && opts.certNo) || certNo;
+        if (!cNo) { console.error('Lỗi: Vui lòng cung cấp mã số chứng nhận.'); process.exit(1); }
+        // Compute output paths inside main() (cNo is guaranteed valid here)
+        const STATIC_DIR = path.join(BASE_DIR, 'static');
+        if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
+        const SAFE_NAME   = cNo.replace(/[^a-zA-Z0-9]/g, '_');
+        const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.xlsx`);
+        const cert = await dbGet('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]);
         if (!cert) {
             console.error(`Loi: Khong tim thay du lieu cho ma [${certNo}] trong bang CERTIFICATES.`);
-            db.close(); process.exit(1);
+            process.exit(1);
         }
 
-        const points = await dbAll('SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC', [certNo]);
-        const standards = await dbAll('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [certNo]);
+        const points = await dbAll('SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]);
+        const standards = await dbAll('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]);
 
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'LabMaster Enterprise';
@@ -94,7 +94,7 @@ async function main() {
         ws.getRow(2).height = 22;
 
         ws.mergeCells('A3:G3');
-        var infoLineText = 'Số / No.: ' + (cert.CERT_NO || certNo) + '    ·    Ngày HC / Cal. Date: ' + parseDate(cert.CAL_DATE || '') + '    ·    HC kế tiếp / Re-cal: ' + parseDate(cert.RE_CAL_DATE || '');
+        var infoLineText = 'Số / No.: ' + (cert.CERT_NO || cNo) + '    ·    Ngày HC / Cal. Date: ' + parseDate(cert.CAL_DATE || '') + '    ·    HC kế tiếp / Re-cal: ' + parseDate(cert.RE_CAL_DATE || '');
         ws.getCell('A3').value = infoLineText;
         ws.getCell('A3').font = { name: 'Arial', size: 9, color: { argb: '6b6860' } };
         ws.getCell('A3').alignment = { horizontal: 'center', vertical: 'middle' };
@@ -314,14 +314,14 @@ async function main() {
 
         await workbook.xlsx.writeFile(OUTPUT_FILE);
         console.log('[SUCCESS] Da xuat: GCN_' + SAFE_NAME + '.xlsx');
-        db.close();
         process.exit(0);
 
     } catch (err) {
         console.error('LOI CRITICAL KHI SINH EXCEL:', err);
-        db.close();
         process.exit(1);
     }
 }
 
-main();
+module.exports = { generateExcel: main };
+
+if (require.main === module) { main(); }

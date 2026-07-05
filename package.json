@@ -2,10 +2,11 @@
   "dependencies": {
     "cors": "^2.8.6",
     "docx": "^9.7.1",
+    "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "pdfkit": "^0.18.0",
-    "qrcode": "^1.5.4",
-    "sqlite3": "^6.0.1"
+    "postgres": "^3.4.9",
+    "qrcode": "^1.5.4"
   }
 }

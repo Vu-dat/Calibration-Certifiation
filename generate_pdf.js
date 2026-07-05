@@ -2,20 +2,27 @@
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
-const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
+
+// Database connection (centralized) — Postgres via db.js
+const db = require('./db');
+
+// Adapter: SQLite ? → PostgreSQL $1, $2 for backward-compatible queries
+async function g(query, params) {
+  const pgQuery = query.replace(/\?/g, () => `$${++g._idx}`);
+  g._idx = 0;
+  const rows = await db.unsafe(pgQuery, params);
+  return rows[0] || null;
+}
+async function a(query, params) {
+  const pgQuery = query.replace(/\?/g, () => `$${++a._idx}`);
+  a._idx = 0;
+  return await db.unsafe(pgQuery, params);
+}
 
 const certNo = process.argv[2];
 const downloadUrl = process.argv[3] || '';
-const equipmentName = process.argv[4] || '';
-if (!certNo) { console.error('Loi: Vui long cung cap ma so.'); process.exit(1); }
-
-const BD = __dirname;
-const DP = path.join(BD, 'labmaster_enterprise.db');
-const SD = path.join(BD, 'static');
-if (!fs.existsSync(SD)) fs.mkdirSync(SD, { recursive: true });
-const SN = certNo.replace(/[^a-zA-Z0-9]/g, '_');
-const OF = path.join(SD, 'GCN_' + SN + '.pdf');
+const equipmentName = process.argv[4] || '';const BD = __dirname;
 
 const fpr = [path.join(BD, 'fonts', 'arial.ttf'), path.join(BD, 'arial.ttf'), 'C:\\Windows\\Fonts\\arial.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'];
 const fpb = [path.join(BD, 'fonts', 'arialbd.ttf'), path.join(BD, 'arialbd.ttf'), 'C:\\Windows\\Fonts\\arialbd.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'];
@@ -24,14 +31,14 @@ const fpbi = [path.join(BD, 'fonts', 'arialbi.ttf'), path.join(BD, 'arialbi.ttf'
 
 function ff(ps) { for (var i = 0; i < ps.length; i++) { try { if (fs.existsSync(ps[i])) return ps[i]; } catch(e) {} } return null; }
 var FR = ff(fpr), FB = ff(fpb), FI = ff(fpi), FBI = ff(fpbi);
+// Fallback fonts bundled in repo for Vercel/Linux (supports Vietnamese)
+var fprV = [path.join(BD, 'fonts', 'tahoma.ttf'), path.join(BD, 'fonts', 'DejaVuSans.ttf')];
+var fpbV = [path.join(BD, 'fonts', 'tahomabd.ttf'), path.join(BD, 'fonts', 'DejaVuSans-Bold.ttf')];
+var FRv = ff(fprV), FBv = ff(fpbV);
+// NOTE: Font registration with `doc` happens inside main() — see registerFont block there
 var FNR = 'AR', FNB = 'AB', FNI = 'AI', FNBI = 'ABI';
 
-var db = new sqlite3.Database(DP);
-db.run('PRAGMA journal_mode = WAL');
-db.configure('busyTimeout', 5000);
 
-function g(sql, p) { return new Promise(function(r, j) { db.get(sql, p, function(e, d) { if(e) j(e); else r(d); }); }); }
-function a(sql, p) { return new Promise(function(r, j) { db.all(sql, p, function(e, d) { if(e) j(e); else r(d); }); }); }
 
 function pd(d) { if (!d) return ''; var p = d.split('-'); return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : d; }
 
@@ -295,16 +302,26 @@ function drawSignature(doc, headOfLab, director, cx, startY) {
   return ly + 24;
 }
 
-async function main() {
+async function main(opts) {
   try {
+    // Accept params from both CLI (process.argv) and direct call (opts object)
+    var cNo = (opts && opts.certNo) || certNo;
+    var dUrl = (opts && opts.downloadUrl) || downloadUrl;
+    var eqName = (opts && opts.equipmentName) || equipmentName;
+    if (!cNo) { console.error('Loi: Vui long cung cap ma so.'); process.exit(1); }
     var qr = null;
-    if (downloadUrl) { try { qr = await QRCode.toBuffer(downloadUrl, {width:120,margin:1,color:{dark:'#004d4d',light:'#ffffff'}}); } catch(e) {} }
-    var cert = await g('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [certNo]);
-    if (!cert) { console.error('Not found:', certNo); db.close(); process.exit(1); }
-    var ptsQ = equipmentName
+    if (dUrl) { try { qr = await QRCode.toBuffer(dUrl, {width:120,margin:1,color:{dark:'#004d4d',light:'#ffffff'}}); } catch(e) {} }
+    var cert = await g('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]);
+    // Compute output paths inside main() (certNo is guaranteed to be valid here)
+    const SD = path.join(BD, 'static');
+    if (!fs.existsSync(SD)) fs.mkdirSync(SD, { recursive: true });
+    const SN = cNo.replace(/[^a-zA-Z0-9]/g, '_');
+    const OF = path.join(SD, 'GCN_' + SN + '.pdf');
+    if (!cert) { console.error('Not found:', cNo); process.exit(1); }
+    var ptsQ = eqName
     ? "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC"
     : "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC";
-var ptsParams = equipmentName ? [certNo, equipmentName] : [certNo];
+var ptsParams = eqName ? [cNo, eqName] : [cNo];
 var pts = await a(ptsQ, ptsParams);
     var stds = await a('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [certNo]);
     var lp = path.join(BD, '_ref_logo.png');
@@ -314,7 +331,15 @@ var pts = await a(ptsQ, ptsParams);
     var doc = new PDFDocument({size:'A4', margins:{top:MT,bottom:20,left:ML,right:MR}, autoFirstPage: false});
     var ws = fs.createWriteStream(OF);
     doc.pipe(ws);
-    try { if (FR) doc.registerFont(FNR, FR); if (FB) doc.registerFont(FNB, FB); if (FI) doc.registerFont(FNI, FI); if (FBI) doc.registerFont(FNBI, FBI); } catch(e) {}
+    try {
+      if (FR) doc.registerFont(FNR, FR);
+      if (FB) doc.registerFont(FNB, FB);
+      if (FI) doc.registerFont(FNI, FI);
+      if (FBI) doc.registerFont(FNBI, FBI);
+      // Register Vercel fallback fonts (Tahoma supports Vietnamese)
+      if (!FR && FRv) { doc.registerFont('Helvetica', FRv); FR = FRv; FNR = 'Helvetica'; }
+      if (!FB && FBv) { doc.registerFont('Helvetica-Bold', FBv); FB = FBv; FNB = 'Helvetica-Bold'; }
+    } catch(e) {}
     curPage = 1;
     
     // ===== PAGE 1 =====
@@ -557,7 +582,11 @@ var pts = await a(ptsQ, ptsParams);
     
     drawFooter(doc, 2, 2);
     doc.end();
-    ws.on('finish', function() { console.log('[SUCCESS] Da xuat: GCN_'+SN+'.pdf'); db.close(); process.exit(0); });
-  } catch(err) { console.error('LOI:', err); db.close(); process.exit(1); }
+    ws.on('finish', function() { console.log('[SUCCESS] Da xuat: GCN_'+SN+'.pdf'); process.exit(0); });
+  } catch(err) { console.error('LOI:', err); process.exit(1); }
 }
-main();
+
+module.exports = { generatePDF: main };
+
+// CLI entry point
+if (require.main === module) { main(); }
