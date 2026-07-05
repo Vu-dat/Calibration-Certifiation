@@ -605,7 +605,16 @@
             </tbody>
           </table>
         </div>
-        <button class="btn-add-row" style="border-radius:0 0 10px 10px;" onclick="addCalResultRow()">+ Thêm dòng kết quả</button>
+        <div class="btn-add-row-group">
+          <button class="btn-add-row btn-add-param" onclick="addCalResultRow()">
+            <span class="btn-add-icon">+</span> Thêm thông số
+            <span class="btn-add-hint">(Parameter)</span>
+          </button>
+          <button class="btn-add-row btn-add-point" onclick="addCalPointRow()">
+            <span class="btn-add-icon">◈</span> Thêm điểm đo
+            <span class="btn-add-hint">(dưới thông số hiện tại)</span>
+          </button>
+        </div>
       </div>
 
       <!-- CARD 8: NHÂN SỰ KÝ --> 
@@ -679,13 +688,7 @@
                 <input type="text" id="m-proj-tech" placeholder="Nhập tên kỹ thuật viên...">
             </div>
 
-            <!-- Paste button -->
-            <div style="margin-top:16px; padding-top:14px; border-top:1px dashed var(--border);">
-                <button class="btn btn-secondary btn-sm" onclick="pasteCopiedProject()" id="btn-paste-project" style="width:100%; padding:10px; font-size:13px;" disabled>
-                    📋 Dán dữ liệu từ dự án đã copy
-                </button>
-                <div id="paste-info" style="margin-top:6px; font-size:11px; color:var(--text-muted); text-align:center;"></div>
-            </div>
+            
 
         </div>
         <div class="modal-premium-footer">
@@ -1548,27 +1551,213 @@ function selectEquipmentTemplate(key) {
   updateRowCount();
 }
 
-function addCalResultRow() {
-  const tbody = document.getElementById('calibration-table-body');
-  // Remove empty state
-  const empty = tbody.querySelector('.cal-empty-state');
-  if (empty) empty.parentElement.remove();
-  const row = document.createElement('tr');
-  row.innerHTML = `
-    <td><input type="text" class="lab-input-cell param-input" placeholder="Thông số" oninput="checkParamForRefEq(this)"></td>
-    <td><input type="text" class="lab-input-cell cal-point" placeholder="Điểm"></td>
-    <td><input type="text" class="lab-input-cell measured-active as-found-1" placeholder="Lần 1" oninput="calculateConformity(this.closest('tr'))"></td>
-    <td><input type="text" class="lab-input-cell as-found-2" placeholder="Lần 2" oninput="calculateConformity(this.closest('tr'))"></td>
-    <td><input type="text" class="lab-input-cell as-found-3" placeholder="Lần 3" oninput="calculateConformity(this.closest('tr'))"></td>
-    <td><input type="text" class="lab-input-cell uncertainty" placeholder="KĐB" oninput="calculateConformity(this.closest('tr'))"></td>
-    <td><input type="text" class="lab-input-cell ref-value" placeholder="Giá trị tham chiếu" oninput="calculateConformity(this.closest('tr'))"></td>
-    <td><input type="text" class="lab-input-cell tolerance" oninput="calculateConformity(this.closest('tr'))" placeholder="Dung sai"></td>
-    <td><input type="text" class="lab-input-cell conformity" placeholder="T'động" style="font-weight:700;color:var(--accent);"></td>
-    <td class="ref-eq-col">${renderRefEqControl('', '')}</td>
-    <td style="text-align:center;"><button onclick="this.closest('tr').remove();updateRowCount();" class="btn-rm">×</button></td>
-  `;
-  tbody.appendChild(row);
+/* ====== SMART DATA-DRIVEN TABLE RENDERING ====== */
+// Capture all row data from DOM into a structured array
+function captureTableData() {
+  const rows = document.querySelectorAll('#calibration-table-body tr:not(.cal-empty-state)');
+  const data = [];
+  rows.forEach(function(row) {
+    var paramName = row.dataset.parameterName || '';
+    if (!paramName) {
+      var hidden = row.querySelector('.group-param-name');
+      if (hidden) paramName = hidden.value;
+    }
+    if (!paramName) {
+      var pInput = row.querySelector('.param-input');
+      if (pInput) paramName = pInput.value;
+    }
+
+    data.push({
+      paramName: paramName,
+      calPoint: (row.querySelector('.cal-point') || {}).value || '',
+      v1: (row.querySelector('.as-found-1') || {}).value || '',
+      v2: (row.querySelector('.as-found-2') || {}).value || '',
+      v3: (row.querySelector('.as-found-3') || {}).value || '',
+      uncertainty: (row.querySelector('.uncertainty') || {}).value || '',
+      refValue: (row.querySelector('.ref-value') || {}).value || '',
+      tolerance: (row.querySelector('.tolerance') || {}).value || '',
+      conformity: (row.querySelector('.conformity') || {}).value || '',
+      refEq: getRefEqValueFromRow(row)
+    });
+  });
+  return data;
+}
+
+// Read ref-eq value from a row (handles rowspan groups)
+function getRefEqValueFromRow(row) {
+  var val = row.querySelector('.ref-eq-val');
+  if (val) return val.value || '';
+  var prev = row.previousElementSibling;
+  while (prev && prev.tagName === 'TR') {
+    var prevRefCol = prev.querySelector('td.ref-eq-col');
+    if (prevRefCol && prevRefCol.hasAttribute('rowspan')) {
+      var prevVal = prevRefCol.querySelector('.ref-eq-val');
+      if (prevVal) return prevVal.value || '';
+      break;
+    }
+    prev = prev.previousElementSibling;
+  }
+  return '';
+}
+
+// Escape HTML for safe insertion
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+// Re-render entire tbody with proper rowspan grouping
+function renderTableFromData(data) {
+  var tbody = document.getElementById('calibration-table-body');
+  tbody.innerHTML = '';
+
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="cal-empty-state">Chưa có dữ liệu — nhấn "+ Thêm thông số" để bắt đầu nhập</td></tr>';
+    updateRowCount();
+    return;
+  }
+
+  var i = 0;
+  while (i < data.length) {
+    var paramName = data[i].paramName;
+    var j = i;
+    while (j < data.length && data[j].paramName === paramName) j++;
+    var groupSize = j - i;
+
+    // Find the first non-empty refEq in the group
+    var groupRefEq = '';
+    for (var k = i; k < j; k++) {
+      if (data[k].refEq) { groupRefEq = data[k].refEq; break; }
+    }
+
+    for (var k = i; k < j; k++) {
+      var r = data[k];
+      var row = document.createElement('tr');
+      row.dataset.parameterName = paramName;
+
+      var html = '';
+      if (k === i) {
+        var parts = paramName.split('\n');
+        var displayName = parts[0] + (parts[1] ? '<br><span style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:12px;">' + escHtml(parts[1]) + '</span>' : '');
+        html += '<td rowspan="' + groupSize + '" class="group-header" style="vertical-align:middle;">' +
+          '<input type="text" class="lab-input-cell param-input group-name-input" value="' + escHtml(paramName) + '"' +
+          ' placeholder="Thông số"' +
+          ' oninput="syncGroupParamName(this.closest(\'tr\'), this.value)"' +
+          ' style="font-weight:700;font-size:13px;background:transparent;border:none;width:100%;text-align:left;padding:2px 4px;outline:none;">' +
+          '<input type="hidden" class="group-param-name" value="' + escHtml(paramName) + '">' +
+        '</td>';
+      }
+
+      html += '<td><input type="text" class="lab-input-cell cal-point" value="' + escHtml(r.calPoint) + '" style="font-weight:700;"></td>' +
+        '<td><input type="text" class="lab-input-cell measured-active as-found-1" value="' + escHtml(r.v1) + '" placeholder="Lần 1" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell as-found-2" value="' + escHtml(r.v2) + '" placeholder="Lần 2" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell as-found-3" value="' + escHtml(r.v3) + '" placeholder="Lần 3" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell uncertainty" value="' + escHtml(r.uncertainty) + '" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell ref-value" value="' + escHtml(r.refValue) + '" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell tolerance" value="' + escHtml(r.tolerance) + '" style="font-weight:500;" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell conformity" value="' + escHtml(r.conformity) + '" style="font-weight:700;color:var(--accent);"></td>';
+
+      if (k === i) {
+        html += '<td rowspan="' + groupSize + '" class="ref-eq-col">' + (typeof renderRefEqControl === 'function' ? renderRefEqControl(paramName, groupRefEq) : '') + '</td>';
+      }
+
+      html += '<td style="text-align:center;"><button onclick="deleteCalRow(this);" class="btn-rm">×</button></td>';
+
+      row.innerHTML = html;
+      tbody.appendChild(row);
+    }
+
+    i = j;
+  }
+
   updateRowCount();
+
+  // Re-run conformity for all rows
+  var allRows = tbody.querySelectorAll('tr');
+  for (var ri = 0; ri < allRows.length; ri++) {
+    if (typeof calculateConformity === 'function') calculateConformity(allRows[ri]);
+  }
+}
+
+// Sync param name across all rows in the same group when user edits the group header
+function syncGroupParamName(firstRow, newName) {
+  var tbody = document.getElementById('calibration-table-body');
+  var allRows = Array.from(tbody.querySelectorAll('tr'));
+  var startIdx = allRows.indexOf(firstRow);
+  if (startIdx < 0) return;
+
+  // firstRow is always the group head (.group-name-input only on group-first rows)
+  var groupEnd = startIdx + 1;
+  while (groupEnd < allRows.length) {
+    var nextCell = allRows[groupEnd].querySelector('td:first-child');
+    if (nextCell && nextCell.hasAttribute('rowspan')) break;
+    groupEnd++;
+  }
+
+  // Update dataset for all rows in the group
+  for (var ki = startIdx; ki < groupEnd; ki++) {
+    allRows[ki].dataset.parameterName = newName;
+    var hidden = allRows[ki].querySelector('.group-param-name');
+    if (hidden) hidden.value = newName;
+  }
+
+  // Update ref-eq widget when parameter type changes (e.g., "Nhiệt độ" → clock select)
+  if (typeof renderRefEqControl === 'function') {
+    var refEqCell = firstRow.querySelector('.ref-eq-col');
+    if (refEqCell) {
+      var oldVal = '';
+      var valEl = refEqCell.querySelector('.ref-eq-val');
+      if (valEl) oldVal = valEl.value;
+      refEqCell.innerHTML = renderRefEqControl(newName, oldVal);
+    }
+  }
+}
+
+// Add a new parameter row — tên thông số TRỐNG để nhập thông số mới
+function addCalResultRow() {
+  var existing = captureTableData();
+
+  existing.push({
+    paramName: '',
+    calPoint: '',
+    v1: '', v2: '', v3: '',
+    uncertainty: '', refValue: '', tolerance: '', conformity: '',
+    refEq: ''
+  });
+
+  renderTableFromData(existing);
+  showToast('Đã thêm thông số mới. Nhập tên thông số vào ô đầu nhóm.', 'info');
+}
+
+// Add a calibration point under the last parameter (kế thừa tên thông số)
+function addCalPointRow() {
+  var data = captureTableData();
+  if (data.length === 0) {
+    addCalResultRow();
+    return;
+  }
+  var lastParam = data[data.length - 1].paramName;
+  data.push({
+    paramName: lastParam,
+    calPoint: '',
+    v1: '', v2: '', v3: '',
+    uncertainty: '', refValue: '', tolerance: '', conformity: '',
+    refEq: ''
+  });
+  renderTableFromData(data);
+  showToast('Đã thêm điểm đo mới dưới thông số hiện tại.', 'success');
+}
+
+// Delete a calibration row (data-driven, re-renders with proper grouping)
+function deleteCalRow(btn) {
+  var row = btn.closest('tr');
+  var data = captureTableData();
+  var tbody = document.getElementById('calibration-table-body');
+  var allRows = Array.from(tbody.querySelectorAll('tr:not(.cal-empty-state)'));
+  var idx = allRows.indexOf(row);
+  if (idx >= 0 && idx < data.length) {
+    data.splice(idx, 1);
+  }
+  renderTableFromData(data);
 }
 
 function updateRowCount() {
@@ -2749,39 +2938,6 @@ async function copyProjectData(projectId) {
     }
 }
 
-function pasteCopiedProject() {
-    let stored = localStorage.getItem('labmaster_copied_project');
-    if (stored) {
-        try { _copiedProjectData = JSON.parse(stored); } catch (e) {}
-    }
-    if (!_copiedProjectData || !_copiedProjectData.project) {
-        showToast('Không có dữ liệu dự án nào đã được copy!', 'warning');
-        return;
-    }
-    const data = _copiedProjectData.project;
-    const nameInput = document.getElementById('m-proj-name');
-    const techInput = document.getElementById('m-proj-tech');
-    if (nameInput) {
-        let newTitle = data.title || '';
-        const currentYear = new Date().getFullYear().toString();
-        const match = data.title?.match(/\b(20\d{2})\b/);
-        if (match) {
-            const oldYear = match[1];
-            if (oldYear !== currentYear) {
-                newTitle = data.title.replace(oldYear, currentYear);
-            }
-        }
-        nameInput.value = newTitle;
-    }
-    if (techInput) techInput.value = data.tech || '';
-    const info = document.getElementById('paste-info');
-    if (info) {
-        const copiedAt = _copiedProjectData.copiedAt ? new Date(_copiedProjectData.copiedAt).toLocaleString('vi-VN') : 'không rõ';
-        const hasCal = _copiedProjectData.calibration ? '✅ Có dữ liệu hiệu chuẩn' : '❌ Không có dữ liệu hiệu chuẩn';
-        info.innerHTML = `Đã dán từ "<strong>${data.title}</strong>" (${copiedAt})<br>${hasCal}`;
-    }
-    showToast(`📋 Đã dán dữ liệu từ: ${data.title}`, 'success');
-}
 
 function checkCopiedData() {
     const stored = localStorage.getItem('labmaster_copied_project');

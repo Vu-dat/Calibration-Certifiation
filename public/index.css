@@ -886,6 +886,72 @@ textarea {
   background: var(--accent-light);
 }
 
+/* Smart add button group */
+.btn-add-row-group {
+  display: flex;
+  gap: 0;
+  border-radius: 0 0 10px 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-top: none;
+}
+
+.btn-add-row-group .btn-add-row {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px 8px;
+  border: none;
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+
+.btn-add-row-group .btn-add-row:last-child {
+  border-right: none;
+}
+
+.btn-add-row-group .btn-add-row .btn-add-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.btn-add-row-group .btn-add-param .btn-add-icon {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-add-row-group .btn-add-point .btn-add-icon {
+  background: #e6f7f7;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+  font-size: 11px;
+}
+
+.btn-add-row-group .btn-add-row .btn-add-hint {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-hint);
+  white-space: nowrap;
+}
+
+.btn-add-row-group .btn-add-row:hover {
+  background: var(--accent-light);
+}
+
+.btn-add-row-group .btn-add-row:active {
+  background: #d4ecec;
+}
+
 .btn-rm {
   color: var(--text-hint);
   background: transparent;

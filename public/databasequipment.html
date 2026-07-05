@@ -517,10 +517,18 @@
             </table>
         </div>
 
-        <div style="display:flex; gap:10px; margin: 15px 0;">
-            <button class="btn btn-secondary ripple-btn" onclick="addCalibrationRow()"><i class="fas fa-plus-circle"></i> Thêm hàng (Add Row)</button>
-            <div style="flex:1"></div>
-            <button class="btn-save ripple-btn" onclick="saveEq()"><i class="fas fa-save"></i> Save Changes</button>
+        <div style="display:flex; gap:0; margin: 15px 0;">
+            <div class="btn-add-row-group" style="flex:1;">
+              <button class="btn-add-row btn-add-param" onclick="addDbParameterRow()">
+                <span class="btn-add-icon">+</span> Thêm thông số
+                <span class="btn-add-hint">(Parameter)</span>
+              </button>
+              <button class="btn-add-row btn-add-point" onclick="addDbPointRow()">
+                <span class="btn-add-icon">◈</span> Thêm điểm đo
+                <span class="btn-add-hint">(dưới thông số hiện tại)</span>
+              </button>
+            </div>
+            <button class="btn-save ripple-btn" onclick="saveEq()" style="margin-left:10px;"><i class="fas fa-save"></i> Save Changes</button>
         </div>
     </section>
 </main>
@@ -1161,35 +1169,191 @@ async function fetchEquipmentTemplates() {
         `;
     }
 
-    // Thêm dòng mới thủ công — cột Thiết bị chuẩn dùng widget YouTube-style
-    function addCalibrationRow() {
-        const tbody = document.getElementById('calibration-table-rows');
-        const emptyState = tbody.querySelector('td[colspan="8"]') || tbody.querySelector('td[colspan="7"]') || tbody.querySelector('td[colspan="9"]');
-        if (emptyState) tbody.innerHTML = '';
-
-        const tr = document.createElement('tr');
-        tr.setAttribute('data-group', 'manual-row-' + Date.now() + Math.random().toString(36).substr(2, 5));
-
-        let html = `
-            <td class="group-header" style="text-align:left;font-weight:600;background:#f8fafc;vertical-align:middle;">
-                <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:'Inter',sans-serif; font-weight:600; font-size:13px; resize:vertical; min-height:36px;" placeholder="Tên thông số (Parameter)"></textarea>
-            </td>
-        `;
-        html += renderCells('', '', '', '', '', '');
-        // placeholder cho ô standard-eq-cell (sẽ được gắn sau)
-        html += `<td class="standard-eq-cell" style="vertical-align:middle;min-width:140px;"></td>`;
-        html += `<td style="padding:4px;"><button onclick="deleteRow(this)" style="color:#e53e3e;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;padding:4px 8px;transition:all 0.15s;line-height:1;" onmouseover="this.style.background='#fed7d7';this.style.borderColor='#fc8181'" onmouseout="this.style.background='#fff5f5';this.style.borderColor='#fed7d7'">✖</button></td>`;
-
-        tr.innerHTML = html;
-        tbody.appendChild(tr);
-
-        // Gắn widget/clock-select vào ô standard-eq-cell theo keyword
-        const textarea = tr.querySelector('.param-input');
-        if (textarea) {
-            textarea.oninput = function() { checkParamForRefEq(this); };
+    /* ====== SMART DATA-DRIVEN TABLE RENDERING (Database Equipment) ====== */
+    // Capture all row data from DOM
+    function captureDbTableData() {
+      const rows = document.querySelectorAll('#calibration-table-rows tr');
+      const data = [];
+      rows.forEach(function(row) {
+        var paramName = row.dataset.parameterName || '';
+        if (!paramName) {
+          var groupHeader = row.querySelector('.group-header');
+          if (groupHeader) {
+            var textarea = groupHeader.querySelector('textarea');
+            if (textarea) paramName = textarea.value;
+            if (!paramName) paramName = groupHeader.innerText;
+          }
         }
-        const stdCell = tr.querySelector('.standard-eq-cell');
-        renderRefEqControl(stdCell, '', '');
+
+        var stdCell = row.querySelector('.standard-eq-cell');
+        var stdEq = stdCell ? getStdSearchValue(stdCell) : '';
+
+        var v1 = (row.querySelector('.v1') || {}).value || '';
+        var v2 = (row.querySelector('.v2') || {}).value || '';
+        var v3 = (row.querySelector('.v3') || {}).value || '';
+        var asFound = [v1, v2, v3].filter(Boolean).join(' / ') || v1;
+
+        data.push({
+          paramName: paramName || '',
+          calPoint: (row.querySelector('.point-input') || {}).value || '',
+          asFound: asFound,
+          uncertainty: (row.querySelector('.unc') || {}).value || '',
+          refValue: (row.querySelector('.ref-val') || {}).value || '',
+          tolerance: (row.querySelector('.tol') || {}).value || '',
+          conformity: (row.querySelector('.conf') || {}).value || '',
+          standardEquipment: stdEq
+        });
+      });
+      return data;
+    }
+
+    // Escape HTML
+    function escHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
+
+    // Re-render tbody with rowspan grouping for consecutive same-param rows
+    function renderDbTableFromData(data) {
+      var tbody = document.getElementById('calibration-table-rows');
+      tbody.innerHTML = '';
+
+      if (data.length === 0) return;
+
+      var i = 0;
+      while (i < data.length) {
+        var paramName = data[i].paramName;
+        var j = i;
+        while (j < data.length && data[j].paramName === paramName) j++;
+        var groupSize = j - i;
+
+        // Find first non-empty standardEquipment in group
+        var groupStdEq = '';
+        for (var k = i; k < j; k++) {
+          if (data[k].standardEquipment) { groupStdEq = data[k].standardEquipment; break; }
+        }
+
+        for (var k = i; k < j; k++) {
+          var r = data[k];
+          var tr = document.createElement('tr');
+          tr.dataset.parameterName = paramName;
+
+          var html = '';
+          if (k === i) {
+            html += '<td rowspan="' + groupSize + '" class="group-header" style="text-align:left;font-weight:600;background:#f8fafc;vertical-align:middle;">' +
+              '<textarea class="param-input" style="width:100%;border:none;background:transparent;font-family:Inter,sans-serif;font-weight:600;font-size:13px;resize:vertical;min-height:36px;"' +
+              ' oninput="syncDbGroupParamName(this.closest(\'tr\'), this.value)"' +
+              ' placeholder="Tên thông số (Parameter)">' + escHtml(paramName) + '</textarea>' +
+            '</td>';
+            html += renderCells(r.calPoint, r.asFound, r.uncertainty, r.refValue, r.tolerance, r.conformity);
+            html += '<td rowspan="' + groupSize + '" class="standard-eq-cell" style="vertical-align:middle;min-width:140px;"></td>';
+          } else {
+            html += renderCells(r.calPoint, r.asFound, r.uncertainty, r.refValue, r.tolerance, r.conformity);
+          }
+
+          html += '<td style="padding:4px;"><button onclick="deleteDbRow(this);" style="color:#e53e3e;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;padding:4px 8px;transition:all 0.15s;line-height:1;" onmouseover="this.style.background=\'#fed7d7\';this.style.borderColor=\'#fc8181\'" onmouseout="this.style.background=\'#fff5f5\';this.style.borderColor=\'#fed7d7\'">✖</button></td>';
+
+          tr.innerHTML = html;
+          tbody.appendChild(tr);
+
+          // Attach widgets for the group head row
+          if (k === i) {
+            var paramTextarea = tr.querySelector('.param-input');
+            if (paramTextarea) {
+              paramTextarea.oninput = function() { syncDbGroupParamName(this.closest('tr'), this.value); };
+            }
+            var stdCell = tr.querySelector('.standard-eq-cell');
+            if (stdCell && typeof renderRefEqControl === 'function') {
+              renderRefEqControl(stdCell, paramName, groupStdEq);
+            }
+          }
+
+          // Re-run calculateConformity for all rows
+          if (typeof calculateConformity === 'function') {
+            setTimeout(function() { calculateConformity(tr); }, 0);
+          }
+        }
+
+        i = j;
+      }
+    }
+
+    // Sync param name across group + update ref-eq widget
+    function syncDbGroupParamName(firstRow, newName) {
+      var tbody = document.getElementById('calibration-table-rows');
+      var allRows = Array.from(tbody.querySelectorAll('tr'));
+      var startIdx = allRows.indexOf(firstRow);
+      if (startIdx < 0) return;
+
+      // firstRow is always the group head
+      var groupEnd = startIdx + 1;
+      while (groupEnd < allRows.length) {
+        var nextCell = allRows[groupEnd].querySelector('td:first-child');
+        if (nextCell && nextCell.hasAttribute('rowspan')) break;
+        groupEnd++;
+      }
+
+      // Update dataset for all rows in the group
+      for (var ki = startIdx; ki < groupEnd; ki++) {
+        allRows[ki].dataset.parameterName = newName;
+      }
+
+      // Update ref-eq widget (e.g., "Nhiệt độ" → clock select)
+      if (typeof renderRefEqControl === 'function') {
+        var stdCell = firstRow.querySelector('.standard-eq-cell');
+        if (stdCell) {
+          var oldVal = '';
+          var valEl = stdCell.querySelector('.ref-eq-val');
+          if (valEl) oldVal = valEl.value;
+          renderRefEqControl(stdCell, newName, oldVal);
+        }
+      }
+    }
+
+    // Add a new parameter row (tên TRỐNG để nhập thông số mới)
+    function addDbParameterRow() {
+      var existing = captureDbTableData();
+      existing.push({
+        paramName: '',
+        calPoint: '', asFound: '',
+        uncertainty: '', refValue: '', tolerance: '', conformity: '',
+        standardEquipment: ''
+      });
+      renderDbTableFromData(existing);
+    }
+
+    // Add a calibration point under the last parameter (kế thừa tên)
+    function addDbPointRow() {
+      var data = captureDbTableData();
+      if (data.length === 0) {
+        addDbParameterRow();
+        return;
+      }
+      var lastParam = data[data.length - 1].paramName;
+      data.push({
+        paramName: lastParam,
+        calPoint: '', asFound: '',
+        uncertainty: '', refValue: '', tolerance: '', conformity: '',
+        standardEquipment: ''
+      });
+      renderDbTableFromData(data);
+    }
+
+    // Delete a row (data-driven, re-renders with proper grouping)
+    function deleteDbRow(btn) {
+      var row = btn.closest('tr');
+      var data = captureDbTableData();
+      var tbody = document.getElementById('calibration-table-rows');
+      var allRows = Array.from(tbody.querySelectorAll('tr'));
+      var idx = allRows.indexOf(row);
+      if (idx >= 0 && idx < data.length) {
+        data.splice(idx, 1);
+      }
+      renderDbTableFromData(data);
+    }
+
+    // Keep backward compatibility alias
+    function addCalibrationRow() {
+      addDbParameterRow();
     }
 
     async function saveEq() {
