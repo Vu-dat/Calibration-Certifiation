@@ -863,6 +863,139 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// ================= AUTH — USER MANAGEMENT (ADMIN ONLY) =================
+
+// Helper: kiểm tra quyền admin từ header x-auth-username
+async function requireAdmin(req, res) {
+    const authUser = req.headers['x-auth-username'];
+    if (!authUser) {
+        res.status(401).json({ success: false, message: "Thiếu thông tin xác thực!" });
+        return null;
+    }
+    const rows = await sql`SELECT ROLE FROM USERS WHERE USERNAME = ${authUser.trim().toLowerCase()}`;
+    if (rows.length === 0 || rows[0].role !== 'admin') {
+        res.status(403).json({ success: false, message: "Bạn không có quyền thực hiện thao tác này!" });
+        return null;
+    }
+    return true;
+}
+
+// GET: Lấy danh sách users (admin only)
+app.get('/api/auth/users', async (req, res) => {
+    const authorized = await requireAdmin(req, res);
+    if (!authorized) return;
+    try {
+        const rows = await sql`SELECT ID, USERNAME, FULL_NAME, ROLE FROM USERS ORDER BY USERNAME ASC`;
+        res.json({ success: true, users: rows });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST: Admin tạo user mới (admin only)
+app.post('/api/auth/users', async (req, res) => {
+    const authorized = await requireAdmin(req, res);
+    if (!authorized) return;
+    let { username, password, full_name, role } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: "Vui lòng nhập tên đăng nhập và mật khẩu!" });
+    }
+    username = username.trim().toLowerCase();
+    if (username.length < 3) {
+        return res.status(400).json({ success: false, message: "Tên đăng nhập phải có ít nhất 3 ký tự!" });
+    }
+    if (password.length < 4) {
+        return res.status(400).json({ success: false, message: "Mật khẩu phải có ít nhất 4 ký tự!" });
+    }
+    try {
+        const existing = await sql`SELECT USERNAME FROM USERS WHERE USERNAME = ${username}`;
+        if (existing.length > 0) {
+            return res.status(409).json({ success: false, message: "Tên đăng nhập đã tồn tại!" });
+        }
+        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+        const safeRole = (role === 'admin' || role === 'user') ? role : 'user';
+        const displayName = full_name || username;
+        const result = await sql`
+            INSERT INTO USERS (USERNAME, PASSWORD, FULL_NAME, ROLE)
+            VALUES (${username}, ${hashedPassword}, ${displayName}, ${safeRole})
+            RETURNING ID
+        `;
+        logActivity(req.headers['x-auth-username'] || 'admin', "CREATE", "USERS", result[0]?.id?.toString() || username, `Admin tạo tài khoản: ${username} (${safeRole})`);
+        res.json({ success: true, message: `Tạo tài khoản ${username} thành công!` });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT: Admin cập nhật thông tin user (admin only)
+app.put('/api/auth/users/:id', async (req, res) => {
+    const authorized = await requireAdmin(req, res);
+    if (!authorized) return;
+    const userId = req.params.id;
+    let { full_name, role, password } = req.body;
+    try {
+        const target = await sql`SELECT USERNAME FROM USERS WHERE ID = ${userId}`;
+        if (target.length === 0) {
+            return res.status(404).json({ success: false, message: "Không tìm thấy người dùng!" });
+        }
+        const username = target[0].username;
+        
+        if (role !== undefined && role !== '' && role !== 'admin' && role !== 'user') {
+            return res.status(400).json({ success: false, message: "Role không hợp lệ!" });
+        }
+        
+        let updateFields = [];
+        let updateValues = [];
+        let idx = 1;
+
+        if (full_name !== undefined) {
+            updateFields.push(`FULL_NAME = $${idx++}`);
+            updateValues.push(full_name);
+        }
+        if (role !== undefined) {
+            updateFields.push(`ROLE = $${idx++}`);
+            updateValues.push(role);
+        }
+        if (password) {
+            const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+            updateFields.push(`PASSWORD = $${idx++}`);
+            updateValues.push(hashedPassword);
+        }
+
+        if (updateFields.length > 0) {
+            const query = `UPDATE USERS SET ${updateFields.join(', ')} WHERE ID = $${idx}`;
+            updateValues.push(userId);
+            await sql.unsafe(query, updateValues);
+        }
+
+        logActivity(req.headers['x-auth-username'] || 'admin', "UPDATE", "USERS", userId, `Cập nhật thông tin user: ${username}`);
+        res.json({ success: true, message: `Cập nhật user ${username} thành công!` });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.delete('/api/auth/users/:id', async (req, res) => {
+    const authorized = await requireAdmin(req, res);
+    if (!authorized) return;
+    const userId = req.params.id;
+    try {
+        // Không cho xóa chính admin
+        const target = await sql`SELECT USERNAME FROM USERS WHERE ID = ${userId}`;
+        if (target.length === 0) {
+            return res.status(404).json({ success: false, message: "Không tìm thấy người dùng!" });
+        }
+        if (target[0].username === 'admin') {
+            return res.status(403).json({ success: false, message: "Không thể xóa tài khoản admin mặc định!" });
+        }
+        await sql`DELETE FROM USERS WHERE ID = ${userId}`;
+        logActivity(req.headers['x-auth-username'] || 'admin', "DELETE", "USERS", userId, `Đã xóa người dùng: ${target[0].username}`);
+        res.json({ success: true, message: `Đã xóa người dùng ${target[0].username} thành công!` });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 app.get('/api/projects/:id', async (req, res) => {
     const projectId = req.params.id;
     try {
