@@ -8,23 +8,34 @@ const SUPABASE_USER = process.env.SUPABASE_USER;
 const SUPABASE_PASSWORD = process.env.SUPABASE_PASSWORD;
 const SUPABASE_SSL  = process.env.SUPABASE_SSL || 'require';
 
-if (!SUPABASE_HOST || !SUPABASE_USER || !SUPABASE_PASSWORD) {
-  console.error('❌ Missing required environment variables: SUPABASE_HOST, SUPABASE_USER, SUPABASE_PASSWORD');
-  console.error('   Copy .env.example to .env and fill in your Supabase credentials.');
-  process.exit(1);
-}
+let sql;
 
-const sql = postgres({
-  host: SUPABASE_HOST,
-  port: SUPABASE_PORT,
-  database: SUPABASE_DB,
-  username: SUPABASE_USER,
-  password: SUPABASE_PASSWORD,
-  ssl: SUPABASE_SSL,
-  prepare: true,
-  max: 10,
-  idle_timeout: 30,
-  connect_timeout: 15,
-});
+if (!SUPABASE_HOST || !SUPABASE_USER || !SUPABASE_PASSWORD) {
+  console.warn('⚠️ Missing required environment variables: SUPABASE_HOST, SUPABASE_USER, SUPABASE_PASSWORD');
+  console.warn('   Please set these environment variables in Vercel Project Settings or your local .env file.');
+
+  const throwConfigError = () => {
+    throw new Error(
+      'Database is not configured. Please set SUPABASE_HOST, SUPABASE_USER, and SUPABASE_PASSWORD in your environment variables.'
+    );
+  };
+
+  // Tạo hàm giả lập để tránh làm crash server khi require module, nhưng sẽ báo lỗi rõ ràng khi gọi truy vấn
+  sql = throwConfigError;
+  sql.unsafe = throwConfigError;
+} else {
+  sql = postgres({
+    host: SUPABASE_HOST,
+    port: SUPABASE_PORT,
+    database: SUPABASE_DB,
+    username: SUPABASE_USER,
+    password: SUPABASE_PASSWORD,
+    ssl: SUPABASE_SSL,
+    prepare: false, // Vô hiệu hoá prepared statements để hỗ trợ PgBouncer/Supabase Pooler (cổng 6543/5432 pooler)
+    max: 10,
+    idle_timeout: 30,
+    connect_timeout: 15,
+  });
+}
 
 module.exports = sql;

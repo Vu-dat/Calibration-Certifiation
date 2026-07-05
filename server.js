@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const os = require('os');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 // exec removed — generator functions are called directly (not via child_process)
 const { generatePDF } = require('./generate_pdf');
 const { generateExcel } = require('./generate_excel');
@@ -159,6 +159,7 @@ async function initDatabaseSchema() {
 
     } catch (err) {
         console.error("❌ Lỗi nghiêm trọng khi khởi tạo cơ sở dữ liệu:", err.message);
+        throw err;
     }
 }
 
@@ -265,11 +266,36 @@ async function seedDefaultUsers() {
         }
     } catch (err) {
         console.error("❌ Lỗi seed user mặc định:", err.message);
+        throw err;
     }
 }
 
-// Gọi tiến trình đồng bộ cấu trúc database lúc khởi động
-initDatabaseSchema().then(() => seedDefaultUsers());
+let dbInitPromise = null;
+async function ensureDbInitialized() {
+    if (!dbInitPromise) {
+        dbInitPromise = (async () => {
+            try {
+                await initDatabaseSchema();
+                await seedDefaultUsers();
+            } catch (err) {
+                dbInitPromise = null; // Reset để thử lại ở request tiếp theo nếu lỗi
+                throw err;
+            }
+        })();
+    }
+    return dbInitPromise;
+}
+
+// Middleware để đảm bảo cơ sở dữ liệu luôn được khởi tạo trước khi xử lý bất kỳ API nào
+app.use('/api', async (req, res, next) => {
+    try {
+        await ensureDbInitialized();
+        next();
+    } catch (err) {
+        console.error("❌ Lỗi khởi tạo cơ sở dữ liệu:", err);
+        res.status(500).json({ success: false, error: "Lỗi khởi tạo cơ sở dữ liệu: " + err.message });
+    }
+});
 
 // ================= API CRUD CHO BẢNG CLOCK =================
 
