@@ -372,11 +372,16 @@
         <nav class="navbar">
             <a href="index.html">Home</a>
             <a href="project.html">Project</a>
-            <a href="customer.html">Customer</a>
+            <a href="customer.html">Customer</a> 
             <a href="equipment.html" class="active">Standard Equipment database</a>
             <a href="databasequipment.html">Database Equipment</a>
+            <a href="users.html" id="nav-users" style="display:none;">👥 Users</a>
         </nav>
-        <button class="btn-shiny" onclick="location.href='login.html'"><i class="fas fa-sign-in-alt"></i> Sign In</button>
+        <div class="nav-container-right" style="display:flex;align-items:center;gap:8px;">
+            <span id="navbar-username" style="color:#b8d4d4;font-size:13px;display:none;"></span>
+            <button class="btn btn-shiny" id="btn-signin" onclick="location.href='login.html'">Sign In</button>
+            <button class="btn btn-soft" id="btn-logout" style="display:none;" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
     </div>
 </header>
 
@@ -521,6 +526,44 @@
 <script>
     const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
         ? 'http://localhost:18080' : window.location.origin;
+
+    function handleLogout() {
+        localStorage.removeItem('labmaster_user');
+        window.location.href = 'login.html';
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        // Đánh dấu 'active' cho link nav của trang hiện tại
+        const currentPage = window.location.pathname.split('/').pop();
+        if (currentPage) {
+            const navId = 'nav-' + currentPage.split('.')[0];
+            const activeLink = document.getElementById(navId);
+            if (activeLink) {
+                document.querySelectorAll('.navbar a').forEach(link => link.classList.remove('active'));
+                activeLink.classList.add('active');
+            }
+        }
+
+        // Logic hiển thị user
+        const userData = localStorage.getItem('labmaster_user');
+        try {
+            const user = JSON.parse(userData);
+            const navUsers = document.getElementById('nav-users');
+            const btnSignin = document.getElementById('btn-signin');
+            const btnLogout = document.getElementById('btn-logout');
+            const navUsername = document.getElementById('navbar-username');
+
+            if (user && user.username) {
+                if (user.role === 'admin' && navUsers) navUsers.style.display = '';
+                if (btnSignin) btnSignin.style.display = 'none';
+                if (btnLogout) btnLogout.style.display = 'inline-flex';
+                if (navUsername) {
+                    navUsername.style.display = 'inline';
+                    navUsername.textContent = '👤 ' + (user.fullName || user.username);
+                }
+            }
+        } catch(e) { /* Coi như chưa đăng nhập */ }
+    });
 
     let equipmentList = [];
 

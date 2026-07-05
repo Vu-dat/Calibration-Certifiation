@@ -378,8 +378,13 @@
             <a href="customer.html" id="nav-customer">Customer</a> 
             <a href="equipment.html" id="nav-equipment" >Standard Equipment Database</a>
             <a href="databasequipment.html" id="nav-databasequipment">Database Equipment</a>
+            <a href="users.html" id="nav-users" style="display:none;">👥 Users</a>
         </nav>
-        <button class="btn-shiny" onclick="location.href='login.html'">Sign In</button>
+        <div class="nav-container-right" style="display:flex;align-items:center;gap:8px;">
+            <span id="navbar-username" style="color:#b8d4d4;font-size:13px;display:none;"></span>
+            <button class="btn btn-shiny" id="btn-signin" onclick="location.href='login.html'">Sign In</button>
+            <button class="btn btn-soft" id="btn-logout" style="display:none;" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
     </div>
 </header>
 
@@ -704,16 +709,33 @@
 <div id="toast-container"></div>
 
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const user = localStorage.getItem('labmaster_user');
-    if (!user) {
-        alert("Hết phiên làm việc hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại!");
-        window.location.href = 'login.html'; // Hoặc đường dẫn '/'
-    }
+  function handleLogout() {
+    localStorage.removeItem('labmaster_user');
+    window.location.href = 'login.html';
+  }
 
-    // Tải danh sách khách hàng từ Database
-    fetchLiveCustomers();
-});
+  document.addEventListener("DOMContentLoaded", () => {
+    const userData = localStorage.getItem('labmaster_user');
+    try {
+        const user = JSON.parse(userData);
+        const navUsers = document.getElementById('nav-users');
+        const btnSignin = document.getElementById('btn-signin');
+        const btnLogout = document.getElementById('btn-logout');
+        const navUsername = document.getElementById('navbar-username');
+
+        if (user && user.username) {
+            if (user.role === 'admin' && navUsers) navUsers.style.display = '';
+            if (btnSignin) btnSignin.style.display = 'none';
+            if (btnLogout) btnLogout.style.display = 'inline-flex';
+            if (navUsername) {
+                navUsername.style.display = 'inline';
+                navUsername.textContent = '👤 ' + (user.fullName || user.username);
+            }
+        }
+    } catch(e) {
+        // Coi như chưa đăng nhập nếu có lỗi
+    }
+  });
   // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
   const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:18080' 

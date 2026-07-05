@@ -27,8 +27,8 @@
         </nav>
         <div class="nav-container-right" style="display:flex;align-items:center;gap:8px;">
             <span id="navbar-username" style="color:#b8d4d4;font-size:13px;display:none;"></span>
-            <button class="btn-shiny" id="btn-signin" onclick="location.href='login.html'">Sign In</button>
-            <button class="btn-soft" id="btn-logout" style="display:none;" onclick="handleLogoutIndex()"><i class="fas fa-sign-out-alt"></i></button>
+            <button class="btn btn-shiny" id="btn-signin" onclick="location.href='login.html'">Sign In</button>
+            <button class="btn btn-soft" id="btn-logout" style="display:none;" onclick="handleLogoutIndex()"><i class="fas fa-sign-out-alt"></i></button>
         </div>    
     </div>
 </header>
@@ -169,12 +169,7 @@
 <script>
     document.addEventListener("DOMContentLoaded", () => {
     const userData = localStorage.getItem('labmaster_user');
-    if (!userData) {
-        alert("Hết phiên làm việc hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại!");
-        window.location.href = 'login.html';
-        return;
-    }
-    // Show/hide admin-only nav items and login/logout buttons
+
     try {
         const user = JSON.parse(userData);
         const navUsers = document.getElementById('nav-users');
@@ -182,18 +177,24 @@
         const btnLogout = document.getElementById('btn-logout');
         const navUsername = document.getElementById('navbar-username');
         
-        if (user.role === 'admin') {
-            if (navUsers) navUsers.style.display = '';
+        if (user && user.username) {
+            // Đã đăng nhập
+            if (user.role === 'admin' && navUsers) {
+                navUsers.style.display = '';
+            }
+            if (btnSignin) btnSignin.style.display = 'none';
+            if (btnLogout) btnLogout.style.display = 'inline-flex';
+            if (navUsername) {
+                navUsername.style.display = 'inline';
+                navUsername.textContent = '👤 ' + (user.fullName || user.username);
+            }
+        } else {
+            // Chưa đăng nhập
+            if (btnSignin) btnSignin.style.display = 'inline-flex';
+            if (btnLogout) btnLogout.style.display = 'none';
+            if (navUsername) navUsername.style.display = 'none';
         }
-        
-        // Show logout button and username, hide sign-in
-        if (btnSignin) btnSignin.style.display = 'none';
-        if (btnLogout) btnLogout.style.display = 'inline-flex';
-        if (navUsername) {
-            navUsername.style.display = 'inline';
-            navUsername.textContent = '👤 ' + (user.fullName || user.username);
-        }
-    } catch(e) {}
+    } catch(e) { /* Lỗi parse JSON, coi như chưa đăng nhập */ }
 });
 
 function handleLogoutIndex() {
