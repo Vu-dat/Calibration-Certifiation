@@ -275,6 +275,19 @@ async function ensureDbInitialized() {
     if (!dbInitPromise) {
         dbInitPromise = (async () => {
             try {
+                // Kiểm tra xem bảng USERS đã tồn tại chưa để bỏ qua toàn bộ phần init/seed mất thời gian
+                const checkTable = await sql`
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_schema = 'public' 
+                        AND table_name = 'users'
+                    )
+                `;
+                if (checkTable[0] && checkTable[0].exists) {
+                    console.log("✅ Supabase đã được khởi tạo và seed trước đó. Bỏ qua chạy lại di chuyển cấu trúc.");
+                    return;
+                }
+
                 await initDatabaseSchema();
                 await seedDefaultUsers();
             } catch (err) {
