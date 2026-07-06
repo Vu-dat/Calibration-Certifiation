@@ -481,21 +481,21 @@
             emptyState.style.display = 'none';
             tbody.innerHTML = users.map(u => `
                 <tr>
-                    <td style="font-family:var(--font-mono);font-size:12px;">${u.id}</td>
-                    <td><strong>${escapeHtml(u.username)}</strong></td>
-                    <td>${escapeHtml(u.full_name || '—')}</td>
+                    <td style="font-family:var(--font-mono);font-size:12px;">${u.ID}</td>
+                    <td><strong>${escapeHtml(u.USERNAME)}</strong></td>
+                    <td>${escapeHtml(u.FULL_NAME || '—')}</td>
                     <td>
-                        <span class="role-badge ${u.role === 'admin' ? 'admin' : 'user'}">
-                            <i class="fas ${u.role === 'admin' ? 'fa-shield-halved' : 'fa-user'}"></i>
-                            ${u.role === 'admin' ? 'Admin' : 'User'}
+                        <span class="role-badge ${u.ROLE === 'admin' ? 'admin' : 'user'}">
+                            <i class="fas ${u.ROLE === 'admin' ? 'fa-shield-halved' : 'fa-user'}"></i>
+                            ${u.ROLE === 'admin' ? 'Admin' : 'User'}
                         </span>
                     </td>
                     <td>
                         <div class="action-cell">
-                            <button class="btn-icon-sm" onclick="openEditModal(${u.id})" title="Sửa">
+                            <button class="btn-icon-sm" onclick="openEditModal(${u.ID})" title="Sửa">
                                 <i class="fas fa-pen"></i>
                             </button>
-                            <button class="btn-icon-sm danger" onclick="openDeleteModal(${u.id}, '${escapeHtml(u.username)}')" title="Xóa" ${u.username === 'admin' ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>
+                            <button class="btn-icon-sm danger" onclick="openDeleteModal(${u.ID}, '${escapeHtml(u.USERNAME)}')" title="Xóa" ${u.USERNAME === 'admin' ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -505,8 +505,8 @@
         }
 
         // Update stats
-        const adminCount = users.filter(u => u.role === 'admin').length;
-        const userCount = users.filter(u => u.role === 'user').length;
+        const adminCount = users.filter(u => u.ROLE === 'admin').length;
+        const userCount = users.filter(u => u.ROLE === 'user').length;
         document.getElementById('total-count').textContent = users.length;
         document.getElementById('admin-count').textContent = adminCount;
         document.getElementById('user-count').textContent = userCount;
@@ -548,21 +548,21 @@
     }
 
     async function openEditModal(userId) {
-        const user = allUsers.find(u => u.id === userId);
+        const user = allUsers.find(u => u.ID === userId);
         if (!user) return;
 
         document.getElementById('modal-title').textContent = 'Sửa Thông Tin User';
         document.getElementById('submit-btn-text').textContent = 'Cập nhật';
         document.getElementById('edit-user-id').value = userId;
-        document.getElementById('form-username').value = user.username;
+        document.getElementById('form-username').value = user.USERNAME;
         document.getElementById('form-username').disabled = true;
-        document.getElementById('form-fullname').value = user.full_name || '';
+        document.getElementById('form-fullname').value = user.FULL_NAME || '';
         document.getElementById('form-password').value = '';
         document.getElementById('form-password').required = false;
         document.getElementById('password-group').style.display = 'block';
         document.getElementById('pwd-required').style.display = 'none';
         document.getElementById('pwd-hint').textContent = 'Để trống nếu không đổi mật khẩu';
-        document.getElementById('form-role').value = user.role || 'user';
+        document.getElementById('form-role').value = user.ROLE || 'user';
         closeModal('delete-modal');
         document.getElementById('add-modal').style.display = 'flex';
     }

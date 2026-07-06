@@ -323,7 +323,22 @@ app.get('/api/debug/health', async (req, res) => {
 
 app.get('/api/clock', async (req, res) => {
     try {
-        const rows = await sql`SELECT * FROM CLOCK ORDER BY ID ASC`;
+        const rowsDb = await sql`SELECT * FROM CLOCK ORDER BY ID ASC`;
+        const rows = rowsDb.map(r => ({
+            ID: r.id,
+            KEY_FIELD: r.key_field,
+            NAME: r.name,
+            MANUFACTURER: r.manufacturer,
+            MODEL: r.model,
+            SERIAL_NUMBER: r.serial_number,
+            GCN: r.gcn,
+            LINK: r.link,
+            CAL_DATE: r.cal_date,
+            VALIDITY: r.validity,
+            TYPE: r.type,
+            NOTES: r.notes,
+            CREATED_AT: r.created_at
+        }));
         res.json(rows);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -334,12 +349,27 @@ app.get('/api/clock/search', async (req, res) => {
     const q = (req.query.q || '').toString().trim();
     try {
         if (!q) {
-            const rows = await sql`SELECT * FROM CLOCK ORDER BY NAME ASC LIMIT 10`;
+            const rowsDb = await sql`SELECT * FROM CLOCK ORDER BY NAME ASC LIMIT 10`;
+            const rows = rowsDb.map(r => ({
+                ID: r.id,
+                KEY_FIELD: r.key_field,
+                NAME: r.name,
+                MANUFACTURER: r.manufacturer,
+                MODEL: r.model,
+                SERIAL_NUMBER: r.serial_number,
+                GCN: r.gcn,
+                LINK: r.link,
+                CAL_DATE: r.cal_date,
+                VALIDITY: r.validity,
+                TYPE: r.type,
+                NOTES: r.notes,
+                CREATED_AT: r.created_at
+            }));
             return res.json(rows);
         }
 
         const queryStr = `%${q}%`;
-        const rows = await sql`
+        const rowsDb = await sql`
             SELECT *,
                 CASE
                     WHEN UPPER(ID) = UPPER(${q}) OR UPPER(NAME) = UPPER(${q}) THEN 0
@@ -356,6 +386,21 @@ app.get('/api/clock/search', async (req, res) => {
             ORDER BY RELEVANCE ASC, NAME ASC
             LIMIT 15
         `;
+        const rows = rowsDb.map(r => ({
+            ID: r.id,
+            KEY_FIELD: r.key_field,
+            NAME: r.name,
+            MANUFACTURER: r.manufacturer,
+            MODEL: r.model,
+            SERIAL_NUMBER: r.serial_number,
+            GCN: r.gcn,
+            LINK: r.link,
+            CAL_DATE: r.cal_date,
+            VALIDITY: r.validity,
+            TYPE: r.type,
+            NOTES: r.notes,
+            CREATED_AT: r.created_at
+        }));
         res.json(rows);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -463,8 +508,35 @@ app.delete('/api/clock/:id', async (req, res) => {
 
 app.get('/api/projects', async (req, res) => {
     try {
-        const rows = await sql`SELECT * FROM PROJECTS ORDER BY CREATED_AT DESC`;
-        res.json(rows);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const offset = (page - 1) * limit;
+
+        const rowsDb = await sql`SELECT * FROM PROJECTS ORDER BY CREATED_AT DESC LIMIT ${limit} OFFSET ${offset}`;
+        
+        const statsResult = await sql`
+            SELECT 
+                COUNT(*) as total,
+                COUNT(*) FILTER (WHERE status = 'In Progress') as progress,
+                COUNT(*) FILTER (WHERE status = 'Finished') as finished
+            FROM PROJECTS
+        `;
+
+        const rows = rowsDb.map(r => ({
+            ID: r.id,
+            TITLE: r.title,
+            TECH: r.tech,
+            STATUS: r.status,
+            CREATED_AT: r.created_at
+        }));
+        res.json({ 
+            data: rows, 
+            total: parseInt(statsResult[0].total),
+            progress: parseInt(statsResult[0].progress),
+            finished: parseInt(statsResult[0].finished),
+            page: page, 
+            limit: limit 
+        });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -498,7 +570,7 @@ app.post('/api/projects', async (req, res) => {
         `;
 
         logActivity(tech || "Hệ thống / KTV", action, "PROJECTS", finalId, desc);
-        res.json({ success: true, id: finalId });
+        res.json({ success: true, ID: finalId });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -527,15 +599,22 @@ app.get('/api/calibration/:certNo', async (req, res) => {
         const certRows = await sql`SELECT * FROM CERTIFICATES WHERE CERT_NO = ${certNo}`;
         if (certRows.length === 0) return res.status(404).json({ success: false, message: "Không tìm thấy số GCN" });
 
-        let points;
+        let pointsRows;
         if (eqName) {
-            points = await sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo} AND EQUIPMENT_NAME = ${eqName}`;
+            pointsRows = await sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo} AND EQUIPMENT_NAME = ${eqName}`;
         } else {
-            points = await sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo}`;
+            pointsRows = await sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo}`;
         }
 
-        const standards = await sql`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${certNo}`;
-        res.json({ cert: certRows[0], points, standards });
+        const standardsRows = await sql`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${certNo}`;
+        
+        const toUpperKeys = (obj) => obj ? Object.fromEntries(Object.entries(obj).map(([k, v]) => [k.toUpperCase(), v])) : null;
+
+        res.json({ 
+            cert: toUpperKeys(certRows[0]), 
+            points: pointsRows.map(toUpperKeys), 
+            standards: standardsRows.map(toUpperKeys) 
+        });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -586,16 +665,23 @@ app.post('/api/calibration/save', async (req, res) => {
 
 // ================= API MẪU THIẾT BỊ =================
 
-async function getEquipmentTemplatesHelper(res) {
+async function getEquipmentTemplatesHelper(req, res) {
     try {
-        const templates = await sql`SELECT * FROM EQUIPMENT_TEMPLATES`;
+        const searchTerm = req.query.q ? `%${req.query.q.toLowerCase()}%` : null;
+
+        const whereClause = searchTerm 
+            ? sql`WHERE LOWER(name) LIKE ${searchTerm} OR LOWER(equipment_id) LIKE ${searchTerm} OR LOWER(manufacturer) LIKE ${searchTerm}`
+            : sql``;
+
+        const templates = await sql`SELECT * FROM EQUIPMENT_TEMPLATES ${whereClause} ORDER BY NAME ASC`;
+
         if (templates.length === 0) return res.json([]);
 
         for (let template of templates) {
             // PostgreSQL trả về tên trường ở dạng viết thường, ánh xạ lại sang chữ IN HOA để giữ tương thích frontend của bạn
             const templateName = template.name || template.NAME;
             const points = await sql`SELECT * FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ${templateName} ORDER BY ID ASC`;
-            
+
             // Map sang key IN HOA cho frontend cũ nhận diện đúng
             template.NAME = template.name;
             template.MANUFACTURER = template.manufacturer;
@@ -603,7 +689,18 @@ async function getEquipmentTemplatesHelper(res) {
             template.EQUIPMENT_ID = template.equipment_id;
             template.PROCEDURE = template.procedure;
             template.REF_STANDARD = template.ref_standard;
-            template.formPoints = points;
+            template.formPoints = points.map(p => ({
+                ID: p.id,
+                TEMPLATE_NAME: p.template_name,
+                PARAMETER_NAME: p.parameter_name,
+                CAL_POINT: p.cal_point,
+                AS_FOUND_VALUE: p.as_found_value,
+                REFERENCE_VALUE: p.reference_value,
+                UNCERTAINTY: p.uncertainty,
+                TOLERANCE: p.tolerance,
+                CONFORMITY: p.conformity,
+                STANDARD_EQUIPMENT: p.standard_equipment
+            }));
         }
         res.json(templates);
     } catch (err) {
@@ -612,11 +709,11 @@ async function getEquipmentTemplatesHelper(res) {
 }
 
 app.get('/api/equipment-templates', async (req, res) => {
-    await getEquipmentTemplatesHelper(res);
+    await getEquipmentTemplatesHelper(req, res);
 });
 
 app.get('/api/equipment', async (req, res) => {
-    await getEquipmentTemplatesHelper(res);
+    await getEquipmentTemplatesHelper(req, res);
 });
 
 app.post('/api/equipment', async (req, res) => {
@@ -667,8 +764,44 @@ app.delete('/api/equipment-templates/:name', async (req, res) => {
 
 app.get('/api/customers', async (req, res) => {
     try {
-        const rows = await sql`SELECT * FROM CUSTOMERS ORDER BY ID DESC`;
-        res.json(rows);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 15;
+        const offset = (page - 1) * limit;
+
+        const searchTerm = req.query.q ? `%${req.query.q.toLowerCase()}%` : null;
+
+        const whereClause = searchTerm 
+            ? sql`WHERE LOWER(name) LIKE ${searchTerm} OR LOWER(company) LIKE ${searchTerm} OR LOWER(phone) LIKE ${searchTerm} OR LOWER(id) LIKE ${searchTerm}`
+            : sql``;
+
+        const rowsDb = await sql`
+            SELECT * FROM CUSTOMERS 
+            ${whereClause}
+            ORDER BY ID DESC 
+            LIMIT ${limit} OFFSET ${offset}
+        `;
+        
+        const totalCountResult = await sql`SELECT COUNT(*) FROM CUSTOMERS ${whereClause}`;
+        const total = parseInt(totalCountResult[0].count);
+
+        const rows = rowsDb.map(r => ({
+            ID: r.id,
+            NAME: r.name,
+            COMPANY: r.company,
+            PHONE: r.phone,
+            TAX: r.tax,
+            EMAIL: r.email,
+            ADDRESS: r.address,
+            BILLING_ADDRESS: r.billing_address,
+            CONTACT: r.contact,
+            NOTE: r.note
+        }));
+
+        // Also get VIP count for stats, respecting search filter if present
+        const vipCountResult = await sql`SELECT COUNT(*) FROM CUSTOMERS ${whereClause} ${searchTerm ? sql`AND` : sql`WHERE`} UPPER(NOTE) LIKE '%VIP%'`;
+        const vipCount = parseInt(vipCountResult[0].count);
+
+        res.json({ data: rows, total: total, vipCount: vipCount, page: page, limit: limit });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -704,7 +837,7 @@ app.post('/api/customers', async (req, res) => {
         `;
 
         logActivity("Hệ thống / KTV", action, "CUSTOMERS", finalId, desc);
-        return res.json({ success: true, id: finalId, message: isNew ? "Thêm khách hàng thành công" : "Cập nhật thành công" });
+        return res.json({ success: true, ID: finalId, message: isNew ? "Thêm khách hàng thành công" : "Cập nhật thành công" });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -726,11 +859,55 @@ app.delete('/api/customers/:id', async (req, res) => {
     }
 });
 
+app.get('/api/customers/search', async (req, res) => {
+    const q = (req.query.q || '').toString().trim().toLowerCase();
+    if (!q) {
+        // Return top 10 recently added customers if no query
+        const rowsDb = await sql`SELECT * FROM CUSTOMERS ORDER BY ID DESC LIMIT 10`;
+        const rows = rowsDb.map(r => ({
+            ID: r.id, NAME: r.name, COMPANY: r.company, PHONE: r.phone, TAX: r.tax, EMAIL: r.email, ADDRESS: r.address, BILLING_ADDRESS: r.billing_address, CONTACT: r.contact, NOTE: r.note
+        }));
+        return res.json(rows);
+    }
+
+    try {
+        const queryStr = `%${q}%`;
+        const rowsDb = await sql`
+            SELECT *,
+                CASE
+                    WHEN LOWER(ID) = ${q} OR LOWER(NAME) = ${q} THEN 0
+                    WHEN LOWER(ID) LIKE ${queryStr} OR LOWER(NAME) LIKE ${queryStr} THEN 1
+                    ELSE 2
+                END AS RELEVANCE
+            FROM CUSTOMERS
+            WHERE LOWER(ID) LIKE ${queryStr}
+               OR LOWER(NAME) LIKE ${queryStr}
+               OR LOWER(COMPANY) LIKE ${queryStr}
+               OR LOWER(PHONE) LIKE ${queryStr}
+            ORDER BY RELEVANCE ASC, NAME ASC
+            LIMIT 15
+        `;
+        const rows = rowsDb.map(r => ({ ID: r.id, NAME: r.name, COMPANY: r.company, PHONE: r.phone, TAX: r.tax, EMAIL: r.email, ADDRESS: r.address, BILLING_ADDRESS: r.billing_address, CONTACT: r.contact, NOTE: r.note }));
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // ================= NHẬT KÝ & THỐNG KÊ =================
 
 app.get('/api/audit-logs', async (req, res) => {
     try {
-        const rows = await sql`SELECT * FROM ACTIVITY_LOGS ORDER BY TIMESTAMP DESC LIMIT 200`;
+        const rowsDb = await sql`SELECT * FROM ACTIVITY_LOGS ORDER BY TIMESTAMP DESC LIMIT 200`;
+        const rows = rowsDb.map(r => ({
+            ID: r.id,
+            USER_NAME: r.user_name,
+            ACTION_TYPE: r.action_type,
+            TARGET_TABLE: r.target_table,
+            TARGET_ID: r.target_id,
+            DESCRIPTION: r.description,
+            TIMESTAMP: r.timestamp
+        }));
         res.json(rows);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -933,8 +1110,14 @@ app.get('/api/auth/users', async (req, res) => {
     const authorized = await requireAdmin(req, res);
     if (!authorized) return;
     try {
-        const rows = await sql`SELECT ID, USERNAME, FULL_NAME, ROLE FROM USERS ORDER BY USERNAME ASC`;
-        res.json({ success: true, users: rows });
+        const rowsDb = await sql`SELECT ID, USERNAME, FULL_NAME, ROLE FROM USERS ORDER BY USERNAME ASC`;
+        const users = rowsDb.map(u => ({
+            ID: u.id,
+            USERNAME: u.username,
+            FULL_NAME: u.full_name,
+            ROLE: u.role
+        }));
+        res.json({ success: true, users: users });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -1054,7 +1237,16 @@ app.get('/api/projects/:id', async (req, res) => {
             WHERE p.ID = ${projectId}
         `;
         if (rows.length === 0) return res.status(404).json({ success: false, message: "Không tìm thấy dự án!" });
-        res.json({ success: true, data: rows[0] });
+        const row = rows[0];
+        const mappedRow = {
+            ID: row.id,
+            TITLE: row.title,
+            TECH: row.tech,
+            STATUS: row.status,
+            CREATED_AT: row.created_at,
+            EQUIPMENT_NAME: row.equipment_name
+        };
+        res.json({ success: true, data: mappedRow });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }

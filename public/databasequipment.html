@@ -983,53 +983,38 @@
   tbody.innerHTML = html;
 }
 
-async function fetchEquipmentTemplates() {
+async function fetchEquipmentTemplates(searchQuery = '') {
         renderDbEquipmentSkeleton(5);
-        // Load song song: danh sách thiết bị (equipment-templates) + thiết bị chuẩn từ CLOCK
+        const url = new URL(`${TARGET_URL}/api/equipment-templates`);
+        if (searchQuery) {
+            url.searchParams.append('q', searchQuery);
+        }
+
         try {
-            const [equipRes] = await Promise.all([
-                fetch(`${TARGET_URL}/api/equipment-templates`),
-                loadClockEquipmentForSearch() // load CLOCK cho dropdown
-            ]);
+            const equipRes = await fetch(url.toString());
             if (!equipRes.ok) throw new Error("Không thể kết nối API danh sách thiết bị");
 
             fetchedEquipments = await equipRes.json();
             renderTable(fetchedEquipments, true);
         } catch (error) {
             console.error("Lỗi khi tải danh sách thiết bị từ Database API:", error);
-            await loadClockEquipmentForSearch(); // vẫn load CLOCK dù API equipment lỗi
             renderFallbackLocalStorage();
         }
         return fetchedEquipments;
     }
 
     // Hàm lọc danh sách mẫu thiết bị (Templates) ngay tại trình duyệt
+    let searchTimeout;
     function filterTemplates() {
-        const q = document.getElementById('template-search-input').value.toLowerCase().trim();
-        if (!q) {
-            renderTable(fetchedEquipments, true);
-            return;
+        const q = document.getElementById('template-search-input').value.trim();
+
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
         }
 
-        const filtered = fetchedEquipments
-            .map(item => {
-                const id = (item.EQUIPMENT_ID || item.equipment_id || item.ID || item.id || '').toLowerCase();
-                const name = (item.NAME || item.standard_name || '').toLowerCase();
-                const manu = (item.MANUFACTURER || item.manufacturer || '').toLowerCase();
-
-                let score = 100; // Mặc định không khớp
-                if (id === q || name === q) score = 0;
-                else if (id.startsWith(q) || name.startsWith(q)) score = 10;
-                else if (id.includes(q) || name.includes(q)) score = 20;
-                else if (manu.includes(q)) score = 30;
-
-                return { item, score };
-            })
-            .filter(x => x.score < 100)
-            .sort((a, b) => a.score - b.score || (a.item.NAME || '').localeCompare(b.item.NAME || ''))
-            .map(x => x.item);
-
-        renderTable(filtered, true);
+        searchTimeout = setTimeout(() => {
+            fetchEquipmentTemplates(q);
+        }, 300); // 300ms debounce
     }
 
     function renderTable(equipments, isFromAPI) {
@@ -1103,77 +1088,26 @@ async function fetchEquipmentTemplates() {
         if (document.getElementById('in-procedure')) document.getElementById('in-procedure').value = eq.PROCEDURE || eq.procedure || '';
         if (document.getElementById('in-ref-standard')) document.getElementById('in-ref-standard').value = eq.REF_STANDARD || eq.ref_standard || '';
 
-        const tbody = document.getElementById('calibration-table-rows');
-        tbody.innerHTML = '';
-
         const points = eq.formPoints || [];
         if (points.length > 0) {
-            renderFromTemplatePoints(points, tbody);
+            const dataForTable = points.map(p => ({
+                paramName: p.PARAMETER_NAME || '',
+                calPoint: p.CAL_POINT || '',
+                asFound: p.AS_FOUND_VALUE || '',
+                uncertainty: p.UNCERTAINTY || '',
+                refValue: p.REFERENCE_VALUE || '',
+                tolerance: p.TOLERANCE || '',
+                conformity: p.CONFORMITY || '',
+                standardEquipment: p.STANDARD_EQUIPMENT || ''
+            }));
+            renderDbTableFromData(dataForTable);
         } else {
-            for (let k = 0; k < 3; k++) addCalibrationRow();
-        }
-    }
-
-    // Hàm duy nhất để render points — xóa bỏ renderFromMock và renderFromSaved cũ
-    function renderFromTemplatePoints(points, tbody) {
-        if (!points || points.length === 0) {
-            // Không có dữ liệu: thêm 3 dòng trống
-            for (let k = 0; k < 3; k++) addCalibrationRow();
-            return;
-        }
-        
-        let i = 0;
-        while (i < points.length) {
-            const groupName = points[i].PARAMETER_NAME || points[i].parameterName || '';
-            let j = i;
-            while (j < points.length && (points[j].PARAMETER_NAME || points[j].parameterName || '') === groupName) j++;
-            const groupSize = j - i;
-
-            for (let k = i; k < j; k++) {
-                const pt = points[k];
-                const tr = document.createElement('tr');
-                tr.setAttribute('data-group', groupName);
-                let html = '';
-
-                if (k === i) {
-                    html += `<td rowspan="${groupSize}" class="group-header" style="text-align:left;font-weight:600;background:#f8fafc;vertical-align:middle;">
-                        <textarea class="param-input" style="width:100%; border:none; background:transparent; font-family:'Inter',sans-serif; font-weight:600; font-size:13px; resize:vertical; min-height:36px;">${groupName}</textarea>
-                    </td>`;
-                    html += renderCells(
-                        pt.CAL_POINT || pt.calPoint || pt.point || pt.value || '',
-                        pt.AS_FOUND_VALUE || pt.asFoundValue || pt.v1 || '',
-                        pt.UNCERTAINTY || pt.uncertainty || '',
-                        pt.REFERENCE_VALUE || pt.refValue || '',
-                        pt.TOLERANCE || pt.tolerance || '',
-                        pt.CONFORMITY || pt.conformity || ''
-                    );
-                    // placeholder rowspan cho standard-eq-cell
-                    html += `<td rowspan="${groupSize}" class="standard-eq-cell" style="vertical-align:middle;min-width:140px;"></td>`;
-                } else {
-                    html += renderCells(
-                        pt.CAL_POINT || pt.calPoint || pt.point || pt.value || '',
-                        pt.AS_FOUND_VALUE || pt.asFoundValue || pt.v1 || '',
-                        pt.UNCERTAINTY || pt.uncertainty || '',
-                        pt.REFERENCE_VALUE || pt.refValue || '',
-                        pt.TOLERANCE || pt.tolerance || '',
-                        pt.CONFORMITY || pt.conformity || ''
-                    );
-                }
-
-                html += `<td style="padding:4px;"><button onclick="deleteRow(this)" style="color:#e53e3e;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;padding:4px 8px;transition:all 0.15s;line-height:1;" onmouseover="this.style.background='#fed7d7';this.style.borderColor='#fc8181'" onmouseout="this.style.background='#fff5f5';this.style.borderColor='#fed7d7'">✖</button></td>`;
-                tr.innerHTML = html;
-                tbody.appendChild(tr);
-
-                // Gắn oninput handler + widget vào ô standard-eq-cell của hàng đầu nhóm
-                if (k === i) {
-                    const textarea = tr.querySelector('.param-input');
-                    if (textarea) textarea.oninput = function() { checkParamForRefEq(this); };
-                    const stdCell = tr.querySelector('.standard-eq-cell');
-                    const savedVal = pt.STANDARD_EQUIPMENT || pt.standardEquipment || '';
-                    if (stdCell) renderRefEqControl(stdCell, groupName, savedVal);
-                }
-            }
-            i = j;
+            // If no points, render 3 empty rows for user to start
+            renderDbTableFromData([
+                { paramName: '', calPoint: '', asFound: '', uncertainty: '', refValue: '', tolerance: '', conformity: '', standardEquipment: '' },
+                { paramName: '', calPoint: '', asFound: '', uncertainty: '', refValue: '', tolerance: '', conformity: '', standardEquipment: '' },
+                { paramName: '', calPoint: '', asFound: '', uncertainty: '', refValue: '', tolerance: '', conformity: '', standardEquipment: '' }
+            ]);
         }
     }
 

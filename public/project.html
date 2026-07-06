@@ -420,6 +420,11 @@
           <tbody id="project-table-body"></tbody>
         </table>
       </div>
+      <!-- PAGINATION -->
+      <div class="panel-footer" style="padding: 16px 24px; background: #f8fafc; border-top: 1px solid var(--border);">
+          <div class="pagination-controls" id="project-pagination-controls" style="display: flex; justify-content: center; align-items: center; gap: 10px;">
+          </div>
+      </div>
     </div>
   </div>
 </main>
@@ -775,62 +780,56 @@ function getCombinedStandardsDB() {
   return liveList;
 }
 
-/* ====== LIVE CUSTOMERS DATABASE ====== */
-let liveCustomersDB = [];
-async function fetchLiveCustomers() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/customers`);
-    if (response.ok) {
-      liveCustomersDB = await response.json();
-    }
-  } catch (error) {
-    console.error("Lỗi khi tải danh sách khách hàng:", error);
-  }
-}
+// This section is now handled by a dedicated search API.
 
 /* ====== CUSTOMER SEARCH (YouTube Style) ====== */
-function handleCustomerSearch(keyword) {
+let customerSearchTimeout;
+async function handleCustomerSearch(keyword) {
   const box = document.getElementById('cust-suggestions');
   const loader = document.getElementById('cust-loader');
+  if (!box || !loader) return;
+
   box.innerHTML = '';
-  if (!keyword || keyword.trim().length < 1) { box.style.display='none'; return; }
-
-  if (loader) loader.style.display = 'block';
-  const keyLower = keyword.toLowerCase();
-  
-  // Lọc và sắp xếp theo độ liên quan (Smart Search)
-  const filtered = liveCustomersDB
-    .map(c => {
-      const name = (c.NAME || '').toLowerCase();
-      const company = (c.COMPANY || '').toLowerCase();
-      const id = (c.ID || '').toLowerCase();
-      
-      let score = 100;
-      if (name === keyLower || id === keyLower) score = 0;
-      else if (name.startsWith(keyLower) || id.startsWith(keyLower)) score = 10;
-      else if (name.includes(keyLower) || id.includes(keyLower)) score = 20;
-      else if (company.includes(keyLower)) score = 30;
-      
-      return { item: c, score };
-    })
-    .filter(x => x.score < 100)
-    .sort((a, b) => a.score - b.score || (a.item.NAME || '').localeCompare(b.item.NAME || ''))
-    .map(x => x.item);
-
-  if (filtered.length === 0) {
-    box.innerHTML = `<div class="suggestion-item" style="color:var(--text-muted);cursor:default;">❌ Không tìm thấy khách hàng</div>`;
-  } else {
-    filtered.slice(0, 10).forEach(c => {
-      const d = document.createElement('div');
-      d.className = 'suggestion-item';
-      d.innerHTML = `👤 <strong>${c.NAME}</strong> – ${c.COMPANY || 'Cá nhân'} 
-                     <span style="margin-left:auto;color:var(--text-muted);font-size:11px;">#${c.ID}</span>`;
-      d.onclick = () => selectCustomerInDetail(c);
-      box.appendChild(d);
-    });
+  if (!keyword || keyword.trim().length < 1) {
+      box.style.display = 'none';
+      return;
   }
-  if (loader) loader.style.display = 'none';
-  box.style.display = 'block';
+
+  loader.style.display = 'block';
+
+  // Debounce logic
+  clearTimeout(customerSearchTimeout);
+  customerSearchTimeout = setTimeout(async () => {
+      try {
+          const res = await fetch(`${API_BASE_URL}/api/customers/search?q=${encodeURIComponent(keyword)}`);
+          if (!res.ok) throw new Error('API search failed');
+          
+          const customers = await res.json();
+          
+          loader.style.display = 'none';
+          box.innerHTML = '';
+
+          if (customers.length === 0) {
+              box.innerHTML = `<div class="suggestion-item" style="color:var(--text-muted);cursor:default;">❌ Không tìm thấy khách hàng</div>`;
+          } else {
+              customers.forEach(c => {
+                  const d = document.createElement('div');
+                  d.className = 'suggestion-item';
+                  d.innerHTML = `👤 <strong>${c.NAME}</strong> – ${c.COMPANY || 'Cá nhân'} 
+                                 <span style="margin-left:auto;color:var(--text-muted);font-size:11px;">#${c.ID}</span>`;
+                  d.onclick = () => selectCustomerInDetail(c);
+                  box.appendChild(d);
+              });
+          }
+          box.style.display = 'block';
+
+      } catch (error) {
+          loader.style.display = 'none';
+          box.innerHTML = `<div class="suggestion-item" style="color:var(--danger);cursor:default;">⚠️ Lỗi kết nối server</div>`;
+          box.style.display = 'block';
+          console.error("Lỗi tìm kiếm khách hàng:", error);
+      }
+  }, 300); // 300ms delay
 }
 
 function selectCustomerInDetail(cust) {
@@ -904,7 +903,13 @@ function groupTemplatePointsToFormPoints(points) {
 // để có thể tìm kiếm/chọn ngay trong Project, sau đó in/xuất PDF như Washing Machine
 async function syncEquipmentDBFromAPI() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/equipment-templates`);
+  const response = await fetch(`${API_BASE_URL}/api/equipment-templates?_t=${Date.now()}`, {
+        headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        }
+    });    
+
     if (!response.ok) throw new Error('Không thể kết nối API danh sách thiết bị chuẩn');
     const templates = await response.json();
 
@@ -1040,7 +1045,7 @@ function calculateConformity(row) {
 function applyCustomerToWorkspace(cust) {
   if (!cust) return;
   if (document.getElementById('f-cust')) document.getElementById('f-cust').value = cust.NAME || cust.COMPANY;
-  if (document.getElementById('f-cust-addr')) document.getElementById('f-cust-addr').value = cust.ADDRESS || cust.BILLING_ADDRESS || '';
+  if (document.getElementById('f-cust-addr')) document.getElementById('f-cust-addr').value = cust.CUSTOMER_ADDRESS || cust.BILLING_ADDRESS || cust.ADDRESS || '';
   if (document.getElementById('f-place')) {
     const company = cust.COMPANY || cust.NAME || '';
     const addr = cust.ADDRESS || cust.BILLING_ADDRESS || '';
@@ -1057,6 +1062,9 @@ let currentEquipmentName = '';
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:18080/api'
     : 'https://labmaster-backend.onrender.com/api'; 
+
+let projectCurrentPage = 1;
+const projectLimit = 10;
 
 /* ====== SIMPLE MODE STATE ====== */
 let standards = [];
@@ -2094,13 +2102,39 @@ function closeModal(id) { document.getElementById(id).style.display='none'; }
 
 /* ====== PROJECT MANAGEMENT ====== */
 async function updateStats() {
-  document.getElementById('stat-total').textContent = projectsList.length;
-  document.getElementById('stat-progress').textContent = projectsList.filter(v=>v.STATUS==='In Progress').length;
-  document.getElementById('stat-finished').textContent = projectsList.filter(v=>v.STATUS==='Finished').length;
+  // This function is now updated to take stats from the paginated API response.
+  // The certCount part remains a separate call.
 
   const res = await fetch(`${API_URL}/stats/summary`);
   const summary = await res.json();
   document.getElementById('stat-certs').textContent = summary.certCount || 0;
+}
+
+function renderProjectPagination(totalItems, currentPage, limit) {
+    const paginationContainer = document.getElementById('project-pagination-controls');
+    if (!paginationContainer) return;
+
+    const totalPages = Math.ceil(totalItems / limit);
+    paginationContainer.innerHTML = '';
+
+    if (totalPages <= 1) return;
+
+    let html = '';
+
+    // Previous button
+    html += `<button class="btn btn-secondary btn-sm" ${currentPage === 1 ? 'disabled' : ''} onclick="fetchProjects(${currentPage - 1})">
+                <i class="fas fa-chevron-left"></i> Trước
+             </button>`;
+
+    // Page info
+    html += `<span style="font-size: 0.9rem; color: var(--text-muted);">Trang <strong>${currentPage}</strong> / ${totalPages}</span>`;
+
+    // Next button
+    html += `<button class="btn btn-secondary btn-sm" ${currentPage === totalPages ? 'disabled' : ''} onclick="fetchProjects(${currentPage + 1})">
+                Tiếp <i class="fas fa-chevron-right"></i>
+             </button>`;
+
+    paginationContainer.innerHTML = html;
 }
 
 function renderProjectSkeleton(count) {
@@ -2122,10 +2156,17 @@ function renderProjectSkeleton(count) {
   }
 }
 
-async function fetchProjects() {
+async function fetchProjects(page = 1) {
+  projectCurrentPage = page;
   renderProjectSkeleton(5);
-  const res = await fetch(`${API_URL}/projects`);
-  projectsList = await res.json();
+  const url = new URL(`${API_URL}/projects`);
+  url.searchParams.append('page', page);
+  url.searchParams.append('limit', projectLimit);
+
+  const res = await fetch(url.toString(), { cache: 'no-cache' });
+  const result = await res.json();
+  projectsList = result.data;
+
   const tbody = document.getElementById('project-table-body');
   tbody.innerHTML = '';
   projectsList.forEach(proj => {
@@ -2145,7 +2186,20 @@ async function fetchProjects() {
       `;
       tbody.appendChild(row);
   });
-  updateStats();
+
+  // Update stats with data from the paginated response
+  document.getElementById('stat-total').textContent = result.total;
+  document.getElementById('stat-progress').textContent = result.progress;
+  document.getElementById('stat-finished').textContent = result.finished;
+  document.getElementById('project-count-badge').textContent = result.total;
+  // Fetch cert count separately
+  (async () => {
+      const res = await fetch(`${API_URL}/stats/summary`);
+      const summary = await res.json();
+      document.getElementById('stat-certs').textContent = summary.certCount || 0;
+  })();
+
+  renderProjectPagination(result.total, page, projectLimit);
 }
 
 /**
@@ -2333,6 +2387,7 @@ async function loadExistingCalibration(projectId, equipmentName) {
         if (hasSavedData) {
             const c = result.cert;
             const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+            // These might overwrite template data, which is why the logic in openCalibrationWorkspace is needed to restore them.
             setVal('f-inst-vi',   c.INSTRUMENT_NAME);
             setVal('f-inst-en',   c.INSTRUMENT_NAME);
             setVal('f-mfr',       c.MANUFACTURER);
@@ -2739,7 +2794,7 @@ async function loadProjectDetail() {
         const result = await response.json();
 
         if (result.success) {
-            const project = result.project;
+            const project = result.data;
             if (document.getElementById('view-proj-id')) document.getElementById('view-proj-id').innerText = project.ID || '-';
             if (document.getElementById('view-proj-title')) document.getElementById('view-proj-title').innerText = project.TITLE || '-';
             if (document.getElementById('view-proj-tech')) document.getElementById('view-proj-tech').innerText = project.TECH || '-';
@@ -2803,7 +2858,7 @@ async function executeCreateProject(payload) {
             showToast("Khởi tạo dự án thành công!");
 
             // Auto-duplicate calibration data if copied from another project
-            const newId = result.id;
+            const newId = result.ID;
             if (newId && typeof _copiedProjectData !== 'undefined' && _copiedProjectData && _copiedProjectData.calibration && _copiedProjectData.calibration.cert) {
                 (async () => {
                     try {
@@ -2891,12 +2946,12 @@ async function copyProjectData(projectId) {
         });
         const result = await response.json();
 
-        if (!result.success || !result.id) {
+        if (!result.success || !result.ID) {
             showToast('Lỗi khi tạo dự án mới!', 'danger');
             return;
         }
 
-        const newId = result.id;
+        const newId = result.ID;
         showToast('✅ Đã tạo bản sao: ' + newId, 'success');
 
         const certNo = projectId.replace('PRJ-', '');
@@ -2979,6 +3034,20 @@ function checkCopiedData() {
                 }
             }
         } catch (e) {}
+    }
+}
+
+function clearEditorData() {
+    const isConfirm = confirm("Bạn có chắc chắn muốn làm mới? Toàn bộ số liệu đang nhập sẽ bị xóa và thay thế bằng dữ liệu gốc từ Database Equipment!");
+    
+    if (isConfirm) {
+        if (window._currentWorkingEquipment && MockDatabaseEquipment[window._currentWorkingEquipment]) {
+            // Gọi lại hàm đổ dữ liệu từ Mẫu gốc
+            selectEquipmentTemplate(window._currentWorkingEquipment);
+            showToast("Đã tải lại cấu hình gốc từ Database Equipment thành công!", "success");
+        } else {
+            showToast("Không tìm thấy mẫu thiết bị. Hãy thử F5 tải lại trang.", "warning");
+        }
     }
 }
 </script>

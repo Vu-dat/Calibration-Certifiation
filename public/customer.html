@@ -667,6 +667,11 @@
         </div>
     </section>
 
+    <!-- PAGINATION -->
+    <div class="pagination-controls" id="pagination-controls" style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; padding: 10px;">
+        <!-- Rendered by JS -->
+    </div>
+
     <!-- ═══════════════════════════════════ -->
     <!--   DETAIL VIEW                       -->
     <!-- ═══════════════════════════════════ -->
@@ -960,6 +965,9 @@ const EDIT_PASSWORD = '123456';
 /* ──────────────────────────────────────────────
    STATE
 ────────────────────────────────────────────── */
+let currentPage = 1;
+const customersPerPage = 15;
+
 let globalCustomersList = [];   // Full dataset from server
 let filteredList        = [];   // After search filter
 let currentViewingId    = null; // ID of customer in detail view
@@ -1004,37 +1012,45 @@ document.addEventListener('DOMContentLoaded', () => {
    DATA: LOAD
 ────────────────────────────────────────────── */
 function renderCustomerSkeleton(count) {
-  const tbody = document.getElementById('customer-table-body');
-  const rows = count || 5;
-  let html = '';
-  for (let i = 0; i < rows; i++) {
-    html += '<tr class="skeleton-row">' +
-      '<td><div class="skeleton-cell narrow"></div></td>' +
-      '<td><div class="skeleton-cell"></div></td>' +
-      '<td><div class="skeleton-cell wide"></div></td>' +
-      '<td><div class="skeleton-cell" style="max-width:140px"></div></td>' +
-      '<td><div class="skeleton-cell badge"></div></td>' +
-      '<td style="text-align:center;"><div class="skeleton-cell circle"></div></td>' +
-      '</tr>';
-  }
-  tbody.innerHTML = html;
+    const tbody = document.getElementById('customer-table-body');
+    if (!tbody) return;
+    const rows = count || 5;
+    let html = '';
+    for (let i = 0; i < rows; i++) {
+        html += `<tr class="skeleton-row">
+            <td><div class="skeleton-cell narrow"></div></td>
+            <td><div class="skeleton-cell"></div></td>
+            <td><div class="skeleton-cell wide"></div></td>
+            <td><div class="skeleton-cell" style="max-width:140px"></div></td>
+            <td><div class="skeleton-cell badge"></div></td>
+            <td style="text-align:center;"><div class="skeleton-cell circle"></div></td>
+        </tr>`;
+    }
+    tbody.innerHTML = html;
 }
 
-async function loadCustomers() {
+async function loadCustomers(page = 1, searchQuery = '') {
+    currentPage = page;
     const tbody = document.getElementById('customer-table-body');
     renderCustomerSkeleton(5);
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/customers`);
+        const url = new URL(`${API_BASE_URL}/api/customers`);
+        url.searchParams.append('page', page);
+        url.searchParams.append('limit', customersPerPage);
+        if (searchQuery) url.searchParams.append('q', searchQuery);
+
+        const res = await fetch(url.toString(), { cache: 'no-cache' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
-        globalCustomersList = Array.isArray(data) ? data : [];
-        filteredList = [...globalCustomersList];
+        globalCustomersList = data.data || [];
+        filteredList = [...globalCustomersList]; // This is now correct
 
         renderTable(filteredList);
-        updateStats(globalCustomersList);
-        computeNextId(globalCustomersList);
+        updateStats(data.total, data.vipCount);
+        renderPagination(data.total, page, customersPerPage);
+        computeNextId(); // No longer relies on full list
 
     } catch (err) {
         console.error('❌ loadCustomers:', err);
@@ -1117,27 +1133,50 @@ function renderTable(list) {
 /* ──────────────────────────────────────────────
    DATA: STATS + NEXT ID
 ────────────────────────────────────────────── */
-function updateStats(list) {
-    document.getElementById('stat-total').textContent = list.length;
-    const vipCount = list.filter(c => (c.NOTE || '').toUpperCase().includes('VIP')).length;
+function updateStats(totalCount, vipCount) {
+    document.getElementById('stat-total').textContent = totalCount;
     document.getElementById('stat-vip').textContent = vipCount;
 }
 
-function computeNextId(list) {
-    let maxNum = 0;
-    list.forEach(c => {
-        if (c.ID) {
-            const match = c.ID.match(/^CUST-(\d+)$/);
-            if (match) {
-                const n = parseInt(match, 10);
-                if (n > maxNum) maxNum = n;
-            }
-        }
-    });
-    const nextId = `CUST-${String(maxNum + 1).padStart(6, '0')}`;
+function computeNextId() {
+    // With server-side pagination, we can't reliably compute the next ID on the client.
+    // The server will handle this logic upon creation. We just show a placeholder.
     const el = document.getElementById('next-id-preview');
-    if (el) el.textContent = `${nextId}  ·  Sẵn sàng cấp phát`;
-    return nextId;
+    if (el) el.textContent = `CUST-xxxxxx (Tự động)`;
+}
+
+/* ──────────────────────────────────────────────
+   PAGINATION
+────────────────────────────────────────────── */
+function renderPagination(totalItems, currentPage, limit) {
+    const paginationContainer = document.getElementById('pagination-controls');
+    if (!paginationContainer) return;
+
+    const totalPages = Math.ceil(totalItems / limit);
+    paginationContainer.innerHTML = '';
+
+    if (totalPages <= 1) return;
+
+    const searchQuery = document.getElementById('cust-search-input').value.trim();
+
+    let html = '';
+
+    // Previous button
+    html += `<button class="btn-secondary" style="padding: 8px 14px;" ${currentPage === 1 ? 'disabled' : ''} onclick="loadCustomers(${currentPage - 1}, '${sanitize(searchQuery)}')">
+                <i class="fas fa-chevron-left"></i>&nbsp; Trước
+             </button>`;
+
+    // Page info
+    html += `<span style="font-size: 0.9rem; color: var(--slate); font-weight: 500;">
+                Trang <strong>${currentPage}</strong> / ${totalPages}
+             </span>`;
+
+    // Next button
+    html += `<button class="btn-secondary" style="padding: 8px 14px;" ${currentPage === totalPages ? 'disabled' : ''} onclick="loadCustomers(${currentPage + 1}, '${sanitize(searchQuery)}')">
+                Tiếp &nbsp;<i class="fas fa-chevron-right"></i>
+             </button>`;
+
+    paginationContainer.innerHTML = html;
 }
 
 /* ──────────────────────────────────────────────
@@ -1149,18 +1188,13 @@ function handleSearch(query) {
 
     clearBtn.style.display = q ? 'block' : 'none';
 
-    if (!q) {
-        filteredList = [...globalCustomersList];
-    } else {
-        filteredList = globalCustomersList.filter(c =>
-            (c.ID      || '').toLowerCase().includes(q) ||
-            (c.NAME    || '').toLowerCase().includes(q) ||
-            (c.COMPANY || '').toLowerCase().includes(q) ||
-            (c.PHONE   || '').toLowerCase().includes(q) ||
-            (c.EMAIL   || '').toLowerCase().includes(q)
-        );
+    // Debounce search to avoid excessive API calls
+    if (window.searchTimeout) {
+        clearTimeout(window.searchTimeout);
     }
-    renderTable(filteredList);
+    window.searchTimeout = setTimeout(() => {
+        loadCustomers(1, q); // Always go to page 1 for a new search
+    }, 300);
 }
 
 function clearSearch() {
@@ -1337,7 +1371,7 @@ async function submitNewCustomer() {
         const result = await res.json();
 
         if (result.success) {
-            showToast(`✅ Đã khởi tạo thành công: ${result.id}`, 'success');
+            showToast(`✅ Đã khởi tạo thành công: ${result.ID}`, 'success');
             closeAddModal();
             await loadCustomers();
         } else {
