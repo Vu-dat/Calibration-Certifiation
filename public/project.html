@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <title>Quản lý Dự Án – LabMaster Pro</title>
     <style>
     /* ─── PREMIUM MODAL ─── */
@@ -741,10 +742,10 @@
         // Coi như chưa đăng nhập nếu có lỗi
     }
   });
-  // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
+  // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng backend URL trên Render
   const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:18080' 
-    : window.location.origin;
+    : 'https://labmaster-backend.onrender.com';
 
 /* ====== LIVE DATABASE STANDARDS ====== */
 let liveStandardsDB = [];
@@ -1486,7 +1487,7 @@ async function handleStandardSearch(query) {
 
     try {
         // Gửi trực tiếp từ khóa 'query' người dùng gõ lên API
-        const response = await fetch(`http://localhost:18080/api/clock/search?q=${encodeURIComponent(query)}`);
+        const response = await fetch(`${API_BASE_URL}/api/clock/search?q=${encodeURIComponent(query)}`);
         const data = await response.json();
 
         if (!suggestionsBox) return;
@@ -2304,9 +2305,9 @@ async function exportFile(format) {
   };
 
   const apiEndpoints = {
-    pdf:  `${API_BASE_URL}/api/calibration/export-pdf`,
-    excel: `${API_BASE_URL}/api/calibration/export-excel`,
-    docx: `${API_BASE_URL}/api/calibration/export-docx`
+    pdf:  `${API_URL}/calibration/export-pdf`,
+    excel: `${API_URL}/calibration/export-excel`,
+    docx: `${API_URL}/calibration/export-docx`
   };
 
   try {

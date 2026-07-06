@@ -629,10 +629,10 @@ app.post('/api/calibration/save', async (req, res) => {
 
         await sql`
             INSERT INTO CERTIFICATES 
-            (CERT_NO, INSTRUMENT_NAME, MANUFACTURER, MODEL, EQUIPMENT_ID, SERIAL_NUMBER, CUSTOMER_NAME, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV, HEAD_OF_LAB, DIRECTOR) 
-            VALUES (${data.certNo}, ${data.instrumentName}, ${data.manufacturer}, ${data.model}, ${data.equipmentId}, ${data.serialNumber}, ${data.customerName}, ${data.calDate}, ${data.reCalDate}, ${data.procedure}, ${data.refStandard}, ${data.tempEnv}, ${data.humiEnv}, ${data.headOfLab}, ${data.director})
+            (CERT_NO, INSTRUMENT_NAME, MANUFACTURER, MODEL, EQUIPMENT_ID, SERIAL_NUMBER, CUSTOMER_NAME, CUSTOMER_ADDRESS, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV, HEAD_OF_LAB, DIRECTOR) 
+            VALUES (${data.certNo || ''}, ${data.instrumentName || ''}, ${data.manufacturer || ''}, ${data.model || ''}, ${data.equipmentId || ''}, ${data.serialNumber || ''}, ${data.customerName || ''}, ${data.customerAddress || ''}, ${data.calDate || ''}, ${data.reCalDate || ''}, ${data.procedure || ''}, ${data.refStandard || ''}, ${data.tempEnv || ''}, ${data.humiEnv || ''}, ${data.headOfLab || ''}, ${data.director || ''})
             ON CONFLICT (CERT_NO) DO UPDATE SET 
-                INSTRUMENT_NAME = EXCLUDED.INSTRUMENT_NAME, MANUFACTURER = EXCLUDED.MANUFACTURER, MODEL = EXCLUDED.MODEL, EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID, SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER, CUSTOMER_NAME = EXCLUDED.CUSTOMER_NAME, CAL_DATE = EXCLUDED.CAL_DATE, RE_CAL_DATE = EXCLUDED.RE_CAL_DATE, PROCEDURE = EXCLUDED.PROCEDURE, REF_STANDARD = EXCLUDED.REF_STANDARD, TEMP_ENV = EXCLUDED.TEMP_ENV, HUMI_ENV = EXCLUDED.HUMI_ENV, HEAD_OF_LAB = EXCLUDED.HEAD_OF_LAB, DIRECTOR = EXCLUDED.DIRECTOR
+                INSTRUMENT_NAME = EXCLUDED.INSTRUMENT_NAME, MANUFACTURER = EXCLUDED.MANUFACTURER, MODEL = EXCLUDED.MODEL, EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID, SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER, CUSTOMER_NAME = EXCLUDED.CUSTOMER_NAME, CUSTOMER_ADDRESS = EXCLUDED.CUSTOMER_ADDRESS, CAL_DATE = EXCLUDED.CAL_DATE, RE_CAL_DATE = EXCLUDED.RE_CAL_DATE, PROCEDURE = EXCLUDED.PROCEDURE, REF_STANDARD = EXCLUDED.REF_STANDARD, TEMP_ENV = EXCLUDED.TEMP_ENV, HUMI_ENV = EXCLUDED.HUMI_ENV, HEAD_OF_LAB = EXCLUDED.HEAD_OF_LAB, DIRECTOR = EXCLUDED.DIRECTOR
         `;
 
         await sql`DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${data.certNo}`;
@@ -985,7 +985,8 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
         logActivity("Hệ thống / KTV", "EXPORT_PDF", "CERTIFICATES", cert_no, `Xuất PDF: ${fileName}`);
         res.json({ success: true, message: `Đã xuất thành công ${fileName}`, file_url: `${getBaseUrl()}/static/${fileName}` });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('EXPORT-PDF ERROR STACK:', err.stack);
+        res.status(500).json({ success: false, error: err.message, stack: err.stack });
     }
 });
 

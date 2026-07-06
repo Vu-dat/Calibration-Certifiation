@@ -9,14 +9,14 @@ const db = require('./db');
 
 // Adapter: SQLite ? → PostgreSQL $1, $2 for backward-compatible queries
 async function g(query, params) {
-  const pgQuery = query.replace(/\?/g, () => `$${++g._idx}`);
   g._idx = 0;
+  const pgQuery = query.replace(/\?/g, () => `$${++g._idx}`);
   const rows = await db.unsafe(pgQuery, params);
   return rows[0] || null;
 }
 async function a(query, params) {
-  const pgQuery = query.replace(/\?/g, () => `$${++a._idx}`);
   a._idx = 0;
+  const pgQuery = query.replace(/\?/g, () => `$${++a._idx}`);
   return await db.unsafe(pgQuery, params);
 }
 
@@ -305,25 +305,33 @@ function drawSignature(doc, headOfLab, director, cx, startY) {
 async function main(opts) {
   try {
     // Accept params from both CLI (process.argv) and direct call (opts object)
-    var cNo = (opts && opts.certNo) || certNo;
-    var dUrl = (opts && opts.downloadUrl) || downloadUrl;
-    var eqName = (opts && opts.equipmentName) || equipmentName;
-    if (!cNo) { console.error('Loi: Vui long cung cap ma so.'); process.exit(1); }
-    var qr = null;
-    if (dUrl) { try { qr = await QRCode.toBuffer(dUrl, {width:120,margin:1,color:{dark:'#004d4d',light:'#ffffff'}}); } catch(e) {} }
-    var cert = await g('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]);
-    // Compute output paths inside main() (certNo is guaranteed to be valid here)
-    const SD = path.join(BD, 'static');
-    if (!fs.existsSync(SD)) fs.mkdirSync(SD, { recursive: true });
-    const SN = cNo.replace(/[^a-zA-Z0-9]/g, '_');
-    const OF = path.join(SD, 'GCN_' + SN + '.pdf');
-    if (!cert) { console.error('Not found:', cNo); process.exit(1); }
+  var cNo = (opts && opts.certNo) || certNo;
+  var dUrl = (opts && opts.downloadUrl) || downloadUrl;
+  var eqName = (opts && opts.equipmentName) || equipmentName;
+  if (!cNo) {
+    var errMsg = 'Loi: Vui long cung cap ma so.';
+    if (require.main === module) { console.error(errMsg); process.exit(1); }
+    else throw new Error(errMsg);
+  }
+  var qr = null;
+  if (dUrl) { try { qr = await QRCode.toBuffer(dUrl, {width:120,margin:1,color:{dark:'#004d4d',light:'#ffffff'}}); } catch(e) {} }
+  var cert = await g('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]);
+  // Compute output paths inside main() (certNo is guaranteed to be valid here)
+  const SD = path.join(BD, 'static');
+  if (!fs.existsSync(SD)) fs.mkdirSync(SD, { recursive: true });
+  const SN = cNo.replace(/[^a-zA-Z0-9]/g, '_');
+  const OF = path.join(SD, 'GCN_' + SN + '.pdf');
+  if (!cert) {
+    var errMsg2 = 'Not found: ' + cNo;
+    if (require.main === module) { console.error(errMsg2); process.exit(1); }
+    else throw new Error(errMsg2);
+  }
     var ptsQ = eqName
     ? "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC"
     : "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC";
 var ptsParams = eqName ? [cNo, eqName] : [cNo];
 var pts = await a(ptsQ, ptsParams);
-    var stds = await a('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [certNo]);
+    var stds = await a('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]);
     var lp = path.join(BD, '_ref_logo.png');
     var logo = null;
     try { if (fs.existsSync(lp)) logo = fs.readFileSync(lp); } catch(e) {}
@@ -344,7 +352,7 @@ var pts = await a(ptsQ, ptsParams);
     
     // ===== PAGE 1 =====
     doc.addPage();
-    var curY = drawH(doc, logo, certNo, pd(cert.CAL_DATE), qr, 1);
+    var curY = drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr, 1);
     
     // === SECTIONS 1-6: Grid layout with hardcoded demo fallback ===
     // Section 1: Customer - full width
@@ -440,7 +448,7 @@ var pts = await a(ptsQ, ptsParams);
     drawFooter(doc, 1, 2);
     
     // ===== PAGE 2 =====
-    curY = newPage(doc, logo, certNo, pd(cert.CAL_DATE), qr);
+    curY = newPage(doc, logo, cNo, pd(cert.CAL_DATE), qr);
     
     // 16. Results
     sf(doc, true); doc.fontSize(10).fillColor(BCLR);
@@ -472,7 +480,7 @@ var pts = await a(ptsQ, ptsParams);
         var g2 = grps[gi];
         for (var ri = 0; ri < g2.rows.length; ri++) {
           var r = g2.rows[ri];
-          if (curY > PH - 80) { curY = newPage(doc, logo, certNo, pd(cert.CAL_DATE), qr); }
+          if (curY > PH - 80) { curY = newPage(doc, logo, cNo, pd(cert.CAL_DATE), qr); }
           var pt = ri === 0 ? g2.name : '';
           var confVal = String(r.CONFORMITY||r.conformity||'');
           if (!confVal) confVal = 'A';
@@ -581,9 +589,24 @@ var pts = await a(ptsQ, ptsParams);
     doc.text(VN.legal5, ML, curY, {width:CW}); curY += legalH5 + 4;
     
     drawFooter(doc, 2, 2);
-    doc.end();
-    ws.on('finish', function() { console.log('[SUCCESS] Da xuat: GCN_'+SN+'.pdf'); process.exit(0); });
-  } catch(err) { console.error('LOI:', err); process.exit(1); }
+    // Return a Promise that resolves when the PDF stream finishes writing
+    // This is critical: process.exit() would kill the Express server!
+    return new Promise(function(resolve, reject) {
+      ws.on('finish', function() {
+        console.log('[SUCCESS] Da xuat: GCN_'+SN+'.pdf');
+        resolve();
+      });
+      ws.on('error', function(err) {
+        console.error('LOI stream:', err);
+        reject(err);
+      });
+      doc.end();
+    });
+  } catch(err) {
+    console.error('LOI:', err);
+    if (require.main === module) process.exit(1);
+    else throw err;
+  }
 }
 
 module.exports = { generatePDF: main };

@@ -14,14 +14,14 @@ const db = require('./db');
 
 // Adapter: SQLite ? → PostgreSQL $1, $2 for backward-compatible queries
 async function dbGet(query, params) {
-  const pgQuery = query.replace(/\?/g, () => `$${++dbGet._idx}`);
   dbGet._idx = 0;
+  const pgQuery = query.replace(/\?/g, () => `$${++dbGet._idx}`);
   const rows = await db.unsafe(pgQuery, params);
   return rows[0] || null;
 }
 async function dbAll(query, params) {
-  const pgQuery = query.replace(/\?/g, () => `$${++dbAll._idx}`);
   dbAll._idx = 0;
+  const pgQuery = query.replace(/\?/g, () => `$${++dbAll._idx}`);
   return await db.unsafe(pgQuery, params);
 }
 
@@ -130,7 +130,10 @@ async function main(opts) {
     try {
         // Accept params from both CLI (process.argv) and direct call (opts object)
         const cNo = (opts && opts.certNo) || certNo;
-        if (!cNo) { console.error('Lỗi: node generate_docx.js <CERT_NO> [download_url]'); process.exit(1); }
+        if (!cNo) {
+            if (require.main === module) { console.error('Lỗi: node generate_docx.js <CERT_NO> [download_url]'); process.exit(1); }
+            else throw new Error('Lỗi: node generate_docx.js <CERT_NO> [download_url]');
+        }
         // Resolve downloadUrl: ưu tiên opts, fallback process.argv
         const dUrl = (opts && opts.downloadUrl) || downloadUrl || '';
         const finalDUrl = dUrl || `http://localhost:18080/static/GCN_${cNo.replace(/[^a-zA-Z0-9]/g, '_')}.docx`;
@@ -141,8 +144,9 @@ async function main(opts) {
         const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.docx`);
         const cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [cNo]);
         if (!cert) {
-            console.error(`Lỗi: Không tìm thấy dữ liệu cho mã [${certNo}].`);
-            process.exit(1);
+            var errMsg = 'Lỗi: Không tìm thấy dữ liệu cho mã [' + cNo + '].';
+            if (require.main === module) { console.error(errMsg); process.exit(1); }
+            else throw new Error(errMsg);
         }
 
         const points    = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]);
@@ -748,11 +752,13 @@ async function main(opts) {
         const buffer = await Packer.toBuffer(doc);
         fs.writeFileSync(OUTPUT_FILE, buffer);
         console.log(`[SUCCESS] Đã xuất: GCN_${SAFE_NAME}.docx`);
-        process.exit(0);
+        // IMPORTANT: Do NOT call process.exit(0) here - it would kill the Express server!
+        // Just return normally so the server can send the response.
 
     } catch (err) {
         console.error('LỖI CRITICAL:', err);
-        process.exit(1);
+        if (require.main === module) process.exit(1);
+        else throw err;
     }
 }
 

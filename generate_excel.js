@@ -15,14 +15,14 @@ const db = require('./db');
 
 // Adapter: SQLite ? → PostgreSQL $1, $2 for backward-compatible queries
 async function dbGet(query, params) {
-  const pgQuery = query.replace(/\?/g, () => `$${++dbGet._idx}`);
   dbGet._idx = 0;
+  const pgQuery = query.replace(/\?/g, () => `$${++dbGet._idx}`);
   const rows = await db.unsafe(pgQuery, params);
   return rows[0] || null;
 }
 async function dbAll(query, params) {
-  const pgQuery = query.replace(/\?/g, () => `$${++dbAll._idx}`);
   dbAll._idx = 0;
+  const pgQuery = query.replace(/\?/g, () => `$${++dbAll._idx}`);
   return await db.unsafe(pgQuery, params);
 }
 
@@ -55,7 +55,10 @@ async function main(opts) {
     try {
         // Accept params from both CLI (process.argv) and direct call (opts object)
         const cNo = (opts && opts.certNo) || certNo;
-        if (!cNo) { console.error('Lỗi: Vui lòng cung cấp mã số chứng nhận.'); process.exit(1); }
+        if (!cNo) {
+            if (require.main === module) { console.error('Lỗi: Vui lòng cung cấp mã số chứng nhận.'); process.exit(1); }
+            else throw new Error('Lỗi: Vui lòng cung cấp mã số chứng nhận.');
+        }
         // Compute output paths inside main() (cNo is guaranteed valid here)
         const STATIC_DIR = path.join(BASE_DIR, 'static');
         if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
@@ -63,8 +66,9 @@ async function main(opts) {
         const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.xlsx`);
         const cert = await dbGet('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]);
         if (!cert) {
-            console.error(`Loi: Khong tim thay du lieu cho ma [${certNo}] trong bang CERTIFICATES.`);
-            process.exit(1);
+            var errMsg = 'Loi: Khong tim thay du lieu cho ma [' + cNo + '] trong bang CERTIFICATES.';
+            if (require.main === module) { console.error(errMsg); process.exit(1); }
+            else throw new Error(errMsg);
         }
 
         const points = await dbAll('SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]);
@@ -314,11 +318,13 @@ async function main(opts) {
 
         await workbook.xlsx.writeFile(OUTPUT_FILE);
         console.log('[SUCCESS] Da xuat: GCN_' + SAFE_NAME + '.xlsx');
-        process.exit(0);
+        // IMPORTANT: Do NOT call process.exit(0) here - it would kill the Express server!
+        // Just return normally so the server can send the response.
 
     } catch (err) {
         console.error('LOI CRITICAL KHI SINH EXCEL:', err);
-        process.exit(1);
+        if (require.main === module) process.exit(1);
+        else throw err;
     }
 }
 
