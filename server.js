@@ -1018,7 +1018,8 @@ app.post('/api/calibration/export-docx', async (req, res) => {
         const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.docx`;
         const downloadUrl = `${getBaseUrl()}/static/${fileName}`;
 
-        await generateDocx({ certNo: cert_no, downloadUrl });
+        const eqName = data.equipmentName || data.equipment_name || '';
+        await generateDocx({ certNo: cert_no, downloadUrl, equipmentName: eqName });
         logActivity("Hệ thống / KTV", "EXPORT_DOCX", "CERTIFICATES", cert_no, `Xuất Word: ${fileName}`);
         res.json({ success: true, message: `Đã xuất thành công ${fileName}`, file_url: `${getBaseUrl()}/static/${fileName}` });
     } catch (err) {

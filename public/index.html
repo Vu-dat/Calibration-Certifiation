@@ -167,6 +167,9 @@
     </div>
 </footer>
 <script>
+    const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? 'http://localhost:18080' : window.location.origin;
+
     document.addEventListener("DOMContentLoaded", () => {
     const userData = localStorage.getItem('labmaster_user');
 
@@ -334,7 +337,7 @@ async function submitCalibrationFormAndPrint() {
 
     try {
         // Gửi thông tin sang Backend C++ lưu trữ vào SQLite chuyên sâu
-        const saveRes = await fetch('http://localhost:18080/api/calibration/save-full', {
+        const saveRes = await fetch(`${API_BASE_URL}/api/calibration/save-full`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(fullPayload)
@@ -345,12 +348,12 @@ async function submitCalibrationFormAndPrint() {
             alert("Lưu trữ hồ sơ lên hệ thống thành công! Bắt đầu in Giấy Chứng Nhận...");
             
             // Kích hoạt sinh PDF ngay lập tức
-            const pdfRes = await fetch(`http://localhost:18080/api/calibration/export-pdf/${fullPayload.certNo}`);
+            const pdfRes = await fetch(`${API_BASE_URL}/api/calibration/export-pdf/${fullPayload.certNo}`);
             const pdfResult = await pdfRes.json();
             
             if(pdfResult.success) {
                 // Mở chứng nhận PDF chuyên nghiệp lên màn hình để sếp ký duyệt
-                window.open(`http://localhost:18080${pdfResult.pdf_url}`, '_blank');
+                window.open(`${API_BASE_URL}${pdfResult.pdf_url}`, '_blank');
             }
         }
     } catch (err) {

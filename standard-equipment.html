@@ -1501,7 +1501,7 @@ let currentTitle = '';
 let currentEquipmentName = ''; 
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:18080/api'
-    : 'https://labmaster-backend.onrender.com/api'; 
+    : window.location.origin + '/api'; 
 
 /* ====== SIMPLE MODE STATE ====== */
 let standards = [];

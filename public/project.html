@@ -745,7 +745,7 @@
   // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng backend URL trên Render
   const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:18080' 
-    : 'https://labmaster-backend.onrender.com';
+    : window.location.origin;
 
 /* ====== LIVE DATABASE STANDARDS ====== */
 let liveStandardsDB = [];
@@ -1062,7 +1062,7 @@ let currentTitle = '';
 let currentEquipmentName = ''; 
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:18080/api'
-    : 'https://labmaster-backend.onrender.com/api'; 
+    : window.location.origin + '/api'; 
 
 let projectCurrentPage = 1;
 const projectLimit = 10;

@@ -31,9 +31,31 @@ const {
     Header, Footer, ImageRun
 } = require('docx');
 
+// ─── Helper: normalize PostgreSQL lowercase column names → uppercase ──
+function toUpperKeys(obj) {
+    if (!obj) return null;
+    if (Array.isArray(obj)) {
+        if (obj.length === 0) return [];
+        // Array of rows (each element is an object/array)
+        if (typeof obj[0] === 'object' || Array.isArray(obj[0])) {
+            return obj.map(toUpperKeys);
+        }
+        // Single postgres row (array of primitives with named properties)
+        // Fall through to for...in to capture named properties
+    }
+    const result = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key) && isNaN(Number(key))) {
+            result[key.toUpperCase()] = obj[key];
+        }
+    }
+    return result;
+}
+
 // ─── CLI ───────────────────────────────────────────────────────────
 const certNo = process.argv[2];
 let downloadUrl = process.argv[3] || '';
+let equipmentName = process.argv[4] || '';
 
 const BASE_DIR   = __dirname;
 
@@ -136,21 +158,29 @@ async function main(opts) {
         }
         // Resolve downloadUrl: ưu tiên opts, fallback process.argv
         const dUrl = (opts && opts.downloadUrl) || downloadUrl || '';
+        const eqName = (opts && opts.equipmentName) || equipmentName || '';
         const finalDUrl = dUrl || `http://localhost:18080/static/GCN_${cNo.replace(/[^a-zA-Z0-9]/g, '_')}.docx`;
         // Compute output paths inside main() (cNo is guaranteed valid here)
         const STATIC_DIR = path.join(BASE_DIR, 'static');
         if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
         const SAFE_NAME   = cNo.replace(/[^a-zA-Z0-9]/g, '_');
         const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.docx`);
-        const cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [cNo]);
+        var cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [cNo]);
         if (!cert) {
             var errMsg = 'Lỗi: Không tìm thấy dữ liệu cho mã [' + cNo + '].';
             if (require.main === module) { console.error(errMsg); process.exit(1); }
             else throw new Error(errMsg);
         }
+        cert = toUpperKeys(cert);
 
-        const points    = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]);
-        const standards  = await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]);
+        let points;
+        if (eqName) {
+            points = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC`, [cNo, eqName]);
+        } else {
+            points = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]);
+        }
+        points = toUpperKeys(points);
+        var standards = toUpperKeys(await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]));
 
         // Generate QR code if download URL provided
         let qrBuffer = null;
@@ -467,7 +497,7 @@ async function main(opts) {
             para('', { spacing: { before: 240 } }),
             para([
                 { text: 'Số giấy chứng nhận / Certificate No.: ', fontSize: 10 },
-                { text: certNo, fontSize: 10 },
+                { text: cNo, fontSize: 10 },
             ], { alignment: AlignmentType.RIGHT, spacing: { after: 0 } }),
         );
 
@@ -510,7 +540,7 @@ async function main(opts) {
             const grouped = [];
             let curGroup = null;
             for (const p of points) {
-                const pn = p.PARAMETER_NAME || p.parameter_name || '–';
+                const pn = p.PARAMETER_NAME || '–';
                 if (!curGroup || curGroup.paramName !== pn) {
                     curGroup = { paramName: pn, rows: [] };
                     grouped.push(curGroup);
@@ -526,12 +556,12 @@ async function main(opts) {
                         ], { width: resColW[0], vAlign: 'center' })
                         : borderCell([para('', { fontSize: 9 })], { width: resColW[0] });  // empty for continued rows
 
-                    const calPt = String(p.CAL_POINT || p.cal_point || '–');
-                    const asFound = String(p.AS_FOUND_VALUE || p.as_found_value || '–');
-                    const unc = String(p.UNCERTAINTY || p.uncertainty || '–');
-                    const tol = String(p.TOLERANCE || p.tolerance || '–');
-                    const conf = String(p.CONFORMITY || p.conformity || '–');
-                    const stdEq = String(p.REF_EQUIPMENT || p.STANDARD_EQUIPMENT || p.ref_equipment || p.standard_equipment || '–');
+                    const calPt = String(p.CAL_POINT || '–');
+                    const asFound = String(p.AS_FOUND_VALUE || '–');
+                    const unc = String(p.UNCERTAINTY || '–');
+                    const tol = String(p.TOLERANCE || '–');
+                    const conf = String(p.CONFORMITY || '–');
+                    const stdEq = String(p.REF_EQUIPMENT || p.STANDARD_EQUIPMENT || '–');
 
                     resRows.push(new TableRow({
                         children: [
@@ -642,18 +672,18 @@ async function main(opts) {
                         }),
                         new TableCell({
                             children: [
-                                new Paragraph({
-                                    alignment: AlignmentType.RIGHT,
-                                    children: [new TextRun({ text: 'Labmaster ST Company Limited', font: 'Arial', size: 28, bold: true })],
-                                }),
-                                new Paragraph({
-                                    alignment: AlignmentType.RIGHT,
-                                    children: [new TextRun({ text: '17 street 179, Tang Nhon Phu ward, Ho Chi Minh city', font: 'Arial', size: 18 })],
-                                }),
-                                new Paragraph({
-                                    alignment: AlignmentType.RIGHT,
-                                    children: [new TextRun({ text: 'Email: sale@labmaster.vn / Phone: (+84) 938 088 239', font: 'Arial', size: 18 })],
-                                }),
+                        new Paragraph({
+                            alignment: AlignmentType.CENTER,
+                            children: [new TextRun({ text: 'Labmaster ST Company Limited', font: 'Arial', size: 28, bold: true })],
+                        }),
+                        new Paragraph({
+                            alignment: AlignmentType.CENTER,
+                            children: [new TextRun({ text: '17 street 179, Tang Nhon Phu ward, Ho Chi Minh city', font: 'Arial', size: 18 })],
+                        }),
+                        new Paragraph({
+                            alignment: AlignmentType.CENTER,
+                            children: [new TextRun({ text: 'Email: sale@labmaster.vn / Phone: (+84) 938 088 239', font: 'Arial', size: 18 })],
+                        }),
                             ],
                             width: { size: 6600, type: WidthType.DXA },
                             verticalAlign: 'center',
