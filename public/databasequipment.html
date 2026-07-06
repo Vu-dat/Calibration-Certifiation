@@ -350,10 +350,32 @@
 </head>
 <body class="anim-page-in">
 
+<style>
+@media (max-width: 900px) {
+  .db-section-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .db-section-header .header-actions { width: 100%; }
+  .db-section-header .header-actions .btn { flex: 1; justify-content: center; font-size: 12px; }
+  .db-table { min-width: 600px; }
+  .db-table-wrap { overflow-x: auto; }
+  .db-admin-grid { grid-template-columns: 1fr; }
+  .std-dropdown { min-width: 280px !important; max-width: calc(100vw - 32px) !important; }
+  #edit-view .btn-save { width: 100%; justify-content: center; }
+  .modal-content { max-width: 96vw !important; padding: 20px; }
+  #edit-view .btn-add-row-group { flex-direction: column; }
+  #edit-view .btn-add-row-group .btn-add-row { width: 100%; }
+}
+</style>
+
 <header class="header">
     <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer; display: flex; align-items: center;">
         <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
     </div>
+    
+    <button class="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
     
     <div class="nav-container">
         <nav class="navbar">
@@ -371,6 +393,64 @@
         </div>
     </div>
 </header>
+
+<!-- Mobile Menu -->
+<div class="mobile-backdrop" id="mobile-backdrop" onclick="closeMobileMenu()"></div>
+<div class="mobile-menu" id="mobile-menu">
+    <div class="mobile-user" id="mobile-username" style="display:none;"></div>
+    <a href="index.html">🏠 Home</a>
+    <a href="project.html">📋 Project</a>
+    <a href="customer.html">👥 Customer</a>
+    <a href="equipment.html">🔬 Standard Equipment</a>
+    <a href="databasequipment.html" class="active">💾 Database Equipment</a>
+    <a href="users.html" id="mobile-nav-users" style="display:none;">👑 Users</a>
+    <div style="flex:1;"></div>
+    <div id="mobile-auth-section">
+        <button class="mobile-auth-btn" id="mobile-btn-signin" onclick="location.href='login.html'">🔑 Sign In</button>
+        <button class="mobile-auth-btn" id="mobile-btn-logout" style="display:none;" onclick="handleLogout()">🚪 Đăng xuất</button>
+    </div>
+</div>
+
+<script>
+function toggleMobileMenu() {
+  const menu = document.getElementById('mobile-menu');
+  const backdrop = document.getElementById('mobile-backdrop');
+  const btn = document.querySelector('.hamburger-btn');
+  menu.classList.toggle('open');
+  backdrop.classList.toggle('open');
+  btn.classList.toggle('active');
+  document.body.style.overflow = menu.classList.contains('open') ? 'hidden' : '';
+}
+function closeMobileMenu() {
+  const menu = document.getElementById('mobile-menu');
+  const backdrop = document.getElementById('mobile-backdrop');
+  const btn = document.querySelector('.hamburger-btn');
+  menu.classList.remove('open');
+  backdrop.classList.remove('open');
+  btn.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const userData = localStorage.getItem('labmaster_user');
+  try {
+    const user = JSON.parse(userData);
+    if (user && user.username) {
+      const mUser = document.getElementById('mobile-username');
+      const mNavUsers = document.getElementById('mobile-nav-users');
+      const mBtnSignin = document.getElementById('mobile-btn-signin');
+      const mBtnLogout = document.getElementById('mobile-btn-logout');
+      if (mUser) {
+        mUser.style.display = 'flex';
+        mUser.textContent = '👤 ' + (user.fullName || user.username);
+      }
+      if (user.role === 'admin' && mNavUsers) mNavUsers.style.display = 'flex';
+      if (mBtnSignin) mBtnSignin.style.display = 'none';
+      if (mBtnLogout) mBtnLogout.style.display = 'flex';
+    }
+  } catch(e) {}
+});
+</script>
 
 <div id="page-transition-overlay" class="page-overlay"></div>
 <main class="db-container anim-page-in">

@@ -60,7 +60,7 @@ async function main(opts) {
             else throw new Error('Lỗi: Vui lòng cung cấp mã số chứng nhận.');
         }
         // Compute output paths inside main() (cNo is guaranteed valid here)
-        const STATIC_DIR = path.join(BASE_DIR, 'static');
+        const STATIC_DIR = process.env.VERCEL ? require('os').tmpdir() : path.join(BASE_DIR, 'static');
         if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
         const SAFE_NAME   = cNo.replace(/[^a-zA-Z0-9]/g, '_');
         const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.xlsx`);

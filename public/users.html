@@ -208,10 +208,30 @@
 </head>
 <body>
 
+<style>
+@media (max-width: 900px) {
+  .users-toolbar .btn span { display: none; }
+}
+@media (max-width: 600px) {
+  .users-toolbar { flex-direction: column; }
+  .users-toolbar .search-box { width: 100%; }
+  .users-toolbar .btn { width: 100%; justify-content: center; }
+  #users-table { min-width: 550px; }
+  .stats-grid .stat-card p { font-size: 1.2rem; }
+}
+</style>
+
 <header class="header">
     <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer;">
         <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
     </div>
+    
+    <button class="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+    
     <div class="nav-container">
         <nav class="navbar">
             <a href="index.html">Home</a>
@@ -224,6 +244,55 @@
         <button class="btn-shiny" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
     </div>
 </header>
+
+<!-- Mobile Menu -->
+<div class="mobile-backdrop" id="mobile-backdrop" onclick="closeMobileMenu()"></div>
+<div class="mobile-menu" id="mobile-menu">
+    <div class="mobile-user" id="mobile-username" style="display:none;"></div>
+    <a href="index.html">🏠 Home</a>
+    <a href="project.html">📋 Project</a>
+    <a href="customer.html">👥 Customer</a>
+    <a href="equipment.html">🔬 Standard Equipment</a>
+    <a href="databasequipment.html">💾 Database Equipment</a>
+    <a href="users.html" class="active">👑 Users</a>
+    <div style="flex:1;"></div>
+    <button class="mobile-auth-btn" onclick="handleLogout()">🚪 Đăng xuất</button>
+</div>
+
+<script>
+function toggleMobileMenu() {
+  const menu = document.getElementById('mobile-menu');
+  const backdrop = document.getElementById('mobile-backdrop');
+  const btn = document.querySelector('.hamburger-btn');
+  menu.classList.toggle('open');
+  backdrop.classList.toggle('open');
+  btn.classList.toggle('active');
+  document.body.style.overflow = menu.classList.contains('open') ? 'hidden' : '';
+}
+function closeMobileMenu() {
+  const menu = document.getElementById('mobile-menu');
+  const backdrop = document.getElementById('mobile-backdrop');
+  const btn = document.querySelector('.hamburger-btn');
+  menu.classList.remove('open');
+  backdrop.classList.remove('open');
+  btn.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const userData = localStorage.getItem('labmaster_user');
+  try {
+    const user = JSON.parse(userData);
+    if (user && user.username) {
+      const mUser = document.getElementById('mobile-username');
+      if (mUser) {
+        mUser.style.display = 'flex';
+        mUser.textContent = '👤 ' + (user.fullName || user.username);
+      }
+    }
+  } catch(e) {}
+});
+</script>
 
 <main class="container anim-page-in">
 

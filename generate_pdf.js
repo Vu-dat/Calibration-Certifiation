@@ -317,7 +317,7 @@ async function main(opts) {
   if (dUrl) { try { qr = await QRCode.toBuffer(dUrl, {width:120,margin:1,color:{dark:'#004d4d',light:'#ffffff'}}); } catch(e) {} }
   var cert = await g('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]);
   // Compute output paths inside main() (certNo is guaranteed to be valid here)
-  const SD = path.join(BD, 'static');
+  const SD = process.env.VERCEL ? require('os').tmpdir() : path.join(BD, 'static');
   if (!fs.existsSync(SD)) fs.mkdirSync(SD, { recursive: true });
   const SN = cNo.replace(/[^a-zA-Z0-9]/g, '_');
   const OF = path.join(SD, 'GCN_' + SN + '.pdf');

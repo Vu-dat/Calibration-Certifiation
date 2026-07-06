@@ -2470,7 +2470,22 @@ async function exportFile(format) {
     const result = await response.json();
     if (result.success) {
       showToast(result.message, 'success');
-      if (result.file_url) window.open(result.file_url, '_blank');
+      if (result.base64) {
+        const binaryString = window.atob(result.base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: result.mimeType || 'application/octet-stream' });
+        const link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = result.filename || `export.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else if (result.file_url) {
+        window.open(result.file_url, '_blank');
+      }
       if (typeof fetchProjects === 'function') fetchProjects();
     } else {
       showToast(`Lỗi xử lý từ Server: ${result.message}`, 'danger');

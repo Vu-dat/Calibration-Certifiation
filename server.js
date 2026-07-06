@@ -982,8 +982,22 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
         await generatePDF({ certNo: cert_no, downloadUrl, equipmentName: eqName });
         const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
         
+        const outputDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, 'static');
+        const filePath = path.join(outputDir, fileName);
+        let base64 = null;
+        if (fs.existsSync(filePath)) {
+            base64 = fs.readFileSync(filePath).toString('base64');
+        }
+
         logActivity("Hệ thống / KTV", "EXPORT_PDF", "CERTIFICATES", cert_no, `Xuất PDF: ${fileName}`);
-        res.json({ success: true, message: `Đã xuất thành công ${fileName}`, file_url: `${getBaseUrl()}/static/${fileName}` });
+        res.json({ 
+            success: true, 
+            message: `Đã xuất thành công ${fileName}`, 
+            file_url: `${getBaseUrl()}/static/${fileName}`,
+            base64: base64,
+            filename: fileName,
+            mimeType: 'application/pdf'
+        });
     } catch (err) {
         console.error('EXPORT-PDF ERROR STACK:', err.stack);
         res.status(500).json({ success: false, error: err.message, stack: err.stack });
@@ -1000,8 +1014,23 @@ app.post('/api/calibration/export-excel', async (req, res) => {
         await saveCalibrationDataToDBHelper(data, cert_no);
         await generateExcel({ certNo: cert_no });
         const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.xlsx`;
+
+        const outputDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, 'static');
+        const filePath = path.join(outputDir, fileName);
+        let base64 = null;
+        if (fs.existsSync(filePath)) {
+            base64 = fs.readFileSync(filePath).toString('base64');
+        }
+
         logActivity("Hệ thống / KTV", "EXPORT_EXCEL", "CERTIFICATES", cert_no, `Xuất Excel: ${fileName}`);
-        res.json({ success: true, message: `Đã xuất thành công ${fileName}`, file_url: `${getBaseUrl()}/static/${fileName}` });
+        res.json({ 
+            success: true, 
+            message: `Đã xuất thành công ${fileName}`, 
+            file_url: `${getBaseUrl()}/static/${fileName}`,
+            base64: base64,
+            filename: fileName,
+            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -1020,8 +1049,23 @@ app.post('/api/calibration/export-docx', async (req, res) => {
 
         const eqName = data.equipmentName || data.equipment_name || '';
         await generateDocx({ certNo: cert_no, downloadUrl, equipmentName: eqName });
+
+        const outputDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, 'static');
+        const filePath = path.join(outputDir, fileName);
+        let base64 = null;
+        if (fs.existsSync(filePath)) {
+            base64 = fs.readFileSync(filePath).toString('base64');
+        }
+
         logActivity("Hệ thống / KTV", "EXPORT_DOCX", "CERTIFICATES", cert_no, `Xuất Word: ${fileName}`);
-        res.json({ success: true, message: `Đã xuất thành công ${fileName}`, file_url: `${getBaseUrl()}/static/${fileName}` });
+        res.json({ 
+            success: true, 
+            message: `Đã xuất thành công ${fileName}`, 
+            file_url: `${getBaseUrl()}/static/${fileName}`,
+            base64: base64,
+            filename: fileName,
+            mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
