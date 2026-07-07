@@ -2488,7 +2488,7 @@ async function exportFile(format) {
       }
       if (typeof fetchProjects === 'function') fetchProjects();
     } else {
-      showToast(`Lỗi xử lý từ Server: ${result.message}`, 'danger');
+      showToast(`Lỗi xử lý từ Server: ${result.error || result.message || 'Lỗi không xác định'}`, 'danger');
     }
   } catch (error) {
     console.error(`Lỗi API xuất ${formatNames[format]}:`, error);
