@@ -1598,9 +1598,7 @@ textarea {
   background: rgba(255,255,255,0.15);
 }
 
-/* Mobile menu backdrop */
 .mobile-backdrop {
-  display: none;
   position: fixed;
   top: 56px;
   left: 0;
@@ -1609,10 +1607,12 @@ textarea {
   background: rgba(0,0,0,0.4);
   z-index: 998;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 .mobile-backdrop.open {
   opacity: 1;
+  visibility: visible;
 }
 
 /* ═══════════════════════════════════════════════
@@ -1622,7 +1622,6 @@ textarea {
   .hamburger-btn { display: flex; }
   .navbar { display: none !important; }
   .mobile-menu { display: flex; }
-  .mobile-backdrop { display: block; }
   
   .header {
     padding: 0 12px;
