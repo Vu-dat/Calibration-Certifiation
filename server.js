@@ -270,11 +270,26 @@ async function seedDefaultUsers() {
     }
 }
 
+// Migration cột mới: chạy mỗi lần khởi động để đảm bảo các cột tồn tại
+async function runColumnMigrations() {
+    const migrations = [
+        'ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS INSTRUMENT_NAME_EN TEXT',
+        'ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS MANUFACTURER_ID TEXT',
+        'ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS MODEL_SERIAL TEXT',
+    ];
+    for (const sql of migrations) {
+        try { await sql.unsafe(sql); } catch(e) { /* column may already exist */ }
+    }
+}
+
 let dbInitPromise = null;
 async function ensureDbInitialized() {
     if (!dbInitPromise) {
         dbInitPromise = (async () => {
             try {
+                // Luôn chạy migration cột mới (ALTER TABLE ... ADD COLUMN IF NOT EXISTS)
+                await runColumnMigrations();
+
                 // Kiểm tra xem bảng USERS đã tồn tại chưa để bỏ qua toàn bộ phần init/seed mất thời gian
                 const checkTable = await sql`
                     SELECT EXISTS (
@@ -642,10 +657,10 @@ app.post('/api/calibration/save', async (req, res) => {
 
         await sql`
             INSERT INTO CERTIFICATES 
-            (CERT_NO, INSTRUMENT_NAME, MANUFACTURER, MODEL, EQUIPMENT_ID, SERIAL_NUMBER, CUSTOMER_NAME, CUSTOMER_ADDRESS, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV, HEAD_OF_LAB, DIRECTOR) 
-            VALUES (${data.certNo || ''}, ${data.instrumentName || ''}, ${data.manufacturer || ''}, ${data.model || ''}, ${data.equipmentId || ''}, ${data.serialNumber || ''}, ${data.customerName || ''}, ${data.customerAddress || ''}, ${data.calDate || ''}, ${data.reCalDate || ''}, ${data.procedure || ''}, ${data.refStandard || ''}, ${data.tempEnv || ''}, ${data.humiEnv || ''}, ${data.headOfLab || ''}, ${data.director || ''})
+            (CERT_NO, INSTRUMENT_NAME, INSTRUMENT_NAME_EN, MANUFACTURER, MANUFACTURER_ID, MODEL, MODEL_SERIAL, EQUIPMENT_ID, SERIAL_NUMBER, CUSTOMER_NAME, CUSTOMER_ADDRESS, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV, HEAD_OF_LAB, DIRECTOR) 
+            VALUES (${data.certNo || ''}, ${data.instrumentName || ''}, ${data.instrumentNameEn || ''}, ${data.manufacturer || ''}, ${data.manufacturerId || ''}, ${data.model || ''}, ${data.modelSerial || ''}, ${data.equipmentId || ''}, ${data.serialNumber || ''}, ${data.customerName || ''}, ${data.customerAddress || ''}, ${data.calDate || ''}, ${data.reCalDate || ''}, ${data.procedure || ''}, ${data.refStandard || ''}, ${data.tempEnv || ''}, ${data.humiEnv || ''}, ${data.headOfLab || ''}, ${data.director || ''})
             ON CONFLICT (CERT_NO) DO UPDATE SET 
-                INSTRUMENT_NAME = EXCLUDED.INSTRUMENT_NAME, MANUFACTURER = EXCLUDED.MANUFACTURER, MODEL = EXCLUDED.MODEL, EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID, SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER, CUSTOMER_NAME = EXCLUDED.CUSTOMER_NAME, CUSTOMER_ADDRESS = EXCLUDED.CUSTOMER_ADDRESS, CAL_DATE = EXCLUDED.CAL_DATE, RE_CAL_DATE = EXCLUDED.RE_CAL_DATE, PROCEDURE = EXCLUDED.PROCEDURE, REF_STANDARD = EXCLUDED.REF_STANDARD, TEMP_ENV = EXCLUDED.TEMP_ENV, HUMI_ENV = EXCLUDED.HUMI_ENV, HEAD_OF_LAB = EXCLUDED.HEAD_OF_LAB, DIRECTOR = EXCLUDED.DIRECTOR
+                INSTRUMENT_NAME = EXCLUDED.INSTRUMENT_NAME, INSTRUMENT_NAME_EN = EXCLUDED.INSTRUMENT_NAME_EN, MANUFACTURER = EXCLUDED.MANUFACTURER, MANUFACTURER_ID = EXCLUDED.MANUFACTURER_ID, MODEL = EXCLUDED.MODEL, MODEL_SERIAL = EXCLUDED.MODEL_SERIAL, EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID, SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER, CUSTOMER_NAME = EXCLUDED.CUSTOMER_NAME, CUSTOMER_ADDRESS = EXCLUDED.CUSTOMER_ADDRESS, CAL_DATE = EXCLUDED.CAL_DATE, RE_CAL_DATE = EXCLUDED.RE_CAL_DATE, PROCEDURE = EXCLUDED.PROCEDURE, REF_STANDARD = EXCLUDED.REF_STANDARD, TEMP_ENV = EXCLUDED.TEMP_ENV, HUMI_ENV = EXCLUDED.HUMI_ENV, HEAD_OF_LAB = EXCLUDED.HEAD_OF_LAB, DIRECTOR = EXCLUDED.DIRECTOR
         `;
 
         await sql`DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${data.certNo}`;
@@ -944,9 +959,9 @@ if (!fs.existsSync(staticDir)) fs.mkdirSync(staticDir, { recursive: true });
 async function saveCalibrationDataToDBHelper(data, cert_no) {
     await sql`
         INSERT INTO CERTIFICATES 
-        (CERT_NO, INSTRUMENT_NAME, MANUFACTURER, MODEL, EQUIPMENT_ID, SERIAL_NUMBER, CUSTOMER_NAME, CUSTOMER_ADDRESS, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV, HEAD_OF_LAB, DIRECTOR)
-        VALUES (${cert_no}, ${data.instrumentName || data.instrument_name || ''}, ${data.manufacturer || ''}, ${data.model || ''}, ${data.equipmentId || data.equipment_id || ''}, ${data.serialNumber || data.serial_number || ''}, ${data.customerName || data.customer_name || ''}, ${data.customerAddress || data.customer_address || ''}, ${data.calDate || data.cal_date || ''}, ${data.reCalDate || data.re_cal_date || ''}, ${data.procedure || ''}, ${data.refStandard || data.ref_standard || ''}, ${data.tempEnv || data.temp_env || ''}, ${data.humiEnv || data.humi_env || ''}, ${data.headOfLab || data.head_of_lab || ''}, ${data.director || ''})
-        ON CONFLICT (CERT_NO) DO UPDATE SET INSTRUMENT_NAME = EXCLUDED.INSTRUMENT_NAME, MANUFACTURER = EXCLUDED.MANUFACTURER, MODEL = EXCLUDED.MODEL, EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID, SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER, CUSTOMER_NAME = EXCLUDED.CUSTOMER_NAME, CUSTOMER_ADDRESS = EXCLUDED.CUSTOMER_ADDRESS, CAL_DATE = EXCLUDED.CAL_DATE, RE_CAL_DATE = EXCLUDED.RE_CAL_DATE, PROCEDURE = EXCLUDED.PROCEDURE, REF_STANDARD = EXCLUDED.REF_STANDARD, TEMP_ENV = EXCLUDED.TEMP_ENV, HUMI_ENV = EXCLUDED.HUMI_ENV, HEAD_OF_LAB = EXCLUDED.HEAD_OF_LAB, DIRECTOR = EXCLUDED.DIRECTOR
+        (CERT_NO, INSTRUMENT_NAME, INSTRUMENT_NAME_EN, MANUFACTURER, MANUFACTURER_ID, MODEL, MODEL_SERIAL, EQUIPMENT_ID, SERIAL_NUMBER, CUSTOMER_NAME, CUSTOMER_ADDRESS, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV, HEAD_OF_LAB, DIRECTOR)
+        VALUES (${cert_no}, ${data.instrumentName || data.instrument_name || ''}, ${data.instrumentNameEn || data.instrument_name_en || ''}, ${data.manufacturer || ''}, ${data.manufacturerId || data.manufacturer_id || ''}, ${data.model || ''}, ${data.modelSerial || data.model_serial || ''}, ${data.equipmentId || data.equipment_id || ''}, ${data.serialNumber || data.serial_number || ''}, ${data.customerName || data.customer_name || ''}, ${data.customerAddress || data.customer_address || ''}, ${data.calDate || data.cal_date || ''}, ${data.reCalDate || data.re_cal_date || ''}, ${data.procedure || ''}, ${data.refStandard || data.ref_standard || ''}, ${data.tempEnv || data.temp_env || ''}, ${data.humiEnv || data.humi_env || ''}, ${data.headOfLab || data.head_of_lab || ''}, ${data.director || ''})
+        ON CONFLICT (CERT_NO) DO UPDATE SET INSTRUMENT_NAME = EXCLUDED.INSTRUMENT_NAME, INSTRUMENT_NAME_EN = EXCLUDED.INSTRUMENT_NAME_EN, MANUFACTURER = EXCLUDED.MANUFACTURER, MANUFACTURER_ID = EXCLUDED.MANUFACTURER_ID, MODEL = EXCLUDED.MODEL, MODEL_SERIAL = EXCLUDED.MODEL_SERIAL, EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID, SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER, CUSTOMER_NAME = EXCLUDED.CUSTOMER_NAME, CUSTOMER_ADDRESS = EXCLUDED.CUSTOMER_ADDRESS, CAL_DATE = EXCLUDED.CAL_DATE, RE_CAL_DATE = EXCLUDED.RE_CAL_DATE, PROCEDURE = EXCLUDED.PROCEDURE, REF_STANDARD = EXCLUDED.REF_STANDARD, TEMP_ENV = EXCLUDED.TEMP_ENV, HUMI_ENV = EXCLUDED.HUMI_ENV, HEAD_OF_LAB = EXCLUDED.HEAD_OF_LAB, DIRECTOR = EXCLUDED.DIRECTOR
     `;
 
     const eqName = data.equipmentName || data.equipment_name || '';

@@ -55,22 +55,25 @@ function sf(doc, b, ital) {
 var TC = '#008080', PW = 595.28, PH = 841.89;
 var ML = 40, MR = 40, MT = 130, CW = PW - ML - MR;
 var BCLR = '#000000';
-var DEMO = {
-  CUSTOMER_NAME: 'C\u00f4ng ty TNHH May Alliance One',
-  CUSTOMER_ADDRESS: 'Khu B (L\u00f4 B1, B2, B5, B6, B7, B8, B9, B10, B11, B12), KCN Giao Long, X\u00e3 Giao Long, T\u1ec9nh V\u0129nh Long, Vi\u1ec7t Nam',
-  INSTRUMENT_NAME: 'M\u00e1y th\u1eed b\u1ec1n m\u00e0u ma s\u00e1t',
-  INSTRUMENT_NAME_EN: 'Crocking meter',
-  MANUFACTURER: 'James Heal',
-  MANUFACTURER_ID: 'QV0388113',
-  MODEL: 'CROCKMASTER HD',
-  MODEL_SERIAL: 'TM092026',
-  CAL_DATE: '25/06/2026',
-  RE_CAL_DATE: '25/06/2027',
-  TEMP_ENV: '[22 \u00b1 1] \u00b0C',
-  HUMI_ENV: '[65 \u00b1 1] %RH',
-  HEAD_OF_LAB: 'L\u00ea C\u1ea3nh Nh\u1eadt Quang',
-  DIRECTOR: 'L\u01b0u Ng\u1ecdc Th\u1ed1ng'
-};
+
+// toUpperKeys: chuy\u1ec3n key c\u1ee7a postgres row (Array v\u1edbi named properties lowercase) th\u00e0nh key UPPERCASE
+function toUpperKeys(obj) {
+    if (!obj) return null;
+    if (Array.isArray(obj)) {
+        if (obj.length === 0) return [];
+        if (typeof obj[0] === 'object' || Array.isArray(obj[0])) {
+            return obj.map(toUpperKeys);
+        }
+    }
+    const result = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key) && isNaN(Number(key))) {
+            result[key.toUpperCase()] = obj[key];
+        }
+    }
+    return result;
+}
+
 var VN = {"title1":"GIẤY CHỨNG NHẬN HIỆU CHUẨN – ĐO LƯỜNG","title2":"CERTIFICATE OF CALIBRATION – MEASUREMENT","certNo":"Số GCN/Certificate No: ","date":"Ngày cấp/Date of issue: ","sec1":"Khách hàng","sec2":"Tên thiết bị","sec3":"Nhà sản xuất","sec4":"Mã quản lý","sec5":"Kiểu","sec6":"Số sản xuất","sec11":"Nơi thực hiện","sec12":"Ngày thực hiện","sec13":"Ngày thực hiện tiếp theo","sec14":"Điều kiện môi trường","sec15":"15. Chuẩn sử dụng / Standards Used :","sec16":"16. Kết quả / Results:","sec17":"17. Thông tin khác / Other information:","spec":"7. Đặc trưng kỹ thuật","range":"Phạm vi đo:","resolution":"Độ phân giải:","procedure":"8. Quy trình thực hiện","refStd":"9. Tiêu chuẩn tham khảo","temp":"Nhiệt độ:","humi":"Độ ẩm:","sigL":"PHỤ TRÁCH PHÒNG HIỆU CHUẨN","sigR":"GIÁM ĐỐC","headEn":"HEAD OF CALIBRATION LAB.","dirEn":"DIRECTOR","param":"Thông số","foundVal":"Giá trị đo được","uncert":"KĐBĐ","refVal":"Giá trị tham chiếu","tol":"Dung sai","conc":"Kết luận","paramEn":"Parameter","foundEn":"As found value","uncertEn":"Uncertainty","refEn":"Reference Value","tolEn":"Tolerance","concEn":"Conclusion","note":"Ghi chú / Note:","note1":"* Đánh giá theo thông số kỹ thuật của nhà sản xuất / Acceptance limit base on Manufacturer’s specifications.","note2":"* Đánh giá theo yêu cầu kỹ thuật của khách hàng / Acceptance limit base on Customer request.","uncertTitle":"17.1 Độ không đảm bảo đo / Uncertainty:","uncertVN":"Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy.","uncertEN":"The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.","confTitle":"17.2. Công bố về sự phù hợp / Statements of conformity:","conf":["+ A: Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép của tiêu chuẩn đánh giá. | The measurement reported with expanded uncertainty is within tolerance of standards.","+ B: Kết quả đo khi tính cả độ không đảm bảo đo hoàn toàn nằm ngoài giới hạn cho phép của tiêu chuẩn đánh giá. | The measurement reported with expanded uncertainty is out of tolerance of standards.","+ C: Kết quả đo khi tính cả độ không đảm bảo đo có thể nằm ngoài giới hạn cho phép của tiêu chuẩn. Không có kết luận trong trường hợp này. | The measurement reported with expanded uncertainty may be out of tolerance of standards. There is no conclusion for this measurement.","+ D: Tiêu chuẩn kỹ thuật không quy định dung sai của thông số đo. | There is no tolerance stated in technical standard and there is no conclusion for this measurement."],"otherTitle":"17.3 Khác / Other:","otherVN":"Các thông số có dấu (*) là không được công nhận ISO/IEC 17025","otherEN":"The characteristics marked with (*) is not accredited to comply with ISO/IEC 17025","otherVN2":"Các thông số đánh dấu (ᶜ) là kết quả hiệu chuẩn, các thông số đánh dấu (ᴹ) là kết quả đo thử nghiệm","otherEN2":"The characteristics marked with (ᶜ) are results of calibration, (ᴹ) are results of measurement","legal1":"Giấy chứng nhận này không được sao chép dưới bất kỳ hình thức nào nếu không có sự đồng ý bằng văn bản của LabMaster./ This form shall not be reproduced, without the expressed written consent of LabMaster.","legal2":"Phương tiện đo này không được sử dụng định lượng hàng hóa, dịch vụ trong mua bán, thanh toán, đảm bảo an toàn, bảo vệ sức khỏe cộng đồng, bảo vệ môi trường, trong thanh tra, kiểm tra, giám định tư pháp và trong các hoạt động công vụ khác. Phương tiện đo này không được sử dụng trực tiếp để kiểm định phương tiện đo nhóm 2.","legal3":"This instrument do not used for quantifying goods, service in trading, payment, safety assurance, social heathcare, protecting the enviroment, inspection law and in other public service activities. This instrument shall not be used directly for the verification of group 2 instruments.","legal4":"Chúng tôi cung cấp khả năng truy xuất nguồn gốc phép đo theo các tiêu chuẩn quốc gia được công nhận hoặc các phòng thí nghiệm tiêu chuẩn quốc gia được công nhận khác.","legal5":"This certificate provides traceability of measurement to recognised national standards or other national standards laboratories.","footer":"www.labmaster.vn  |  Textile – Footwear – Leather - Children product Safety Tester",            "page":"Trang/Page: "};
 
 var curPage = 1;
@@ -235,10 +238,7 @@ function drawSpecTable(doc, specs, proc, refStd, cx, startY) {
     }
   } else {
     rows = [
-      ['L\u1ef1c t\u00e1c d\u1ee5ng / Downward force', '9 N', '1 N', 'FORCE-02:2026', 'AATCC TM 8, 165'],
-      ['H\u00e0nh tr\u00ecnh / Stroke', '104 mm', '1 mm', 'LINEAR-08:2026', 'ISO 105:X12, D02'],
-      ['\u0110\u01b0\u1eddng k\u00ednh \u0111\u1ea7u ma s\u00e1t / Finger Diameter', '16 mm', '0.1 mm', 'LINEAR-05:2026', ''],
-      ['T\u1ed1c \u0111\u1ed9 / Speed', '--', '--', '', '']
+      ['', '', '', procVal || '', refVal || '']
     ];
   }
   for (var ri = 0; ri < rows.length; ri++) {
@@ -316,6 +316,7 @@ async function main(opts) {
   var qr = null;
   if (dUrl) { try { qr = await QRCode.toBuffer(dUrl, {width:120,margin:1,color:{dark:'#004d4d',light:'#ffffff'}}); } catch(e) {} }
   var cert = await g('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]);
+    cert = toUpperKeys(cert);
   // Compute output paths inside main() (certNo is guaranteed to be valid here)
   const SD = process.env.VERCEL ? require('os').tmpdir() : path.join(BD, 'static');
   if (!fs.existsSync(SD)) fs.mkdirSync(SD, { recursive: true });
@@ -330,8 +331,8 @@ async function main(opts) {
     ? "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC"
     : "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC";
 var ptsParams = eqName ? [cNo, eqName] : [cNo];
-var pts = await a(ptsQ, ptsParams);
-    var stds = await a('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]);
+var pts = toUpperKeys(await a(ptsQ, ptsParams));
+    var stds = toUpperKeys(await a('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]));
     var lp = path.join(BD, '_ref_logo.png');
     var logo = null;
     try { if (fs.existsSync(lp)) logo = fs.readFileSync(lp); } catch(e) {}
@@ -354,26 +355,26 @@ var pts = await a(ptsQ, ptsParams);
     doc.addPage();
     var curY = drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr, 1);
     
-    // === SECTIONS 1-6: Grid layout with hardcoded demo fallback ===
+    // === SECTIONS 1-6: Grid layout with data from DB ===
     // Section 1: Customer - full width
-    var custName = (cert.CUSTOMER_NAME && cert.CUSTOMER_NAME!=='null') ? cert.CUSTOMER_NAME : DEMO.CUSTOMER_NAME;
-    var custAddr = (cert.CUSTOMER_ADDRESS && cert.CUSTOMER_ADDRESS!=='null') ? cert.CUSTOMER_ADDRESS : DEMO.CUSTOMER_ADDRESS;
+    var custName = (cert.CUSTOMER_NAME && cert.CUSTOMER_NAME!=='null') ? cert.CUSTOMER_NAME : '';
+    var custAddr = (cert.CUSTOMER_ADDRESS && cert.CUSTOMER_ADDRESS!=='null') ? cert.CUSTOMER_ADDRESS : '';
     var custEn = 'Customer ' + custAddr;
     curY = dr(doc, ML, curY, 100, CW, '1. ' + VN.sec1 + ':', custName, custEn, false);
     
     // Section 2: Instrument - full width
-    var instrName = (cert.INSTRUMENT_NAME && cert.INSTRUMENT_NAME!=='null') ? cert.INSTRUMENT_NAME : DEMO.INSTRUMENT_NAME;
-    var instrNameEn = (cert.INSTRUMENT_NAME_EN && cert.INSTRUMENT_NAME_EN!=='null') ? cert.INSTRUMENT_NAME_EN : DEMO.INSTRUMENT_NAME_EN;
+    var instrName = (cert.INSTRUMENT_NAME && cert.INSTRUMENT_NAME!=='null') ? cert.INSTRUMENT_NAME : '';
+    var instrNameEn = (cert.INSTRUMENT_NAME_EN && cert.INSTRUMENT_NAME_EN!=='null') ? cert.INSTRUMENT_NAME_EN : '';
     curY = dr(doc, ML, curY, 100, CW, '2. ' + VN.sec2 + ':', instrName, 'Instrument ' + instrNameEn, false);
     
     // Sections 3/5 (Row A) and 4/6 (Row B) - 2-column grid
-    var modelVal = (cert.MODEL && cert.MODEL!=='null' && cert.MODEL!=='') ? cert.MODEL : DEMO.MODEL;
-    var manufVal = (cert.MANUFACTURER && cert.MANUFACTURER!=='null') ? cert.MANUFACTURER : DEMO.MANUFACTURER;
+    var modelVal = (cert.MODEL && cert.MODEL!=='null' && cert.MODEL!=='') ? cert.MODEL : '';
+    var manufVal = (cert.MANUFACTURER && cert.MANUFACTURER!=='null') ? cert.MANUFACTURER : '';
     var equipId = (cert.EQUIPMENT_ID && cert.EQUIPMENT_ID!=='null') ? cert.EQUIPMENT_ID : '';
     var serialVal = (cert.SERIAL_NUMBER && cert.SERIAL_NUMBER!=='null') ? cert.SERIAL_NUMBER : '';
     
-    var manufId = (cert.MANUFACTURER_ID && cert.MANUFACTURER_ID!=='null') ? cert.MANUFACTURER_ID : DEMO.MANUFACTURER_ID;
-    var modelSerial = (cert.MODEL_SERIAL && cert.MODEL_SERIAL!=='null') ? cert.MODEL_SERIAL : DEMO.MODEL_SERIAL;
+    var manufId = (cert.MANUFACTURER_ID && cert.MANUFACTURER_ID!=='null') ? cert.MANUFACTURER_ID : '';
+    var modelSerial = (cert.MODEL_SERIAL && cert.MODEL_SERIAL!=='null') ? cert.MODEL_SERIAL : '';
     
     // Row A: 3 (Manufacturer) left, 5 (Model) right
     // NOTE: lw1/lw2 must match Row B exactly so the left value column
@@ -403,8 +404,8 @@ var pts = await a(ptsQ, ptsParams);
     
     curY += 8;
     // 11. Place - full width
-    var calDate = cert.CAL_DATE ? pd(cert.CAL_DATE) : DEMO.CAL_DATE;
-    var reCalDate = cert.RE_CAL_DATE ? pd(cert.RE_CAL_DATE) : DEMO.RE_CAL_DATE;
+    var calDate = cert.CAL_DATE ? pd(cert.CAL_DATE) : '';
+    var reCalDate = cert.RE_CAL_DATE ? pd(cert.RE_CAL_DATE) : '';
     var placeEn = 'Place of Performance ' + custAddr;
     curY = dr(doc, ML, curY, 100, CW, '11. ' + VN.sec11 + ':', custName, placeEn, false);
     
@@ -416,8 +417,8 @@ var pts = await a(ptsQ, ptsParams);
     curY += 6;
     
     // 14. Environment
-    var tempStr = (cert.TEMP_ENV && cert.TEMP_ENV !== 'null') ? cert.TEMP_ENV : DEMO.TEMP_ENV;
-    var humiStr = (cert.HUMI_ENV && cert.HUMI_ENV !== 'null') ? cert.HUMI_ENV : DEMO.HUMI_ENV;
+    var tempStr = (cert.TEMP_ENV && cert.TEMP_ENV !== 'null') ? cert.TEMP_ENV : '';
+    var humiStr = (cert.HUMI_ENV && cert.HUMI_ENV !== 'null') ? cert.HUMI_ENV : '';
     // Label: 14. Điều kiện môi trường: (BOLD)
     sf(doc, true); doc.fontSize(9).fillColor(BCLR);
     doc.text('14. ' + VN.sec14 + ':', ML, curY, {width:120, align:'left'});
@@ -442,8 +443,8 @@ var pts = await a(ptsQ, ptsParams);
     curY = drawStandardsTable(doc, stds, ML, curY);
     
     // Signature
-    var headLab = (cert.HEAD_OF_LAB && cert.HEAD_OF_LAB!=='null') ? cert.HEAD_OF_LAB : DEMO.HEAD_OF_LAB;
-    var director = (cert.DIRECTOR && cert.DIRECTOR!=='null') ? cert.DIRECTOR : DEMO.DIRECTOR;
+    var headLab = (cert.HEAD_OF_LAB && cert.HEAD_OF_LAB!=='null') ? cert.HEAD_OF_LAB : '';
+    var director = (cert.DIRECTOR && cert.DIRECTOR!=='null') ? cert.DIRECTOR : '';
     curY = drawSignature(doc, headLab, director, ML, curY);
     drawFooter(doc, 1, 2);
     

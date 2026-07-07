@@ -624,6 +624,10 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="field"><label>Số chứng nhận (Cert No.)</label><input id="f-certno" ></div>
         </div>
         <div class="field-row">
+          <div class="field"><label>Mã nhà sản xuất (Mfr ID)</label><input id="f-mfr-id" placeholder="VD: QV0388113"></div>
+          <div class="field"><label>Số Serial Model (Model SN)</label><input id="f-model-sn" placeholder="VD: TM092026"></div>
+        </div>
+        <div class="field-row">
           <div class="field"><label>Ngày hiệu chuẩn</label><input type="date" id="f-caldate" ></div>
           <div class="field"><label>Ngày hiệu chuẩn kế tiếp</label><input type="date" id="f-recaldate" ></div>
         </div>
@@ -2351,12 +2355,15 @@ async function exportFile(format) {
   const payload = {
     cert_no:        certNo,
     equipmentName:  window._currentWorkingEquipment || '',
-    instrumentName: txt('f-inst-vi'),
-    manufacturer:   txt('f-mfr'),
-    model:          txt('f-model'),
-    equipmentId:    txt('f-id'),
-    serialNumber:   txt('f-sn'),
-    customerName:   txt('f-cust'),
+    instrumentName:    txt('f-inst-vi'),
+    instrumentNameEn:  txt('f-inst-en'),
+    manufacturer:      txt('f-mfr'),
+    manufacturerId:    txt('f-mfr-id'),
+    model:             txt('f-model'),
+    modelSerial:       txt('f-model-sn'),
+    equipmentId:       txt('f-id'),
+    serialNumber:      txt('f-sn'),
+    customerName:      txt('f-cust'),
     customerAddress: txt('f-cust-addr'),
     calDate:        txt('f-caldate'),
     reCalDate:      txt('f-recaldate'),
@@ -2416,7 +2423,7 @@ async function saveCalibrationData() {
     const user = JSON.parse(localStorage.getItem('labmaster_user'));
     const payload = {
         certNo: document.getElementById('f-certno').value,
-        instrumentName: txt('f-inst-vi'), manufacturer: txt('f-mfr'), model: txt('f-model'),
+        instrumentName: txt('f-inst-vi'), instrumentNameEn: txt('f-inst-en'), manufacturer: txt('f-mfr'), manufacturerId: txt('f-mfr-id'), model: txt('f-model'), modelSerial: txt('f-model-sn'),
         equipmentId: txt('f-id'), serialNumber: txt('f-sn'), customerName: txt('f-cust'),
         calDate: txt('f-caldate'), reCalDate: txt('f-recaldate'), procedure: txt('f-proc'),
         refStandard: txt('f-ref'), tempEnv: txt('f-temp'), humiEnv: txt('f-humi'),
@@ -2471,11 +2478,13 @@ async function loadExistingCalibration(projectId, equipmentName) {
             const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
             // These might overwrite template data, which is why the logic in openCalibrationWorkspace is needed to restore them.
             setVal('f-inst-vi',   c.INSTRUMENT_NAME);
-            setVal('f-inst-en',   c.INSTRUMENT_NAME);
+            setVal('f-inst-en',   c.INSTRUMENT_NAME_EN || c.INSTRUMENT_NAME);
             setVal('f-mfr',       c.MANUFACTURER);
             setVal('f-model',     c.MODEL);
             setVal('f-id',        c.EQUIPMENT_ID);
             setVal('f-sn',        c.SERIAL_NUMBER);
+            setVal('f-mfr-id',    c.MANUFACTURER_ID || '');
+            setVal('f-model-sn',  c.MODEL_SERIAL || '');
             setVal('f-cust',      c.CUSTOMER_NAME);
             setVal('f-cust-addr', c.CUSTOMER_ADDRESS || '');
             setVal('f-caldate',   c.CAL_DATE);

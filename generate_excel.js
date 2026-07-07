@@ -51,6 +51,24 @@ function defaultBorder() {
     };
 }
 
+// toUpperKeys: chuyển key của postgres row (Array với named properties lowercase) thành key UPPERCASE
+function toUpperKeys(obj) {
+    if (!obj) return null;
+    if (Array.isArray(obj)) {
+        if (obj.length === 0) return [];
+        if (typeof obj[0] === 'object' || Array.isArray(obj[0])) {
+            return obj.map(toUpperKeys);
+        }
+    }
+    const result = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key) && isNaN(Number(key))) {
+            result[key.toUpperCase()] = obj[key];
+        }
+    }
+    return result;
+}
+
 async function main(opts) {
     try {
         // Accept params from both CLI (process.argv) and direct call (opts object)
@@ -64,15 +82,15 @@ async function main(opts) {
         if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
         const SAFE_NAME   = cNo.replace(/[^a-zA-Z0-9]/g, '_');
         const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.xlsx`);
-        const cert = await dbGet('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]);
+        const cert = toUpperKeys(await dbGet('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]));
         if (!cert) {
             var errMsg = 'Loi: Khong tim thay du lieu cho ma [' + cNo + '] trong bang CERTIFICATES.';
             if (require.main === module) { console.error(errMsg); process.exit(1); }
             else throw new Error(errMsg);
         }
 
-        const points = await dbAll('SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]);
-        const standards = await dbAll('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]);
+        const points = toUpperKeys(await dbAll('SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]));
+        const standards = toUpperKeys(await dbAll('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]));
 
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'LabMaster Enterprise';
