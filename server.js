@@ -713,7 +713,9 @@ app.get('/api/calibration/:certNo', async (req, res) => {
     const eqName = req.query.equipment_name || '';
     try {
         const certRows = await sql`SELECT * FROM CERTIFICATES WHERE CERT_NO = ${certNo}`;
-        if (certRows.length === 0) return res.status(404).json({ success: false, message: "Không tìm thấy số GCN" });
+        if (certRows.length === 0) {
+            return res.json({ success: true, dataExists: false, cert: null, points: [], standards: [] });
+        }
 
         let pointsRows;
         if (eqName) {
