@@ -2,7 +2,7 @@
 
 /**
  * generate_docx.js — Tạo file Word (.docx) Giấy Chứng Nhận Hiệu Chuẩn
- * Layout theo mẫu: 328344 Wascator.docx
+ * Layout theo mẫu: 1. Crocking Meter.docx (ref_crocking.docx)
  */
 
 const fs = require('fs');
@@ -27,8 +27,8 @@ async function dbAll(query, params) {
 
 const {
     Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-    AlignmentType, WidthType, BorderStyle, PageBorders,
-    Header, Footer, ImageRun
+    AlignmentType, WidthType, BorderStyle, PageBorders, PageNumber, PageBreak,
+    Header, Footer, ImageRun, VerticalMergeType
 } = require('docx');
 
 // ─── Helper: normalize PostgreSQL lowercase column names → uppercase ──
@@ -36,12 +36,9 @@ function toUpperKeys(obj) {
     if (!obj) return null;
     if (Array.isArray(obj)) {
         if (obj.length === 0) return [];
-        // Array of rows (each element is an object/array)
         if (typeof obj[0] === 'object' || Array.isArray(obj[0])) {
             return obj.map(toUpperKeys);
         }
-        // Single postgres row (array of primitives with named properties)
-        // Fall through to for...in to capture named properties
     }
     const result = {};
     for (const key in obj) {
@@ -59,32 +56,40 @@ let equipmentName = process.argv[4] || '';
 
 const BASE_DIR   = __dirname;
 
-
-
 function parseDate(d) {
     if (!d) return '';
     const p = d.split('-');
-    return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : d;
+    return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d;
 }
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────
-const COL_DARK    = '1a1a1a';
-const COL_GRAY    = '555555';
-const COL_TEAL    = '008080';
-const BORDER_S    = { style: BorderStyle.SINGLE, size: 2, color: '767171' };
+const COL_DARK    = '000000';
 const BORDER_NONE = { style: BorderStyle.NONE,   size: 0,  color: 'auto' };
-const SHADING     = 'F2F2F2';
+const BORDER_GRID = { style: BorderStyle.SINGLE, size: 2,  color: 'auto' };
 
-// Column widths (DXA) — scaled to fit A4 page with 2.5cm margins: total 9072
-// [label1, value1, label2, value2]
-const COL_W = [1500, 3036, 2500, 2036];
+const TABLE_BORDER_NONE = {
+    top: BORDER_NONE,
+    bottom: BORDER_NONE,
+    left: BORDER_NONE,
+    right: BORDER_NONE,
+    insideHorizontal: BORDER_NONE,
+    insideVertical: BORDER_NONE,
+};
+const TABLE_BORDER_GRID = {
+    top: BORDER_GRID,
+    bottom: BORDER_GRID,
+    left: BORDER_GRID,
+    right: BORDER_GRID,
+    insideHorizontal: BORDER_GRID,
+    insideVertical: BORDER_GRID,
+};
 
 // ─── HELPERS ────────────────────────────────────────────────────────
 const font = 'Arial';
 
 function txtRun(text, opts = {}) {
     return new TextRun({
-        text: text || '',
+        text: String(text !== undefined && text !== null ? text : ''),
         font,
         size: (opts.fontSize || 10) * 2,
         bold: opts.bold || false,
@@ -106,68 +111,306 @@ function para(text, opts = {}) {
     return new Paragraph({
         children: runs,
         alignment: opts.alignment || AlignmentType.LEFT,
-        spacing: opts.spacing || { before: 40, after: 40 },
+        spacing: opts.spacing || { before: 0, after: 0, line: 276, lineRule: 'auto' },
     });
 }
 
-function labelPara(viText, enText) {
-    return [
-        para(viText, { fontSize: 10, bold: true, spacing: { before: 40, after: 0 } }),
-        para(enText, { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
-    ];
-}
-
-function valPara(val, opts = {}) {
-    return para(val || '–', { fontSize: 10, bold: opts.bold || false, ...opts });
-}
-
-function emptyPara() {
-    return para('', { fontSize: 8, spacing: { before: 20, after: 20 } });
-}
-
-function mkCell(children, opts = {}) {
+function t1Cell(children, width, colSpan = 1, opts = {}) {
     return new TableCell({
         children: Array.isArray(children) ? children : [children],
-        columnSpan: opts.colSpan,
-        width: opts.width ? { size: opts.width, type: WidthType.DXA } : undefined,
-        shading: opts.shading ? { fill: opts.shading } : undefined,
+        columnSpan: colSpan,
+        width: { size: width, type: WidthType.DXA },
         verticalAlign: opts.vAlign || 'center',
-        margins: opts.margins,
+        margins: opts.margins || { top: 40, bottom: 40, left: 60, right: 60 },
         borders: opts.borders || {
             top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE,
         },
     });
 }
 
-function borderCell(children, opts = {}) {
-    return mkCell(children, {
-        ...opts,
-        borders: { top: BORDER_S, bottom: BORDER_S, left: BORDER_S, right: BORDER_S },
-        margins: opts.margins || { top: 60, bottom: 60, left: 100, right: 120 },
+function t2Cell(children, width, colSpan = 1, opts = {}) {
+    return new TableCell({
+        children: Array.isArray(children) ? children : [children],
+        columnSpan: colSpan,
+        width: { size: width, type: WidthType.DXA },
+        verticalAlign: opts.vAlign || 'center',
+        verticalMerge: opts.verticalMerge,
+        borders: opts.borders || {
+            top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID
+        },
+    });
+}
+
+// ─── Specifications matcher based on instrument name ───────────────────
+function getSpecsForInstrument(instName) {
+    const name = (instName || '').toLowerCase();
+    if (name.includes('ma sát') || name.includes('crocking') || name.includes('crockmaster')) {
+        return {
+            range: 'Lực tỳ/Downward force: 9 N\nHành trình/Stroke: 104 mm\nĐường kính đầu ma sát: 16 mm Finger Diameter\nTốc độ/Speed: --',
+            resolution: '--------'
+        };
+    } else if (name.includes('giặt') || name.includes('washing') || name.includes('wascator')) {
+        return {
+            range: 'Nhiệt độ/Temperature: (0 ~ 100) °C\nTốc độ vắt/Spin speed: (0 ~ 1000) rpm\nMực nước/Water level: (0 ~ 300) mm',
+            resolution: '--------'
+        };
+    } else if (name.includes('kéo') || name.includes('tensile') || name.includes('linear')) {
+        return {
+            range: 'Lực/Force: (0 ~ 5) kN\nHành trình/Stroke: (0 ~ 100) mm',
+            resolution: '--------'
+        };
+    } else if (name.includes('cân') || name.includes('balance') || name.includes('scale')) {
+        return {
+            range: 'Khối lượng/Mass: (0 ~ 220) g',
+            resolution: '0.1 mg'
+        };
+    } else if (name.includes('nhiệt') || name.includes('thermometer') || name.includes('temperature')) {
+        return {
+            range: 'Nhiệt độ/Temperature: (-50 ~ 300) °C',
+            resolution: '0.01 °C'
+        };
+    }
+    return {
+        range: '--------',
+        resolution: '--------'
+    };
+}
+
+// ─── English translation matcher for Table 2 parameter names ───────────
+function formatParamName(paramName) {
+    const name = (paramName || '').trim();
+    const lower = name.toLowerCase();
+    
+    if (lower.includes('lực tỳ') || lower.includes('downward force')) {
+        return [
+            { text: 'Lực tỳ lên mẫu ', fontSize: 10 },
+            { text: 'Downward Force', fontSize: 10, italics: true },
+            { text: '(N)', fontSize: 10 }
+        ];
+    }
+    if (lower.includes('hành trình') || lower.includes('stroke length')) {
+        return [
+            { text: 'Hành trình ma sát', fontSize: 10 },
+            { text: 'Stroke length', fontSize: 10, italics: true },
+            { text: '(mm)', fontSize: 10 }
+        ];
+    }
+    if (lower.includes('đường kính') || lower.includes('finger diameter')) {
+        return [
+            { text: 'Đường kính đầu ma sát', fontSize: 10 },
+            { text: 'Finger diameter', fontSize: 10, italics: true },
+            { text: '(mm)', fontSize: 10 }
+        ];
+    }
+    if (lower.includes('tốc độ') && (lower.includes('ma sát') || lower.includes('speed'))) {
+        return [
+            { text: 'Tốc độ', fontSize: 10 },
+            { text: 'Speed', fontSize: 10, italics: true },
+            { text: '(rpm)', fontSize: 10 }
+        ];
+    }
+    if (lower.includes('bộ đếm') || lower.includes('counter')) {
+        return [
+            { text: 'Bộ đếm', fontSize: 10 },
+            { text: 'Counter', fontSize: 10, italics: true }
+        ];
+    }
+    
+    // Fallback for Wascator parameters
+    if (lower.includes('tốc độ vắt') || lower.includes('spin speed')) {
+        return [
+            { text: 'Tốc độ vắt ', fontSize: 10 },
+            { text: 'Spin speed', fontSize: 10, italics: true },
+            { text: ' (rpm)', fontSize: 10 }
+        ];
+    }
+    if (lower.includes('mực nước') || lower.includes('water level')) {
+        return [
+            { text: 'Mực nước ', fontSize: 10 },
+            { text: 'Water level', fontSize: 10, italics: true },
+            { text: ' (mm)', fontSize: 10 }
+        ];
+    }
+    if (lower.includes('nhiệt độ') || lower.includes('temperature')) {
+        return [
+            { text: 'Nhiệt độ ', fontSize: 10 },
+            { text: 'Temperature', fontSize: 10, italics: true },
+            { text: ' (°C)', fontSize: 10 }
+        ];
+    }
+    
+    return [{ text: name, fontSize: 10 }];
+}
+
+// Helper to safely parse and return array of sub-values from slash-separated string
+function getSubValues(valStr, count, defaultVal = '') {
+    if (!valStr) return Array(count).fill(defaultVal);
+    const parts = String(valStr).split('/').map(s => s.trim());
+    if (parts.length === 1) return Array(count).fill(parts[0]);
+    const res = [];
+    for (let i = 0; i < count; i++) {
+        res.push(parts[i] !== undefined ? parts[i] : defaultVal);
+    }
+    return res;
+}
+
+function createHeaderTable1(logoData, vilasData, qrBuffer, showQR) {
+    const headerCell3Children = [];
+    if (vilasData) {
+        headerCell3Children.push(new ImageRun({ data: vilasData, transformation: { width: 48, height: 47 } }));
+    }
+    if (showQR && qrBuffer) {
+        if (vilasData) {
+            headerCell3Children.push(new TextRun({ text: '   ' }));
+        }
+        headerCell3Children.push(new ImageRun({ data: qrBuffer, transformation: { width: 48, height: 48 } }));
+    }
+    
+    return new Table({
+        rows: [
+            new TableRow({
+                children: [
+                    new TableCell({
+                        children: [
+                            new Paragraph({
+                                alignment: AlignmentType.LEFT,
+                                children: logoData ? [
+                                    new ImageRun({ data: logoData, transformation: { width: 130, height: 57 } })
+                                ] : [new TextRun({ text: 'LABMASTER', font: 'Arial', size: 28, bold: true, color: '008080' })],
+                                spacing: { before: 0, after: 0 }
+                            }),
+                            new Paragraph({
+                                alignment: AlignmentType.LEFT,
+                                children: [new TextRun({ text: 'ISO/IEC 17025:2017', font: 'Arial', size: 20, bold: true, color: '000000' })],
+                                spacing: { before: 20, after: 0 }
+                            })
+                        ],
+                        width: { size: 2547, type: WidthType.DXA },
+                        verticalAlign: 'center',
+                        borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
+                    }),
+                    new TableCell({
+                        children: [
+                            new Paragraph({
+                                alignment: AlignmentType.CENTER,
+                                children: [new TextRun({ text: 'LabMaster ST Co., Ltd', font: 'Arial', size: 28, bold: true, color: '000000' })],
+                                spacing: { before: 0, after: 0 }
+                            }),
+                            new Paragraph({
+                                alignment: AlignmentType.CENTER,
+                                children: [new TextRun({ text: 'No.17 street 179, Tang Nhon Phu ward, HCMC', font: 'Arial', size: 18, color: '000000' })],
+                                spacing: { before: 20, after: 0 }
+                            }),
+                            new Paragraph({
+                                alignment: AlignmentType.CENTER,
+                                children: [new TextRun({ text: 'Email: sale@labmaster.vn / Phone: (+84) 938 088 239', font: 'Arial', size: 18, color: '000000' })],
+                                spacing: { before: 20, after: 0 }
+                            })
+                        ],
+                        width: { size: 5953, type: WidthType.DXA },
+                        verticalAlign: 'center',
+                        borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
+                    }),
+                    new TableCell({
+                        children: headerCell3Children.length > 0 ? [
+                            new Paragraph({
+                                alignment: AlignmentType.CENTER,
+                                children: headerCell3Children,
+                                spacing: { before: 0, after: 0 }
+                            })
+                        ] : [new Paragraph({ children: [] })],
+                        width: { size: 1957, type: WidthType.DXA },
+                        verticalAlign: 'center',
+                        borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
+                    })
+                ]
+            })
+        ],
+        width: { size: 10457, type: WidthType.DXA },
+        alignment: AlignmentType.CENTER,
+        borders: TABLE_BORDER_NONE
+    });
+}
+
+function createHeaderTable2(cNo, calDate) {
+    return new Table({
+        rows: [
+            new TableRow({
+                children: [
+                    new TableCell({
+                        children: [
+                            new Paragraph({
+                                alignment: AlignmentType.RIGHT,
+                                children: [new TextRun({ text: 'Số GCN/ Certificate No: ', font: 'Arial', size: 20 })],
+                                spacing: { before: 0, after: 0 }
+                            })
+                        ],
+                        width: { size: 4395, type: WidthType.DXA },
+                        borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
+                    }),
+                    new TableCell({
+                        children: [
+                            new Paragraph({
+                                alignment: AlignmentType.LEFT,
+                                children: [new TextRun({ text: cNo, font: 'Arial', size: 20, bold: true })],
+                                spacing: { before: 0, after: 0 }
+                            })
+                        ],
+                        width: { size: 1423, type: WidthType.DXA },
+                        borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
+                    }),
+                    new TableCell({
+                        children: [
+                            new Paragraph({
+                                alignment: AlignmentType.LEFT,
+                                children: [new TextRun({ text: '  Ngày cấp/ Date of issue: ', font: 'Arial', size: 20 })],
+                                spacing: { before: 0, after: 0 }
+                            })
+                        ],
+                        width: { size: 2409, type: WidthType.DXA },
+                        borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
+                    }),
+                    new TableCell({
+                        children: [
+                            new Paragraph({
+                                alignment: AlignmentType.LEFT,
+                                children: [new TextRun({ text: parseDate(calDate || ''), font: 'Arial', size: 20, bold: true })],
+                                spacing: { before: 0, after: 0 }
+                            })
+                        ],
+                        width: { size: 2988, type: WidthType.DXA },
+                        borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
+                    })
+                ]
+            })
+        ],
+        width: { size: 11215, type: WidthType.DXA },
+        alignment: AlignmentType.CENTER,
+        borders: TABLE_BORDER_NONE
     });
 }
 
 // ─── MAIN ──────────────────────────────────────────────────────────
 async function main(opts) {
     try {
-        // Accept params from both CLI (process.argv) and direct call (opts object)
         const cNo = (opts && opts.certNo) || certNo;
         if (!cNo) {
             if (require.main === module) { console.error('Lỗi: node generate_docx.js <CERT_NO> [download_url]'); process.exit(1); }
             else throw new Error('Lỗi: node generate_docx.js <CERT_NO> [download_url]');
         }
-        // Resolve downloadUrl: ưu tiên opts, fallback process.argv
+        
         const dUrl = (opts && opts.downloadUrl) || downloadUrl || '';
         const eqName = (opts && opts.equipmentName) || equipmentName || '';
         const finalDUrl = dUrl || `http://localhost:18080/static/GCN_${cNo.replace(/[^a-zA-Z0-9]/g, '_')}.docx`;
-        // Compute output paths inside main() (cNo is guaranteed valid here)
+        
         const STATIC_DIR = process.env.VERCEL ? require('os').tmpdir() : path.join(BASE_DIR, 'static');
         if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
         const SAFE_NAME   = cNo.replace(/[^a-zA-Z0-9]/g, '_');
         const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.docx`);
-        var cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [cNo]);
+        
+        let cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [cNo]);
         if (!cert) {
-            var errMsg = 'Lỗi: Không tìm thấy dữ liệu cho mã [' + cNo + '].';
+            const errMsg = 'Lỗi: Không tìm thấy dữ liệu cho mã [' + cNo + '].';
             if (require.main === module) { console.error(errMsg); process.exit(1); }
             else throw new Error(errMsg);
         }
@@ -180,470 +423,20 @@ async function main(opts) {
             points = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]);
         }
         points = toUpperKeys(points);
-        var standards = toUpperKeys(await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]));
+        const standards = toUpperKeys(await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]));
 
         // Generate QR code if download URL provided
         let qrBuffer = null;
         if (finalDUrl) {
             try {
-                qrBuffer = await QRCode.toBuffer(finalDUrl, {width:120,margin:1,color:{dark:'#004d4d',light:'#ffffff'}});
+                qrBuffer = await QRCode.toBuffer(finalDUrl, { width: 120, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
             } catch(e) { /* ignore QR errors */ }
         }
 
-        const children = [];
-
         // ═══════════════════════════════════════════════════════════════
-        //  TITLE
+        //  LOAD LOGO AND ACCREDITATION (VILAS) IMAGES
         // ═══════════════════════════════════════════════════════════════
-        children.push(
-            para('GIẤY CHỨNG NHẬN HIỆU CHUẨN – ĐO LƯỜNG', {
-                fontSize: 18, bold: true, color: COL_TEAL,
-                alignment: AlignmentType.CENTER, spacing: { before: 80, after: 0 },
-            }),
-            para('CERTIFICATE OF CALIBRATION – MEASUREMENT', {
-                fontSize: 16, bold: true, italics: true, color: COL_TEAL,
-                alignment: AlignmentType.CENTER, spacing: { before: 0, after: 100 },
-            }),
-        );
-
-        // ═══════════════════════════════════════════════════════════════
-        //  TABLE 1: INFO (Sections 1–10)
-        // ═══════════════════════════════════════════════════════════════
-        const infoLabels = {
-            '1': ['1. Tên thiết bị:', 'Instrument'],
-            '2': ['2. Nhà sản xuất:', 'Manufacturer'],
-            '3': ['3. Kiểu:', 'Model'],
-            '4': ['4. ID:', ''],
-            '5': ['5. Số sản xuất:', 'SN'],
-            '6': ['6. Tên khách hàng:', 'Customer'],
-            '7': ['7. Địa chỉ:', 'Address'],
-            '8': ['8. Số giấy chứng nhận:', 'Certificate No.'],
-            '9': ['9. Ngày hiệu chuẩn:', 'Calibration Date'],
-            '10': ['10. Ngày hiệu chuẩn tiếp theo:', 'Re-calibration Date'],
-        };
-
-        // Build info rows — borderless table matching PDF clean style
-        function infoRowBL(labelKey, val1, labelKey2, val2) {
-            const [vi1, en1] = infoLabels[labelKey] || [labelKey, ''];
-            const [vi2, en2] = infoLabels[labelKey2] || [labelKey2, ''];
-                        const c1Contents = en1 ? [...labelPara(vi1, en1)] : [para(vi1, { fontSize: 10, bold: true, spacing: { before: 40, after: 40 } })];
-            const c3Contents = en2 ? [...labelPara(vi2, en2)] : [para(vi2 || '', { fontSize: 10, bold: true, spacing: { before: 40, after: 40 } })];
-            return new TableRow({
-                children: [
-                    mkCell(c1Contents, { width: COL_W[0], margins: { top: 20, bottom: 20, left: 0, right: 60 } }),
-                    mkCell([valPara(val1)], { width: COL_W[1], margins: { top: 20, bottom: 20, left: 0, right: 60 } }),
-                    mkCell(c3Contents, { width: COL_W[2], margins: { top: 20, bottom: 20, left: 0, right: 60 } }),
-                    mkCell([valPara(val2)], { width: COL_W[3], margins: { top: 20, bottom: 20, left: 0, right: 0 } }),
-                ]
-            });
-        }
-        function infoRowFullBL(labelKey, val, colSpan = 3) {
-            const [vi, en] = infoLabels[labelKey] || [labelKey, ''];
-                        const c1Contents = en ? [...labelPara(vi, en)] : [para(vi, { fontSize: 10, bold: true, spacing: { before: 40, after: 40 } })];
-            return new TableRow({
-                children: [
-                    mkCell(c1Contents, { width: COL_W[0], margins: { top: 20, bottom: 20, left: 0, right: 60 } }),
-                    mkCell([valPara(val, { bold: true })], { width: COL_W[1] + COL_W[2] + COL_W[3], colSpan, margins: { top: 20, bottom: 20, left: 0, right: 0 } }),
-                ]
-            });
-        }
-
-        const infoRows = [
-            infoRowBL('1', cert.INSTRUMENT_NAME || '–', '8', cert.CERT_NO || certNo),
-            infoRowBL('2', cert.MANUFACTURER || '–', '9', parseDate(cert.CAL_DATE || '')),
-            infoRowBL('3', cert.MODEL || '–', '10', parseDate(cert.RE_CAL_DATE || '')),
-            infoRowBL('4', cert.EQUIPMENT_ID || '–', '', ''),
-            infoRowBL('5', cert.SERIAL_NUMBER || '–', '', ''),
-            infoRowFullBL('6', cert.CUSTOMER_NAME || '–', 3),
-            infoRowFullBL('7', cert.CUSTOMER_ADDRESS || '–', 3),
-        ];
-
-        children.push(
-            new Table({
-                rows: infoRows,
-                width: { size: 9072, type: WidthType.DXA },
-                alignment: AlignmentType.CENTER,
-            }),
-            para('', { spacing: { before: 40, after: 10 } }), // spacer
-            // Separator line like PDF
-            new Paragraph({
-                spacing: { before: 0, after: 60 },
-                border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '000000' } },
-                children: [],
-            }),
-        );
-
-        // ═══════════════════════════════════════════════════════════════
-        //  TABLE 2: Sections 11–15, Standards, Signature
-        // ═══════════════════════════════════════════════════════════════
-        const bigRows = [];
-
-        // ── 11-12: Procedure & Ref Standard ──
-        bigRows.push(new TableRow({
-            children: [
-                borderCell([
-                    para('11. Quy trình hiệu chuẩn:', { fontSize: 10, bold: true, spacing: { before: 60, after: 0 } }),
-                    para('Calibration Procedure', { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
-                ], { width: COL_W[0] }),
-                borderCell([valPara(cert.PROCEDURE || '–')], { width: COL_W[1] }),
-                borderCell([
-                    para('12. Tiêu chuẩn tham chiếu:', { fontSize: 10, bold: true, spacing: { before: 60, after: 0 } }),
-                    para('Reference Standard', { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
-                ], { width: COL_W[2] }),
-                borderCell([valPara(cert.REF_STANDARD || '–')], { width: COL_W[3] }),
-            ]
-        }));
-
-        // ── 13: Standards — chỉ hiển thị nếu có dữ liệu (giống preview) ──
-        if (standards.length > 0) {
-            // Standards header
-            bigRows.push(new TableRow({
-                children: [
-                    borderCell([
-                        para('13. Chuẩn sử dụng / Standards Used:', { fontSize: 10, bold: true, spacing: { before: 60, after: 40 } }),
-                    ], { width: COL_W[0] + COL_W[1], colSpan: 2 }),
-                    borderCell([emptyPara()], { width: COL_W[2] }),
-                    borderCell([emptyPara()], { width: COL_W[3] }),
-                ]
-            }));
-
-            // Standards table header
-            bigRows.push(new TableRow({
-                children: [
-                    borderCell([para('Tên thiết bị chuẩn', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 40, after: 0 } }),
-                               para('Standard Name', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } })],
-                              { shading: SHADING, width: COL_W[0] }),
-                    borderCell([para('ID', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER })],
-                              { shading: SHADING, width: COL_W[1] }),
-                    borderCell([para('Liên kết chuẩn', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 40, after: 0 } }),
-                               para('Traceableto', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } })],
-                              { shading: SHADING, width: COL_W[2] }),
-                    borderCell([para('Hiệu lực', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 40, after: 0 } }),
-                               para('Due date', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } })],
-                              { shading: SHADING, width: COL_W[3] }),
-                ]
-            }));
-
-            // Standards data rows
-            standards.forEach(s => {
-                bigRows.push(new TableRow({
-                    children: [
-                        borderCell([para(s.EQ_NAME || '–', { fontSize: 10 })], { width: COL_W[0] }),
-                        borderCell([para(s.EQ_CODE || '–', { fontSize: 10 })], { width: COL_W[1] }),
-                        borderCell([para(s.LINK || '–', { fontSize: 10, alignment: AlignmentType.CENTER })], { width: COL_W[2] }),
-                        borderCell([para(s.VALIDITY || '–', { fontSize: 10, alignment: AlignmentType.CENTER })], { width: COL_W[3] }),
-                    ]
-                }));
-            });
-        }
-
-        // ── Spacer row ──
-        bigRows.push(new TableRow({
-            children: [
-                borderCell([emptyPara()], { width: COL_W[0] }),
-                borderCell([emptyPara()], { width: COL_W[1] }),
-                borderCell([emptyPara()], { width: COL_W[2] }),
-                borderCell([emptyPara()], { width: COL_W[3] }),
-            ]
-        }));
-
-        // ── 14: Place ──
-        bigRows.push(new TableRow({
-            children: [
-                borderCell([
-                    para('14. Nơi hiệu chuẩn:', { fontSize: 10, bold: true, spacing: { before: 60, after: 0 } }),
-                    para('Place of Calibration', { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
-                ], { width: COL_W[0] }),
-                borderCell([
-                    para(cert.CUSTOMER_NAME || '–', { fontSize: 10, bold: true }),
-                    para(cert.CUSTOMER_ADDRESS || '', { fontSize: 10 }),
-                ], { width: COL_W[1] + COL_W[2] + COL_W[3], colSpan: 3 }),
-            ]
-        }));
-
-        // ── 15: Environment ──
-        bigRows.push(new TableRow({
-            children: [
-                borderCell([
-                    para('15. Môi trường hiệu chuẩn:', { fontSize: 10, bold: true, spacing: { before: 60, after: 0 } }),
-                    para('Calibration Environment', { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
-                ], { width: COL_W[0] }),
-                borderCell([
-                    para('+ Nhiệt độ:', { fontSize: 10, spacing: { before: 60, after: 0 } }),
-                    para('Temperature', { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
-                ], { width: COL_W[1] }),
-                borderCell([
-                    para(cert.TEMP_ENV || '–', { fontSize: 10 }),
-                ], { width: COL_W[2] }),
-                borderCell([
-                    para('+ Độ ẩm:', { fontSize: 10, spacing: { before: 60, after: 0 } }),
-                    para('Humidity', { fontSize: 10, italics: true, spacing: { before: 0, after: 40 } }),
-                ], { width: COL_W[3] }),
-            ]
-        }));
-
-        // Humidity value row
-        bigRows.push(new TableRow({
-            children: [
-                borderCell([emptyPara()], { width: COL_W[0] }),
-                borderCell([emptyPara()], { width: COL_W[1] }),
-                borderCell([emptyPara()], { width: COL_W[2] }),
-                borderCell([
-                    para(cert.HUMI_ENV || '–', { fontSize: 10 }),
-                ], { width: COL_W[3] }),
-            ]
-        }));
-
-        children.push(
-            new Table({
-                rows: bigRows,
-                width: { size: 9072, type: WidthType.DXA },
-                alignment: AlignmentType.CENTER,
-            }),
-        );
-
-        // ── Professional Signature Section (outside table) ──
-        // Professional signature: uses 2-column borderless table below
-
-        children.push(
-            para('', { spacing: { before: 200 } }),
-            // Signature table: 2 columns, no border
-            new Table({
-                rows: [
-                    new TableRow({
-                        children: [
-                            new TableCell({
-                                children: [
-                                    para('PHỤ TRÁCH PHÒNG HIỆU CHUẨN', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 60, after: 0 } }),
-                                    para('HEAD OF CALIBRATION LAB.', { fontSize: 10, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } }),
-                                ],
-                                width: { size: 4536, type: WidthType.DXA },
-                                verticalAlign: 'center',
-                                borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE },
-                            }),
-                            new TableCell({
-                                children: [
-                                    para('GIÁM ĐỐC', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 60, after: 0 } }),
-                                    para('DIRECTOR', { fontSize: 10, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 } }),
-                                ],
-                                width: { size: 4536, type: WidthType.DXA },
-                                verticalAlign: 'center',
-                                borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE },
-                            }),
-                        ]
-                    }),
-                    // Signature line row
-                    new TableRow({
-                        children: [
-                            new TableCell({
-                                children: [
-                                    new Paragraph({
-                                        spacing: { before: 300 },
-                                        alignment: AlignmentType.CENTER,
-                                        children: [
-                                            new TextRun({ text: '________________________________________', font, size: 16, color: '555555' }),
-                                        ],
-                                    }),
-                                ],
-                                width: { size: 4536, type: WidthType.DXA },
-                                verticalAlign: 'center',
-                                borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE },
-                            }),
-                            new TableCell({
-                                children: [
-                                    new Paragraph({
-                                        spacing: { before: 300 },
-                                        alignment: AlignmentType.CENTER,
-                                        children: [
-                                            new TextRun({ text: '________________________________________', font, size: 16, color: '555555' }),
-                                        ],
-                                    }),
-                                ],
-                                width: { size: 4536, type: WidthType.DXA },
-                                verticalAlign: 'center',
-                                borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE },
-                            }),
-                        ]
-                    }),
-                    // Names row
-                    new TableRow({
-                        children: [
-                            new TableCell({
-                                children: [
-                                    para(cert.HEAD_OF_LAB || '', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 60, after: 40 } }),
-                                ],
-                                width: { size: 4536, type: WidthType.DXA },
-                                verticalAlign: 'center',
-                                borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE },
-                            }),
-                            new TableCell({
-                                children: [
-                                    para(cert.DIRECTOR || '', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 60, after: 40 } }),
-                                ],
-                                width: { size: 4536, type: WidthType.DXA },
-                                verticalAlign: 'center',
-                                borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE },
-                            }),
-                        ]
-                    }),
-                ],
-                width: { size: 9072, type: WidthType.DXA },
-                alignment: AlignmentType.CENTER,
-            }),
-        );
-
-        // ── Footer spacer + cert no ──
-        children.push(
-            para('', { spacing: { before: 240 } }),
-            para([
-                { text: 'Số giấy chứng nhận / Certificate No.: ', fontSize: 10 },
-                { text: cNo, fontSize: 10 },
-            ], { alignment: AlignmentType.RIGHT, spacing: { after: 0 } }),
-        );
-
-        // ═══════════════════════════════════════════════════════════════
-        //  SECTION 16: RESULTS TABLE
-        // ═══════════════════════════════════════════════════════════════
-        children.push(
-            para('16. Kết quả hiệu chuẩn / Calibration Results:', {
-                fontSize: 10, bold: true, spacing: { before: 120, after: 60 },
-            }),
-        );
-
-        // Results header (6 columns matching reference)
-        const resHeader = ['Thông số', 'Điểm hiệu chuẩn', 'Giá trị đo được', 'Độ KĐBĐ', 'Dung sai', 'Sự phù hợp', 'Thiết bị chuẩn'];
-        const resHeaderEn = ['Parameters', 'Calibration Points', 'As Found Value', 'Uncertainty', 'Tolerance', 'Conformity', 'Std. Equipment'];
-        // Widths: scaled to fit A4 page with 2.5cm margins: total 9072
-        const resColW = [1500, 1500, 1300, 1200, 1100, 1100, 1372];
-
-        const resRows = [];
-
-        // Header row with teal background matching PDF style
-        resRows.push(new TableRow({
-            tableHeader: true,
-            children: resHeader.map((h, i) =>
-                borderCell([
-                    para(h, { fontSize: 9, bold: true, alignment: AlignmentType.CENTER, color: 'ffffff', spacing: { before: 40, after: 0 } }),
-                    para(resHeaderEn[i], { fontSize: 9, bold: true, italics: true, alignment: AlignmentType.CENTER, color: 'ffffff', spacing: { before: 0, after: 40 } }),
-                ], { shading: COL_TEAL, width: resColW[i], vAlign: 'center', margins: { top: 60, bottom: 60, left: 80, right: 120 } })
-            )
-        }));
-
-        // Data rows
-        if (points.length === 0) {
-            const emptyCells = resColW.map(w =>
-                borderCell([para('Chưa có dữ liệu', { fontSize: 9, alignment: AlignmentType.CENTER })], { width: w })
-            );
-            resRows.push(new TableRow({ children: emptyCells }));
-        } else {
-            // Group by PARAMETER_NAME
-            const grouped = [];
-            let curGroup = null;
-            for (const p of points) {
-                const pn = p.PARAMETER_NAME || '–';
-                if (!curGroup || curGroup.paramName !== pn) {
-                    curGroup = { paramName: pn, rows: [] };
-                    grouped.push(curGroup);
-                }
-                curGroup.rows.push(p);
-            }
-
-            for (const group of grouped) {
-                group.rows.forEach((p, idx) => {
-                    const paramCells = idx === 0
-                        ? borderCell([
-                            para(group.paramName, { fontSize: 9, bold: true, spacing: { before: 40, after: 0 } }),
-                        ], { width: resColW[0], vAlign: 'center' })
-                        : borderCell([para('', { fontSize: 9 })], { width: resColW[0] });  // empty for continued rows
-
-                    const calPt = String(p.CAL_POINT || '–');
-                    const asFound = String(p.AS_FOUND_VALUE || '–');
-                    const unc = String(p.UNCERTAINTY || '–');
-                    const tol = String(p.TOLERANCE || '–');
-                    const conf = String(p.CONFORMITY || '–');
-                    const stdEq = String(p.REF_EQUIPMENT || p.STANDARD_EQUIPMENT || '–');
-
-                    resRows.push(new TableRow({
-                        children: [
-                            paramCells,
-                            borderCell([para(calPt, { fontSize: 9, alignment: AlignmentType.CENTER })], { width: resColW[1] }),
-                            borderCell([para(asFound, { fontSize: 9, alignment: AlignmentType.CENTER })], { width: resColW[2] }),
-                            borderCell([para(unc, { fontSize: 9, alignment: AlignmentType.CENTER })], { width: resColW[3] }),
-                            borderCell([para(tol, { fontSize: 9, alignment: AlignmentType.CENTER })], { width: resColW[4] }),
-                            borderCell([para(conf, { fontSize: 9, alignment: AlignmentType.CENTER })], { width: resColW[5] }),
-                            borderCell([para(stdEq, { fontSize: 9, alignment: AlignmentType.CENTER })], { width: resColW[6] }),
-                        ]
-                    }));
-                });
-            }
-        }
-
-        children.push(
-            new Table({
-                rows: resRows,
-                width: { size: 9072, type: WidthType.DXA },
-                alignment: AlignmentType.CENTER,
-            }),
-        );
-
-        // ═══════════════════════════════════════════════════════════════
-        //  SECTION 17: OTHER INFORMATION
-        // ═══════════════════════════════════════════════════════════════
-        children.push(
-            para('', { spacing: { before: 120 } }),
-            para('17. Thông tin khác / Other information:', {
-                fontSize: 10, bold: true, spacing: { before: 60, after: 60 },
-            }),
-        );
-
-        children.push(
-            para('17.1 Độ không đảm bảo đo / Uncertainty:', {
-                fontSize: 10, bold: true, spacing: { before: 40, after: 20 },
-            }),
-            para([
-                { text: 'Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy.', fontSize: 10 },
-            ], { spacing: { before: 20, after: 40 } }),
-            para([
-                { text: 'The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.', fontSize: 10, italics: true, color: '333333' },
-            ], { spacing: { before: 0, after: 40 } }),
-            para('17.2 Công bố về sự phù hợp / Statements of conformity:', {
-                fontSize: 10, bold: true, spacing: { before: 40, after: 20 },
-            }),
-            para([
-                { text: '+ A: ', bold: true, fontSize: 10 },
-                { text: 'Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép. ', fontSize: 10 },
-                { text: 'Within tolerance.', fontSize: 10, italics: true, color: '333333' },
-            ], { spacing: { before: 20, after: 20 } }),
-            para([
-                { text: '+ B: ', bold: true, fontSize: 10 },
-                { text: 'Kết quả đo nằm ngoài giới hạn cho phép. ', fontSize: 10 },
-                { text: 'Out of tolerance.', fontSize: 10, italics: true, color: '333333' },
-            ], { spacing: { before: 20, after: 20 } }),
-            para([
-                { text: '+ C: ', bold: true, fontSize: 10 },
-                { text: 'Kết quả đo có thể nằm ngoài giới hạn. Không có kết luận. ', fontSize: 10 },
-                { text: 'May be out of tolerance. No conclusion.', fontSize: 10, italics: true, color: '333333' },
-            ], { spacing: { before: 20, after: 20 } }),
-            para([
-                { text: '+ D: ', bold: true, fontSize: 10 },
-                { text: 'Tiêu chuẩn kỹ thuật không quy định dung sai. ', fontSize: 10 },
-                { text: 'No tolerance stated.', fontSize: 10, italics: true, color: '333333' },
-            ], { spacing: { before: 20, after: 20 } }),
-        );
-
-        // ── Footer ──
-        children.push(
-            para('', { spacing: { before: 300 } }),
-            para('www.labmaster.vn  |  Textile – Footwear – Children Products Safety Tester', {
-                fontSize: 8, italics: true, color: COL_GRAY,
-                alignment: AlignmentType.CENTER,
-            }),
-        );
-
-        // ═══════════════════════════════════════════════════════════════
-        //  HEADER (Logo + Company Info) giống file mẫu
-        // ═══════════════════════════════════════════════════════════════
-        const logoPath = path.join(BASE_DIR, '_ref_logo.png');
+        const logoPath = path.join(BASE_DIR, '_ref_logo_crocking.png');
         let logoData = null;
         try {
             if (fs.existsSync(logoPath)) {
@@ -651,82 +444,99 @@ async function main(opts) {
             }
         } catch (e) { /* ignore */ }
 
-        const headerTable = new Table({
-            rows: [
-                new TableRow({
+        const vilasPath = path.join(BASE_DIR, '_ref_vilas.png');
+        let vilasData = null;
+        try {
+            if (fs.existsSync(vilasPath)) {
+                vilasData = fs.readFileSync(vilasPath);
+            }
+        } catch (e) { /* ignore */ }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  HEADER
+        // ═══════════════════════════════════════════════════════════════
+        const headerFirstPage = new Header({
+            children: [
+                createHeaderTable1(logoData, vilasData, qrBuffer, true), // show QR code on Page 1
+                new Paragraph({
+                    alignment: AlignmentType.CENTER,
                     children: [
-                        new TableCell({
-                            children: [
-                                new Paragraph({
-                                    alignment: AlignmentType.CENTER,
-                                    children: logoData ? [
-                                        new ImageRun({
-                                            data: logoData,
-                                            transformation: { width: 110, height: 42 },
-                                        })
-                                    ] : [new TextRun({ text: 'LABMASTER', font: 'Arial', size: 28, bold: true, color: '004d4d' })],
-                                })
-                            ],
-                            width: { size: 1800, type: WidthType.DXA },
-                            verticalAlign: 'center',
-                        }),
-                        new TableCell({
-                            children: [
-                        new Paragraph({
-                            alignment: AlignmentType.CENTER,
-                            children: [new TextRun({ text: 'Labmaster ST Company Limited', font: 'Arial', size: 28, bold: true })],
-                        }),
-                        new Paragraph({
-                            alignment: AlignmentType.CENTER,
-                            children: [new TextRun({ text: '17 street 179, Tang Nhon Phu ward, Ho Chi Minh city', font: 'Arial', size: 18 })],
-                        }),
-                        new Paragraph({
-                            alignment: AlignmentType.CENTER,
-                            children: [new TextRun({ text: 'Email: sale@labmaster.vn / Phone: (+84) 938 088 239', font: 'Arial', size: 18 })],
-                        }),
-                            ],
-                            width: { size: 6600, type: WidthType.DXA },
-                            verticalAlign: 'center',
-                            shading: { fill: 'FFFFFF' },
-                        }),
-                        new TableCell({
-                            children: [
-                                new Paragraph({
-                                    alignment: AlignmentType.CENTER,
-                                    children: qrBuffer ? [
-                                        new ImageRun({
-                                            data: qrBuffer,
-                                            transformation: { width: 80, height: 80 },
-                                        })
-                                    ] : [new TextRun({ text: '', font: 'Arial', size: 10 })],
-                                })
-                            ],
-                            width: { size: 1346, type: WidthType.DXA },
-                            verticalAlign: 'center',
-                        }),
-                    ]
+                        new TextRun({
+                            text: 'GIẤY CHỨNG NHẬN HIỆU CHUẨN – ĐO LƯỜNG',
+                            font: 'Arial',
+                            size: 32,
+                            bold: true,
+                            color: '008080'
+                        })
+                    ],
+                    spacing: { before: 80, after: 0 }
                 }),
-            ],
-            width: { size: 9746, type: WidthType.DXA },
+                new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [
+                        new TextRun({
+                            text: 'CERTIFICATE OF CALIBRATION – MEASUREMENT',
+                            font: 'Arial',
+                            size: 24,
+                            bold: true,
+                            italics: true,
+                            color: '008080'
+                        })
+                    ],
+                    spacing: { before: 0, after: 40 }
+                }),
+                new Paragraph({
+                    children: [],
+                    spacing: { before: 20, after: 20 }
+                }),
+                createHeaderTable2(cNo, cert.CAL_DATE),
+                new Paragraph({
+                    children: [],
+                    spacing: { before: 40, after: 40 }
+                })
+            ]
         });
 
-        // ISO line below header
-        const headerChildren = [
-            headerTable,
-            new Paragraph({
-                spacing: { before: 0, after: 0 },
-                children: [new TextRun({ text: 'ISO/IEC 17025:2017', font: 'Arial', size: 24, bold: true, color: '000000' })],
-                alignment: AlignmentType.RIGHT,
-            }),
-            new Paragraph({
-                spacing: { before: 20, after: 0 },
-                border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '767171' } },
-                children: [],
-            }),
-        ];
-
-        const header = new Header({
-            children: headerChildren,
+        const headerSubsequentPages = new Header({
+            children: [
+                createHeaderTable1(logoData, vilasData, qrBuffer, false), // do NOT show QR code on Page 2+
+                new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [
+                        new TextRun({
+                            text: 'GIẤY CHỨNG NHẬN HIỆU CHUẨN – ĐO LƯỜNG',
+                            font: 'Arial',
+                            size: 32,
+                            bold: true,
+                            color: '008080'
+                        })
+                    ],
+                    spacing: { before: 80, after: 0 }
+                }),
+                new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [
+                        new TextRun({
+                            text: 'CERTIFICATE OF CALIBRATION – MEASUREMENT',
+                            font: 'Arial',
+                            size: 24,
+                            bold: true,
+                            italics: true,
+                            color: '008080'
+                        })
+                    ],
+                    spacing: { before: 0, after: 40 }
+                }),
+                new Paragraph({
+                    children: [],
+                    spacing: { before: 20, after: 20 }
+                }),
+                createHeaderTable2(cNo, cert.CAL_DATE),
+                new Paragraph({
+                    children: [],
+                    spacing: { before: 40, after: 40 }
+                })
+            ]
         });
 
         // ═══════════════════════════════════════════════════════════════
@@ -734,12 +544,716 @@ async function main(opts) {
         // ═══════════════════════════════════════════════════════════════
         const footer = new Footer({
             children: [
-                new Paragraph({
-                    alignment: AlignmentType.RIGHT,
-                    children: [new TextRun({ text: 'www.labmaster.vn  |  Textile – Footwear – Children Products Safety Tester', font: 'Arial', size: 16, italics: true, color: '6b6860' })],
-                }),
-            ],
+                new Table({
+                    rows: [
+                        new TableRow({
+                            children: [
+                                new TableCell({
+                                    children: [
+                                        new Paragraph({
+                                            alignment: AlignmentType.LEFT,
+                                            children: [
+                                                new TextRun({
+                                                    text: 'www.labmaster.vn  |  Textile – Footwear – Leather - Children product Safety Tester',
+                                                    font: 'Arial',
+                                                    size: 16,
+                                                    italics: true,
+                                                    color: '555555'
+                                                })
+                                            ],
+                                            spacing: { before: 0, after: 0 }
+                                        })
+                                    ],
+                                    width: { size: 7000, type: WidthType.DXA },
+                                    borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
+                                }),
+                                new TableCell({
+                                    children: [
+                                        new Paragraph({
+                                            alignment: AlignmentType.RIGHT,
+                                            children: [
+                                                new TextRun({
+                                                    text: 'Trang/Page: ',
+                                                    font: 'Arial',
+                                                    size: 16,
+                                                    color: '555555'
+                                                }),
+                                                new TextRun({
+                                                    children: [PageNumber.CURRENT],
+                                                    font: 'Arial',
+                                                    size: 16,
+                                                    color: '555555'
+                                                }),
+                                                new TextRun({
+                                                    text: ' / ',
+                                                    font: 'Arial',
+                                                    size: 16,
+                                                    color: '555555'
+                                                }),
+                                                new TextRun({
+                                                    children: [PageNumber.TOTAL_PAGES],
+                                                    font: 'Arial',
+                                                    size: 16,
+                                                    color: '555555'
+                                                })
+                                            ],
+                                            spacing: { before: 0, after: 0 }
+                                        })
+                                    ],
+                                    width: { size: 3466, type: WidthType.DXA },
+                                    borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
+                                })
+                            ]
+                        })
+                    ],
+                    width: { size: 10466, type: WidthType.DXA },
+                    alignment: AlignmentType.CENTER,
+                    borders: TABLE_BORDER_NONE
+                })
+            ]
         });
+
+        // ═══════════════════════════════════════════════════════════════
+        //  BODY CHILDREN
+        // ═══════════════════════════════════════════════════════════════
+        const children = [];
+
+        // ─── TABLE 1: Information, Specifications, Standards Used, and Signatures ───
+        const t1Rows = [];
+
+        // Row 1: Customer Name & Address
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para('1.  K hách hàng:', { fontSize: 10 }),
+                    para('Customer', { fontSize: 10, italics: true }),
+                ], 2132, 2),
+                t1Cell([
+                    para(cert.CUSTOMER_NAME || '–', { fontSize: 10, bold: true }),
+                    para(cert.CUSTOMER_ADDRESS || '', { fontSize: 10, bold: true }),
+                ], 9072, 13),
+            ]
+        }));
+
+        // Row 2: Instrument Name
+        let instDisplay = cert.INSTRUMENT_NAME || '–';
+        if (instDisplay.toLowerCase().includes('bền màu ma sát') && !instDisplay.toLowerCase().includes('crocking')) {
+            instDisplay += ' Crocking meter';
+        }
+        if (cert.INSTRUMENT_NAME_EN && !instDisplay.toLowerCase().includes(cert.INSTRUMENT_NAME_EN.toLowerCase())) {
+            instDisplay += ' ' + cert.INSTRUMENT_NAME_EN;
+        }
+
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para('2.  Tên thiết bị:', { fontSize: 10 }),
+                    para('Instrument', { fontSize: 10, italics: true }),
+                ], 2132, 2),
+                t1Cell([
+                    para(instDisplay, { fontSize: 10, bold: true }),
+                ], 9072, 13),
+            ]
+        }));
+
+        // Row 3: Manufacturer and Model
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para('3. Nhà sản xuất:', { fontSize: 10 }),
+                    para('Manufacturer', { fontSize: 10, italics: true }),
+                ], 2132, 2),
+                t1Cell([
+                    para(cert.MANUFACTURER || '–', { fontSize: 10 }),
+                ], 4536, 6),
+                t1Cell([
+                    para('5 . Kiểu :', { fontSize: 10 }),
+                    para('Model', { fontSize: 10, italics: true }),
+                ], 1838, 2),
+                t1Cell([
+                    para(cert.MODEL || '–', { fontSize: 10 }),
+                ], 2698, 5),
+            ]
+        }));
+
+        // Row 4: ID and Serial Number
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para('4 .  Mã quản lý  ID', { fontSize: 10 }),
+                ], 2132, 2),
+                t1Cell([
+                    para(cert.EQUIPMENT_ID || '–', { fontSize: 10 }),
+                ], 4536, 6),
+                t1Cell([
+                    para('6.  Số sản xuất :', { fontSize: 10 }),
+                    para('Serial No.', { fontSize: 10, italics: true }),
+                ], 1838, 2),
+                t1Cell([
+                    para(cert.SERIAL_NUMBER || '–', { fontSize: 10 }),
+                ], 2698, 5),
+            ]
+        }));
+
+        // Row 5: Specifications Headers
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para('7. Đặc trưng kĩ thuật', { fontSize: 10 }),
+                    para('Specification', { fontSize: 10, italics: true }),
+                ], 2132, 2),
+                t1Cell([
+                    para([
+                        { text: 'Phạm vi đo: ', fontSize: 10 },
+                        { text: 'Range', fontSize: 10, italics: true },
+                    ]),
+                ], 2835, 3),
+                t1Cell([
+                    para([
+                        { text: 'Độ phân giải: ', fontSize: 10 },
+                        { text: 'Resolution', fontSize: 10, italics: true },
+                    ]),
+                ], 1418, 2),
+                t1Cell([
+                    para('8. Quy trình thực hiện', { fontSize: 10 }),
+                    para('Procedure', { fontSize: 10, italics: true }),
+                ], 2268, 4),
+                t1Cell([
+                    para('9 . Tiêu chuẩn tham khảo', { fontSize: 10 }),
+                    para('Reference Standard', { fontSize: 10, italics: true }),
+                ], 2551, 4),
+            ]
+        }));
+
+        // Row 6: Specifications Values
+        const specs = getSpecsForInstrument(cert.INSTRUMENT_NAME);
+        const rangeParas = specs.range.split('\n').map(line => {
+            if (line.includes('Finger Diameter')) {
+                return para([
+                    { text: 'Đường kính đầu ma sát: 16 mm ', fontSize: 10 },
+                    { text: 'Finger Diameter', fontSize: 10, italics: true }
+                ]);
+            } else if (line.includes('/')) {
+                const parts = line.split('/');
+                const parts2 = parts[1].split(':');
+                return para([
+                    { text: parts[0] + '/', fontSize: 10 },
+                    { text: parts2[0], fontSize: 10, italics: true },
+                    { text: ':' + parts2[1], fontSize: 10 }
+                ]);
+            }
+            return para(line, { fontSize: 10 });
+        });
+        const resParas = specs.resolution.split('\n').map(line => para(line, { fontSize: 10 }));
+        const procParas = (cert.PROCEDURE || '–').split(/[\n,;]+/).map(line => para(line.trim(), { fontSize: 10 }));
+        const refParas = (cert.REF_STANDARD || '–').split(/[\n,;]+/).map(line => para(line.trim(), { fontSize: 10 }));
+
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([], 2132, 2), // spacer
+                t1Cell(rangeParas, 2835, 3),
+                t1Cell(resParas, 1418, 2),
+                t1Cell(procParas, 2268, 4),
+                t1Cell(refParas, 2551, 4),
+            ]
+        }));
+
+        // Row 7: Place of Performance
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para('11 . Nơi  thực hiện :', { fontSize: 10 }),
+                    para('Place of  Performance', { fontSize: 10, italics: true }),
+                ], 2132, 2),
+                t1Cell([
+                    para(cert.CUSTOMER_NAME || '–', { fontSize: 10, bold: true }),
+                    para(cert.CUSTOMER_ADDRESS || '', { fontSize: 10, bold: true }),
+                ], 9072, 13),
+            ]
+        }));
+
+        // Row 8: Calibration Date & Next Calibration Date
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para('1 2 . Ngày  thực hiện :', { fontSize: 10 }),
+                    para('Date of performance', { fontSize: 10, italics: true }),
+                ], 2132, 2),
+                t1Cell([
+                    para(parseDate(cert.CAL_DATE || ''), { fontSize: 10, bold: true }),
+                ], 4536, 6),
+                t1Cell([
+                    para('1 3 . Ngày  thực hiện  tiếp theo :', { fontSize: 10 }),
+                    para('Date  of next performance', { fontSize: 10, italics: true }),
+                ], 2830, 5),
+                t1Cell([
+                    para(parseDate(cert.RE_CAL_DATE || ''), { fontSize: 10, bold: true }),
+                ], 1706, 2),
+            ]
+        }));
+
+        // Row 9: Environment Conditions
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para('1 4 . Điều kiện môi trường :', { fontSize: 10 }),
+                    para('Environment', { fontSize: 10, italics: true }),
+                ], 2132, 2),
+                t1Cell([
+                    para('Nhiệt độ: ', { fontSize: 10 }),
+                    para('Temperature', { fontSize: 10, italics: true }),
+                ], 2263, 1),
+                t1Cell([
+                    para(cert.TEMP_ENV || '–', { fontSize: 10 }),
+                ], 2273, 5),
+                t1Cell([
+                    para('Độ ẩm: ', { fontSize: 10 }),
+                    para('Humidity', { fontSize: 10, italics: true }),
+                ], 1838, 2),
+                t1Cell([
+                    para(cert.HUMI_ENV || '–', { fontSize: 10, bold: true }), // Humidity is bold in the reference
+                ], 2698, 5),
+            ]
+        }));
+
+        // Row 10: Standards Used Header Label
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para([
+                        { text: '1 5 .  Chuẩn sử dụng /  ', fontSize: 10 },
+                        { text: 'Standards Used :', fontSize: 10, italics: true },
+                    ]),
+                ], 11204, 15),
+            ]
+        }));
+
+        // Row 11: Standards Column Headers
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para('Tên thiết bị', { fontSize: 10 }),
+                    para('Name of Standard', { fontSize: 10, italics: true }),
+                ], 2132, 2),
+                t1Cell([
+                    para('Số quản lý', { fontSize: 10 }),
+                    para('ID', { fontSize: 10, italics: true }),
+                ], 2349, 2),
+                t1Cell([
+                    para('Số chứng nhận', { fontSize: 10 }),
+                    para('Certificate No.', { fontSize: 10, italics: true }),
+                ], 2241, 5),
+                t1Cell([
+                    para('Liên kết chuẩn', { fontSize: 10 }),
+                    para('Traceable to', { fontSize: 10, italics: true }),
+                ], 2241, 3),
+                t1Cell([
+                    para('Hiệu lực', { fontSize: 10 }),
+                    para('Due date', { fontSize: 10, italics: true }),
+                ], 2241, 3),
+            ]
+        }));
+
+        // Row 12-17: Standards Data Rows (Fixed to 6 slots)
+        for (let idx = 0; idx < 6; idx++) {
+            const std = standards[idx];
+            t1Rows.push(new TableRow({
+                children: [
+                    t1Cell(std ? para(std.EQ_NAME || '–', { fontSize: 10 }) : [], 2132, 2),
+                    t1Cell(std ? para(std.EQ_CODE || '–', { fontSize: 10 }) : [], 2349, 2),
+                    t1Cell(std ? para('–', { fontSize: 10 }) : [], 2241, 5), // Certificate No (leave as -)
+                    t1Cell(std ? para(std.LINK || '–', { fontSize: 10 }) : [], 2241, 3), // Traceable to
+                    t1Cell(std ? para(std.VALIDITY || '–', { fontSize: 10 }) : [], 2241, 3), // Due date
+                ]
+            }));
+        }
+
+        // Row 18: Signatures Header
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para('PHỤ TRÁCH PHÒNG HIỆU CHUẨN', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER }),
+                    para('HEAD OF CALIBRATION LAB.', { fontSize: 10, italics: true, alignment: AlignmentType.CENTER }),
+                ], 5682, 7, { vAlign: 'center' }),
+                t1Cell([
+                    para('GIÁM ĐỐC', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER }),
+                    para('DIRECTOR', { fontSize: 10, italics: true, alignment: AlignmentType.CENTER }),
+                ], 5522, 8, { vAlign: 'center' }),
+            ]
+        }));
+
+        // Row 19: Signature Spacing (Empty row)
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para('', { spacing: { before: 600, after: 600 } }),
+                ], 5682, 7),
+                t1Cell([
+                    para('', { spacing: { before: 600, after: 600 } }),
+                ], 5522, 8),
+            ]
+        }));
+
+        // Row 20: Signee Names
+        t1Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para(cert.HEAD_OF_LAB || '', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER }),
+                ], 5682, 7),
+                t1Cell([
+                    para(cert.DIRECTOR || '', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER }),
+                ], 5522, 8),
+            ]
+        }));
+
+        // Assemble Table 1
+        children.push(
+            new Table({
+                rows: t1Rows,
+                width: { size: 11204, type: WidthType.DXA },
+                indent: { size: -289, type: WidthType.DXA },
+                alignment: AlignmentType.CENTER,
+                borders: TABLE_BORDER_NONE
+            }),
+            para('', { spacing: { before: 100, after: 100 } }), // small space
+            para('16. Kết quả/ Results:', { fontSize: 10, bold: true }),
+            para('', { spacing: { before: 40, after: 40 } }) // spacing before results table
+        );
+
+        // ─── TABLE 2: Calibration Results Table ───
+        const t2Rows = [];
+
+        // Table 2 Row 1 (Header)
+        t2Rows.push(new TableRow({
+            tableHeader: true,
+            children: [
+                new TableCell({
+                    children: [
+                        para('Thông số', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 20, after: 0 } }),
+                        para('Parameter', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 } }),
+                    ],
+                    columnSpan: 3,
+                    width: { size: 2965, type: WidthType.DXA },
+                    verticalAlign: 'center',
+                    borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
+                }),
+                new TableCell({
+                    children: [
+                        para([
+                          { text: 'Giá trị đo được ', bold: true, fontSize: 10 },
+                          { text: 'As found value', bold: true, italics: true, fontSize: 10 }
+                        ], { alignment: AlignmentType.CENTER })
+                    ],
+                    width: { size: 1855, type: WidthType.DXA },
+                    verticalAlign: 'center',
+                    borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
+                }),
+                new TableCell({
+                    children: [
+                        para([
+                          { text: 'ĐKĐBĐ ', bold: true, fontSize: 10 },
+                          { text: 'Uncertainty', bold: true, italics: true, fontSize: 10 }
+                        ], { alignment: AlignmentType.CENTER })
+                    ],
+                    width: { size: 1712, type: WidthType.DXA },
+                    verticalAlign: 'center',
+                    borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
+                }),
+                new TableCell({
+                    children: [
+                        para('Giá trị tham chiếu', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 20, after: 0 } }),
+                        para('Reference Value', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 } }),
+                    ],
+                    width: { size: 1918, type: WidthType.DXA },
+                    verticalAlign: 'center',
+                    borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
+                }),
+                new TableCell({
+                    children: [
+                        para([
+                          { text: 'Dung sai ', bold: true, fontSize: 10 },
+                          { text: 'Tolerane', bold: true, italics: true, fontSize: 10 }
+                        ], { alignment: AlignmentType.CENTER })
+                    ],
+                    width: { size: 1199, type: WidthType.DXA },
+                    verticalAlign: 'center',
+                    borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
+                }),
+                new TableCell({
+                    children: [
+                        para([
+                          { text: 'Kết luận ', bold: true, fontSize: 10 },
+                          { text: 'Conslution', bold: true, italics: true, fontSize: 10 }
+                        ], { alignment: AlignmentType.CENTER })
+                    ],
+                    columnSpan: 3,
+                    width: { size: 1269, type: WidthType.DXA },
+                    verticalAlign: 'center',
+                    borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
+                })
+            ]
+        }));
+
+        // Table 2 Data Rows
+        if (points.length === 0) {
+            t2Rows.push(new TableRow({
+                children: [
+                    t2Cell(para('Chưa có dữ liệu', { fontSize: 10, alignment: AlignmentType.CENTER }), 2965, 3),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1855, 1),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 1),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1199, 1),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1269, 3),
+                ]
+            }));
+        } else {
+            points.forEach(p => {
+                const paramName = p.PARAMETER_NAME || '–';
+                const calPt = String(p.CAL_POINT || '–');
+                const asFound = String(p.AS_FOUND_VALUE || '–');
+                const unc = String(p.UNCERTAINTY || '–');
+                const refVal = String(p.REFERENCE_VALUE || '–');
+                const tol = String(p.TOLERANCE || '–');
+                const conformity = String(p.CONFORMITY || '–');
+                
+                // If the as_found_value contains a slash, split it into sub-rows
+                if (asFound.includes('/')) {
+                    const valParts = asFound.split('/');
+                    const count = valParts.length;
+                    
+                    const asFoundSub = getSubValues(asFound, count);
+                    const uncSub      = getSubValues(unc, count);
+                    
+                    let subLabels = ['1', '2', '3', '4', '5'];
+                    if (paramName.toLowerCase().includes('lực') || paramName.toLowerCase().includes('force')) {
+                        subLabels = ['BEGIN', 'MIDDLE', 'END'];
+                    }
+                    
+                    for (let idx = 0; idx < count; idx++) {
+                        if (idx === 0) {
+                            // First sub-row (restart vertical merges)
+                            t2Rows.push(new TableRow({
+                                children: [
+                                    t2Cell(para(formatParamName(paramName)), 1985, 1, { verticalMerge: VerticalMergeType.RESTART }),
+                                    t2Cell(para(subLabels[idx], { fontSize: 10, alignment: AlignmentType.CENTER }), 972, 1),
+                                    t2Cell(para(asFoundSub[idx], { fontSize: 10, alignment: AlignmentType.CENTER }), 1863, 2),
+                                    t2Cell(para(uncSub[idx], { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
+                                    t2Cell(para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 1, { verticalMerge: VerticalMergeType.RESTART }),
+                                    t2Cell(para(tol, { fontSize: 10, alignment: AlignmentType.CENTER }), 1207, 2, { verticalMerge: VerticalMergeType.RESTART }),
+                                    t2Cell(para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER }), 1261, 2, { verticalMerge: VerticalMergeType.RESTART }),
+                                ]
+                            }));
+                        } else {
+                            // Subsequent sub-rows (continue vertical merges)
+                            t2Rows.push(new TableRow({
+                                children: [
+                                    t2Cell([], 1985, 1, { verticalMerge: VerticalMergeType.CONTINUE }),
+                                    t2Cell(para(subLabels[idx], { fontSize: 10, alignment: AlignmentType.CENTER }), 972, 1),
+                                    t2Cell(para(asFoundSub[idx], { fontSize: 10, alignment: AlignmentType.CENTER }), 1863, 2),
+                                    t2Cell(para(uncSub[idx], { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
+                                    t2Cell([], 1918, 1, { verticalMerge: VerticalMergeType.CONTINUE }),
+                                    t2Cell([], 1207, 2, { verticalMerge: VerticalMergeType.CONTINUE }),
+                                    t2Cell([], 1261, 2, { verticalMerge: VerticalMergeType.CONTINUE }),
+                                ]
+                            }));
+                        }
+                    }
+                } else {
+                    // Single row parameter
+                    t2Rows.push(new TableRow({
+                        children: [
+                            t2Cell(para(formatParamName(paramName)), 2965, 3),
+                            t2Cell(para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER }), 1855, 1),
+                            t2Cell(para(unc, { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
+                            t2Cell(para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 1),
+                            t2Cell(para(tol, { fontSize: 10, alignment: AlignmentType.CENTER }), 1199, 1),
+                            t2Cell(para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER }), 1269, 3),
+                        ]
+                    }));
+                }
+            });
+        }
+
+        // Assemble Table 2
+        children.push(
+            new Table({
+                rows: t2Rows,
+                width: { size: 10918, type: WidthType.DXA },
+                indent: { size: -147, type: WidthType.DXA },
+                alignment: AlignmentType.CENTER,
+                borders: TABLE_BORDER_GRID
+            }),
+            para('', { spacing: { before: 100, after: 100 } })
+        );
+
+        // ─── PAGE BREAK BEFORE TABLE 3 (Guaranteeing Notes are on Page 2) ───
+        children.push(new Paragraph({ children: [new PageBreak()] }));
+
+        // ─── TABLE 3: Notes, Disclaimers, and Other Information (completely borderless, 8pt) ───
+        const t3Rows = [];
+
+        // Row 1: Ghi chú/ Note:
+        t3Rows.push(new TableRow({
+            children: [
+                t1Cell(para('Ghi chú/ Note:', { fontSize: 8, bold: true }), 11483)
+            ]
+        }));
+
+        // Row 2: Note 1
+        t3Rows.push(new TableRow({
+            children: [
+                t1Cell(para([
+                    { text: '*        Đánh giá theo thông số kỹ thuật của nhà sản xuất/ ', fontSize: 8, bold: true },
+                    { text: "Acceptance limit base on Manufacturer's specifications.", fontSize: 8, italics: true }
+                ]), 11483)
+            ]
+        }));
+
+        // Row 3: Note 2
+        t3Rows.push(new TableRow({
+            children: [
+                t1Cell(para([
+                    { text: '*        Đánh giá theo yêu cầu kỹ thuật của khách hàng/ ', fontSize: 8, bold: true },
+                    { text: 'Acceptance limit base on Customer request.', fontSize: 8, italics: true }
+                ]), 11483)
+            ]
+        }));
+
+        // Row 4: 17. Thông tin khác
+        t3Rows.push(new TableRow({
+            children: [
+                t1Cell(para([
+                    { text: '17. Thông tin khác/ ', fontSize: 8, bold: true },
+                    { text: 'Other information:', fontSize: 8, bold: true, italics: true }
+                ]), 11483)
+            ]
+        }));
+
+        // Row 5: 17.1 Độ không đảm bảo đo
+        t3Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para([
+                        { text: '17.1 Độ không đảm bảo đo ', fontSize: 8, bold: true },
+                        { text: '/ Uncertainty:', fontSize: 8, bold: true, italics: true }
+                    ]),
+                    para([
+                        { text: 'Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy/ ', fontSize: 8, bold: true },
+                        { text: 'The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.', fontSize: 8, italics: true }
+                    ])
+                ], 11483)
+            ]
+        }));
+
+        // Row 6: 17.2 Công bố sự phù hợp
+        t3Rows.push(new TableRow({
+            children: [
+                t1Cell(para([
+                    { text: '17.2. Công bố về sự phù hợp ', fontSize: 8, bold: true },
+                    { text: '/ Statements of conformity:', fontSize: 8, bold: true, italics: true }
+                ]), 11483)
+            ]
+        }));
+
+        // Row 7-10: Conformity levels A, B, C, D
+        const confTexts = [
+            {
+                prefix: '+ A: ',
+                vn: 'Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép của tiêu chuẩn đánh giá. ',
+                en: 'The measurement reported with expanded uncertainty is within tolerance of standards.'
+            },
+            {
+                prefix: '+ B: ',
+                vn: 'Kết quả đo khi tính cả độ không đảm bảo đo hoàn toàn nằm ngoài giới hạn cho phép của tiêu chuẩn đánh giá. ',
+                en: 'The measurement reported with expanded uncertainty is out of tolerance of standards.'
+            },
+            {
+                prefix: '+ C: ',
+                vn: 'Kết quả đo khi tính cả độ không đảm bảo đo có thể nằm ngoài giới hạn cho phép của tiêu chuẩn. Không có kết luận trong trường hợp này. ',
+                en: 'The measurement reported with expanded uncertainty may be out of tolerance of standards. There is no conclusion for this measurement. '
+            },
+            {
+                prefix: '+ D: ',
+                vn: 'Tiêu chuẩn kỹ thuật không quy định dung sai của thông số đo. ',
+                en: 'There is no tolerance stated in technical standard and there is no conclusion for this measurement. '
+            }
+        ];
+
+        confTexts.forEach(item => {
+            t3Rows.push(new TableRow({
+                children: [
+                    t1Cell(para([
+                        { text: item.prefix, fontSize: 8, bold: true },
+                        { text: item.vn, fontSize: 8 },
+                        { text: item.en, fontSize: 8, italics: true }
+                    ]), 11483)
+                ]
+            }));
+        });
+
+        // Row 11: 17.3 Khác
+        t3Rows.push(new TableRow({
+            children: [
+                t1Cell(para([
+                    { text: '17.3 Khác/', fontSize: 8, bold: true },
+                    { text: ' Other:', fontSize: 8, bold: true, italics: true }
+                ]), 11483)
+            ]
+        }));
+
+        // Row 12: ISO warning
+        t3Rows.push(new TableRow({
+            children: [
+                t1Cell(para([
+                    { text: 'Các thông số được đánh dấu (*) là không đạt công nhận ISO/IEC 17025 ', fontSize: 8, bold: true },
+                    { text: 'The characteristics marked with (*) is not accredited to comply with ISO/IEC 17025', fontSize: 8, italics: true }
+                ]), 11483)
+            ]
+        }));
+
+        // Row 13: Empty
+        t3Rows.push(new TableRow({
+            children: [
+                t1Cell([], 11483)
+            ]
+        }));
+
+        // Row 14: Legal disclaimer paragraph
+        t3Rows.push(new TableRow({
+            children: [
+                t1Cell([
+                    para([
+                        { text: 'Giấy chứng nhận này không được sao chép dưới bất kỳ hình thức nào nếu không có sự đồng ý bằng văn bản của LabMaster./', fontSize: 8, bold: true },
+                        { text: ' This form shall not  be reproduced, without the expressed written consent of LabMaster.', fontSize: 8, italics: true }
+                    ]),
+                    para([
+                        { text: 'Phương tiện đo này không được để sử dụng định lượng hàng hóa, dịch vụ trong mua bán, thanh toán, đảm bảo an toàn, bảo vệ sức khỏe cộng đồng, bảo vệ môi trường, trong thanh tra, kiểm tra, giám định tư pháp và trong các hoạt động công vụ khác. Phương tiện đo này không được sử dụng trực tiếp để kiểm định phương tiện đo nhóm 2. ', fontSize: 8 },
+                        { text: 'This instrument do not  used for quantifying goods, service in trading, payment, safety assurance, social heathcare, protecting the enviroment, inspection law and in other public service activities. This instrument shall not be used directly for the verification of group 2 instruments.', fontSize: 8, italics: true }
+                    ])
+                ], 11483)
+            ]
+        }));
+
+        // Row 15: Traceability statement
+        t3Rows.push(new TableRow({
+            children: [
+                t1Cell(para([
+                    { text: 'Chứng chỉ cung cấp khả năng truy xuất nguồn gốc phép đo theo các tiêu chuẩn quốc gia được công nhận hoặc các phòng thí nghiệm tiêu chuẩn quốc gia được công nhận khác./', fontSize: 8, bold: true },
+                    { text: 'This certificate provides tracerbility of measurement to recognised national standards or orther national standards laboratories.', fontSize: 8, italics: true }
+                ]), 11483)
+            ]
+        }));
+
+        // Assemble Table 3
+        children.push(
+            new Table({
+                rows: t3Rows,
+                width: { size: 11483, type: WidthType.DXA },
+                indent: { size: -426, type: WidthType.DXA },
+                alignment: AlignmentType.CENTER,
+                borders: TABLE_BORDER_NONE
+            })
+        );
 
         // ═══════════════════════════════════════════════════════════════
         //  BUILD DOCUMENT
@@ -750,27 +1264,29 @@ async function main(opts) {
             styles: {
                 default: {
                     document: {
-                        run: { font, size: 20 },
-                        paragraph: { spacing: { after: 60 } },
+                        run: { font, size: 20 }, // 10pt
+                        paragraph: { spacing: { after: 0, line: 276, lineRule: 'auto' } }, // tight line spacing
                     }
                 }
             },
             sections: [{
                 properties: {
                     page: {
-                        margin: { top: 1260, bottom: 900, left: 1080, right: 1080 },
-                        header: { space: 540 },
+                        margin: { top: 720, bottom: 426, left: 720, right: 720 },
+                        header: { space: 426 },
                         footer: { space: 360 },
                         pageBorders: new PageBorders({
-                            top:    { style: BorderStyle.SINGLE, size: 8, color: '000000', space: 12 },
-                            right:  { style: BorderStyle.SINGLE, size: 8, color: '000000', space: 12 },
-                            bottom: { style: BorderStyle.SINGLE, size: 8, color: '000000', space: 12 },
-                            left:   { style: BorderStyle.SINGLE, size: 8, color: '000000', space: 12 },
+                            top:    { style: BorderStyle.SINGLE, size: 4, color: 'auto', space: 10 },
+                            right:  { style: BorderStyle.SINGLE, size: 4, color: 'auto', space: 10 },
+                            bottom: { style: BorderStyle.SINGLE, size: 4, color: 'auto', space: 10 },
+                            left:   { style: BorderStyle.SINGLE, size: 4, color: 'auto', space: 10 },
                         })
-                    }
+                    },
+                    titlePage: true,
                 },
                 headers: {
-                    default: header,
+                    first: headerFirstPage,
+                    default: headerSubsequentPages,
                 },
                 footers: {
                     default: footer,
@@ -782,8 +1298,6 @@ async function main(opts) {
         const buffer = await Packer.toBuffer(doc);
         fs.writeFileSync(OUTPUT_FILE, buffer);
         console.log(`[SUCCESS] Đã xuất: GCN_${SAFE_NAME}.docx`);
-        // IMPORTANT: Do NOT call process.exit(0) here - it would kill the Express server!
-        // Just return normally so the server can send the response.
 
     } catch (err) {
         console.error('LỖI CRITICAL:', err);
@@ -794,4 +1308,6 @@ async function main(opts) {
 
 module.exports = { generateDocx: main };
 
-if (require.main === module) { main(); }
+if (require.main === module) {
+    main().then(() => process.exit(0)).catch(() => process.exit(1));
+}
