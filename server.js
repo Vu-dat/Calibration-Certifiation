@@ -326,6 +326,22 @@ app.use('/api', async (req, res, next) => {
     }
 });
 
+// Endpoint để phục vụ file tĩnh một cách linh hoạt (hỗ trợ cả Vercel Serverless /tmp và local static)
+app.get('/api/static/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const safeFilename = path.basename(filename);
+    const tmpPath = path.join(require('os').tmpdir(), safeFilename);
+    const localStaticPath = path.join(__dirname, 'static', safeFilename);
+    
+    if (fs.existsSync(tmpPath)) {
+        return res.sendFile(tmpPath);
+    } else if (fs.existsSync(localStaticPath)) {
+        return res.sendFile(localStaticPath);
+    } else {
+        return res.status(404).send('File not found');
+    }
+});
+
 // Debug endpoint (tạm thời) — kiểm tra kết nối DB trên Vercel
 // Combined /api/init endpoint — trả về tất cả dữ liệu cần thiết cho frontend trong 1 request
 app.get('/api/init', async (req, res) => {
@@ -1076,7 +1092,8 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
 
     try {
         await saveCalibrationDataToDBHelper(data, cert_no);
-        const downloadUrl = data.downloadUrl || `${getBaseUrl()}/static/GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+        const requestBaseUrl = req.protocol + '://' + req.get('host');
+        const downloadUrl = data.downloadUrl || `${requestBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
         const eqName = data.equipmentName || data.equipment_name || '';
 
         await generatePDF({ certNo: cert_no, downloadUrl, equipmentName: eqName });
@@ -1089,11 +1106,13 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
             base64 = fs.readFileSync(filePath).toString('base64');
         }
 
+        const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
+
         logActivity("Hệ thống / KTV", "EXPORT_PDF", "CERTIFICATES", cert_no, `Xuất PDF: ${fileName}`);
         res.json({ 
             success: true, 
             message: `Đã xuất thành công ${fileName}`, 
-            file_url: `${getBaseUrl()}/static/${fileName}`,
+            file_url: `${requestBaseUrl}${fileUrlPath}`,
             base64: base64,
             filename: fileName,
             mimeType: 'application/pdf'
@@ -1122,11 +1141,14 @@ app.post('/api/calibration/export-excel', async (req, res) => {
             base64 = fs.readFileSync(filePath).toString('base64');
         }
 
+        const requestBaseUrl = req.protocol + '://' + req.get('host');
+        const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
+
         logActivity("Hệ thống / KTV", "EXPORT_EXCEL", "CERTIFICATES", cert_no, `Xuất Excel: ${fileName}`);
         res.json({ 
             success: true, 
             message: `Đã xuất thành công ${fileName}`, 
-            file_url: `${getBaseUrl()}/static/${fileName}`,
+            file_url: `${requestBaseUrl}${fileUrlPath}`,
             base64: base64,
             filename: fileName,
             mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -1145,7 +1167,9 @@ app.post('/api/calibration/export-docx', async (req, res) => {
     try {
         await saveCalibrationDataToDBHelper(data, cert_no);
         const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.docx`;
-        const downloadUrl = `${getBaseUrl()}/static/${fileName}`;
+
+        const requestBaseUrl = req.protocol + '://' + req.get('host');
+        const downloadUrl = `${requestBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}${fileName}`;
 
         const eqName = data.equipmentName || data.equipment_name || '';
         await generateDocx({ certNo: cert_no, downloadUrl, equipmentName: eqName });
@@ -1157,11 +1181,13 @@ app.post('/api/calibration/export-docx', async (req, res) => {
             base64 = fs.readFileSync(filePath).toString('base64');
         }
 
+        const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
+
         logActivity("Hệ thống / KTV", "EXPORT_DOCX", "CERTIFICATES", cert_no, `Xuất Word: ${fileName}`);
         res.json({ 
             success: true, 
             message: `Đã xuất thành công ${fileName}`, 
-            file_url: `${getBaseUrl()}/static/${fileName}`,
+            file_url: `${requestBaseUrl}${fileUrlPath}`,
             base64: base64,
             filename: fileName,
             mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
