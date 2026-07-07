@@ -81,7 +81,7 @@ async function initDatabaseSchema() {
         )`;
 
         await sql`CREATE TABLE IF NOT EXISTS CERTIFICATES (
-            CERT_NO TEXT PRIMARY KEY, INSTRUMENT_NAME TEXT, MANUFACTURER TEXT, MODEL TEXT, 
+            CERT_NO TEXT PRIMARY KEY, INSTRUMENT_NAME TEXT, INSTRUMENT_NAME_EN TEXT, MANUFACTURER TEXT, MANUFACTURER_ID TEXT, MODEL TEXT, MODEL_SERIAL TEXT,
             EQUIPMENT_ID TEXT, SERIAL_NUMBER TEXT, CUSTOMER_NAME TEXT, CUSTOMER_ADDRESS TEXT, CAL_DATE TEXT, 
             RE_CAL_DATE TEXT, PROCEDURE TEXT, REF_STANDARD TEXT, TEMP_ENV TEXT, HUMI_ENV TEXT,
             HEAD_OF_LAB TEXT, DIRECTOR TEXT
@@ -277,8 +277,13 @@ async function runColumnMigrations() {
         'ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS MANUFACTURER_ID TEXT',
         'ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS MODEL_SERIAL TEXT',
     ];
-    for (const sql of migrations) {
-        try { await sql.unsafe(sql); } catch(e) { /* column may already exist */ }
+    for (const query of migrations) {
+        try { 
+            await sql.unsafe(query); 
+            console.log(`✅ Migration thành công: ${query}`);
+        } catch(e) { 
+            console.error(`❌ Migration thất bại (${query}):`, e.message);
+        }
     }
 }
 
