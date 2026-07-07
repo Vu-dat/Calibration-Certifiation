@@ -315,6 +315,7 @@ async function ensureDbInitialized() {
 }
 
 // Middleware để đảm bảo cơ sở dữ liệu luôn được khởi tạo trước khi xử lý bất kỳ API nào
+// ensureDbInitialized() đã được chạy khi server start (local), middleware này đảm bảo init cả trên Vercel serverless
 app.use('/api', async (req, res, next) => {
     try {
         await ensureDbInitialized();
@@ -326,6 +327,77 @@ app.use('/api', async (req, res, next) => {
 });
 
 // Debug endpoint (tạm thời) — kiểm tra kết nối DB trên Vercel
+// Combined /api/init endpoint — trả về tất cả dữ liệu cần thiết cho frontend trong 1 request
+app.get('/api/init', async (req, res) => {
+    try {
+        const [projectsResult, certCountResult, templatesResult, clockResult] = await Promise.all([
+            sql`SELECT COUNT(*) as total,
+                       COUNT(*) FILTER (WHERE status = 'In Progress') as progress,
+                       COUNT(*) FILTER (WHERE status = 'Finished') as finished
+                FROM PROJECTS`,
+            sql`SELECT COUNT(*) as cert_count FROM CERTIFICATES`,
+            sql`SELECT * FROM EQUIPMENT_TEMPLATES ORDER BY NAME ASC`,
+            sql`SELECT * FROM CLOCK ORDER BY ID ASC`
+        ]);
+
+        // Load template points for each equipment template
+        const templates = await Promise.all(templatesResult.map(async (t) => {
+            const points = await sql`SELECT * FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ${t.name} ORDER BY ID ASC`;
+            return {
+                NAME: t.name,
+                MANUFACTURER: t.manufacturer,
+                NEXT_DUE: t.next_due,
+                EQUIPMENT_ID: t.equipment_id,
+                PROCEDURE: t.procedure,
+                REF_STANDARD: t.ref_standard,
+                formPoints: points.map(p => ({
+                    ID: p.id,
+                    TEMPLATE_NAME: p.template_name,
+                    PARAMETER_NAME: p.parameter_name,
+                    CAL_POINT: p.cal_point,
+                    AS_FOUND_VALUE: p.as_found_value,
+                    REFERENCE_VALUE: p.reference_value,
+                    UNCERTAINTY: p.uncertainty,
+                    TOLERANCE: p.tolerance,
+                    CONFORMITY: p.conformity,
+                    STANDARD_EQUIPMENT: p.standard_equipment
+                }))
+            };
+        }));
+
+        // Map clock rows to uppercase keys
+        const clockData = clockResult.map(r => ({
+            ID: r.id,
+            KEY_FIELD: r.key_field,
+            NAME: r.name,
+            MANUFACTURER: r.manufacturer,
+            MODEL: r.model,
+            SERIAL_NUMBER: r.serial_number,
+            GCN: r.gcn,
+            LINK: r.link,
+            CAL_DATE: r.cal_date,
+            VALIDITY: r.validity,
+            TYPE: r.type,
+            NOTES: r.notes,
+            CREATED_AT: r.created_at
+        }));
+
+        res.json({
+            projects: {
+                total: parseInt(projectsResult[0].total),
+                progress: parseInt(projectsResult[0].progress),
+                finished: parseInt(projectsResult[0].finished)
+            },
+            certCount: parseInt(certCountResult[0].cert_count) || 0,
+            templates: templates,
+            standards: clockData
+        });
+    } catch (err) {
+        console.error('❌ /api/init error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 app.get('/api/debug/health', async (req, res) => {
     const info = {
         env_check: {
@@ -1326,11 +1398,24 @@ app.get('/api/projects/:id', async (req, res) => {
     }
 });
 
-// Export app for Vercel serverless, or listen directly for local dev
-if (require.main === module) {
+// Khởi tạo DB ngay khi server start (thay vì đợi request đầu tiên)
+async function startServer() {
+    try {
+        await ensureDbInitialized();
+        console.log('✅ Database initialized at startup.');
+    } catch (err) {
+        console.error('❌ Database init at startup failed:', err.message);
+        // Không throw - để middleware fallback xử lý
+    }
+    
     app.listen(port, () => {
         console.log(`[LabMaster Enterprise OS] Backend API Cloud đang chạy mượt mà tại cổng: http://localhost:${port}`);
     });
+}
+
+// Export app for Vercel serverless, or listen directly for local dev
+if (require.main === module) {
+    startServer();
 }
 
 module.exports = app;

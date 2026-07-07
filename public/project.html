@@ -817,26 +817,91 @@ document.addEventListener("DOMContentLoaded", () => {
     ? 'http://localhost:18080' 
     : window.location.origin;
 
+/* ====== SWR CACHE: stale-while-revalidate v?i localStorage ====== */
+// Tr? v? data d? d? c? h?n TTL, k?m flag isStale ???c dùng ?? background refresh
+function cacheGet(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const item = JSON.parse(raw);
+    // SWR: tr? v? data k? c? khi h?t h?n (stale), ch? xoá khi quá 2x TTL ???c?nh
+    if (Date.now() > item.expiry) {
+      // ??t c? stale nh?ng v?n gi? data cho l?n d?p sau
+      item.isStale = true;
+      return item.data;
+    }
+    return item.data;
+  } catch(e) { return null; }
+}
+function cacheSet(key, data, ttlMs) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ data: data, expiry: Date.now() + (ttlMs || 30000), isStale: false }));
+  } catch(e) { /* localStorage may be full */ }
+}
+// Ki?m tra xem cache có ?ang stale không (c?n revalidate background)
+function cacheIsStale(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return true;
+    return Date.now() > JSON.parse(raw).expiry;
+  } catch(e) { return true; }
+}
+// SWR: pending requests dedup (tr?nh nhi?u background refresh cho cùng 1 key)
+const swrInFlight = {};
+
+// SWR helper: tr? v? cached data ngay l?p t?c (Promise), n?u stale ho?c không có cache thì refresh background
+// swrInFlight luôn ch?a Promise ?? ???u ?i?m dedup cho m?i tr??ng h?p
+function swrFetch(key, fetcher, ttlMs) {
+  const cached = cacheGet(key);
+  if (cached !== null && cached !== undefined) {
+    // Có cache (k? c? stale) — tr? v? ngay, n?u stale thì refresh background (có dedup)
+    if (cacheIsStale(key) && !swrInFlight[key]) {
+      swrInFlight[key] = fetcher()
+        .then(fresh => { cacheSet(key, fresh, ttlMs); return fresh; })
+        .catch(() => null) // l?i?ng l?p: không throw cho background refresh
+        .finally(() => { delete swrInFlight[key]; });
+    }
+    return Promise.resolve(cached);
+  }
+  // Không có cache gì c? — ph?i ch? network
+  if (!swrInFlight[key]) {
+    swrInFlight[key] = fetcher()
+      .then(fresh => { cacheSet(key, fresh, ttlMs); return fresh; })
+      .catch(err => { console.error('SWR fetch error for', key, err); throw err; })
+      .finally(() => { delete swrInFlight[key]; });
+  }
+  return swrInFlight[key];
+}
+
 /* ====== LIVE DATABASE STANDARDS ====== */
 let liveStandardsDB = [];
 
 // Dữ liệu thiết bị chuẩn tĩnh (Trống - Đã chuyển hoàn toàn sang SQL CLOCK)
 const staticEquipmentData = {};
 
-async function fetchLiveStandards() {
-  const loader = document.getElementById('standard-loader');
-  if (loader) loader.style.display = 'block'; // Hiển thị spinner khi bắt đầu tải
-  try {
-    // Kích hoạt fetch từ bảng CLOCK để lấy trọn bộ thiết bị chuẩn thực tế
-    const response = await fetch(`${API_BASE_URL}/api/clock`);
-    if (response.ok) {
-      liveStandardsDB = await response.json();
+async function fetchLiveStandards(force) {
+  if (force) {
+    // Force refresh: b? qua cache, fetch m?i ? ch?
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/clock`);
+      if (response.ok) {
+        liveStandardsDB = await response.json();
+        cacheSet('lm_clock_standards', liveStandardsDB, 30000);
+      }
+    } catch (error) {
+      console.error("L?i khi t?i thi?t b? chu?n t? Database:", error);
     }
-  } catch (error) {
-    console.error("Lỗi khi tải thiết bị chuẩn từ Database:", error);
-  } finally {
-    if (loader) loader.style.display = 'none'; // Ẩn spinner dù thành công hay thất bại
+    return;
   }
+  // SWR: dùng cached data ngay (k? c? stale), refresh background n?u c?n
+  const data = await swrFetch('lm_clock_standards', async () => {
+    const response = await fetch(`${API_BASE_URL}/api/clock`);
+    if (!response.ok) throw new Error('API clock failed');
+    const json = await response.json();
+    liveStandardsDB = json; // update global variable
+    return json;
+  }, 30000);
+  if (data) liveStandardsDB = data;
 }
 
 /* Lấy dữ liệu thiết bị chuẩn trực tiếp từ Database SQL (Bảng CLOCK) */
@@ -972,52 +1037,63 @@ function groupTemplatePointsToFormPoints(points) {
 
 // Tải danh sách mẫu thiết bị từ Database SQL (EQUIPMENT_TEMPLATES + TEMPLATE_POINTS) và hợp nhất vào MockDatabaseEquipment
 // để có thể tìm kiếm/chọn ngay trong Project, sau đó in/xuất PDF như Washing Machine
-async function syncEquipmentDBFromAPI() {
-  try {
-  const response = await fetch(`${API_BASE_URL}/api/equipment-templates?_t=${Date.now()}`, {
-        headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-        }
-    });    
-
-    if (!response.ok) throw new Error('Không thể kết nối API danh sách thiết bị chuẩn');
-    const templates = await response.json();
-
-    // Xây dựng lại hoàn toàn từ SQL — không còn hardcode
-    const freshDB = {};
-    const freshIdMap = {};
-    liveDbEquipmentKeys = new Set();
-    templates.forEach(t => {
-      if (!t.NAME) return;
-      freshDB[t.NAME] = {
-        manufacturer: t.MANUFACTURER || '',
-        model: t.MODEL || '',
-        instEn: t.NAME,
-        equipmentId: t.EQUIPMENT_ID || '',
-        procedure: t.PROCEDURE || t.procedure || '',
-        refStandard: t.REF_STANDARD || t.ref_standard || '',
-        nextDue: t.NEXT_DUE || t.next_due || '',
-        formPoints: groupTemplatePointsToFormPoints(t.formPoints || [])
-      };
-      liveDbEquipmentKeys.add(t.NAME);
-      if (t.EQUIPMENT_ID) freshIdMap[t.EQUIPMENT_ID] = t.NAME;
-    });
-    MockDatabaseEquipment = freshDB;
-    window._equipmentById = freshIdMap;
-  } catch (error) {
-    console.error('Lỗi khi đồng bộ Database Equipment từ SQL:', error);
+// S? d?ng localStorage cache v?i TTL 30s ?? tr?nh fetch l?i khi ?i?u h??ng
+async function syncEquipmentDBFromAPI(force) {
+  if (force) {
+    // Force refresh: b? qua cache
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/equipment-templates`);
+      if (!response.ok) throw new Error('API failed');
+      const templates = await response.json();
+      cacheSet('lm_equipment_templates', templates, 30000);
+      applyEquipmentCache(templates);
+    } catch (error) {
+      console.error('L?i khi ??ng b? Database Equipment:', error);
+    }
+    return;
   }
+  // SWR: dùng cached data ngay (k? c? stale), refresh background n?u c?n
+  const data = await swrFetch('lm_equipment_templates', async () => {
+    const response = await fetch(`${API_BASE_URL}/api/equipment-templates`);
+    if (!response.ok) throw new Error('API equipment-templates failed');
+    const templates = await response.json();
+    applyEquipmentCache(templates);
+    return templates;
+  }, 30000);
+  if (data) applyEquipmentCache(data);
 }
 
-// Re-sync từ SQL khi tab được focus lại (đảm bảo thiết bị mới thêm ở databasequipment sẽ xuất hiện ở đây)
+function applyEquipmentCache(templates) {
+  const freshDB = {};
+  const freshIdMap = {};
+  liveDbEquipmentKeys = new Set();
+  templates.forEach(t => {
+    if (!t.NAME) return;
+    freshDB[t.NAME] = {
+      manufacturer: t.MANUFACTURER || '',
+      model: t.MODEL || '',
+      instEn: t.NAME,
+      equipmentId: t.EQUIPMENT_ID || '',
+      procedure: t.PROCEDURE || t.procedure || '',
+      refStandard: t.REF_STANDARD || t.ref_standard || '',
+      nextDue: t.NEXT_DUE || t.next_due || '',
+      formPoints: groupTemplatePointsToFormPoints(t.formPoints || [])
+    };
+    liveDbEquipmentKeys.add(t.NAME);
+    if (t.EQUIPMENT_ID) freshIdMap[t.EQUIPMENT_ID] = t.NAME;
+  });
+  MockDatabaseEquipment = freshDB;
+  window._equipmentById = freshIdMap;
+}
+
+// Re-sync t? SQL khi tab ???c focus l?i (SWR: ch? background refresh n?u stale)
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'visible') {
-    syncEquipmentDBFromAPI().then(() => showDbSyncBadge());
+    if (cacheIsStale('lm_equipment_templates')) {
+      // Background refresh - không await, không block UI
+      syncEquipmentDBFromAPI().then(() => showDbSyncBadge());
+    }
   }
-});
-window.addEventListener('focus', function() {
-  syncEquipmentDBFromAPI();
 });
 
 // Helper: resolve equipment NAME từ ID hoặc NAME (ID ưu tiên để liên kết bền vững)
@@ -1032,8 +1108,47 @@ function resolveEquipmentName(idOrName) {
   return null;
 }
 
-// Đồng bộ ngay khi tải trang lần đầu
-syncEquipmentDBFromAPI();
+// Kh?i t?o d? li?u ??u trang: t?i projects + equipment + standards song song (SWR)
+// L?n ??u: ch?a c? cache -> ph?i ch? network.
+// L?n sau: cached c? -> hi?n th? ngay, refresh background.
+let pageDataInitialized = false;
+async function initPageData() {
+  // B??c 1: Dùng SWR ?? th? /api/init tr??c
+  try {
+    await swrFetch('lm_init_data', async () => {
+      const res = await fetch(`${API_BASE_URL}/api/init`);
+      if (!res.ok) throw new Error('Init API failed');
+      const d = await res.json();
+      if (d.templates) {
+        const oldTtl = cacheIsStale('lm_equipment_templates') ? 0 : 30000;
+        cacheSet('lm_equipment_templates', d.templates, oldTtl);
+        applyEquipmentCache(d.templates);
+      }
+      if (d.standards) {
+        const oldTtl2 = cacheIsStale('lm_clock_standards') ? 0 : 30000;
+        cacheSet('lm_clock_standards', d.standards, oldTtl2);
+        liveStandardsDB = d.standards;
+      }
+      window._initProjectsStats = d.projects;
+      window._initCertCount = d.certCount;
+      return d;
+    }, 30000);
+  } catch(e) { /* fallback */ }
+  
+  // B??c 2: ??m b?o equipment ?ã s?n s?ng (t? cache ho?c fetch)
+  if (Object.keys(MockDatabaseEquipment).length === 0) {
+    await swrFetch('lm_equipment_templates', async () => {
+      const res = await fetch(`${API_BASE_URL}/api/equipment-templates`);
+      if (!res.ok) throw new Error('API failed');
+      const t = await res.json();
+      applyEquipmentCache(t);
+      return t;
+    }, 30000);
+  }
+
+  pageDataInitialized = true;
+}
+initPageData();
 
 function showDbSyncBadge() {
   let b = document.getElementById('db-sync-badge');

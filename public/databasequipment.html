@@ -620,6 +620,45 @@ document.addEventListener("DOMContentLoaded", () => {
 </main>
 
 <script>
+/* ====== SWR CACHE HELPERS ====== */
+function cacheGet(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const item = JSON.parse(raw);
+    if (Date.now() > item.expiry) return item.data; // tr? data d? c? khi stale
+    return item.data;
+  } catch(e) { return null; }
+}
+function cacheSet(key, data, ttlMs) {
+  try { localStorage.setItem(key, JSON.stringify({ data, expiry: Date.now() + (ttlMs || 30000), isStale: false })); }
+  catch(e) {}
+}
+function cacheIsStale(key) {
+  try { const raw = localStorage.getItem(key); if (!raw) return true; return Date.now() > JSON.parse(raw).expiry; }
+  catch(e) { return true; }
+}
+const swrInFlight = {};
+function swrFetch(key, fetcher, ttlMs) {
+  const cached = cacheGet(key);
+  if (cached !== null && cached !== undefined) {
+    if (cacheIsStale(key) && !swrInFlight[key]) {
+      swrInFlight[key] = fetcher()
+        .then(fresh => { cacheSet(key, fresh, ttlMs); return fresh; })
+        .catch(() => null)
+        .finally(() => { delete swrInFlight[key]; });
+    }
+    return Promise.resolve(cached);
+  }
+  if (!swrInFlight[key]) {
+    swrInFlight[key] = fetcher()
+      .then(fresh => { cacheSet(key, fresh, ttlMs); return fresh; })
+      .catch(err => { console.error('SWR error', key, err); throw err; })
+      .finally(() => { delete swrInFlight[key]; });
+  }
+  return swrInFlight[key];
+}
+
     const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
         ? 'http://localhost:18080' 
         : window.location.origin;
@@ -741,11 +780,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function loadClockEquipmentForSearch() {
         try {
-            const res = await fetch(`${TARGET_URL}/api/clock`);
-            if (!res.ok) throw new Error('Không tải được danh sách CLOCK');
-            clockEquipmentList = await res.json();
+            // SWR: dùng cached ngay, background refresh n?u stale (cùng cache key v?i project.html v? equipment.html)
+            const data = await swrFetch('lm_clock_standards', async () => {
+                const res = await fetch(`${TARGET_URL}/api/clock`);
+                if (!res.ok) throw new Error('Không tải được danh sách CLOCK');
+                return await res.json();
+            }, 30000);
+            clockEquipmentList = data || [];
         } catch(e) {
-            console.warn('Không load được CLOCK, dropdown sẽ rỗng:', e.message);
+            console.warn('Không load được CLOCK, dropdown s? r?ng:', e.message);
             clockEquipmentList = [];
         }
     }
@@ -1066,19 +1109,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
 async function fetchEquipmentTemplates(searchQuery = '') {
         renderDbEquipmentSkeleton(5);
-        const url = new URL(`${TARGET_URL}/api/equipment-templates`);
-        if (searchQuery) {
-            url.searchParams.append('q', searchQuery);
-        }
-
+        const cacheKey = 'lm_equipment_templates' + (searchQuery ? '_q_' + searchQuery : '');
+        
         try {
-            const equipRes = await fetch(url.toString());
-            if (!equipRes.ok) throw new Error("Không thể kết nối API danh sách thiết bị");
-
-            fetchedEquipments = await equipRes.json();
+            // SWR: dùng cached ngay (n?u c?), background refresh n?u stale
+            const data = await swrFetch(cacheKey, async () => {
+                const url = new URL(`${TARGET_URL}/api/equipment-templates`);
+                if (searchQuery) url.searchParams.append('q', searchQuery);
+                const res = await fetch(url.toString());
+                if (!res.ok) throw new Error('API failed');
+                return await res.json();
+            }, 30000);
+            
+            fetchedEquipments = data || [];
             renderTable(fetchedEquipments, true);
         } catch (error) {
-            console.error("Lỗi khi tải danh sách thiết bị từ Database API:", error);
+            console.error("Lỗi khi tải danh sách thiết bị t? Database API:", error);
             renderFallbackLocalStorage();
         }
         return fetchedEquipments;

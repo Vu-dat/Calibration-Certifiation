@@ -589,6 +589,45 @@ document.addEventListener("DOMContentLoaded", () => {
 </footer>
 
 <script>
+/* ====== SWR CACHE HELPERS ====== */
+function cacheGet(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const item = JSON.parse(raw);
+    if (Date.now() > item.expiry) return item.data; // tr? data d? c? khi stale
+    return item.data;
+  } catch(e) { return null; }
+}
+function cacheSet(key, data, ttlMs) {
+  try { localStorage.setItem(key, JSON.stringify({ data, expiry: Date.now() + (ttlMs || 30000), isStale: false })); }
+  catch(e) {}
+}
+function cacheIsStale(key) {
+  try { const raw = localStorage.getItem(key); if (!raw) return true; return Date.now() > JSON.parse(raw).expiry; }
+  catch(e) { return true; }
+}
+const swrInFlight = {};
+function swrFetch(key, fetcher, ttlMs) {
+  const cached = cacheGet(key);
+  if (cached !== null && cached !== undefined) {
+    if (cacheIsStale(key) && !swrInFlight[key]) {
+      swrInFlight[key] = fetcher()
+        .then(fresh => { cacheSet(key, fresh, ttlMs); return fresh; })
+        .catch(() => null)
+        .finally(() => { delete swrInFlight[key]; });
+    }
+    return Promise.resolve(cached);
+  }
+  if (!swrInFlight[key]) {
+    swrInFlight[key] = fetcher()
+      .then(fresh => { cacheSet(key, fresh, ttlMs); return fresh; })
+      .catch(err => { console.error('SWR error', key, err); throw err; })
+      .finally(() => { delete swrInFlight[key]; });
+  }
+  return swrInFlight[key];
+}
+
     const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
         ? 'http://localhost:18080' : window.location.origin;
 
@@ -663,9 +702,13 @@ async function loadEquipment() {
         renderEquipmentSkeleton(5);
 
         try {
-            const res = await fetch(`${API_BASE_URL}/api/clock`);
-            if (!res.ok) throw new Error('Failed to fetch');
-            equipmentList = await res.json();
+            // SWR: dùng cached ngay, background refresh n?u stale
+            const data = await swrFetch('lm_clock_standards', async () => {
+                const res = await fetch(`${API_BASE_URL}/api/clock`);
+                if (!res.ok) throw new Error('Failed to fetch');
+                return await res.json();
+            }, 30000);
+            equipmentList = data || [];
             renderTable(equipmentList);
         } catch (err) {
             console.error('Error loading equipment:', err);

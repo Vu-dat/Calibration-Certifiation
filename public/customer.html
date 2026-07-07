@@ -1035,13 +1035,51 @@ document.addEventListener("DOMContentLoaded", () => {
 
 /* ──────────────────────────────────────────────
    CONFIG
-────────────────────────────────────────────── */
-const API_BASE_URL = (
+────────────────────────────────────────────── */    const API_BASE_URL = (
     window.location.hostname === 'localhost' ||
     window.location.hostname === '127.0.0.1'
 ) ? 'http://localhost:18080' : window.location.origin;
 
 const EDIT_PASSWORD = '123456';
+
+/* ====== SWR CACHE HELPERS ====== */
+function cacheGet(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const item = JSON.parse(raw);
+    if (Date.now() > item.expiry) return item.data; // tr? data d? c? khi stale
+    return item.data;
+  } catch(e) { return null; }
+}
+function cacheSet(key, data, ttlMs) {
+  try { localStorage.setItem(key, JSON.stringify({ data, expiry: Date.now() + (ttlMs || 30000), isStale: false })); }
+  catch(e) {}
+}
+function cacheIsStale(key) {
+  try { const raw = localStorage.getItem(key); if (!raw) return true; return Date.now() > JSON.parse(raw).expiry; }
+  catch(e) { return true; }
+}
+const swrInFlight = {};
+function swrFetch(key, fetcher, ttlMs) {
+  const cached = cacheGet(key);
+  if (cached !== null && cached !== undefined) {
+    if (cacheIsStale(key) && !swrInFlight[key]) {
+      swrInFlight[key] = fetcher()
+        .then(fresh => { cacheSet(key, fresh, ttlMs); return fresh; })
+        .catch(() => null)
+        .finally(() => { delete swrInFlight[key]; });
+    }
+    return Promise.resolve(cached);
+  }
+  if (!swrInFlight[key]) {
+    swrInFlight[key] = fetcher()
+      .then(fresh => { cacheSet(key, fresh, ttlMs); return fresh; })
+      .catch(err => { console.error('SWR error', key, err); throw err; })
+      .finally(() => { delete swrInFlight[key]; });
+  }
+  return swrInFlight[key];
+}
 
 /* ──────────────────────────────────────────────
    STATE
@@ -1116,22 +1154,25 @@ async function loadCustomers(page = 1, searchQuery = '') {
     renderCustomerSkeleton(5);
 
     try {
-        const url = new URL(`${API_BASE_URL}/api/customers`);
-        url.searchParams.append('page', page);
-        url.searchParams.append('limit', customersPerPage);
-        if (searchQuery) url.searchParams.append('q', searchQuery);
+        const cacheKey = 'lm_customers_p' + page + (searchQuery ? '_q_' + searchQuery : '');
+        // SWR: dùng cached data (n?u c?), background refresh n?u stale
+        const data = await swrFetch(cacheKey, async () => {
+            const url = new URL(`${API_BASE_URL}/api/customers`);
+            url.searchParams.append('page', page);
+            url.searchParams.append('limit', customersPerPage);
+            if (searchQuery) url.searchParams.append('q', searchQuery);
+            const res = await fetch(url.toString(), { cache: 'no-cache' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return await res.json();
+        }, 15000); // TTL 15s cho customers (data thay ??i th??ng xuy?n h?n)
 
-        const res = await fetch(url.toString(), { cache: 'no-cache' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const data = await res.json();
         globalCustomersList = data.data || [];
-        filteredList = [...globalCustomersList]; // This is now correct
+        filteredList = [...globalCustomersList];
 
         renderTable(filteredList);
         updateStats(data.total, data.vipCount);
         renderPagination(data.total, page, customersPerPage);
-        computeNextId(); // No longer relies on full list
+        computeNextId();
 
     } catch (err) {
         console.error('❌ loadCustomers:', err);
