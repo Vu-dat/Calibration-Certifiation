@@ -1422,7 +1422,8 @@ async function main(opts) {
 
         const buffer = await Packer.toBuffer(doc);
         fs.writeFileSync(OUTPUT_FILE, buffer);
-        console.log(`[SUCCESS] Đã xuất: GCN_${SAFE_NAME}.docx`);
+        console.log(`[SUCCESS] Đã xuất: GCN_${SAFE_NAME}.docx (${(buffer.length / 1024).toFixed(1)} KB)`);
+        return buffer;
 
     } catch (err) {
         console.error('LỖI CRITICAL:', err);

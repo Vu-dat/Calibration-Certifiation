@@ -3,6 +3,7 @@ const path = require('path');
 const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
 const fs = require('fs');
+const { Writable } = require('stream');
 
 // Database connection (centralized) — Postgres via db.js
 const db = require('./db');
@@ -338,6 +339,16 @@ var pts = toUpperKeys(await a(ptsQ, ptsParams));
     try { if (fs.existsSync(lp)) logo = fs.readFileSync(lp); } catch(e) {}
     
     var doc = new PDFDocument({size:'A4', margins:{top:MT,bottom:20,left:ML,right:MR}, autoFirstPage: false});
+    // Memory stream để thu thập PDF vào Buffer (tránh readFileSync sau này)
+    var buffers = [];
+    const collector = new Writable({
+        write(chunk, encoding, callback) {
+            buffers.push(chunk);
+            callback();
+        }
+    });
+    doc.pipe(collector);
+    // File stream cho CLI và backward compatibility
     var ws = fs.createWriteStream(OF);
     doc.pipe(ws);
     try {
@@ -590,15 +601,29 @@ var pts = toUpperKeys(await a(ptsQ, ptsParams));
     doc.text(VN.legal5, ML, curY, {width:CW}); curY += legalH5 + 4;
     
     drawFooter(doc, 2, 2);
-    // Return a Promise that resolves when the PDF stream finishes writing
-    // This is critical: process.exit() would kill the Express server!
+    // Return a Promise that resolves with the PDF Buffer when both streams finish
     return new Promise(function(resolve, reject) {
+      var fileDone = false, memDone = false;
+      function checkDone() {
+        if (fileDone && memDone) {
+          resolve(Buffer.concat(buffers));
+        }
+      }
       ws.on('finish', function() {
         console.log('[SUCCESS] Da xuat: GCN_'+SN+'.pdf');
-        resolve();
+        fileDone = true;
+        checkDone();
       });
       ws.on('error', function(err) {
-        console.error('LOI stream:', err);
+        console.error('LOI stream file:', err);
+        reject(err);
+      });
+      collector.on('finish', function() {
+        memDone = true;
+        checkDone();
+      });
+      collector.on('error', function(err) {
+        console.error('LOI stream memory:', err);
         reject(err);
       });
       doc.end();

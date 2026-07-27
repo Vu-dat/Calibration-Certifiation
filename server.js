@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const { generatePDF } = require('./generate_pdf');
 const { generateExcel } = require('./generate_excel');
 const { generateDocx } = require('./generate_docx');
+const { uploadToSupabase, getPublicUrl, isConfigured, BUCKET_NAME } = require('./storage');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const app = express();
@@ -1197,29 +1198,42 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
         await saveCalibrationDataToDBHelper(data, cert_no);
         const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
         
-        // downloadUrl dùng getBaseUrl() — ưu tiên PUBLIC_URL, fallback LAN IP, KHÔNG dùng req.get('host')
+        // Ưu tiên Supabase Storage URL cho QR code (nếu đã cấu hình)
         // Vì QR in trên giấy, khách hàng quét từ bất kỳ đâu (khác mạng, ngoài LAN)
+        // Supabase Storage URL có dạng: https://jvlkfunovqujjwfpmnau.supabase.co/storage/v1/object/public/certificates/GCN_xxx.pdf?download=1
+        const supabaseUrl = getPublicUrl(fileName);
         const publicBaseUrl = getBaseUrl();
-        const downloadUrl = data.downloadUrl || `${publicBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}${fileName}`;
+        const localUrl = `${publicBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}${fileName}`;
+        const downloadUrl = supabaseUrl || localUrl;
         const eqName = data.equipmentName || data.equipment_name || '';
 
-        await generatePDF({ certNo: cert_no, downloadUrl, equipmentName: eqName });
+        const pdfBuffer = await generatePDF({ certNo: cert_no, downloadUrl, equipmentName: eqName });
+        const base64 = pdfBuffer.toString('base64');
+        let fileUrl = null;
         
-        const outputDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, 'static');
-        const filePath = path.join(outputDir, fileName);
-        let base64 = null;
-        if (fs.existsSync(filePath)) {
-            base64 = fs.readFileSync(filePath).toString('base64');
+        // Upload lên Supabase Storage (nếu cấu hình) — dùng Buffer trực tiếp từ generatePDF
+        if (isConfigured()) {
+            const uploadResult = await uploadToSupabase(pdfBuffer, fileName, 'application/pdf');
+            if (uploadResult.success) {
+                fileUrl = uploadResult.publicUrl;
+                console.log(`☁️ PDF uploaded to Supabase: ${fileUrl}`);
+            } else {
+                console.warn('⚠️ QR code trong PDF đã encode URL Supabase nhưng upload thất bại. QR sẽ không hoạt động. Lỗi:', uploadResult.error);
+            }
         }
-
-        const requestBaseUrl = req.protocol + '://' + req.get('host');
-        const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
+        
+        // Fallback: dùng local URL nếu chưa upload được lên Supabase
+        if (!fileUrl) {
+            const requestBaseUrl = req.protocol + '://' + req.get('host');
+            const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
+            fileUrl = `${requestBaseUrl}${fileUrlPath}`;
+        }
 
         logActivity("Hệ thống / KTV", "EXPORT_PDF", "CERTIFICATES", cert_no, `Xuất PDF: ${fileName}`);
         res.json({ 
             success: true, 
             message: `Đã xuất thành công ${fileName}`, 
-            file_url: `${requestBaseUrl}${fileUrlPath}`,
+            file_url: fileUrl,
             base64: base64,
             filename: fileName,
             mimeType: 'application/pdf'
@@ -1244,18 +1258,36 @@ app.post('/api/calibration/export-excel', async (req, res) => {
         const outputDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, 'static');
         const filePath = path.join(outputDir, fileName);
         let base64 = null;
+        let fileUrl = null;
+        
         if (fs.existsSync(filePath)) {
-            base64 = fs.readFileSync(filePath).toString('base64');
+            const buf = fs.readFileSync(filePath);
+            base64 = buf.toString('base64');
+            
+            // Upload lên Supabase Storage (nếu cấu hình)
+            if (isConfigured()) {
+                const uploadResult = await uploadToSupabase(buf, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                if (uploadResult.success) {
+                    fileUrl = uploadResult.publicUrl;
+                    console.log(`☁️ Excel uploaded to Supabase: ${fileUrl}`);
+                } else {
+                    console.warn('⚠️ Upload Excel lên Supabase thất bại:', uploadResult.error);
+                }
+            }
         }
-
-        const requestBaseUrl = req.protocol + '://' + req.get('host');
-        const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
+        
+        // Fallback: dùng local URL nếu chưa upload được lên Supabase
+        if (!fileUrl) {
+            const requestBaseUrl = req.protocol + '://' + req.get('host');
+            const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
+            fileUrl = `${requestBaseUrl}${fileUrlPath}`;
+        }
 
         logActivity("Hệ thống / KTV", "EXPORT_EXCEL", "CERTIFICATES", cert_no, `Xuất Excel: ${fileName}`);
         res.json({ 
             success: true, 
             message: `Đã xuất thành công ${fileName}`, 
-            file_url: `${requestBaseUrl}${fileUrlPath}`,
+            file_url: fileUrl,
             base64: base64,
             filename: fileName,
             mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -1275,29 +1307,41 @@ app.post('/api/calibration/export-docx', async (req, res) => {
         await saveCalibrationDataToDBHelper(data, cert_no);
         const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.docx`;
 
-        // downloadUrl dùng getBaseUrl() — ưu tiên PUBLIC_URL, fallback LAN IP
-        // Vì QR in trên giấy, khách hàng quét từ bất kỳ đâu
+        // Ưu tiên Supabase Storage URL cho QR code (nếu đã cấu hình)
+        // Vì QR in trên giấy, khách hàng quét từ bất kỳ đâu (khác mạng, ngoài LAN)
+        const supabaseUrl = getPublicUrl(fileName);
         const publicBaseUrl = getBaseUrl();
-        const downloadUrl = `${publicBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}${fileName}`;
+        const localUrl = `${publicBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}${fileName}`;
+        const downloadUrl = supabaseUrl || localUrl;
 
         const eqName = data.equipmentName || data.equipment_name || '';
-        await generateDocx({ certNo: cert_no, downloadUrl, equipmentName: eqName });
-
-        const outputDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, 'static');
-        const filePath = path.join(outputDir, fileName);
-        let base64 = null;
-        if (fs.existsSync(filePath)) {
-            base64 = fs.readFileSync(filePath).toString('base64');
+        const docxBuffer = await generateDocx({ certNo: cert_no, downloadUrl, equipmentName: eqName });
+        const base64 = docxBuffer.toString('base64');
+        let fileUrl = null;
+        
+        // Upload lên Supabase Storage (nếu cấu hình) — dùng Buffer trực tiếp từ generateDocx
+        if (isConfigured()) {
+            const uploadResult = await uploadToSupabase(docxBuffer, fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+            if (uploadResult.success) {
+                fileUrl = uploadResult.publicUrl;
+                console.log(`☁️ DOCX uploaded to Supabase: ${fileUrl}`);
+            } else {
+                console.warn('⚠️ QR code trong DOCX đã encode URL Supabase nhưng upload thất bại. QR sẽ không hoạt động. Lỗi:', uploadResult.error);
+            }
         }
-
-        const requestBaseUrl = req.protocol + '://' + req.get('host');
-        const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
+        
+        // Fallback: dùng local URL nếu chưa upload được lên Supabase
+        if (!fileUrl) {
+            const requestBaseUrl = req.protocol + '://' + req.get('host');
+            const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
+            fileUrl = `${requestBaseUrl}${fileUrlPath}`;
+        }
 
         logActivity("Hệ thống / KTV", "EXPORT_DOCX", "CERTIFICATES", cert_no, `Xuất Word: ${fileName}`);
         res.json({ 
             success: true, 
             message: `Đã xuất thành công ${fileName}`, 
-            file_url: `${requestBaseUrl}${fileUrlPath}`,
+            file_url: fileUrl,
             base64: base64,
             filename: fileName,
             mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -1542,6 +1586,14 @@ async function startServer() {
         if (!process.env.PUBLIC_URL) {
             const baseForWarn = getBaseUrl();
             console.warn('⚠️ PUBLIC_URL chưa được cấu hình. QR code sẽ dùng địa chỉ LAN (' + baseForWarn + '), không hoạt động từ WAN. Vui lòng set biến môi trường PUBLIC_URL (ví dụ: https://labmaster.vn) để QR hoạt động toàn cầu.');
+        }
+        
+        // Cảnh báo nếu chưa cấu hình Supabase Storage
+        if (!isConfigured()) {
+            console.warn('⚠️ SUPABASE_URL và SUPABASE_SERVICE_KEY chưa được cấu hình. File export sẽ chỉ được lưu local và phục vụ qua /api/static/, không hoạt động ổn định trên Vercel serverless!');
+        } else {
+            const supabaseUrl = process.env.SUPABASE_URL;
+            console.log('✅ Supabase Storage đã sẵn sàng. File export sẽ được upload lên bucket "' + BUCKET_NAME + '" tại ' + supabaseUrl + '.');
         }
     } catch (err) {
         console.error('❌ Database init at startup failed:', err.message);
