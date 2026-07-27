@@ -41,8 +41,78 @@ function getBaseUrl() {
 
 app.use(cors());
 app.use(express.json());
-app.use('/static', express.static(path.join(__dirname, 'static')));
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Static file handler tùy chỉnh — serve từ cả public/ và static/ với Content-Disposition cho file export
+app.use((req, res, next) => {
+    const reqPath = req.path;
+    
+    // Chỉ xử lý GET/HEAD (Express tự xử lý body cho HEAD)
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    
+    // Map request path → thư mục gốc
+    let rootDir = null;
+    if (reqPath === '/' || reqPath.startsWith('/api/')) {
+        // API requests — không xử lý ở đây
+        return next();
+    }
+    
+    // Xác định root directory dựa trên path prefix
+    // Lưu ý: /api/static/ được xử lý bởi route handler riêng (app.get('/api/static/:filename') bên dưới)
+    if (reqPath.startsWith('/static/')) {
+        rootDir = path.join(__dirname, 'static');
+        safeFile = path.basename(reqPath);
+        filePath = path.join(rootDir, safeFile);
+        if (!fs.existsSync(filePath)) filePath = null;
+    } else {
+        // public/: files có thể trong thư mục con (css/, js/, fonts/...)
+        // → dùng full path, kiểm tra an toàn
+        rootDir = path.join(__dirname, 'public');
+        const resolved = path.resolve(rootDir, '.' + reqPath);
+        const rootResolved = path.resolve(rootDir);
+        if (!resolved.startsWith(rootResolved + path.sep) && resolved !== rootResolved) {
+            return next(); // directory traversal attempt
+        }
+        safeFile = path.basename(reqPath);
+        filePath = resolved;
+        if (!fs.existsSync(filePath)) filePath = null;
+    }
+    
+    if (!filePath) return next();
+    const ext = path.extname(safeFile).toLowerCase();
+    const buf = fs.readFileSync(filePath);
+    const mimeMap = {
+        '.html': 'text/html; charset=utf-8',
+        '.css': 'text/css; charset=utf-8',
+        '.js': 'application/javascript; charset=utf-8',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.svg': 'image/svg+xml',
+        '.ico': 'image/x-icon',
+        '.woff': 'font/woff',
+        '.woff2': 'font/woff2',
+        '.ttf': 'font/ttf',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.pdf': 'application/pdf',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.json': 'application/json',
+    };
+    const contentType = mimeMap[ext] || 'application/octet-stream';
+    
+    // Thêm Content-Disposition: attachment cho file export
+    const headers = {
+        'Content-Type': contentType,
+        'Content-Length': buf.length,
+        'Access-Control-Allow-Origin': '*'
+    };
+    if (ext === '.docx' || ext === '.pdf' || ext === '.xlsx') {
+        headers['Content-Disposition'] = 'attachment; filename="' + safeFile + '"';
+    }
+    
+    res.writeHead(200, headers);
+    res.end(buf);
+});
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
@@ -331,20 +401,46 @@ app.use('/api', async (req, res, next) => {
     }
 });
 
-// Endpoint để phục vụ file tĩnh một cách linh hoạt (hỗ trợ cả Vercel Serverless /tmp và local static)
+// Endpoint để phục vụ file tĩnh cho Vercel Serverless
 app.get('/api/static/:filename', (req, res) => {
     const filename = req.params.filename;
     const safeFilename = path.basename(filename);
     const tmpPath = path.join(require('os').tmpdir(), safeFilename);
     const localStaticPath = path.join(__dirname, 'static', safeFilename);
     
+    let filePath = null;
     if (fs.existsSync(tmpPath)) {
-        return res.sendFile(tmpPath);
+        filePath = tmpPath;
     } else if (fs.existsSync(localStaticPath)) {
-        return res.sendFile(localStaticPath);
-    } else {
-        return res.status(404).send('File not found');
+        filePath = localStaticPath;
     }
+    
+    if (!filePath) return res.status(404).send('File not found');
+    
+    const buf = fs.readFileSync(filePath);
+    const ext = path.extname(safeFilename).toLowerCase();
+    const mimeMap = {
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.pdf': 'application/pdf',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
+    const contentType = mimeMap[ext] || 'application/octet-stream';
+    
+    if (ext === '.docx' || ext === '.pdf' || ext === '.xlsx') {
+        res.writeHead(200, {
+            'Content-Disposition': 'attachment; filename="' + safeFilename + '"',
+            'Content-Type': contentType,
+            'Content-Length': buf.length,
+            'Access-Control-Allow-Origin': '*'
+        });
+    } else {
+        res.writeHead(200, {
+            'Content-Type': contentType,
+            'Content-Length': buf.length,
+            'Access-Control-Allow-Origin': '*'
+        });
+    }
+    res.end(buf);
 });
 
 // Debug endpoint (tạm thời) — kiểm tra kết nối DB trên Vercel
@@ -1099,12 +1195,15 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
 
     try {
         await saveCalibrationDataToDBHelper(data, cert_no);
-        const requestBaseUrl = req.protocol + '://' + req.get('host');
-        const downloadUrl = data.downloadUrl || `${requestBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+        const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+        
+        // downloadUrl dùng getBaseUrl() — ưu tiên PUBLIC_URL, fallback LAN IP, KHÔNG dùng req.get('host')
+        // Vì QR in trên giấy, khách hàng quét từ bất kỳ đâu (khác mạng, ngoài LAN)
+        const publicBaseUrl = getBaseUrl();
+        const downloadUrl = data.downloadUrl || `${publicBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}${fileName}`;
         const eqName = data.equipmentName || data.equipment_name || '';
 
         await generatePDF({ certNo: cert_no, downloadUrl, equipmentName: eqName });
-        const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
         
         const outputDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, 'static');
         const filePath = path.join(outputDir, fileName);
@@ -1113,6 +1212,7 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
             base64 = fs.readFileSync(filePath).toString('base64');
         }
 
+        const requestBaseUrl = req.protocol + '://' + req.get('host');
         const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
 
         logActivity("Hệ thống / KTV", "EXPORT_PDF", "CERTIFICATES", cert_no, `Xuất PDF: ${fileName}`);
@@ -1175,8 +1275,10 @@ app.post('/api/calibration/export-docx', async (req, res) => {
         await saveCalibrationDataToDBHelper(data, cert_no);
         const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.docx`;
 
-        const requestBaseUrl = req.protocol + '://' + req.get('host');
-        const downloadUrl = `${requestBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}${fileName}`;
+        // downloadUrl dùng getBaseUrl() — ưu tiên PUBLIC_URL, fallback LAN IP
+        // Vì QR in trên giấy, khách hàng quét từ bất kỳ đâu
+        const publicBaseUrl = getBaseUrl();
+        const downloadUrl = `${publicBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}${fileName}`;
 
         const eqName = data.equipmentName || data.equipment_name || '';
         await generateDocx({ certNo: cert_no, downloadUrl, equipmentName: eqName });
@@ -1188,6 +1290,7 @@ app.post('/api/calibration/export-docx', async (req, res) => {
             base64 = fs.readFileSync(filePath).toString('base64');
         }
 
+        const requestBaseUrl = req.protocol + '://' + req.get('host');
         const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
 
         logActivity("Hệ thống / KTV", "EXPORT_DOCX", "CERTIFICATES", cert_no, `Xuất Word: ${fileName}`);
@@ -1436,6 +1539,10 @@ async function startServer() {
     try {
         await ensureDbInitialized();
         console.log('✅ Database initialized at startup.');
+        if (!process.env.PUBLIC_URL) {
+            const baseForWarn = getBaseUrl();
+            console.warn('⚠️ PUBLIC_URL chưa được cấu hình. QR code sẽ dùng địa chỉ LAN (' + baseForWarn + '), không hoạt động từ WAN. Vui lòng set biến môi trường PUBLIC_URL (ví dụ: https://labmaster.vn) để QR hoạt động toàn cầu.');
+        }
     } catch (err) {
         console.error('❌ Database init at startup failed:', err.message);
         // Không throw - để middleware fallback xử lý

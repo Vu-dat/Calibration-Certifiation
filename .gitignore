@@ -25,3 +25,7 @@ Thumbs.db
 .vscode/
 .agents/
 build/
+
+# Windows reserved device names
+nul
+
