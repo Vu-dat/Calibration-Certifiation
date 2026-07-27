@@ -7,7 +7,21 @@ const bcrypt = require('bcryptjs');
 const { generatePDF } = require('./generate_pdf');
 const { generateExcel } = require('./generate_excel');
 const { generateDocx } = require('./generate_docx');
-const { uploadToSupabase, getPublicUrl, isConfigured, BUCKET_NAME } = require('./storage');
+// Supabase Storage — graceful fallback nếu module không load được (VD: trên Vercel)
+let uploadToSupabase, getPublicUrl, isConfigured, BUCKET_NAME;
+try {
+    const storage = require('./storage');
+    uploadToSupabase = storage.uploadToSupabase;
+    getPublicUrl = storage.getPublicUrl;
+    isConfigured = storage.isConfigured;
+    BUCKET_NAME = storage.BUCKET_NAME;
+} catch (e) {
+    console.warn('⚠️ Không thể load storage module (Supabase Storage không khả dụng):', e.message);
+    uploadToSupabase = async () => ({ success: false, reason: 'module_error', error: e.message });
+    getPublicUrl = () => null;
+    isConfigured = () => false;
+    BUCKET_NAME = 'certificates';
+}
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const app = express();
@@ -1143,9 +1157,13 @@ app.get('/api/stats/summary', async (req, res) => {
     }
 });
 
-// Tạo thư mục static
+// Tạo thư mục static (dùng try-catch cho Vercel serverless read-only filesystem)
 const staticDir = path.join(__dirname, 'static');
-if (!fs.existsSync(staticDir)) fs.mkdirSync(staticDir, { recursive: true });
+try {
+    if (!fs.existsSync(staticDir)) fs.mkdirSync(staticDir, { recursive: true });
+} catch (e) {
+    console.warn('⚠️ Không thể tạo thư mục static (Vercel read-only?):', e.message);
+}
 
 // Hàm helper xuất file đồng bộ cơ sở dữ liệu trước khi xử lý
 async function saveCalibrationDataToDBHelper(data, cert_no) {
