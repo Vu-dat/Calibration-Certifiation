@@ -296,7 +296,7 @@ function getSubValues(valStr, count, defaultVal = '') {
     return res;
 }
 
-function createHeaderTable1(logoData) {
+function createHeaderTable1(logoData, qrBuffer = null) {
     return new Table({
         rows: [
             new TableRow({
@@ -343,7 +343,13 @@ function createHeaderTable1(logoData) {
                         borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
                     }),
                     new TableCell({
-                        children: [new Paragraph({ children: [] })],
+                        children: qrBuffer ? [
+                            new Paragraph({
+                                alignment: AlignmentType.CENTER,
+                                children: [new ImageRun({ data: qrBuffer, type: 'png', transformation: { width: 80, height: 80 } })],
+                                spacing: { before: 0, after: 0 }
+                            })
+                        ] : [new Paragraph({ children: [] })],
                         width: { size: 1957, type: WidthType.DXA },
                         verticalAlign: 'center',
                         borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
@@ -527,6 +533,11 @@ async function main(opts) {
             children: createHeaderChildren(logoData)
         });
 
+        // Header cho TRANG 1 (first) — RỖNG, vì letterhead + QR đã nằm trong BODY
+        const headerFirstPage = new Header({
+            children: [new Paragraph({ children: [] })]
+        });
+
         // ═══════════════════════════════════════════════════════════════
         //  FOOTER
         // ═══════════════════════════════════════════════════════════════
@@ -617,47 +628,57 @@ async function main(opts) {
         });
 
         // ═══════════════════════════════════════════════════════════════
-        //  BODY CHILDREN
-        // QR CODE được đặt trong BODY (children[0]) để chỉ xuất hiện 1 lần,
-        // không phụ thuộc titlePg — tránh lỗi 2 QR trên các app xem file
+        //  BODY CHILDREN — Trang 1: letterhead (logo + company + QR to 80x80)
+        //  TRONG BODY (không phải Header) để QR chỉ xuất hiện 1 lần duy nhất
+        //  Header trang 1 để rỗng (titlePage), Header trang 2+ có letterhead không QR
         // ═══════════════════════════════════════════════════════════════
         const children = [];
         
-        // Đặt QR vào body dưới dạng bảng nhỏ, căn phải — chỉ 1 lần duy nhất
-        // (Header đã có logo + company + title, body không lặp lại)
-        if (qrBuffer) {
-            children.push(
-                new Table({
-                    rows: [
-                        new TableRow({
-                            children: [
-                                new TableCell({
-                                    children: [new Paragraph({ children: [] })],
-                                    width: { size: 8500, type: WidthType.DXA },
-                                    borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
-                                }),
-                                new TableCell({
-                                    children: [
-                                        new Paragraph({
-                                            alignment: AlignmentType.CENTER,
-                                            children: [new ImageRun({ data: qrBuffer, type: 'png', transformation: { width: 54, height: 54 } })],
-                                            spacing: { before: 0, after: 0 }
-                                        })
-                                    ],
-                                    width: { size: 1957, type: WidthType.DXA },
-                                    verticalAlign: 'center',
-                                    borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
-                                })
-                            ]
-                        })
-                    ],
-                    width: { size: 10457, type: WidthType.DXA },
-                    columnWidths: [8500, 1957],
-                    alignment: AlignmentType.CENTER,
-                    borders: TABLE_BORDER_NONE
+        // children[0]: Letterhead (logo + company info + QR code to 80x80)
+        // Dùng createHeaderTable1 với qrBuffer — nếu có QR, hiển thị 80x80 ở cột 3
+        // Luôn push bảng letterhead (với hoặc không QR) để đồng nhất layout
+        children.push(createHeaderTable1(logoData, qrBuffer));
+        
+        // Title: GIẤY CHỨNG NHẬN HIỆU CHUẨN – ĐO LƯỜNG
+        children.push(new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+                new TextRun({
+                    text: 'GIẤY CHỨNG NHẬN HIỆU CHUẨN – ĐO LƯỜNG',
+                    font: 'Arial',
+                    size: 32,
+                    bold: true,
+                    color: '008080'
                 })
-            );
-        }
+            ],
+            spacing: { after: 0, line: 276, lineRule: 'auto' }
+        }));
+        
+        // Subtitle: CERTIFICATE OF CALIBRATION – MEASUREMENT
+        children.push(new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+                new TextRun({
+                    text: 'CERTIFICATE OF CALIBRATION – MEASUREMENT',
+                    font: 'Arial',
+                    size: 24,
+                    bold: true,
+                    color: '008080'
+                })
+            ],
+            spacing: { after: 0, line: 276, lineRule: 'auto' }
+        }));
+        
+        // Empty spacer
+        children.push(new Paragraph({
+            spacing: { after: 0, line: 276, lineRule: 'auto' }
+        }));
+        
+        // Cert No + Date table
+        children.push(createHeaderTable2(cNo, cert.CAL_DATE));
+        
+        // Empty spacer
+        children.push(new Paragraph({}));
 
         // Determine instDisplay early for dynamic line estimation
         let instDisplay = cert.INSTRUMENT_NAME || '–';
@@ -1398,6 +1419,7 @@ async function main(opts) {
             },
             sections: [{
                 properties: {
+                    titlePage: true,
                     page: {
                         size: { width: 11907, height: 16840 },
                         margin: { top: 720, bottom: 426, left: 720, right: 720, header: 426, footer: 0 },
@@ -1411,6 +1433,7 @@ async function main(opts) {
                     },
                 },
                 headers: {
+                    first: headerFirstPage,
                     default: headerCommon,
                 },
                 footers: {

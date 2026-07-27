@@ -1231,13 +1231,17 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
         
         // Upload lên Supabase Storage (nếu cấu hình) — dùng Buffer trực tiếp từ generatePDF
         if (isConfigured()) {
+            console.log(`🔍 DEBUG: Starting uploadToSupabase for ${fileName} (${(pdfBuffer.length / 1024).toFixed(1)} KB)`);
             const uploadResult = await uploadToSupabase(pdfBuffer, fileName, 'application/pdf');
+            console.log(`🔍 DEBUG: uploadResult = ${JSON.stringify(uploadResult)}`);
             if (uploadResult.success) {
                 fileUrl = uploadResult.publicUrl;
                 console.log(`☁️ PDF uploaded to Supabase: ${fileUrl}`);
             } else {
-                console.warn('⚠️ QR code trong PDF đã encode URL Supabase nhưng upload thất bại. QR sẽ không hoạt động. Lỗi:', uploadResult.error);
+                console.warn('⚠️ PDF upload thất bại. Chi tiết:', uploadResult.error || uploadResult);
             }
+        } else {
+            console.log(`🔍 DEBUG: isConfigured() = false, skipping Supabase upload. downloadUrl used for QR: ${downloadUrl}`);
         }
         
         // Fallback: dùng local URL nếu chưa upload được lên Supabase
@@ -1284,12 +1288,14 @@ app.post('/api/calibration/export-excel', async (req, res) => {
             
             // Upload lên Supabase Storage (nếu cấu hình)
             if (isConfigured()) {
+                console.log(`🔍 DEBUG: Starting uploadToSupabase for ${fileName} (${(buf ? buf.length : 0)} bytes)`);
                 const uploadResult = await uploadToSupabase(buf, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                console.log(`🔍 DEBUG: uploadResult = ${JSON.stringify(uploadResult)}`);
                 if (uploadResult.success) {
                     fileUrl = uploadResult.publicUrl;
                     console.log(`☁️ Excel uploaded to Supabase: ${fileUrl}`);
                 } else {
-                    console.warn('⚠️ Upload Excel lên Supabase thất bại:', uploadResult.error);
+                    console.warn('⚠️ Excel upload thất bại. Chi tiết:', uploadResult.error || uploadResult);
                 }
             }
         }
@@ -1339,13 +1345,17 @@ app.post('/api/calibration/export-docx', async (req, res) => {
         
         // Upload lên Supabase Storage (nếu cấu hình) — dùng Buffer trực tiếp từ generateDocx
         if (isConfigured()) {
+            console.log(`🔍 DEBUG: Starting uploadToSupabase for ${fileName} (${(docxBuffer.length / 1024).toFixed(1)} KB)`);
             const uploadResult = await uploadToSupabase(docxBuffer, fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+            console.log(`🔍 DEBUG: uploadResult = ${JSON.stringify(uploadResult)}`);
             if (uploadResult.success) {
                 fileUrl = uploadResult.publicUrl;
                 console.log(`☁️ DOCX uploaded to Supabase: ${fileUrl}`);
             } else {
-                console.warn('⚠️ QR code trong DOCX đã encode URL Supabase nhưng upload thất bại. QR sẽ không hoạt động. Lỗi:', uploadResult.error);
+                console.warn('⚠️ DOCX upload thất bại. Chi tiết:', uploadResult.error || uploadResult);
             }
+        } else {
+            console.log(`🔍 DEBUG: isConfigured() = false, skipping Supabase upload. downloadUrl used for QR: ${downloadUrl}`);
         }
         
         // Fallback: dùng local URL nếu chưa upload được lên Supabase
