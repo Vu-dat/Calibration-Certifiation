@@ -350,6 +350,34 @@
     .db-table tbody tr:nth-child(8) { animation-delay: 1.04s; }
     .db-table tbody tr:nth-child(9) { animation-delay: 1.11s; }
     .db-table tbody tr:nth-child(10) { animation-delay: 1.18s; }
+
+        /* ═══ PREMIUM SKELETON LOADING ═══ */
+        .sk-row td {
+            padding: 13px 18px; border-bottom: 1px solid var(--border-light);
+            vertical-align: middle;
+        }
+        .sk-row:last-child td { border-bottom: none; }
+        .sk-cell {
+            height: 16px; border-radius: 4px;
+            background: linear-gradient(90deg, #e8e8e8 25%, #f5f5f5 37%, #e8e8e8 63%);
+            background-size: 400% 100%;
+            animation: skShimmer 1.6s ease infinite;
+            max-width: 140px;
+        }
+        .sk-cell.code { width: 100px; max-width: 100px; }
+        .sk-cell.name { width: 100%; max-width: 200px; }
+        .sk-cell.manu { width: 100px; max-width: 100px; }
+        .sk-cell.due { width: 80px; max-width: 80px; }
+        .sk-cell.action { width: 60px; height: 28px; border-radius: 8px; max-width: 60px; }
+        .sk-row:nth-child(1) .sk-cell { animation-delay: 0s; }
+        .sk-row:nth-child(2) .sk-cell { animation-delay: 0.08s; }
+        .sk-row:nth-child(3) .sk-cell { animation-delay: 0.16s; }
+        .sk-row:nth-child(4) .sk-cell { animation-delay: 0.24s; }
+        .sk-row:nth-child(5) .sk-cell { animation-delay: 0.32s; }
+        @keyframes skShimmer {
+            0%   { background-position: -468px 0; }
+            100% { background-position: 468px 0; }
+        }
     </style>
 </head>
 <body class="anim-page-in">
@@ -1108,12 +1136,12 @@ function swrFetch(key, fetcher, ttlMs) {
   const rows = count || 5;
   let html = '';
   for (let i = 0; i < rows; i++) {
-    html += '<tr class="skeleton-row">' +
-      '<td><div class="skeleton-cell narrow"></div></td>' +
-      '<td><div class="skeleton-cell wide"></div></td>' +
-      '<td><div class="skeleton-cell"></div></td>' +
-      '<td><div class="skeleton-cell narrow"></div></td>' +
-      '<td style="text-align:center;"><div class="skeleton-cell circle"></div></td>' +
+    html += '<tr class="sk-row">' +
+      '<td><div class="sk-cell code"></div></td>' +
+      '<td><div class="sk-cell name"></div></td>' +
+      '<td><div class="sk-cell manu"></div></td>' +
+      '<td><div class="sk-cell due"></div></td>' +
+      '<td><div class="sk-cell action"></div></td>' +
       '</tr>';
   }
   tbody.innerHTML = html;
