@@ -326,6 +326,10 @@
         transform: translateY(0) scale(1);
         opacity: 1;
     }
+    /* Luôn hiển thị list-view ngay khi load, không chờ animation reveal */
+    #list-view { opacity: 1 !important; transform: translateY(0) scale(1) !important; }
+    #list-view.reveal { opacity: 1 !important; transform: translateY(0) scale(1) !important; }
+    .db-table-wrap { opacity: 1 !important; }
 
     /* ─── Table rows cascade ─── */
     .db-table tbody tr {
@@ -780,12 +784,20 @@ function swrFetch(key, fetcher, ttlMs) {
 
     async function loadClockEquipmentForSearch() {
         try {
-            // SWR: dùng cached ngay, background refresh n?u stale (cùng cache key v?i project.html v? equipment.html)
-            const data = await swrFetch('lm_clock_standards', async () => {
+            // Kiểm tra cache trước, nếu chưa có thì fetch trực tiếp từ API
+            let data = cacheGet('lm_clock_standards');
+            if (!data) {
                 const res = await fetch(`${TARGET_URL}/api/clock`);
                 if (!res.ok) throw new Error('Không tải được danh sách CLOCK');
-                return await res.json();
-            }, 30000);
+                data = await res.json();
+                cacheSet('lm_clock_standards', data, 30000);
+            } else if (cacheIsStale('lm_clock_standards')) {
+                // Background refresh nếu stale
+                fetch(`${TARGET_URL}/api/clock`)
+                    .then(r => r.json())
+                    .then(fresh => cacheSet('lm_clock_standards', fresh, 30000))
+                    .catch(() => {});
+            }
             clockEquipmentList = data || [];
         } catch(e) {
             console.warn('Không load được CLOCK, dropdown s? r?ng:', e.message);
@@ -1112,14 +1124,24 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         const cacheKey = 'lm_equipment_templates' + (searchQuery ? '_q_' + searchQuery : '');
         
         try {
-            // SWR: dùng cached ngay (n?u c?), background refresh n?u stale
-            const data = await swrFetch(cacheKey, async () => {
+            // Kiểm tra cache trước, nếu chưa có thì fetch trực tiếp từ API
+            let data = cacheGet(cacheKey);
+            if (!data) {
                 const url = new URL(`${TARGET_URL}/api/equipment-templates`);
                 if (searchQuery) url.searchParams.append('q', searchQuery);
                 const res = await fetch(url.toString());
                 if (!res.ok) throw new Error('API failed');
-                return await res.json();
-            }, 30000);
+                data = await res.json();
+                cacheSet(cacheKey, data, 30000);
+            } else if (cacheIsStale(cacheKey)) {
+                // Background refresh nếu stale
+                const url = new URL(`${TARGET_URL}/api/equipment-templates`);
+                if (searchQuery) url.searchParams.append('q', searchQuery);
+                fetch(url.toString())
+                    .then(r => r.json())
+                    .then(fresh => cacheSet(cacheKey, fresh, 30000))
+                    .catch(() => {});
+            }
             
             fetchedEquipments = data || [];
             renderTable(fetchedEquipments, true);

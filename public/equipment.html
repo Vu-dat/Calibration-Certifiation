@@ -341,6 +341,9 @@
             transform: translateY(0) scale(1);
             opacity: 1;
         }
+        /* Luôn hiển thị table wrap ngay khi DOM sẵn sàng, không chờ animation */
+        .eq-table-wrap { opacity: 1 !important; transform: translateY(0) scale(1) !important; }
+        .eq-table-wrap.reveal { opacity: 1 !important; transform: translateY(0) scale(1) !important; }
 
         /* ─── Table rows cascade ─── */
         .eq-table tbody tr {
@@ -702,12 +705,27 @@ async function loadEquipment() {
         renderEquipmentSkeleton(5);
 
         try {
-            // SWR: dùng cached ngay, background refresh n?u stale
-            const data = await swrFetch('lm_clock_standards', async () => {
+            // Luôn fetch từ API khi load trang (không dùng SWR cache cho lần đầu)
+            // SWR cache dùng cho lần refresh sau (khi stale)
+            let data = cacheGet('lm_clock_standards');
+            
+            if (!data) {
+                // Chưa có cache → fetch trực tiếp từ API
                 const res = await fetch(`${API_BASE_URL}/api/clock`);
                 if (!res.ok) throw new Error('Failed to fetch');
-                return await res.json();
-            }, 30000);
+                data = await res.json();
+                // Lưu vào cache cho lần sau
+                cacheSet('lm_clock_standards', data, 30000);
+            } else {
+                // Có cache rồi → background refresh nếu stale
+                if (cacheIsStale('lm_clock_standards')) {
+                    fetch(`${API_BASE_URL}/api/clock`)
+                        .then(r => r.json())
+                        .then(fresh => cacheSet('lm_clock_standards', fresh, 30000))
+                        .catch(() => {});
+                }
+            }
+            
             equipmentList = data || [];
             renderTable(equipmentList);
         } catch (err) {
