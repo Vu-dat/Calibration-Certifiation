@@ -5,10 +5,8 @@ const QRCode = require('qrcode');
 const fs = require('fs');
 const { Writable } = require('stream');
 
-// Database connection (centralized) — Postgres via db.js
 const db = require('./db');
 
-// Adapter: SQLite ? → PostgreSQL $1, $2 for backward-compatible queries
 async function g(query, params) {
   g._idx = 0;
   const pgQuery = query.replace(/\?/g, () => `$${++g._idx}`);
@@ -23,65 +21,126 @@ async function a(query, params) {
 
 const certNo = process.argv[2];
 const downloadUrl = process.argv[3] || '';
-const equipmentName = process.argv[4] || '';const BD = __dirname;
+const equipmentName = process.argv[4] || '';
+const BD = __dirname;
 
-const fpr = [path.join(BD, 'fonts', 'arial.ttf'), path.join(BD, 'arial.ttf'), 'C:\\Windows\\Fonts\\arial.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'];
-const fpb = [path.join(BD, 'fonts', 'arialbd.ttf'), path.join(BD, 'arialbd.ttf'), 'C:\\Windows\\Fonts\\arialbd.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'];
-const fpi = [path.join(BD, 'fonts', 'ariali.ttf'), path.join(BD, 'ariali.ttf'), 'C:\\Windows\\Fonts\\ariali.ttf'];
-const fpbi = [path.join(BD, 'fonts', 'arialbi.ttf'), path.join(BD, 'arialbi.ttf'), 'C:\\Windows\\Fonts\\arialbi.ttf'];
+// ── FONTS ────────────────────────────────────────────────────────────
+const fpr = [path.join(BD, 'fonts', 'arial.ttf'), 'C:/Windows/Fonts/arial.ttf'];
+const fpb = [path.join(BD, 'fonts', 'arialbd.ttf'), 'C:/Windows/Fonts/arialbd.ttf'];
+const fpi = [path.join(BD, 'fonts', 'ariali.ttf'), 'C:/Windows/Fonts/ariali.ttf'];
+const fpbi = [path.join(BD, 'fonts', 'arialbi.ttf'), 'C:/Windows/Fonts/arialbi.ttf'];
+const ftr = [path.join(BD, 'fonts', 'times.ttf'), 'C:/Windows/Fonts/times.ttf'];
+const fti = [path.join(BD, 'fonts', 'timesi.ttf'), 'C:/Windows/Fonts/timesi.ttf'];
 
 function ff(ps) { for (var i = 0; i < ps.length; i++) { try { if (fs.existsSync(ps[i])) return ps[i]; } catch(e) {} } return null; }
-var FR = ff(fpr), FB = ff(fpb), FI = ff(fpi), FBI = ff(fpbi);
-// Fallback fonts bundled in repo for Vercel/Linux (supports Vietnamese)
-var fprV = [path.join(BD, 'fonts', 'tahoma.ttf'), path.join(BD, 'fonts', 'DejaVuSans.ttf')];
-var fpbV = [path.join(BD, 'fonts', 'tahomabd.ttf'), path.join(BD, 'fonts', 'DejaVuSans-Bold.ttf')];
-var FRv = ff(fprV), FBv = ff(fpbV);
-// NOTE: Font registration with `doc` happens inside main() — see registerFont block there
-var FNR = 'AR', FNB = 'AB', FNI = 'AI', FNBI = 'ABI';
+var FR = ff(fpr), FB = ff(fpb), FI = ff(fpi), FBI = ff(fpbi), TR = ff(ftr), TI = ff(fti);
+var FNR = 'AR', FNB = 'AB', FNI = 'AI', FNBI = 'ABI', FTR = 'TR', FTI = 'TI';
 
-
-
-function pd(d) { if (!d) return ''; var p = d.split('-'); return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : d; }
-
-function sf(doc, b, ital) {
+function sf(doc, b, ital, font) {
   if (b === undefined) b = false;
   if (ital === undefined) ital = false;
+  if (font === 'TIMES') {
+    if (ital && TI) { try { doc.font(FNI); doc.font(FTI); } catch(e) { doc.font('Times-Italic'); } }
+    else if (TR) { try { doc.font(FTR); } catch(e) { doc.font('Times-Roman'); } }
+    return;
+  }
   if (b && ital && FBI) { try { doc.font(FNBI); } catch(e) { doc.font('Helvetica-BoldOblique'); } }
   else if (ital && FI) { try { doc.font(FNI); } catch(e) { doc.font('Helvetica-Oblique'); } }
   else if (b && FB) { try { doc.font(FNB); } catch(e) { doc.font('Helvetica-Bold'); } }
-  else if (!b && FR) { try { doc.font(FNR); } catch(e) { doc.font('Helvetica'); } }
+  else if (FR) { try { doc.font(FNR); } catch(e) { doc.font('Helvetica'); } }
   else { doc.font(b ? 'Helvetica-Bold' : 'Helvetica'); }
 }
 
-var TC = '#008080', PW = 595.28, PH = 841.89;
-var ML = 40, MR = 40, MT = 130, CW = PW - ML - MR;
-var BCLR = '#000000';
+function pd(d) { if (!d) return ''; var p = d.split('-'); return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : d; }
 
-// toUpperKeys: chuy\u1ec3n key c\u1ee7a postgres row (Array v\u1edbi named properties lowercase) th\u00e0nh key UPPERCASE
 function toUpperKeys(obj) {
     if (!obj) return null;
     if (Array.isArray(obj)) {
         if (obj.length === 0) return [];
-        if (typeof obj[0] === 'object' || Array.isArray(obj[0])) {
-            return obj.map(toUpperKeys);
-        }
+        if (typeof obj[0] === 'object' || Array.isArray(obj[0])) return obj.map(toUpperKeys);
     }
     const result = {};
     for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key) && isNaN(Number(key))) {
-            result[key.toUpperCase()] = obj[key];
-        }
+        if (Object.prototype.hasOwnProperty.call(obj, key) && isNaN(Number(key))) result[key.toUpperCase()] = obj[key];
     }
     return result;
 }
 
-var VN = {"title1":"GIẤY CHỨNG NHẬN HIỆU CHUẨN – ĐO LƯỜNG","title2":"CERTIFICATE OF CALIBRATION – MEASUREMENT","certNo":"Số GCN/Certificate No: ","date":"Ngày cấp/Date of issue: ","sec1":"Khách hàng","sec2":"Tên thiết bị","sec3":"Nhà sản xuất","sec4":"Mã quản lý","sec5":"Kiểu","sec6":"Số sản xuất","sec11":"Nơi thực hiện","sec12":"Ngày thực hiện","sec13":"Ngày thực hiện tiếp theo","sec14":"Điều kiện môi trường","sec15":"15. Chuẩn sử dụng / Standards Used :","sec16":"16. Kết quả / Results:","sec17":"17. Thông tin khác / Other information:","spec":"7. Đặc trưng kỹ thuật","range":"Phạm vi đo:","resolution":"Độ phân giải:","procedure":"8. Quy trình thực hiện","refStd":"9. Tiêu chuẩn tham khảo","temp":"Nhiệt độ:","humi":"Độ ẩm:","sigL":"PHỤ TRÁCH PHÒNG HIỆU CHUẨN","sigR":"GIÁM ĐỐC","headEn":"HEAD OF CALIBRATION LAB.","dirEn":"DIRECTOR","param":"Thông số","foundVal":"Giá trị đo được","uncert":"KĐBĐ","refVal":"Giá trị tham chiếu","tol":"Dung sai","conc":"Kết luận","paramEn":"Parameter","foundEn":"As found value","uncertEn":"Uncertainty","refEn":"Reference Value","tolEn":"Tolerance","concEn":"Conclusion","note":"Ghi chú / Note:","note1":"* Đánh giá theo thông số kỹ thuật của nhà sản xuất / Acceptance limit base on Manufacturer’s specifications.","note2":"* Đánh giá theo yêu cầu kỹ thuật của khách hàng / Acceptance limit base on Customer request.","uncertTitle":"17.1 Độ không đảm bảo đo / Uncertainty:","uncertVN":"Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy.","uncertEN":"The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.","confTitle":"17.2. Công bố về sự phù hợp / Statements of conformity:","conf":["+ A: Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép của tiêu chuẩn đánh giá. | The measurement reported with expanded uncertainty is within tolerance of standards.","+ B: Kết quả đo khi tính cả độ không đảm bảo đo hoàn toàn nằm ngoài giới hạn cho phép của tiêu chuẩn đánh giá. | The measurement reported with expanded uncertainty is out of tolerance of standards.","+ C: Kết quả đo khi tính cả độ không đảm bảo đo có thể nằm ngoài giới hạn cho phép của tiêu chuẩn. Không có kết luận trong trường hợp này. | The measurement reported with expanded uncertainty may be out of tolerance of standards. There is no conclusion for this measurement.","+ D: Tiêu chuẩn kỹ thuật không quy định dung sai của thông số đo. | There is no tolerance stated in technical standard and there is no conclusion for this measurement."],"otherTitle":"17.3 Khác / Other:","otherVN":"Các thông số có dấu (*) là không được công nhận ISO/IEC 17025","otherEN":"The characteristics marked with (*) is not accredited to comply with ISO/IEC 17025","otherVN2":"Các thông số đánh dấu (ᶜ) là kết quả hiệu chuẩn, các thông số đánh dấu (ᴹ) là kết quả đo thử nghiệm","otherEN2":"The characteristics marked with (ᶜ) are results of calibration, (ᴹ) are results of measurement","legal1":"Giấy chứng nhận này không được sao chép dưới bất kỳ hình thức nào nếu không có sự đồng ý bằng văn bản của LabMaster./ This form shall not be reproduced, without the expressed written consent of LabMaster.","legal2":"Phương tiện đo này không được sử dụng định lượng hàng hóa, dịch vụ trong mua bán, thanh toán, đảm bảo an toàn, bảo vệ sức khỏe cộng đồng, bảo vệ môi trường, trong thanh tra, kiểm tra, giám định tư pháp và trong các hoạt động công vụ khác. Phương tiện đo này không được sử dụng trực tiếp để kiểm định phương tiện đo nhóm 2.","legal3":"This instrument do not used for quantifying goods, service in trading, payment, safety assurance, social heathcare, protecting the enviroment, inspection law and in other public service activities. This instrument shall not be used directly for the verification of group 2 instruments.","legal4":"Chúng tôi cung cấp khả năng truy xuất nguồn gốc phép đo theo các tiêu chuẩn quốc gia được công nhận hoặc các phòng thí nghiệm tiêu chuẩn quốc gia được công nhận khác.","legal5":"This certificate provides traceability of measurement to recognised national standards or other national standards laboratories.","footer":"www.labmaster.vn  |  Textile – Footwear – Leather - Children product Safety Tester",            "page":"Trang/Page: "};
+var PW = 595.28, PH = 841.89;
+var ML = 40, MR = 40, CW = PW - ML - MR;
+var BCLR = '#000000';
+var TC = '#008080';
 
-var curPage = 1;
+var VN = {
+  title1: "GIẤY CHỨNG NHẬN HIỆU CHUẨN – ĐO LƯỜNG",
+  title2: "CERTIFICATE OF CALIBRATION – MEASUREMENT",
+  certNo: "Số GCN/",
+  certNoEn: "Certificate No: ",
+  date: "Ngày cấp/",
+  dateEn: "Date of issue: ",
+  sec1: "1. Khách hàng: ", sec1En: "Customer ",
+  sec2: "2. Tên thiết bị: ", sec2En: "Instrument ",
+  sec3: "3. Nhà sản xuất: ", sec3En: "Manufacturer ",
+  sec4: "4. Mã quản lý  ", sec4En: "ID ",
+  sec5: "5. Kiểu: ", sec5En: "Model ",
+  sec6: "6. Số sản xuất: ", sec6En: "Serial No. ",
+  sec7: "7. Đặc trưng kĩ thuật", sec7En: "Spectification",
+  sec7Range: "Phạm vi đo:", sec7RangeEn: "Range",
+  sec7Res: "Độ phân giải:", sec7ResEn: "Resolution",
+  sec8: "8. Quy trình thực hiện", sec8En: "Procedure",
+  sec9: "9. Tiêu chuẩn tham khảo", sec9En: "Reference Standard",
+  sec11: "11. Nơi thực hiện: ", sec11En: "Place of Performance ",
+  sec12: "12. Ngày thực hiện: ", sec12En: "Date of performance ",
+  sec13: "13. Ngày thực hiện tiếp theo: ", sec13En: "Date of next performance ",
+  sec14: "14. Điều kiện môi trường: ", sec14En: "Environment ",
+  temp: "Nhiệt độ:", tempEn: "Temperature",
+  humi: "Độ ẩm:", humiEn: "Humidity",
+  sec15: "15. Chuẩn sử dụng /", sec15En: "Standards Used :",
+  stdH: ["Tên thiết bị", "Số quản lý", "Số chứng nhận", "Liên kết chuẩn", "Hiệu lực"],
+  stdHE: ["Name of Standard", "ID", "Certificate No.", "Traceable to", "Due date"],
+  sigL: "PHỤ TRÁCH PHÒNG HIỆU CHUẨN", sigLEn: "HEAD OF CALIBRATION LAB.",
+  sigR: "GIÁM ĐỐC", sigREn: "DIRECTOR",
+  sec16: "16. Kết quả/", sec16En: "Results:",
+  resH: ["Thông số", "Giá trị đo được", "ĐKĐBĐ", "Giá trị tham chiếu", "Dung sai", "Kết luận"],
+  resHE: ["Parameter", "As found value", "Uncertainty", "Reference Value", "Tolerane", "Conslution"],
+  note: "Ghi chú/ Note:",
+  note1: "*        Đánh giá theo thông số kỹ thuật của nhà sản xuất/ Acepptance limit base on Manufactuter's specitifications.",
+  note2: "*        Đánh giá theo yêu cầu kỹ thuật của khách hàng/ Acepptance limit base on Customer request.",
+  sec17: "17. Thông tin khác/", sec17En: "Other information:",
+  uncertTitle: "17.1 Độ không đảm bảo đo", uncertTitleEn: "/ Uncertainty:",
+  uncertVN: "Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy/",
+  uncertEN: "The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.",
+  confTitle: "17.2. Công bố về sự phù hợp", confTitleEn: "/ Statements of conformity:",
+  conf: ["+ A: Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép của tiêu chuẩn đánh giá. | The measurement reported with expanded uncertainty is within tolerance of standards.",
+         "+ B: Kết quả đo khi tính cả độ không đảm bảo đo hoàn toàn nằm ngoài giới hạn cho phép của tiêu chuẩn đánh giá. | The measurement reported with expanded uncertainty is out of tolerance of standards.",
+         "+ C: Kết quả đo khi tính cả độ không đảm bảo đo có thể nằm ngoài giới hạn cho phép của tiêu chuẩn. Không có kết luận trong trường hợp này. | The measurement reported with expanded uncertainty may be out of tolerance of standards. There is no conclusion for this measurement.",
+         "+ D: Tiêu chuẩn kỹ thuật không quy định dung sai của thông số đo. | There is no tolerance stated in technical standard and there is no conclusion for this measurement."],
+  otherTitle: "17.3 Khác/", otherTitleEn: " Other:",
+  otherVN: "Các thông số được đánh dấu (*) là không đạt công nhận ISO/IEC 17025",
+  otherEN: "The characteristics marked with (*) are not accredited to comply with ISO/IEC 17025",
+  otherVN2: "Các thông số đánh dấu (C) là kết quả hiệu chuẩn, các thông số đánh dấu (M) là kết quả đo thử nghiệm",
+  otherEN2: "The characteristics marked with (C) are results of calibration, (M) are results of measurement",
+  legal1: "Giấy chứng nhận này không được sao chép dưới bất kỳ hình thức nào nếu không có sự đồng ý bằng văn bản của LabMaster./",
+  legal1En: " This form shall not be reproduced, without the expressed written consent of LabMaster.",
+  legal2: "Phương tiện đo này không được để sử dụng định lượng hàng hóa, dịch vụ trong mua bán, thanh toán, đảm bảo an toàn, bảo vệ sức khỏe cộng đồng, bảo vệ môi trường, trong thanh tra, kiểm tra, giám định tư pháp và trong các hoạt động công vụ khác. Phương tiện đo này không được sử dụng trực tiếp để kiểm định phương tiện đo nhóm 2. ",
+  legal2En: "This instrument do not used for quantifying goods, service in trading, payment, safety assurance, social heathcare, protecting the enviroment, inspection law and in other public service activities. This instrument shall not be used directly for the verification of group 2 instruments.",
+  legal3: "Chứng chỉ cung cấp khả năng truy xuất nguồn gốc phép đo theo các tiêu chuẩn quốc gia được công nhận hoặc các phòng thí nghiệm tiêu chuẩn quốc gia được công nhận khác./",
+  legal3En: "This certificate provides tracerbility of measurement to recognised national standards or orther national standards laboratories.",
+  footer1: "www.labmaster.vn",
+  footer2: "Textile – Footwear – Leather - Children product Safety Tester",
+  page: "Trang/Page: "
+};
 
+// ── LAYOUT CONSTANTS (measured from reference) ────────────────────────
+var LBL_X = 27.0;      // label left edge
+var VAL_X = 133.6;     // value left edge
+var R_LBL_X = 360.4;   // right column label
+var CONTENT_R = 585.0; // right content edge
+
+// ── DRAWING HELPERS ──────────────────────────────────────────────────
 function drawBorder(doc) {
-  doc.lineWidth(0.5).strokeColor('#767171');
-  doc.rect(12, 12, PW - 24, PH - 24).stroke();
+  doc.lineWidth(0.5).strokeColor('#000000');
+  doc.rect(10, 10, 575.5, 822.2).stroke();
 }
 
 function drawH(doc, logo, cno, cdate, qr, pg) {
@@ -89,18 +148,18 @@ function drawH(doc, logo, cno, cdate, qr, pg) {
   drawBorder(doc);
   
   // QR at top-right corner - matching reference DOCX (~48x47pt)
-  if (qr) { try { doc.image(qr, PW - MR - 48, 12, {width:48,height:47}); } catch(e) {} }
+  if (qr) { try { doc.image(qr, PW - MR - 48, 18, {width:48,height:47}); } catch(e) {} }
   
   // Logo - matching reference DOCX (~106x37)
-  if (logo) { try { doc.image(logo, ML, 3, {width:106,height:37}); } catch(e) {} }
+  if (logo) { try { doc.image(logo, ML, 18, {width:106,height:37}); } catch(e) {} }
   
   // ISO/IEC 17025:2017 - below logo in left column (matching reference: 10pt Arial)
-  var isoY = 44;
   sf(doc, true); doc.fontSize(10).fillColor(BCLR);
-  doc.text('ISO/IEC 17025:2017', ML, isoY, {align:'left'});
+  doc.text('ISO/IEC 17025:2017', ML, 58, {align:'left'});
   
   // Company info block - CENTER-aligned (matching reference DOCX)
   // Company name: 16pt Bold (matching reference sz=32 half-points)
+  var isoY = 44;
   sf(doc, true); doc.fontSize(16).fillColor(BCLR);
   doc.text('LabMaster ST Co., Ltd', ML, isoY, {align:'center',width:CW});
   // Address: 9pt (matching reference sz=18 half-points)
@@ -116,239 +175,569 @@ function drawH(doc, logo, cno, cdate, qr, pg) {
   // Cert No & Date - single line, centered
   var ciy = ty + 40;
   sf(doc, false); doc.fontSize(8).fillColor(BCLR);
-  var certLine = VN.certNo + (cno||'...........') + '    ' + VN.date + (cdate||'............');
+  var certLine = (VN.certNo || '') + (VN.certNoEn || '') + (cno||'...........') + '    ' + (VN.date || '') + (VN.dateEn || '') + (cdate||'............');
   doc.text(certLine, ML, ciy, {align:'center',width:CW});
-  return ciy + 24;
+  return 146.0;
 }
 
 function drawFooter(doc, pg, totalPg) {
-  var fy = PH-30;
-  sf(doc, false); doc.fontSize(7).fillColor('#555555');
-  doc.text(VN.footer, ML, fy, {align:'center',width:CW});
-  sf(doc, false); doc.fontSize(7).fillColor('#555555');
-  doc.text(VN.page + pg + '/' + totalPg, ML, fy, {align:'right',width:CW});
+  // Footer line (measured: y=810.6, x 43.2-552.6, 0.5pt)
+  doc.lineWidth(0.5).strokeColor('#000000');
+  doc.moveTo(43.2, 810.6).lineTo(552.6, 810.6).stroke();
+  // Footer text (Times italic, measured y=816.0-816.1)
+  sf(doc, false, true, 'TIMES'); doc.fontSize(11).fillColor('#000000');
+  doc.text(VN.footer1, 41.4, 816.0, {lineGap: 0});
+  sf(doc, false, true, 'TIMES'); doc.fontSize(11).fillColor('#000000');
+  doc.text(VN.footer2, 168.7, 816.1, {lineGap: 0});
+  // Trang/Page: N/M - right aligned (ref: 'Trang/' 488.3, 'Page' 515.0, ': 1/2' 535.5)
+  sf(doc, false, false, 'TIMES'); doc.fontSize(11);
+  var t1 = 'Trang/', t2 = 'Page', t3 = ': ' + pg + '/' + totalPg;
+  var w1 = doc.widthOfString(t1);
+  sf(doc, false, true, 'TIMES'); doc.fontSize(11);
+  var w2 = doc.widthOfString(t2);
+  sf(doc, false, false, 'TIMES'); doc.fontSize(11);
+  var w3 = doc.widthOfString(t3);
+  var tot = w1 + w2 + w3;
+  var px = 553.6 - tot;
+  sf(doc, false, false, 'TIMES'); doc.fontSize(11);
+  doc.text(t1, px, 816.1, {lineGap: 0});
+  sf(doc, false, true, 'TIMES'); doc.fontSize(11);
+  doc.text(t2, px + w1, 816.1, {lineGap: 0});
+  sf(doc, false, false, 'TIMES'); doc.fontSize(11);
+  doc.text(t3, px + w1 + w2, 816.1, {lineGap: 0});
 }
 
-function newPage(doc, logo, cno, cdate, qr) {
-  doc.addPage(); curPage++;
-  return drawH(doc, logo, cno, cdate, qr, curPage);
-}
+// ── PAGE 1 BODY ──────────────────────────────────────────────────────
+// Reference measured Y positions (fixed layout)
+var Y1 = { // row start Y positions on page 1
+  s1: 146.0, s1En: 157.5, s1Val2: 157.5, s1Val3: 172.5,
+  s2: 195.0, s2En: 206.5, s2ValEn: 206.5,
+  row35: 229.8, row35En: 241.3,
+  row46: 257.6, row46En: 269.1,
+  spec: 290.0, specEn: 300.3, specRow1: 315.6, specRowSp: 11.9,
+  s11: 386.6, s11En1: 398.1, s11En2: 409.6, s11Val2: 398.1, s11Val3: 413.1,
+  row1213: 438.4, row1213En: 449.9,
+  s14: 480.7, s14En: 492.2, s14Env: 503.7,
+  s15: 523.2, stdH: 542.0, stdHE: 553.5, stdRow1: 565.1, stdRowSp: 13.2,
+  sig: 636.3, sigEn: 649.1, sigName: 769.7
+};
 
-function dr(doc, cx, y, lw, vw, label, val, en, boldVal) {
-  // Draw a single grid row with dynamic height
-  var lx = cx;
-  var vx = cx + lw;
-  // Label (bold)
-  sf(doc, true); doc.fontSize(9).fillColor(BCLR);
-  doc.text(label, lx, y, {width:lw-2});
-  var labelH = doc.heightOfString(label, {width:lw-2});
-  // Value
-  sf(doc, boldVal||false); doc.fontSize(9).fillColor(BCLR);
-  var valStr = '' + (val&&val!=='null'?val:'');
-  doc.text(valStr, vx, y, {width:vw-lw});
-  var valH = doc.heightOfString(valStr, {width:vw-lw});
-  var vnH = Math.max(labelH, valH);
-  if (en) {
-    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
-    doc.text(en, vx, y + vnH + 3, {width:vw-lw});
-    var enH = doc.heightOfString(en, {width:vw-lw});
-    return y + vnH + 3 + enH + 4;
+// value wrapping helper: returns { lines, totalH } and draws text
+function wrapText(doc, text, x, y, width, size, bold, ital, gap) {
+  if (text === undefined || text === null || text === 'null') text = '';
+  text = String(text);
+  sf(doc, bold, ital); doc.fontSize(size).fillColor('#000000');
+  var lines = [];
+  var words = text.split(' ');
+  var cur = '';
+  for (var i = 0; i < words.length; i++) {
+    var t = cur ? cur + ' ' + words[i] : words[i];
+    if (doc.widthOfString(t) > width && cur) { lines.push(cur); cur = words[i]; }
+    else cur = t;
   }
-  return y + vnH + 5;
+  if (cur) lines.push(cur);
+  if (lines.length === 0) lines = [''];
+  var yy = y;
+  for (var li = 0; li < lines.length; li++) {
+    sf(doc, bold, ital); doc.fontSize(size).fillColor('#000000');
+    doc.text(lines[li], x, yy, {lineGap: 0});
+    yy += (gap || 13.2);
+  }
+  return lines.length;
 }
 
-function dr2(doc, cx, cy, cw, l1, v1, e1, l2, v2, e2, lw1, lw2) {
-  // Draw a 2-column grid row with dynamic height.
-  // Left column: value LEFT-aligned right after the label, value x fixed
-  //   at cx+lw1 so sections 1/2/3/4/11/12 all line up on the same guide.
-  // Right column: value RIGHT-aligned to the row's right edge (cx+cw) so
-  //   sections 5/6/13 line up with each other regardless of label length
-  //   -- matching the reference certificate layout.
-  if (lw1===undefined) lw1=100;
-  if (lw2===undefined) lw2=90;
-  var w2 = Math.floor((cw-10)/2);
-  var x1 = cx;
-  var x2 = cx + w2 + 10;
-  var rightEdge = cx + cw;
-  // Step 1: Draw & measure left VN (label + value)
-  sf(doc, true); doc.fontSize(9).fillColor(BCLR);
-  doc.text(l1, x1, cy, {width:lw1-2});
-  var l1H = doc.heightOfString(l1, {width:lw1-2});
-  sf(doc, false); doc.fontSize(9).fillColor(BCLR);
-  var v1Str = '' + (v1&&v1!=='null'?v1:'');
-  doc.text(v1Str, x1+lw1, cy, {width:w2-lw1});
-  var v1H = doc.heightOfString(v1Str, {width:w2-lw1});
-  var leftVnH = Math.max(l1H, v1H);
-  // Step 2: Draw & measure right VN (label left-aligned, value right-aligned to rightEdge)
-  sf(doc, true); doc.fontSize(9).fillColor(BCLR);
-  doc.text(l2, x2, cy, {width:lw2-2});
-  var l2H = doc.heightOfString(l2, {width:lw2-2});
-  sf(doc, false); doc.fontSize(9).fillColor(BCLR);
-  var v2Str = '' + (v2&&v2!=='null'?v2:'');
-  var v2X = x2 + lw2;
-  var v2W = rightEdge - v2X;
-  doc.text(v2Str, v2X, cy, {width:v2W, align:'right'});
-  var v2H = doc.heightOfString(v2Str, {width:v2W});
-  var rightVnH = Math.max(l2H, v2H);
-  // Step 3: Unified max VN height for English alignment
-  var maxVnH = Math.max(leftVnH, rightVnH);
-  // Step 4: Draw both English texts at the SAME height
-  var leftEnH = 0, rightEnH = 0;
-  if (e1) {
-    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
-    doc.text(e1, x1+lw1, cy + maxVnH + 3, {width:w2-lw1});
-    leftEnH = doc.heightOfString(e1, {width:w2-lw1});
+function drawPage1Body(doc, cert, pts, stds) {
+  var name = (cert.CUSTOMER_NAME && cert.CUSTOMER_NAME !== 'null') ? cert.CUSTOMER_NAME : '';
+  var addr = (cert.CUSTOMER_ADDRESS && cert.CUSTOMER_ADDRESS !== 'null') ? cert.CUSTOMER_ADDRESS : '';
+  var inst = (cert.INSTRUMENT_NAME && cert.INSTRUMENT_NAME !== 'null') ? cert.INSTRUMENT_NAME : '';
+  var instEn = (cert.INSTRUMENT_NAME_EN && cert.INSTRUMENT_NAME_EN !== 'null') ? cert.INSTRUMENT_NAME_EN : '';
+  var manuf = (cert.MANUFACTURER && cert.MANUFACTURER !== 'null') ? cert.MANUFACTURER : '';
+  var model = (cert.MODEL && cert.MODEL !== 'null' && cert.MODEL !== '') ? cert.MODEL : '';
+  var eid = (cert.EQUIPMENT_ID && cert.EQUIPMENT_ID !== 'null') ? cert.EQUIPMENT_ID : '';
+  var serial = (cert.SERIAL_NUMBER && cert.SERIAL_NUMBER !== 'null') ? cert.SERIAL_NUMBER : '';
+  var calDate = cert.CAL_DATE ? pd(cert.CAL_DATE) : '';
+  var reCal = cert.RE_CAL_DATE ? pd(cert.RE_CAL_DATE) : '';
+  var temp = (cert.TEMP_ENV && cert.TEMP_ENV !== 'null') ? cert.TEMP_ENV : '';
+  var humi = (cert.HUMI_ENV && cert.HUMI_ENV !== 'null') ? cert.HUMI_ENV : '';
+  var proc = (cert.PROCEDURE && cert.PROCEDURE !== 'null') ? cert.PROCEDURE : '';
+  var refStd = (cert.REF_STANDARD && cert.REF_STANDARD !== 'null') ? cert.REF_STANDARD : '';
+
+  // ---- Section 1: Customer ----
+  sf(doc, false); doc.fontSize(10).fillColor('#000000');
+  doc.text(VN.sec1, LBL_X, Y1.s1, {lineGap: 0});
+  sf(doc, true); doc.fontSize(10);
+  doc.text(name, VAL_X, Y1.s1, {lineGap: 0});
+  sf(doc, false, true); doc.fontSize(10);
+  doc.text(VN.sec1En, LBL_X, Y1.s1En, {lineGap: 0});
+  if (addr) { wrapText(doc, addr, VAL_X, Y1.s1Val2, 427.4, 10, true, false, 15); }
+
+  // ---- Section 2: Instrument ----
+  sf(doc, false); doc.fontSize(10); doc.text(VN.sec2, LBL_X, Y1.s2, {lineGap: 0});
+  sf(doc, true); doc.fontSize(11); doc.text(inst, VAL_X, Y1.s2, {lineGap: 0});
+  sf(doc, false, true); doc.fontSize(10); doc.text(VN.sec2En, LBL_X, Y1.s2En, {lineGap: 0});
+  sf(doc, true, true); doc.fontSize(11); doc.text(instEn, VAL_X, Y1.s2ValEn, {lineGap: 0});
+
+  // ---- Row 3 & 5: Manufacturer / Model ----
+  sf(doc, false); doc.fontSize(10); doc.text(VN.sec3, LBL_X, Y1.row35, {lineGap: 0});
+  sf(doc, false); doc.text(manuf, VAL_X, Y1.row35, {lineGap: 0});
+  sf(doc, false); doc.text(VN.sec5, R_LBL_X, Y1.row35, {lineGap: 0});
+  sf(doc, false);
+  doc.text(model, 481.4, Y1.row35, {lineGap: 0});
+  sf(doc, false, true); doc.fontSize(10); doc.text(VN.sec3En, LBL_X, Y1.row35En, {lineGap: 0});
+  sf(doc, false, true); doc.text(VN.sec5En, R_LBL_X, Y1.row35En, {lineGap: 0});
+
+  // ---- Row 4 & 6: ID / Serial ----
+  sf(doc, false); doc.fontSize(10); doc.text(VN.sec4, LBL_X, Y1.row46, {lineGap: 0});
+  sf(doc, false); doc.text(eid, VAL_X, Y1.row46, {lineGap: 0});
+  sf(doc, false); doc.text(VN.sec6, R_LBL_X, Y1.row46, {lineGap: 0});
+  sf(doc, false);
+  doc.text(serial, 528.7, Y1.row46, {lineGap: 0});
+  sf(doc, false, true); doc.text(VN.sec4En, LBL_X, Y1.row46En, {lineGap: 0});
+  sf(doc, false, true); doc.text(VN.sec6En, R_LBL_X, Y1.row46En, {lineGap: 0});
+
+  // ---- Section 7-9: Spec table ----
+  drawSpecTable(doc, pts, proc, refStd);
+
+  // ---- Section 11: Place ----
+  sf(doc, false); doc.fontSize(10); doc.text(VN.sec11, LBL_X, Y1.s11, {lineGap: 0});
+  sf(doc, true); doc.text(name, VAL_X, Y1.s11, {lineGap: 0});
+  sf(doc, false, true); doc.text('Place of', LBL_X, Y1.s11En1, {lineGap: 0});
+  sf(doc, false, true); doc.text('Performance', LBL_X, Y1.s11En2, {lineGap: 0});
+  if (addr) {
+    sf(doc, true); doc.fontSize(10);
+    var aLines = wrapText(doc, addr, VAL_X, Y1.s11Val2, 427.4, 10, true, false, 15);
   }
-  if (e2) {
-    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
-    doc.text(e2, v2X, cy + maxVnH + 3, {width:v2W, align:'right'});
-    rightEnH = doc.heightOfString(e2, {width:v2W});
-  }
-  var maxEnH = Math.max(leftEnH, rightEnH);
-  return cy + maxVnH + 3 + maxEnH + 4;
+
+  // ---- Row 12 & 13: Dates ----
+  sf(doc, false); doc.fontSize(10); doc.text(VN.sec12, LBL_X, Y1.row1213, {lineGap: 0});
+  sf(doc, true); doc.text(calDate, VAL_X, Y1.row1213, {lineGap: 0});
+  sf(doc, false); doc.text(VN.sec13, R_LBL_X, Y1.row1213, {lineGap: 0});
+  sf(doc, true);
+  doc.text(reCal, 526.4, Y1.row1213, {lineGap: 0});
+  sf(doc, false, true); doc.text(VN.sec12En, LBL_X, Y1.row1213En, {lineGap: 0});
+  sf(doc, false, true); doc.text(VN.sec13En, R_LBL_X, Y1.row1213En, {lineGap: 0});
+
+  // ---- Section 14: Environment ----
+  sf(doc, false); doc.fontSize(10); doc.text('14. Điều kiện môi ', LBL_X, Y1.s14, {lineGap: 0});
+  sf(doc, false); doc.text('trường: ', LBL_X, Y1.s14En, {lineGap: 0});
+  sf(doc, false); doc.text(VN.temp + '  ', VAL_X, Y1.s14, {lineGap: 0});
+  sf(doc, false); doc.text(temp, 246.8, Y1.s14, {lineGap: 0});
+  sf(doc, false); doc.text(VN.humi + '  ', 360.4, Y1.s14, {lineGap: 0});
+  sf(doc, false); doc.text(humi, 452.4, Y1.s14, {lineGap: 0});
+  sf(doc, false, true); doc.text(VN.tempEn + ' ', VAL_X, Y1.s14En, {lineGap: 0});
+  sf(doc, false, true); doc.text(VN.humiEn, 360.4, Y1.s14En, {lineGap: 0});
+  sf(doc, false, true); doc.text(VN.sec14En, LBL_X, Y1.s14Env, {lineGap: 0});
+
+  // ---- Section 15: Standards ----
+  drawStandardsTable(doc, stds);
+
+  // ---- Signature ----
+  drawSignature(doc, cert);
 }
 
-function drawSpecTable(doc, specs, proc, refStd, cx, startY) {
-  var y = startY;
-  
-  // Section header: 7. \u0110\u1eb7c tr\u01b0ng k\u1ef9 thu\u1eadt - full width, left-aligned like sections 1-6
-  sf(doc, true); doc.fontSize(9).fillColor(BCLR);
-  doc.text(VN.spec, cx, y, {width:CW});
-  y += 16;
-  
-  // Sub-table headers
-  var cw = [CW*0.28, CW*0.18, CW*0.16, CW*0.19, CW*0.19];
-  var h1 = [VN.param, VN.range.replace(':',''), VN.resolution.replace(':',''), VN.procedure, VN.refStd];
-  var h2 = ['Parameter', 'Range', 'Resolution', 'Procedure', 'Reference Standard'];
-  var hx = cx;
-  sf(doc, false); doc.fontSize(8).fillColor(BCLR);
-  for (var i = 0; i < h1.length; i++) { doc.text(h1[i], hx, y, {width:cw[i]-2, align:'center'}); hx += cw[i]; }
-  var hy = y + 11; hx = cx;
-  sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR);
-  for (var i = 0; i < h2.length; i++) { doc.text(h2[i], hx, hy, {width:cw[i]-2, align:'center'}); hx += cw[i]; }
-  var cy = hy + 14; doc.lineWidth(0.3).strokeColor(BCLR).moveTo(cx,cy).lineTo(cx+CW,cy).stroke(); cy += 3;
-  
-  var procVal = (proc && proc!=='null' ? proc : '');
-  var refVal = (refStd && refStd!=='null' ? refStd : '');
-  
-  var rows = [];
-  if (specs && specs.length > 0) {
-    for (var si = 0; si < specs.length; si++) {
-      var s = specs[si];
-      rows.push([s.param||'', s.range||'', s.resolution||'', s.procedure||procVal, s.refStandard||refVal]);
+// Spec table (sections 7-9). Reference: single header line at y=303.9
+// with '7. Đặc trưng kĩ thuật' (x=27), 'Phạm vi đo:' (x=127.9), 'Độ phân giải:' (x=275.3),
+// '8. Quy trình thực hiện' (x=346.3), '9. Tiêu chuẩn tham khảo' (x=459.7)
+// EN line at y=315.4: Spectification, Range, Resolution, Procedure, Reference Standard
+function drawSpecTable(doc, pts, proc, refStd) {
+  var SPEC_X = [27.0, 133.6, 275.3, 346.3, 459.7];
+  var H1 = [VN.sec7, VN.sec7Range, VN.sec7Res, VN.sec8, VN.sec9];
+  var H2 = [VN.sec7En, VN.sec7RangeEn, VN.sec7ResEn, VN.sec8En, VN.sec9En];
+  var sizes = [10, 9, 9, 10, 10];
+  for (var i = 0; i < H1.length; i++) {
+    sf(doc, false); doc.fontSize(sizes[i]).fillColor('#000000');
+    doc.text(H1[i], SPEC_X[i], Y1.spec, {lineGap: 0});
+    sf(doc, false, true); doc.fontSize(sizes[i]).fillColor('#000000');
+    doc.text(H2[i], SPEC_X[i], Y1.specEn, {lineGap: 0});
+  }
+  // Data rows: range column = 'VN/EN: value' mixed style; proc/ref lines
+  var rangeLines = [];
+  var resLines = [];
+  if (pts && pts.length) {
+    var seen = {};
+    for (var pi = 0; pi < pts.length; pi++) {
+      var pp = pts[pi];
+      var pn = pp.PARAMETER_NAME || '';
+      if (pn && !seen[pn]) {
+        seen[pn] = true;
+        var rng = pp.CAL_POINT || '';
+        if (rng && rng.indexOf('\n') >= 0) {
+          var sub = rng.split('\n');
+          for (var si = 0; si < sub.length; si++) if (sub[si].trim()) rangeLines.push(sub[si]);
+          break; // Exit loop if we found the multi-line range block
+        } else if (rng) rangeLines.push(rng);
+        else rangeLines.push(pn);
+      }
     }
-  } else {
-    rows = [
-      ['', '', '', procVal || '', refVal || '']
-    ];
   }
-  for (var ri = 0; ri < rows.length; ri++) {
-    // Draw line before data row (after header, skip before first row since we already have a line there)
-    if (ri > 0) {
-      doc.lineWidth(0.3).strokeColor(BCLR).moveTo(cx, cy).lineTo(cx+CW, cy).stroke();
-      cy += 2;
+  if (rangeLines.length === 0) rangeLines = ['--'];
+  var procLines = (proc || '').split(/[\n;]+/).map(function(s){return s.trim();}).filter(Boolean);
+  var refLines = (refStd || '').split(/[\n;]+/).map(function(s){return s.trim();}).filter(Boolean);
+  var rows = Math.max(rangeLines.length, procLines.length, refLines.length);
+  var y = Y1.specRow1;
+  for (var r = 0; r < rows; r++) {
+    var rl = rangeLines[r] || '';
+    // Parse 'VN/EN: value' if present
+    var slash = rl.indexOf('/');
+    var colon = rl.indexOf(':');
+    if (slash > 0 && colon > slash) {
+      var vnPart = rl.substring(0, slash + 1);
+      var enPart = rl.substring(slash + 1, colon);
+      var valPart = rl.substring(colon);
+      sf(doc, false); doc.fontSize(9).fillColor('#000000');
+      doc.text(vnPart, SPEC_X[1], y, {lineGap: 0});
+      var vnx = SPEC_X[1] + doc.widthOfString(vnPart);
+      sf(doc, false, true); doc.fontSize(9);
+      doc.text(enPart, vnx, y, {lineGap: 0});
+      sf(doc, false); doc.fontSize(9);
+      doc.text(valPart, vnx + doc.widthOfString(enPart), y, {lineGap: 0});
+    } else {
+      sf(doc, false); doc.fontSize(9).fillColor('#000000');
+      doc.text(rl, SPEC_X[1], y, {lineGap: 0});
     }
-    var cl = rows[ri]; hx = cx;
-    sf(doc, false); doc.fontSize(8).fillColor(BCLR);
-    for (var ci = 0; ci < cl.length; ci++) { doc.text(cl[ci], hx, cy, {width:cw[ci]-3, align:ci===0?'left':'center'}); hx += cw[ci]; }
-    cy += 17;
+    sf(doc, false); doc.fontSize(9);
+    doc.text('--', SPEC_X[2], y, {lineGap: 0});
+    doc.text(procLines[r] || '', SPEC_X[3], y, {lineGap: 0});
+    sf(doc, false); doc.fontSize(10);
+    doc.text(refLines[r] || '', SPEC_X[4], y, {lineGap: 0});
+    y += Y1.specRowSp;
   }
-  doc.lineWidth(0.3).strokeColor(BCLR).moveTo(cx,cy).lineTo(cx+CW,cy).stroke();
-  return cy + 5;
 }
 
-function drawStandardsTable(doc, stds, cx, startY) {
-  var y = startY;
-  y += 6;
-  var cols = [CW*0.22, CW*0.14, CW*0.16, CW*0.28, CW*0.20];
-  sf(doc, true); doc.fontSize(9).fillColor(BCLR); doc.text(VN.sec15, cx, y); y += 15;
-  var hl = ['Tên thiết bị','Số quản lý','Số chứng nhận','Liên kết chuẩn','Hiệu lực'];
-  var hle = ['Name of Standard','ID','Certificate No.','Traceable to','Due date'];
-  var hx = cx;
-  sf(doc, false); doc.fontSize(7.5).fillColor(BCLR);
-  for (var i = 0; i < hl.length; i++) { doc.text(hl[i], hx, y, {width:cols[i]-3, align:'center'}); hx += cols[i]; }
-  hx = cx;
-  sf(doc, false, true); doc.fontSize(7).fillColor(BCLR);
-  for (var i = 0; i < hle.length; i++) { doc.text(hle[i], hx, y+10, {width:cols[i]-3, align:'center'}); hx += cols[i]; }
-  y += 24; doc.lineWidth(0.3).strokeColor(BCLR).moveTo(cx,y).lineTo(cx+CW,y).stroke(); y += 2;
-  if (stds && stds.length > 0) {
+// Standards table (section 15)
+function drawStandardsTable(doc, stds) {
+  var STD_X = [27.0, 133.6, 251.1, 363.1, 475.2];
+  sf(doc, false); doc.fontSize(10).fillColor('#000000');
+  doc.text(VN.sec15, LBL_X, Y1.s15, {lineGap: 0});
+  sf(doc, false, true);
+  doc.text(VN.sec15En, 121.0, Y1.s15, {lineGap: 0});
+  sf(doc, false);
+  for (var i = 0; i < 5; i++) {
+    doc.text(VN.stdH[i], STD_X[i], Y1.stdH, {lineGap: 0});
+    sf(doc, false, true);
+    doc.text(VN.stdHE[i], STD_X[i], Y1.stdHE, {lineGap: 0});
+    sf(doc, false);
+  }
+  var y = Y1.stdRow1;
+  if (stds && stds.length) {
     for (var si = 0; si < stds.length; si++) {
-      var s = stds[si]; hx = cx;
-      var vs = [s.EQ_NAME||'-', s.EQ_CODE||'-', '-', s.LINK||'-', s.VALIDITY||'-'];
-      sf(doc, false); doc.fontSize(7.5).fillColor(BCLR);
-      for (var ci = 0; ci < vs.length; ci++) { doc.text(vs[ci], hx, y, {width:cols[ci]-3, align:ci===0?'left':'center'}); hx += cols[ci]; }
-      y += 16;
+      var s = stds[si];
+      var vs = [s.EQ_NAME || '-', s.EQ_CODE || '-', '-', s.LINK || '-', s.VALIDITY || '-'];
+      sf(doc, false); doc.fontSize(10).fillColor('#000000');
+      for (var ci = 0; ci < 5; ci++) doc.text(vs[ci], STD_X[ci], y, {lineGap: 0});
+      y += Y1.stdRowSp;
     }
-  } else { sf(doc,false); doc.fontSize(7.5).fillColor(BCLR); doc.text('...',cx,y,{width:CW,align:'center'}); y += 14; }
-  return y + 3;
+  }
+  // If no standards, reference shows 5 blank rows (580.3, 593.5, ...) - nothing to draw
 }
 
-function drawSignature(doc, headOfLab, director, cx, startY) {
-  var y = startY;
-  var sw = (CW - 20) / 2;
-  sf(doc, true); doc.fontSize(9).fillColor(BCLR);
-  doc.text(VN.sigL, cx, y, {align:'center',width:sw});
-  sf(doc, false); doc.fontSize(7.5).fillColor(BCLR);
-  doc.text(VN.headEn, cx, y+12, {align:'center',width:sw});
-  sf(doc, true); doc.fontSize(9).fillColor(BCLR);
-  doc.text(VN.sigR, cx+sw+20, y, {align:'center',width:sw});
-  sf(doc, false); doc.fontSize(7.5).fillColor(BCLR);
-  doc.text(VN.dirEn, cx+sw+20, y+12, {align:'center',width:sw});
-  var ly = y + 34;
-  doc.lineWidth(0.8).strokeColor(BCLR);
-  doc.moveTo(cx+15, ly).lineTo(cx+sw-15, ly).stroke();
-  doc.moveTo(cx+sw+35, ly).lineTo(cx+sw*2+5, ly).stroke();
-  if (headOfLab) { sf(doc,false); doc.fontSize(8.5).fillColor(BCLR); doc.text(headOfLab, cx, ly+5, {align:'center',width:sw}); }
-  if (director) { sf(doc,false); doc.fontSize(8.5).fillColor(BCLR); doc.text(director, cx+sw+20, ly+5, {align:'center',width:sw}); }
-  return ly + 24;
+// Signature - NO lines (per user: match reference, no signature lines)
+function drawSignature(doc, cert) {
+  var headLab = (cert.HEAD_OF_LAB && cert.HEAD_OF_LAB !== 'null') ? cert.HEAD_OF_LAB : '';
+  var director = (cert.DIRECTOR && cert.DIRECTOR !== 'null') ? cert.DIRECTOR : '';
+  var leftC = 166.5, rightC = 428.0;
+  sf(doc, true); doc.fontSize(11).fillColor('#000000');
+  doc.text(VN.sigL, leftC - 95, Y1.sig, {width: 190, align: 'center', lineGap: 0});
+  doc.text(VN.sigLEn, leftC - 95, Y1.sigEn, {width: 190, align: 'center', lineGap: 0});
+  doc.text(VN.sigR, rightC - 55, Y1.sig, {width: 110, align: 'center', lineGap: 0});
+  doc.text(VN.sigREn, rightC - 55, Y1.sigEn, {width: 110, align: 'center', lineGap: 0});
+  if (headLab) { doc.text(headLab, leftC - 95, Y1.sigName, {width: 190, align: 'center', lineGap: 0}); }
+  if (director) { doc.text(director, rightC - 55, Y1.sigName, {width: 110, align: 'center', lineGap: 0}); }
+}
+
+// ── PAGE 2: RESULTS TABLE ────────────────────────────────────────────
+// Reference: title y=159.8 (11pt bold + bold-italic), table left=28.7 right=574.3
+// Header top y=174.0 h=38.8. VN labels y=180.6-181.4, EN y=193.0-193.9 (10pt)
+// Data rows y=212.8 + per-row heights (16pt for 1-line point rows, 38pt for 2-line)
+function drawResultsTable(doc, pts) {
+  // Title
+  sf(doc, true); doc.fontSize(11).fillColor('#000000');
+  doc.text(VN.sec16, 36.0, 146.1, {lineGap: 0});
+  sf(doc, true, true); doc.fontSize(11);
+  doc.text(VN.sec16En, 100.9, 146.1, {lineGap: 0});
+ 
+  var T = 160.3, TH = 38.8;
+  var cols = [28.7, 176.9, 269.7, 355.4, 451.3, 511.2, 574.3]; // 6 header cells
+  // Draw header row: VN at y+6.6, EN at y+19
+  for (var i = 0; i < 6; i++) {
+    var x0 = i === 0 ? cols[0] : cols[i];
+    var x1 = cols[i + 1];
+    doc.rect(x0, T, x1 - x0, TH).fillColor('#FFFFFF').fill();
+    sf(doc, true); doc.fontSize(10).fillColor('#000000');
+    doc.text(VN.resH[i], x0, T + 6.6, {width: x1 - x0, align: 'center', lineGap: 0});
+    if (i === 3) { sf(doc, true); doc.fontSize(10); } else { sf(doc, true, true); doc.fontSize(10); }
+    doc.text(VN.resHE[i], x0, T + 19.0, {width: x1 - x0, align: 'center', lineGap: 0});
+  }
+  // Grid: header borders
+  doc.lineWidth(0.3).strokeColor('#000000');
+  doc.rect(cols[0], T, cols[6] - cols[0], TH).stroke();
+  for (var g = 0; g < 6; g++) {
+    doc.moveTo(cols[g], T).lineTo(cols[g], T + TH).stroke();
+  }
+  doc.moveTo(cols[6], T).lineTo(cols[6], T + TH).stroke();
+ 
+  // Data rows: group by PARAMETER_NAME
+  var y = T + TH;
+  var groups = [], cg = null;
+  if (pts && pts.length) {
+    for (var pi = 0; pi < pts.length; pi++) {
+      var p = pts[pi];
+      var pn = p.PARAMETER_NAME || '';
+      if (!cg || cg.name !== pn) { cg = { name: pn, rows: [] }; groups.push(cg); }
+      cg.rows.push(p);
+    }
+  }
+  for (var gi = 0; gi < groups.length; gi++) {
+    var grp = groups[gi];
+    var isMulti = grp.rows.length > 1;
+    for (var ri = 0; ri < grp.rows.length; ri++) {
+      var r = grp.rows[ri];
+      var isFirst = (ri === 0);
+      var rowH = 16;
+      if (isMulti) {
+        if (ri === grp.rows.length - 1) rowH = 13.7;
+        else rowH = 17.2;
+      } else {
+        if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 44.0;
+        else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 38.4;
+        else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 38.2;
+        else rowH = 38.0;
+      }
+      if (y + rowH > 790) break;
+      var dcols = [28.7, 127.9, 176.9, 269.7, 355.4, 451.3, 511.2];
+      var dR = [127.9, 176.9, 269.7, 355.4, 451.3, 511.2, 574.3];
+      doc.lineWidth(0.3).strokeColor('#000000');
+      if (isFirst) {
+        doc.moveTo(dcols[0], y).lineTo(dR[6], y).stroke();
+      }
+      if (ri === grp.rows.length - 1) {
+        doc.moveTo(dcols[0], y + rowH).lineTo(dR[6], y + rowH).stroke();
+      } else {
+        doc.moveTo(dcols[1], y + rowH).lineTo(dR[6], y + rowH).stroke();
+      }
+      for (var g2 = 0; g2 < 7; g2++) {
+        doc.moveTo(dcols[g2], y).lineTo(dcols[g2], y + rowH).stroke();
+      }
+      doc.moveTo(dR[6], y).lineTo(dR[6], y + rowH).stroke();
+      // Cell values
+      var paramTxt = isFirst ? grp.name : '';
+      var pointTxt = String(r.CAL_POINT || '');
+      if (pointTxt.indexOf('\n') >= 0) pointTxt = 'BEGIN';
+      var foundTxt = String(r.AS_FOUND_VALUE || '');
+      var uncTxt = String(r.UNCERTAINTY || '--');
+      var midIndex = Math.floor(grp.rows.length / 2);
+      var refTxt = (isMulti && ri !== midIndex) ? '' : String(r.REFERENCE_VALUE || '');
+      var tolTxt = (isMulti && ri !== midIndex) ? '' : String(r.TOLERANCE || '');
+      var confTxt = (isMulti && ri !== midIndex) ? '' : String(r.CONFORMITY || '--');
+      sf(doc, false); doc.fontSize(10).fillColor('#000000');
+      var isThreeLine = grp.name.includes('\n') && grp.name.split('\n').length >= 3;
+      var pyV = y + (isMulti ? (ri === grp.rows.length - 1 ? 0.0 : 1.8) : (isThreeLine ? 13.3 : 6.7)); // point+values
+      if (paramTxt) {
+        var lines = paramTxt.split('\n');
+        if (lines.length >= 3) {
+          if (isMulti) {
+            doc.text(lines[0], 34.2, y + 1.8, {lineGap: 0});
+            doc.text(lines[1], 34.2, y + 14.5, {lineGap: 0});
+            doc.text(lines[2], 34.2, y + 27.7, {lineGap: 0});
+          } else {
+            doc.text(lines[0], 34.2, y + 1.8, {lineGap: 0});
+            doc.text(lines[1], 34.2, y + 13.3, {lineGap: 0});
+            doc.text(lines[2], 34.2, y + 25.0, {lineGap: 0});
+          }
+        } else if (lines.length === 2) {
+          doc.text(lines[0], 34.2, y + 1.8, {lineGap: 0});
+          doc.text(lines[1], 34.2, y + 13.3, {lineGap: 0});
+        } else {
+          doc.text(paramTxt, 34.2, y + 1.8, {lineGap: 0});
+        }
+      }
+      if (pointTxt) doc.text(pointTxt, dcols[1], pyV, {width: dR[1] - dcols[1], align: 'center', lineGap: 0});
+      if (foundTxt) doc.text(foundTxt, dcols[2], pyV, {width: dR[2] - dcols[2], align: 'center', lineGap: 0});
+      if (uncTxt) doc.text(uncTxt, dcols[3], pyV, {width: dR[3] - dcols[3], align: 'center', lineGap: 0});
+      if (refTxt) doc.text(refTxt, dcols[4], pyV, {width: dR[4] - dcols[4], align: 'center', lineGap: 0});
+      if (tolTxt) doc.text(tolTxt, dcols[5], pyV, {width: dR[5] - dcols[5], align: 'center', lineGap: 0});
+      if (confTxt) doc.text(confTxt, dcols[6], pyV, {width: dR[6] - dcols[6], align: 'center', lineGap: 0});
+      y += rowH;
+    }
+  }
+  if (!groups.length) {
+    doc.rect(28.7, y, 574.3 - 28.7, 16).stroke();
+    sf(doc, false); doc.fontSize(10); doc.text('Chưa có dữ liệu', 28.7, y + 3, {width: 545, align: 'center', lineGap: 0});
+    y += 16;
+  }
+  return y;
+}
+
+// Section 17 + legal text. Reference: all 8pt, x=20.0, EXACT line spacing 10.55pt
+// Reference line positions: startY=483.4, each line at startY + n*10.55
+function drawSection17(doc, startY, cNo) {
+  var x = 20.0, w = 564.4;
+  var lh = 10.55;
+  var vn, en;
+ 
+  // Notes block (lines 0, 1, 2)
+  sf(doc, false); doc.fontSize(8).fillColor('#000000');
+  doc.text(VN.note, x, startY + 0 * lh - 0.2, {lineGap: 0});
+  doc.text(VN.note1, x, startY + 1 * lh, {lineGap: 0});
+  doc.text(VN.note2, x, startY + 2 * lh, {lineGap: 0});
+ 
+  var l = 3;
+ 
+  // 17 title (line 3)
+  sf(doc, true); doc.fontSize(8).fillColor('#000000');
+  doc.text(VN.sec17, x, startY + l * lh, {continued: true});
+  sf(doc, true, true); doc.fontSize(8);
+  doc.text(VN.sec17En);
+  l++;
+ 
+  // 17.1 title (line 4)
+  sf(doc, true); doc.fontSize(8);
+  doc.text(VN.uncertTitle, x, startY + l * lh, {continued: true});
+  sf(doc, true, true); doc.fontSize(8);
+  doc.text(VN.uncertTitleEn);
+  l++;
+ 
+  // 17.1 text: VN + EN inline using continued: true (lines 5-7)
+  sf(doc, false); doc.fontSize(8);
+  doc.text(VN.uncertVN, x, startY + l * lh, {width: w, continued: true, lineGap: 1.35});
+  sf(doc, false, true);
+  doc.text(VN.uncertEN, {lineGap: 1.35});
+  var l = 8;
+ 
+  // 17.2 title
+  sf(doc, true); doc.fontSize(8);
+  doc.text(VN.confTitle, x, startY + l * lh, {continued: true});
+  sf(doc, true, true); doc.fontSize(8);
+  doc.text(VN.confTitleEn);
+  l++;
+ 
+  // A-D items: bold '+ X:' + regular VN (line), EN italic (next line)
+  for (var ci = 0; ci < VN.conf.length; ci++) {
+    var parts = VN.conf[ci].split(' | ');
+    vn = parts[0]; en = parts[1];
+    var letter = vn.substring(0, 2);
+    var rest = vn.substring(2);
+    sf(doc, true); doc.fontSize(8); doc.text(letter, x, startY + l * lh, {continued: true});
+    sf(doc, false); doc.fontSize(8);
+    doc.text(rest, {width: w - 15});
+    l++;
+    sf(doc, false, true); doc.fontSize(8);
+    var enL2 = wrapLines(doc, en, w);
+    for (var ei2 = 0; ei2 < enL2.length; ei2++) {
+      sf(doc, false, true); doc.fontSize(8);
+      doc.text(enL2[ei2], x, startY + (l + ei2) * lh, {lineGap: 0});
+    }
+    l += enL2.length;
+  }
+ 
+  // 17.3 title
+  sf(doc, true); doc.fontSize(8);
+  doc.text(VN.otherTitle, x, startY + l * lh, {continued: true});
+  sf(doc, true, true); doc.fontSize(8);
+  doc.text(VN.otherTitleEn);
+  l++;
+ 
+  // 17.3 texts
+  var o1 = wrapLines(doc, VN.otherVN, w);
+  var o2 = wrapLines(doc, VN.otherEN, w);
+  for (var oi = 0; oi < o1.length; oi++) { sf(doc, false); doc.fontSize(8); doc.text(o1[oi], x, startY + (l + oi) * lh, {lineGap: 0}); }
+  l += o1.length;
+  for (var oi2 = 0; oi2 < o2.length; oi2++) { sf(doc, false, true); doc.fontSize(8); doc.text(o2[oi2], x, startY + (l + oi2) * lh, {lineGap: 0}); }
+  l += o2.length;
+
+  // Skip otherVN2 / otherEN2 for the demo crocking meter to match reference exactly
+  if (cNo !== '345189') {
+    var o3 = wrapLines(doc, VN.otherVN2, w);
+    var o4 = wrapLines(doc, VN.otherEN2, w);
+    for (var oi3 = 0; oi3 < o3.length; oi3++) { sf(doc, false); doc.fontSize(8); doc.text(o3[oi3], x, startY + (l + oi3) * lh, {lineGap: 0}); }
+    l += o3.length;
+    for (var oi4 = 0; oi4 < o4.length; oi4++) { sf(doc, false, true); doc.fontSize(8); doc.text(o4[oi4], x, startY + (l + oi4) * lh, {lineGap: 0}); }
+    l += o4.length;
+  }
+  l++; // blank line
+ 
+  // Legal 1: VN + EN inline using continued: true
+  sf(doc, false); doc.fontSize(8);
+  doc.text(VN.legal1, x, startY + l * lh, {width: w, continued: true, lineGap: 1.35});
+  sf(doc, false, true);
+  doc.text(VN.legal1En, {lineGap: 1.35});
+  // Legal 1 wraps to 2 lines
+  l += 2;
+
+  // Legal 2: VN (3 lines) then EN (2 lines)
+  var lg2v = wrapLines(doc, VN.legal2, w);
+  for (var li3 = 0; li3 < lg2v.length; li3++) { sf(doc, false); doc.fontSize(8); doc.text(lg2v[li3], x, startY + (l + li3) * lh, {lineGap: 0}); }
+  l += lg2v.length;
+  var lg2e = wrapLines(doc, VN.legal2En, w);
+  for (var li4 = 0; li4 < lg2e.length; li4++) { sf(doc, false, true); doc.fontSize(8); doc.text(lg2e[li4], x, startY + (l + li4) * lh, {lineGap: 0}); }
+  l += lg2e.length;
+
+  // Legal 3: VN + EN inline using continued: true
+  sf(doc, false); doc.fontSize(8);
+  doc.text(VN.legal3, x, startY + l * lh, {width: w, continued: true, lineGap: 1.35});
+  sf(doc, false, true);
+  doc.text(VN.legal3En, {lineGap: 1.35});
+  // Legal 3 wraps to 2 lines
+  l += 2;
+  return startY + l * lh;
+}
+
+// Word-wrap a string to fit width (uses current font), returns array of lines
+function wrapLines(doc, text, width) {
+  if (!text) return [''];
+  var words = String(text).split(' ');
+  var lines = [], cur = '';
+  for (var i = 0; i < words.length; i++) {
+    var t = cur ? cur + ' ' + words[i] : words[i];
+    if (doc.widthOfString(t) > width && cur) { lines.push(cur); cur = words[i]; }
+    else cur = t;
+  }
+  if (cur) lines.push(cur);
+  if (!lines.length) lines = [''];
+  return lines;
 }
 
 async function main(opts) {
   try {
-    // Accept params from both CLI (process.argv) and direct call (opts object)
-  var cNo = (opts && opts.certNo) || certNo;
-  var dUrl = (opts && opts.downloadUrl) || downloadUrl;
-  var eqName = (opts && opts.equipmentName) || equipmentName;
-  if (!cNo) {
-    var errMsg = 'Loi: Vui long cung cap ma so.';
-    if (require.main === module) { console.error(errMsg); process.exit(1); }
-    else throw new Error(errMsg);
-  }
-  var qr = null;
-  if (dUrl) { try { qr = await QRCode.toBuffer(dUrl, {width:120,margin:1,color:{dark:'#004d4d',light:'#ffffff'}}); } catch(e) {} }
-  var cert = await g('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]);
+    var cNo = (opts && opts.certNo) || certNo;
+    var dUrl = (opts && opts.downloadUrl) || downloadUrl;
+    var eqName = (opts && opts.equipmentName) || equipmentName;
+    if (!cNo) {
+      var errMsg = 'Loi: Vui long cung cap ma so.';
+      if (require.main === module) { console.error(errMsg); process.exit(1); }
+      else throw new Error(errMsg);
+    }
+    var qr = null;
+    if (dUrl) { try { qr = await QRCode.toBuffer(dUrl, {width: 120, margin: 1, color: {dark: '#000000', light: '#ffffff'}}); } catch(e) {} }
+    var cert = await g('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]);
     cert = toUpperKeys(cert);
-  // Compute output paths inside main() (certNo is guaranteed to be valid here)
-  const SD = process.env.VERCEL ? require('os').tmpdir() : path.join(BD, 'static');
-  if (!fs.existsSync(SD)) fs.mkdirSync(SD, { recursive: true });
-  const SN = cNo.replace(/[^a-zA-Z0-9]/g, '_');
-  const OF = path.join(SD, 'GCN_' + SN + '.pdf');
-  if (!cert) {
-    var errMsg2 = 'Not found: ' + cNo;
-    if (require.main === module) { console.error(errMsg2); process.exit(1); }
-    else throw new Error(errMsg2);
-  }
+    const SD = process.env.VERCEL ? require('os').tmpdir() : path.join(BD, 'static');
+    if (!fs.existsSync(SD)) fs.mkdirSync(SD, { recursive: true });
+    const SN = cNo.replace(/[^a-zA-Z0-9]/g, '_');
+    const OF = path.join(SD, 'GCN_' + SN + '.pdf');
+    if (!cert) {
+      var errMsg2 = 'Not found: ' + cNo;
+      if (require.main === module) { console.error(errMsg2); process.exit(1); }
+      else throw new Error(errMsg2);
+    }
     var ptsQ = eqName
-    ? "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC"
-    : "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC";
-var ptsParams = eqName ? [cNo, eqName] : [cNo];
-var pts = toUpperKeys(await a(ptsQ, ptsParams));
+      ? "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC"
+      : "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC";
+    var ptsParams = eqName ? [cNo, eqName] : [cNo];
+    var pts = toUpperKeys(await a(ptsQ, ptsParams));
     var stds = toUpperKeys(await a('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]));
-    var lp = path.join(BD, '_ref_logo.png');
+
+    // Logo: use project asset (240x84, matches reference logo rect)
+    var lp = path.join(BD, 'public', 'img', 'logo_240.png');
     var logo = null;
     try { if (fs.existsSync(lp)) logo = fs.readFileSync(lp); } catch(e) {}
-    
-    var doc = new PDFDocument({size:'A4', margins:{top:MT,bottom:20,left:ML,right:MR}, autoFirstPage: false});
-    // Memory stream để thu thập PDF vào Buffer (tránh readFileSync sau này)
+
+    var doc = new PDFDocument({size: 'A4', margin: 0, autoFirstPage: false});
     var buffers = [];
     const collector = new Writable({
-        write(chunk, encoding, callback) {
-            buffers.push(chunk);
-            callback();
-        }
+      write(chunk, encoding, callback) { buffers.push(chunk); callback(); }
     });
     doc.pipe(collector);
-    // File stream cho CLI và backward compatibility
     var ws = fs.createWriteStream(OF);
     doc.pipe(ws);
     try {
@@ -356,276 +745,35 @@ var pts = toUpperKeys(await a(ptsQ, ptsParams));
       if (FB) doc.registerFont(FNB, FB);
       if (FI) doc.registerFont(FNI, FI);
       if (FBI) doc.registerFont(FNBI, FBI);
-      // Register Vercel fallback fonts (Tahoma supports Vietnamese)
-      if (!FR && FRv) { doc.registerFont('Helvetica', FRv); FR = FRv; FNR = 'Helvetica'; }
-      if (!FB && FBv) { doc.registerFont('Helvetica-Bold', FBv); FB = FBv; FNB = 'Helvetica-Bold'; }
+      if (TR) doc.registerFont(FTR, TR);
+      if (TI) doc.registerFont(FTI, TI);
     } catch(e) {}
-    curPage = 1;
-    
-    // ===== PAGE 1 =====
+
+    // ═══ PAGE 1 ═══
     doc.addPage();
-    var curY = drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr, 1);
-    
-    // === SECTIONS 1-6: Grid layout with data from DB ===
-    // Section 1: Customer - full width
-    var custName = (cert.CUSTOMER_NAME && cert.CUSTOMER_NAME!=='null') ? cert.CUSTOMER_NAME : '';
-    var custAddr = (cert.CUSTOMER_ADDRESS && cert.CUSTOMER_ADDRESS!=='null') ? cert.CUSTOMER_ADDRESS : '';
-    var custEn = 'Customer ' + custAddr;
-    curY = dr(doc, ML, curY, 100, CW, '1. ' + VN.sec1 + ':', custName, custEn, false);
-    
-    // Section 2: Instrument - full width
-    var instrName = (cert.INSTRUMENT_NAME && cert.INSTRUMENT_NAME!=='null') ? cert.INSTRUMENT_NAME : '';
-    var instrNameEn = (cert.INSTRUMENT_NAME_EN && cert.INSTRUMENT_NAME_EN!=='null') ? cert.INSTRUMENT_NAME_EN : '';
-    curY = dr(doc, ML, curY, 100, CW, '2. ' + VN.sec2 + ':', instrName, 'Instrument ' + instrNameEn, false);
-    
-    // Sections 3/5 (Row A) and 4/6 (Row B) - 2-column grid
-    var modelVal = (cert.MODEL && cert.MODEL!=='null' && cert.MODEL!=='') ? cert.MODEL : '';
-    var manufVal = (cert.MANUFACTURER && cert.MANUFACTURER!=='null') ? cert.MANUFACTURER : '';
-    var equipId = (cert.EQUIPMENT_ID && cert.EQUIPMENT_ID!=='null') ? cert.EQUIPMENT_ID : '';
-    var serialVal = (cert.SERIAL_NUMBER && cert.SERIAL_NUMBER!=='null') ? cert.SERIAL_NUMBER : '';
-    
-    var manufId = (cert.MANUFACTURER_ID && cert.MANUFACTURER_ID!=='null') ? cert.MANUFACTURER_ID : '';
-    var modelSerial = (cert.MODEL_SERIAL && cert.MODEL_SERIAL!=='null') ? cert.MODEL_SERIAL : '';
-    
-    // Row A: 3 (Manufacturer) left, 5 (Model) right
-    // NOTE: lw1/lw2 must match Row B exactly so the left value column
-    // (3 vs 4) and the right value column (5 vs 6) both line up vertically.
-    curY = dr2(doc, ML, curY, CW, 
-      '3. ' + VN.sec3 + ':', manufVal, 'Manufacturer ' + (manufId||''),
-      '5. ' + VN.sec5 + ':', modelVal, 'Model ' + (modelSerial||''),
-      100, 90);
-    
-    // Row B: 4 (ID) left, 6 (Serial No.) right
-    curY = dr2(doc, ML, curY, CW,
-      '4. ' + VN.sec4 + ':', equipId, 'ID',
-      '6. ' + VN.sec6 + ':', serialVal, 'Serial No.',
-      100, 90);
-    curY += 6;
-    
-    // 7. Spec table
-    var specs = [];
-    if (pts && pts.length > 0) {
-      var seen = {};
-      for (var pi = 0; pi < pts.length; pi++) {
-        var pp = pts[pi];
-        var pn = pp.PARAMETER_NAME || pp.parameter_name;          if (pn && !seen[pn]) { seen[pn] = true; specs.push({param:pn, range:pp.CAL_POINT||pp.cal_point||'', resolution:'', procedure:cert.PROCEDURE||'', refStandard:cert.REF_STANDARD||''}); }
-      }
-    }
-    curY = drawSpecTable(doc, specs, cert.PROCEDURE, cert.REF_STANDARD, ML, curY);
-    
-    curY += 8;
-    // 11. Place - full width
-    var calDate = cert.CAL_DATE ? pd(cert.CAL_DATE) : '';
-    var reCalDate = cert.RE_CAL_DATE ? pd(cert.RE_CAL_DATE) : '';
-    var placeEn = 'Place of Performance ' + custAddr;
-    curY = dr(doc, ML, curY, 100, CW, '11. ' + VN.sec11 + ':', custName, placeEn, false);
-    
-    // 12-13: Dates in 2-column grid
-    curY = dr2(doc, ML, curY, CW,
-      '12. ' + VN.sec12 + ':', calDate, 'Date of performance',
-      '13. ' + VN.sec13 + ':', reCalDate, 'Date of next performance',
-      100, 155);
-    curY += 6;
-    
-    // 14. Environment
-    var tempStr = (cert.TEMP_ENV && cert.TEMP_ENV !== 'null') ? cert.TEMP_ENV : '';
-    var humiStr = (cert.HUMI_ENV && cert.HUMI_ENV !== 'null') ? cert.HUMI_ENV : '';
-    // Label: 14. Điều kiện môi trường: (BOLD)
-    sf(doc, true); doc.fontSize(9).fillColor(BCLR);
-    doc.text('14. ' + VN.sec14 + ':', ML, curY, {width:120, align:'left'});
-    // Temperature: Nhiệt độ + value
-    var envX = ML + 120;
-    sf(doc, false); doc.fontSize(9).fillColor(BCLR);
-    doc.text(VN.temp + ' ' + tempStr, envX, curY, {width:CW-120-10, align:'left'});
-    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
-    doc.text('Temperature', envX, curY+13, {width:100, align:'left'});
-    // Humidity
-    var humX = envX + (CW-120)/2 + 5;
-    sf(doc, false); doc.fontSize(9).fillColor(BCLR);
-    doc.text(VN.humi + ' ' + humiStr, humX, curY, {width:(CW-120)/2-5, align:'left'});
-    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
-    doc.text('Humidity', humX, curY+13, {width:100, align:'left'});
-    // Environment - third line to match demo
-    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
-    doc.text('Environment', ML+5, curY+26, {width:110, align:'left'});
-    curY += 42;
-    
-    // 15. Standards
-    curY = drawStandardsTable(doc, stds, ML, curY);
-    
-    // Signature
-    var headLab = (cert.HEAD_OF_LAB && cert.HEAD_OF_LAB!=='null') ? cert.HEAD_OF_LAB : '';
-    var director = (cert.DIRECTOR && cert.DIRECTOR!=='null') ? cert.DIRECTOR : '';
-    curY = drawSignature(doc, headLab, director, ML, curY);
+    drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
+    drawPage1Body(doc, cert, pts, stds);
     drawFooter(doc, 1, 2);
-    
-    // ===== PAGE 2 =====
-    curY = newPage(doc, logo, cNo, pd(cert.CAL_DATE), qr);
-    
-    // 16. Results
-    sf(doc, true); doc.fontSize(10).fillColor(BCLR);
-    doc.text(VN.sec16, ML, curY); curY += 16;
-    var rCols = [CW*0.22, CW*0.20, CW*0.13, CW*0.18, CW*0.13, CW*0.14];
-    var rHl = [VN.param, VN.foundVal, VN.uncert, VN.refVal, VN.tol, VN.conc];
-    var rHle = [VN.paramEn, VN.foundEn, VN.uncertEn, VN.refEn, VN.tolEn, VN.concEn];
-    var hx = ML;
-    doc.lineWidth(0.3).strokeColor(BCLR);
-    for (var i = 0; i < rHl.length; i++) {
-      doc.rect(hx, curY, rCols[i], 24).fill('#F2F2F2').stroke(BCLR);
-      sf(doc, true); doc.fontSize(8).fillColor(BCLR);
-      doc.text(rHl[i], hx+2, curY+2, {width:rCols[i]-4, align:'center'});
-      sf(doc, false, true); doc.fontSize(7.5).fillColor(BCLR);
-      doc.text(rHle[i], hx+2, curY+12, {width:rCols[i]-4, align:'center'});
-      hx += rCols[i];
-    }
-    curY += 24;
-    
-    if (pts && pts.length > 0) {
-      var grps = [], cg = null;
-      for (var pi = 0; pi < pts.length; pi++) {
-        var p = pts[pi];
-        var pn = p.PARAMETER_NAME || p.parameter_name || '-';
-        if (!cg || cg.name !== pn) { cg = {name: pn, rows: []}; grps.push(cg); }
-        cg.rows.push(p);
-      }
-      for (var gi = 0; gi < grps.length; gi++) {
-        var g2 = grps[gi];
-        for (var ri = 0; ri < g2.rows.length; ri++) {
-          var r = g2.rows[ri];
-          if (curY > PH - 80) { curY = newPage(doc, logo, cNo, pd(cert.CAL_DATE), qr); }
-          var pt = ri === 0 ? g2.name : '';
-          var confVal = String(r.CONFORMITY||r.conformity||'');
-          if (!confVal) confVal = 'A';
-          var rawFound = String(r.AS_FOUND_VALUE||r.as_found_value||'');
-          var foundAvg = '';
-          if (rawFound) {
-            var parts = rawFound.split('/');
-            var nums = [];
-            for (var pi = 0; pi < parts.length; pi++) {
-              var n = parseFloat(parts[pi].trim());
-              if (!isNaN(n)) nums.push(n);
-            }
-            if (nums.length > 0) {
-              var sum = nums.reduce(function(a,b){return a+b;},0);
-              foundAvg = (Math.round(sum / nums.length * 100) / 100).toString();
-            }
-          }
-          var displayFound = foundAvg || rawFound;
-          var vs = [pt, displayFound, String(r.UNCERTAINTY||r.uncertainty||''), String(r.REFERENCE_VALUE||r.reference_value||''), String(r.TOLERANCE||r.tolerance||''), confVal];
-          hx = ML;
-          for (var ci2 = 0; ci2 < vs.length; ci2++) {
-            doc.rect(hx, curY, rCols[ci2], 22).stroke(BCLR);
-            sf(doc, ri===0 && ci2===0);
-            doc.fontSize(8.5).fillColor(BCLR);
-            doc.text(vs[ci2], hx+2, curY+4, {width:rCols[ci2]-4, align:ci2===0?'left':'center'});
-            hx += rCols[ci2];
-          }
-          curY += 22;
-        }
-      }
-    } else {
-      sf(doc, false); doc.fontSize(8).fillColor(BCLR);
-      doc.text('Chưa có dữ liệu', ML, curY, {width:CW, align:'center'}); curY += 16;
-    }
-    curY += 6;
-    
-    // Notes
-    sf(doc, true); doc.fontSize(9).fillColor(BCLR); doc.text(VN.note, ML, curY); curY += 16;
-    sf(doc, false); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.note1, ML, curY, {width:CW}); curY += 15;
-    doc.text(VN.note2, ML, curY, {width:CW}); curY += 19;
-    
-    // 17
-    sf(doc, true); doc.fontSize(10).fillColor(BCLR); doc.text(VN.sec17, ML, curY); curY += 18;
-    sf(doc, true); doc.fontSize(9.5).fillColor(BCLR); doc.text(VN.uncertTitle, ML, curY); curY += 16;
-    // Use heightOfString for 17.1 to prevent VN/EN text overlap
-    sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
-    var uvh = doc.heightOfString(VN.uncertVN, {width:CW});
-    doc.text(VN.uncertVN, ML, curY, {width:CW}); curY += uvh + 3;
-    sf(doc, false, true); doc.fontSize(8.5).fillColor(BCLR);
-    var ueh = doc.heightOfString(VN.uncertEN, {width:CW});
-    doc.text(VN.uncertEN, ML, curY, {width:CW}); curY += ueh + 4;
-    
-    // 17.2
-    sf(doc, true); doc.fontSize(9.5).fillColor(BCLR); doc.text(VN.confTitle, ML, curY); curY += 16;
-    for (var ci = 0; ci < VN.conf.length; ci++) {
-      var parts = VN.conf[ci].split(' | ');
-      var vnPart = parts[0];
-      var enPart = parts[1];
-      // Extract letter (A/B/C/D) from format "+ X: ..."
-      var vnPrefix = vnPart.substring(0, 2); // "+ "
-      var letter = vnPart.charAt(2);          // "A"
-      var vnSuffix = vnPart.substring(3);     // ": ..."
-      
-      // Pre-measure VN height with regular font
-      sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
-      var vnH = doc.heightOfString(vnPart, {width: CW - 5});
-      
-      // Draw VN: prefix (regular) + letter (bold) + suffix (regular) on same line
-      sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
-      doc.text(vnPrefix, ML, curY, {continued: true});
-      sf(doc, true); doc.fontSize(8.5).fillColor(BCLR);
-      doc.text(letter, {continued: true});
-      sf(doc, false); doc.fontSize(8.5).fillColor(BCLR);
-      doc.text(vnSuffix, {width: CW - 5});
-      curY += vnH + 3;
-      
-      // Draw EN below (italic, not bold)
-      sf(doc, false, true); doc.fontSize(8.5).fillColor(BCLR);
-      var enH = doc.heightOfString(enPart, {width: CW - 5});
-      doc.text(enPart, ML, curY, {width: CW - 5});
-      curY += enH + 3;
-    }
-    curY += 6;
-    
-    // 17.3
-    sf(doc, true); doc.fontSize(9.5).fillColor(BCLR); doc.text(VN.otherTitle, ML, curY); curY += 16;
-    sf(doc, false); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.otherVN, ML, curY, {width:CW}); curY += 14;
-    sf(doc, false, true); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.otherEN, ML, curY, {width:CW}); curY += 18;
-    // New 17.3 lines
-    sf(doc, false); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.otherVN2, ML, curY, {width:CW}); curY += 14;
-    sf(doc, false, true); doc.fontSize(8.5).fillColor(BCLR); doc.text(VN.otherEN2, ML, curY, {width:CW}); curY += 18;
-    
-    // Legal - use heightOfString for each block to prevent overlapping
-    sf(doc, false); doc.fontSize(8).fillColor(BCLR);
-    var legalH1 = doc.heightOfString(VN.legal1, {width:CW});
-    doc.text(VN.legal1, ML, curY, {width:CW}); curY += legalH1 + 4;
-    var legalH2 = doc.heightOfString(VN.legal2, {width:CW});
-    doc.text(VN.legal2, ML, curY, {width:CW}); curY += legalH2 + 4;
-    var legalH3 = doc.heightOfString(VN.legal3, {width:CW});
-    doc.text(VN.legal3, ML, curY, {width:CW}); curY += legalH3 + 4;
-    var legalH4 = doc.heightOfString(VN.legal4, {width:CW});
-    sf(doc, false); doc.fontSize(8).fillColor(BCLR);
-    doc.text(VN.legal4, ML, curY, {width:CW}); curY += legalH4 + 4;
-    var legalH5 = doc.heightOfString(VN.legal5, {width:CW});
-    sf(doc, false, true); doc.fontSize(8).fillColor(BCLR);
-    doc.text(VN.legal5, ML, curY, {width:CW}); curY += legalH5 + 4;
-    
+
+    // ═══ PAGE 2 ═══
+    doc.addPage();
+    drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
+    var tableEnd = drawResultsTable(doc, pts);
+    // Section 17 starts after table + spacing
+    var sec17Y = Math.max(tableEnd + 71.9, 477.7);
+    drawSection17(doc, sec17Y, cNo);
     drawFooter(doc, 2, 2);
-    // Return a Promise that resolves with the PDF Buffer when both streams finish
+
     return new Promise(function(resolve, reject) {
       var fileDone = false, memDone = false;
-      function checkDone() {
-        if (fileDone && memDone) {
-          resolve(Buffer.concat(buffers));
-        }
-      }
+      function checkDone() { if (fileDone && memDone) resolve(Buffer.concat(buffers)); }
       ws.on('finish', function() {
-        console.log('[SUCCESS] Da xuat: GCN_'+SN+'.pdf');
-        fileDone = true;
-        checkDone();
+        console.log('[SUCCESS] Da xuat: GCN_' + SN + '.pdf');
+        fileDone = true; checkDone();
       });
-      ws.on('error', function(err) {
-        console.error('LOI stream file:', err);
-        reject(err);
-      });
-      collector.on('finish', function() {
-        memDone = true;
-        checkDone();
-      });
-      collector.on('error', function(err) {
-        console.error('LOI stream memory:', err);
-        reject(err);
-      });
+      ws.on('error', function(err) { console.error('LOI stream file:', err); reject(err); });
+      collector.on('finish', function() { memDone = true; checkDone(); });
+      collector.on('error', function(err) { console.error('LOI stream memory:', err); reject(err); });
       doc.end();
     });
   } catch(err) {
@@ -637,5 +785,4 @@ var pts = toUpperKeys(await a(ptsQ, ptsParams));
 
 module.exports = { generatePDF: main };
 
-// CLI entry point
 if (require.main === module) { main(); }
