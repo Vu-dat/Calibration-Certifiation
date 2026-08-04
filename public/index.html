@@ -239,9 +239,8 @@ document.addEventListener("DOMContentLoaded", () => {
     </div>
 </footer>
 <script>
-    const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname)
         ? 'http://localhost:18080' : window.location.origin;
-
     document.addEventListener("DOMContentLoaded", () => {
     const userData = localStorage.getItem('labmaster_user');
 

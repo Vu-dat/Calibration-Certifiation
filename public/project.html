@@ -812,12 +812,10 @@ document.addEventListener("DOMContentLoaded", () => {
         // Coi như chưa đăng nhập nếu có lỗi
     }
   });
-  // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng backend URL trên Render
-  const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname)
     ? 'http://localhost:18080' 
     : window.location.origin;
 
-/* ====== SWR CACHE: stale-while-revalidate v?i localStorage ====== */
 // Tr? v? data d? d? c? h?n TTL, k?m flag isStale ???c dùng ?? background refresh
 function cacheGet(key) {
   try {
@@ -1244,10 +1242,10 @@ let projectsList = [];
 let currentActiveCertNo = null; 
 let currentProjectId = null;
 let currentTitle = '';
-let currentEquipmentName = ''; 
-const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+let currentEquipmentName = '';
+const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname || window.location.protocol === 'file:'
     ? 'http://localhost:18080/api'
-    : window.location.origin + '/api'; 
+    : window.location.origin + '/api';
 
 let projectCurrentPage = 1;
 const projectLimit = 10;

@@ -29,3 +29,12 @@ build/
 # Windows reserved device names
 nul
 
+# Word temporary lock files
+~$*.doc*
+
+# Reference documents (tài liệu tham khảo — không push lên repo)
+1.1 Auto Crocking Meter.docx
+1.2 Manual Crocking Meter.docx
+1.2 Manual Crocking Meter.pdf
+Danh sách công nhận_Labmaster.xlsx
+

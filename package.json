@@ -1,4 +1,10 @@
 {
+  "name": "labmaster-calibration-certificate",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",
     "bcryptjs": "^2.4.3",
