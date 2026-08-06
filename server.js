@@ -361,6 +361,20 @@ async function runColumnMigrations() {
         'ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS INSTRUMENT_NAME_EN TEXT',
         'ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS MANUFACTURER_ID TEXT',
         'ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS MODEL_SERIAL TEXT',
+        // Bảng danh mục phép thử/thiết bị được công nhận ISO 17025 (nguồn: Danh sách công nhận_Labmaster.xlsx)
+        'CREATE TABLE IF NOT EXISTS CALIBRATE_METHOD (\n' +
+        '    ID SERIAL PRIMARY KEY,\n' +
+        '    STT INTEGER NOT NULL,\n' +
+        '    TEN_VN TEXT NOT NULL,\n' +
+        '    TEN_EN TEXT,\n' +
+        '    MO_TA TEXT,\n' +
+        '    PHAM_VI_DO TEXT,\n' +
+        '    QUY_TRINH TEXT,\n' +
+        '    CMC TEXT,\n' +
+        '    SEARCH_TEXT TEXT,\n' +
+        '    CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n' +
+        ')',
+        'CREATE INDEX IF NOT EXISTS idx_calibrate_method_search ON CALIBRATE_METHOD (SEARCH_TEXT)',
     ];
     for (const query of migrations) {
         try { 
@@ -731,6 +745,64 @@ app.delete('/api/clock/:id', async (req, res) => {
         await sql`DELETE FROM CLOCK WHERE ID = ${id}`;
         logActivity("Quản trị viên", "DELETE", "CLOCK", id, `Đã xóa thiết bị chuẩn ID: ${id}`);
         res.json({ success: true, message: "Xóa thiết bị chuẩn thành công!" });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ================= API CHO BẢNG CALIBRATE_METHOD =================
+
+// Hàm map hàng DB (key thường) → key IN HOA cho frontend
+function mapCalibrateMethodRow(r) {
+    return {
+        ID: r.id,
+        STT: r.stt,
+        TEN_VN: r.ten_vn,
+        TEN_EN: r.ten_en,
+        MO_TA: r.mo_ta,
+        PHAM_VI_DO: r.pham_vi_do,
+        QUY_TRINH: r.quy_trinh,
+        CMC: r.cmc,
+        SEARCH_TEXT: r.search_text,
+        CREATED_AT: r.created_at
+    };
+}
+
+app.get('/api/calibrate-method', async (req, res) => {
+    try {
+        const rowsDb = await sql`SELECT * FROM CALIBRATE_METHOD ORDER BY STT ASC`;
+        res.json(rowsDb.map(mapCalibrateMethodRow));
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Tìm kiếm thông minh phục vụ autocomplete khi user nhập tên thiết bị (giống /api/clock/search)
+app.get('/api/calibrate-method/search', async (req, res) => {
+    const q = (req.query.q || '').toString().trim();
+    try {
+        if (!q) {
+            const rowsDb = await sql`SELECT * FROM CALIBRATE_METHOD ORDER BY STT ASC LIMIT 10`;
+            return res.json(rowsDb.map(mapCalibrateMethodRow));
+        }
+
+        const queryStr = `%${q}%`;
+        const rowsDb = await sql`
+            SELECT *,
+                CASE
+                    WHEN LOWER(TEN_VN) = LOWER(${q}) OR LOWER(TEN_EN) = LOWER(${q}) THEN 0
+                    WHEN LOWER(TEN_VN) LIKE LOWER(${queryStr}) OR LOWER(TEN_EN) LIKE LOWER(${queryStr}) THEN 1
+                    ELSE 2
+                END AS RELEVANCE
+            FROM CALIBRATE_METHOD
+            WHERE LOWER(TEN_VN) LIKE LOWER(${queryStr})
+               OR LOWER(TEN_EN) LIKE LOWER(${queryStr})
+               OR LOWER(SEARCH_TEXT) LIKE LOWER(${queryStr})
+               OR LOWER(QUY_TRINH) LIKE LOWER(${queryStr})
+            ORDER BY RELEVANCE ASC, STT ASC
+            LIMIT 15
+        `;
+        res.json(rowsDb.map(mapCalibrateMethodRow));
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -1225,7 +1297,7 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
         const downloadUrl = supabaseUrl || localUrl;
         const eqName = data.equipmentName || data.equipment_name || '';
 
-        const pdfBuffer = await generatePDF({ certNo: cert_no, downloadUrl, equipmentName: eqName });
+        const pdfBuffer = await generatePDF({ certNo: cert_no, downloadUrl, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [] });
         const base64 = pdfBuffer.toString('base64');
         let fileUrl = null;
         
@@ -1274,7 +1346,7 @@ app.post('/api/calibration/export-excel', async (req, res) => {
 
     try {
         await saveCalibrationDataToDBHelper(data, cert_no);
-        await generateExcel({ certNo: cert_no });
+        await generateExcel({ certNo: cert_no, accreditedMethods: data.accreditedMethods || [] });
         const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.xlsx`;
 
         const outputDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, 'static');
@@ -1339,7 +1411,7 @@ app.post('/api/calibration/export-docx', async (req, res) => {
         const downloadUrl = supabaseUrl || localUrl;
 
         const eqName = data.equipmentName || data.equipment_name || '';
-        const docxBuffer = await generateDocx({ certNo: cert_no, downloadUrl, equipmentName: eqName });
+        const docxBuffer = await generateDocx({ certNo: cert_no, downloadUrl, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [] });
         const base64 = docxBuffer.toString('base64');
         let fileUrl = null;
         

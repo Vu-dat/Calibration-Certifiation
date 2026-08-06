@@ -73,6 +73,7 @@ async function main(opts) {
     try {
         // Accept params from both CLI (process.argv) and direct call (opts object)
         const cNo = (opts && opts.certNo) || certNo;
+        const accMethods = (opts && opts.accreditedMethods) || []; // danh sách máy/phép thử được công nhận (STT + tên + mã QT)
         if (!cNo) {
             if (require.main === module) { console.error('Lỗi: Vui lòng cung cấp mã số chứng nhận.'); process.exit(1); }
             else throw new Error('Lỗi: Vui lòng cung cấp mã số chứng nhận.');
@@ -123,6 +124,9 @@ async function main(opts) {
         ws.getRow(3).height = 20;
 
         // --- INFO ---
+        const accProcText = (accMethods && accMethods.length)
+            ? accMethods.map(m => (m.stt != null ? m.stt + '. ' : '') + (m.tenVn || '') + (m.tenEn ? ' (' + m.tenEn + ')' : '') + (m.quyTrinh ? ' — QT: ' + m.quyTrinh : '')).join('\n')
+            : (cert.PROCEDURE || '–');
         const infoRows = [
             ['1. Tên thiết bị / Instrument', cert.INSTRUMENT_NAME || '–'],
             ['2. Nhà sản xuất / Manufacturer', cert.MANUFACTURER || '–'],
@@ -131,7 +135,7 @@ async function main(opts) {
             ['5. Số sê-ri / Serial No.', cert.SERIAL_NUMBER || '–'],
             ['6. Khách hàng / Customer', cert.CUSTOMER_NAME || '–'],
             ['7. Địa chỉ KH / Address', cert.CUSTOMER_ADDRESS || '–'],
-            ['8. Quy trình HC / Procedure', cert.PROCEDURE || '–'],
+            ['8. Quy trình HC / Procedure', accProcText],
             ['8. Tiêu chuẩn TK / Ref. Standard', cert.REF_STANDARD || '–'],
             ['9. Môi trường / Environment', 'Nhiệt độ: ' + (cert.TEMP_ENV || '–') + '   /   Độ ẩm: ' + (cert.HUMI_ENV || '–')]
         ];
@@ -139,7 +143,9 @@ async function main(opts) {
         let r = 5;
         infoRows.forEach(function(item) {
             var label = item[0], val = item[1];
-            ws.getRow(r).height = 22;
+            // Dòng Quy trình HC chứa danh sách máy (nhiều dòng) → nới chiều cao hàng để không bị cắt
+            var isProcRow = label.indexOf('Quy trình HC') === 0;
+            ws.getRow(r).height = (isProcRow && accMethods.length) ? 22 + accMethods.length * 15 : 22;
             ws.getCell('A' + r).value = label;
             ws.getCell('A' + r).font = { name: 'Arial', size: 10, bold: true, color: { argb: '1a1917' } };
             ws.getCell('A' + r).alignment = { vertical: 'middle' };

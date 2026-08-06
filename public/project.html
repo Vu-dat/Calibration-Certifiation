@@ -363,6 +363,31 @@
             flex-wrap: wrap;
         }
     }
+    /* ─── CARD 4: MÁY ĐƯỢC CÔNG NHẬN ISO 17025 (CALIBRATE METHOD) ─── */
+    .cm-selected-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .cm-chip {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: linear-gradient(135deg, #f0fdfa, #e6fffa);
+      border: 1px solid #99f6e4; border-radius: 10px; padding: 8px 12px;
+      transition: all 0.2s ease;
+      animation: cmChipIn 0.25s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes cmChipIn { from { opacity: 0; transform: translateY(-6px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .cm-chip:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba(13,148,136,0.18); }
+    .cm-chip-info { min-width: 0; }
+    .cm-chip-name { font-size: 13px; font-weight: 700; color: #0f766e; }
+    .cm-chip-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; white-space: normal; overflow-wrap: anywhere; }
+    .cm-chip-remove {
+      flex-shrink: 0; width: 24px; height: 24px; border: none; border-radius: 50%;
+      background: #fee2e2; color: #dc2626; font-size: 15px; font-weight: 700; line-height: 1;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .cm-chip-remove:hover { background: #dc2626; color: #fff; transform: scale(1.12); }
+    .cm-counter { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+    .cm-hint {
+      font-size: 12.5px; color: #b45309; background: #fffbeb;
+      border: 1px dashed #f59e0b; border-radius: 8px; padding: 8px 12px; margin-top: 10px;
+    }
     </style>
 </head>
 <body>
@@ -643,9 +668,21 @@ document.addEventListener("DOMContentLoaded", () => {
       <!-- CARD 4: QUY TRÌNH & TIÊU CHUẨN -->
       <div class="form-card">
         <div class="form-card-title"><span>4</span> Quy trình & Tiêu chuẩn áp dụng</div>
+
+        <!-- SMART SEARCH: máy/phép thử được công nhận ISO 17025 (tối đa 4, tối thiểu 1) -->
+        <div class="field">
+          <label>Máy / Phép thử được công nhận ISO 17025 <span style="font-weight:400;color:var(--text-muted);">(chọn tối thiểu 1, tối đa 4)</span></label>
+          <div class="autocomplete-wrapper">
+            <input type="text" id="cm-search-input" placeholder="🔍 Tìm kiếm thông minh: tên máy, phép thử, thiết bị… (VD: crocking, tủ sấy, pipet)" oninput="handleCalibrateMethodSearch(this.value)" autocomplete="off">
+            <div id="cm-suggestions" class="autocomplete-suggestions"></div>
+          </div>
+        </div>
+        <div id="cm-selected" class="cm-selected-list"></div>
+        <div class="cm-counter" id="cm-counter">Đã chọn: <b>0</b>/4 máy</div>
+
         <div class="field-row">
-          <div class="field"><label>Quy trình hiệu chuẩn (Procedure)</label><input id="f-proc" value="LAB-F-01, LAB-T-02"></div>
-          <div class="field"><label>Tiêu chuẩn so sánh (Reference)</label><input id="f-ref" value="ISO 6330"></div>
+          <div class="field"><label>Quy trình hiệu chuẩn (Procedure)</label><input id="f-proc" placeholder="Tự điền từ các máy đã chọn, hoặc nhập tay"></div>
+          <div class="field"><label>Tiêu chuẩn so sánh (Reference)</label><input id="f-ref" placeholder="VD: ISO 6330"></div>
         </div>
       </div>
 
@@ -1565,6 +1602,293 @@ function handleDeviceSearch(input) {
     box.style.display = 'block';
 }
 
+/* ====== CALIBRATE METHOD SEARCH (CARD 4: QUY TRÌNH & TIÊU CHUẨN) ====== */
+// Danh sách máy/phép thử được công nhận ISO 17025 đã chọn (tối đa 4, tối thiểu 1)
+let calibrateMethods = [];
+const CALIBRATE_METHOD_MAX = 4;
+let cmSearchTimeout = null;
+let cmLastSyncedProc = ''; // mã quy trình tự điền gần nhất (để gỡ đúng khi bỏ hết máy)
+
+// Escape HTML tránh XSS khi đưa dữ liệu vào toast/dropdown
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+// Lấy toàn bộ danh sách phép thử được công nhận (dùng để khôi phục lựa chọn từ mã quy trình)
+async function fetchCalibrateMethodList() {
+  const cached = cacheGet('lm_calibrate_methods');
+  if (cached) {
+    if (cacheIsStale('lm_calibrate_methods')) {
+      fetch(`${API_BASE_URL}/api/calibrate-method`)
+        .then(r => r.json())
+        .then(fresh => cacheSet('lm_calibrate_methods', fresh, 30000))
+        .catch(() => {});
+    }
+    return cached;
+  }
+  const res = await fetch(`${API_BASE_URL}/api/calibrate-method`);
+  if (!res.ok) throw new Error('API calibrate-method failed');
+  const data = await res.json();
+  cacheSet('lm_calibrate_methods', data, 30000);
+  return data;
+}
+
+// Chuẩn hoá mã quy trình để so khớp (bỏ ký tự đặc biệt, chữ thường)
+function normalizeCode(s) {
+  return (s || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Tìm kiếm thông minh kiểu YouTube (data từ CALIBRATE_METHOD)
+async function handleCalibrateMethodSearch(keyword) {
+  const box = document.getElementById('cm-suggestions');
+  if (!box) return;
+  box.innerHTML = '';
+  if (!keyword || keyword.trim().length < 1) { box.style.display = 'none'; return; }
+
+  if (calibrateMethods.length >= CALIBRATE_METHOD_MAX) {
+    box.innerHTML = `<div class="suggestion-item" style="color:var(--text-muted);cursor:default;">⚠️ Đã đạt tối đa ${CALIBRATE_METHOD_MAX} máy. Gỡ bớt 1 máy để thêm máy khác.</div>`;
+    box.style.display = 'block';
+    return;
+  }
+
+  clearTimeout(cmSearchTimeout);
+  cmSearchTimeout = setTimeout(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/calibrate-method/search?q=${encodeURIComponent(keyword)}`);
+      if (!res.ok) throw new Error('API search failed');
+      const items = await res.json();
+      box.innerHTML = '';
+
+      if (!items || items.length === 0) {
+        box.innerHTML = '<div class="suggestion-item" style="color:var(--text-muted);cursor:default;">❌ Không tìm thấy máy/phép thử phù hợp</div>';
+      } else {
+        items.slice(0, 10).forEach(rec => {
+          const div = document.createElement('div');
+          div.className = 'suggestion-item';
+          const left = document.createElement('div');
+          left.style.minWidth = '0';
+          const main = document.createElement('div');
+          main.style.fontWeight = '600';
+          main.style.color = 'var(--accent)';
+          main.textContent = `${rec.STT}. ${rec.TEN_VN || ''}`;
+          const sub = document.createElement('div');
+          sub.style.fontSize = '11px';
+          sub.style.color = 'var(--text-muted)';
+          sub.textContent = [rec.TEN_EN, rec.QUY_TRINH ? 'QT: ' + rec.QUY_TRINH : '', rec.PHAM_VI_DO ? String(rec.PHAM_VI_DO).replace(/\n/g, ' ') : ''].filter(Boolean).join(' | ');
+          left.appendChild(main);
+          left.appendChild(sub);
+          div.appendChild(left);
+          const badge = document.createElement('span');
+          badge.style.cssText = 'font-size:11px;color:#fff;background:var(--accent);padding:2px 8px;border-radius:10px;flex-shrink:0;';
+          badge.textContent = calibrateMethods.some(m => m.STT === rec.STT) ? '✓ Đã chọn' : '+ Thêm';
+          div.appendChild(badge);
+          div.onclick = () => addCalibrateMethod(rec);
+          box.appendChild(div);
+        });
+      }
+      box.style.display = 'block';
+    } catch (e) {
+      console.error('Lỗi tìm kiếm máy hiệu chuẩn:', e);
+      box.innerHTML = '<div class="suggestion-item" style="color:var(--danger);cursor:default;">⚠️ Lỗi kết nối server</div>';
+      box.style.display = 'block';
+    }
+  }, 300);
+}
+
+function addCalibrateMethod(rec) {
+  if (calibrateMethods.some(m => Number(m.STT) === Number(rec.STT))) {
+    showToast('"' + escHtml(rec.TEN_VN) + '" đã có trong danh sách!', 'warning');
+    return;
+  }
+  if (calibrateMethods.length >= CALIBRATE_METHOD_MAX) {
+    showToast(`Chỉ được chọn tối đa ${CALIBRATE_METHOD_MAX} máy/phép thử!`, 'warning');
+    return;
+  }
+  calibrateMethods.push({
+    STT: rec.STT, TEN_VN: rec.TEN_VN || '', TEN_EN: rec.TEN_EN || '',
+    QUY_TRINH: rec.QUY_TRINH || '', PHAM_VI_DO: rec.PHAM_VI_DO || ''
+  });
+  const input = document.getElementById('cm-search-input');
+  if (input) input.value = '';
+  const box = document.getElementById('cm-suggestions');
+  if (box) box.style.display = 'none';
+  renderCalibrateMethodSelection();
+  syncProcedureFromCalibrateMethods();
+  // Tự điền bảng kết quả đo (Card 7) từ phạm vi đo + CMC của phép thử
+  fillCalibrationTableFromCalibrateMethod(rec);
+}
+
+function removeCalibrateMethod(stt) {
+  calibrateMethods = calibrateMethods.filter(m => m.STT !== stt);
+  // Gỡ các dòng Card 7 do máy này tự điền (chỉ gỡ nếu chưa nhập số liệu đo)
+  const tbody = document.getElementById('calibration-table-body');
+  if (tbody) {
+    tbody.querySelectorAll('tr[data-calibrate-stt="' + String(stt) + '"]').forEach(row => {
+      // Chỉ gỡ nếu hàng chưa được chỉnh sửa: các ô đo trống và cal-point/CMC còn nguyên giá trị tự điền
+      const measuredEmpty = ['.as-found-1', '.as-found-2', '.as-found-3', '.ref-value', '.tolerance', '.conformity']
+        .every(sel => { const el = row.querySelector(sel); return !el || String(el.value).trim() === ''; });
+      const sameVal = (sel, attr) => {
+        const el = row.querySelector(sel);
+        if (!el) return true;
+        const orig = row.dataset[attr];
+        if (orig === undefined) return false;
+        return String(el.value).trim() === String(orig).trim();
+      };
+      if (measuredEmpty && sameVal('.cal-point', 'origPoint') && sameVal('.uncertainty', 'origUnc')) row.remove();
+    });
+    updateRowCount();
+  }
+  renderCalibrateMethodSelection();
+  syncProcedureFromCalibrateMethods();
+}
+
+// Tự điền bảng kết quả đo (Card 7) từ phép thử được công nhận: phạm vi đo → Điểm HC, CMC → KĐBĐ
+function fillCalibrationTableFromCalibrateMethod(rec) {
+  const tbody = document.getElementById('calibration-table-body');
+  if (!tbody || !rec) return;
+
+  const rangeLines = String(rec.PHAM_VI_DO || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const cmcLines = String(rec.CMC || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const n = Math.max(rangeLines.length, cmcLines.length, 1);
+  const paramName = [rec.TEN_VN, rec.TEN_EN].filter(Boolean).join('\n');
+
+  // Xoá dòng trạng thái trống (empty-state) nếu có
+  const emptyRow = tbody.querySelector('.cal-empty-state');
+  if (emptyRow) emptyRow.remove();
+
+  const parts = paramName.split('\n');
+  const displayName = escHtml(parts[0]) + (parts[1] ? '<br><span style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:12px;">' + escHtml(parts[1]) + '</span>' : '');
+
+  for (let i = 0; i < n; i++) {
+    const row = document.createElement('tr');
+    row.dataset.parameterName = paramName;
+    row.dataset.calibrateStt = String(rec.STT);
+    // Lưu giá trị tự điền gốc để khi gỡ máy không xoá nhầm hàng đã được chỉnh sửa
+    row.dataset.origPoint = rangeLines[i] || '';
+    row.dataset.origUnc = cmcLines[i] || '';
+    let html = '';
+    if (i === 0) {
+      html += '<td rowspan="' + n + '" class="group-header" style="vertical-align:middle;">' +
+        '<div class="param-display">' + displayName + '</div>' +
+        '<input type="hidden" class="group-param-name" value="' + escHtml(paramName) + '">' +
+      '</td>';
+    }
+    html += '<td><input type="text" class="lab-input-cell cal-point" value="' + escHtml(rangeLines[i] || '') + '" style="font-weight:700;"></td>' +
+      '<td><input type="text" class="lab-input-cell measured-active as-found-1" placeholder="Lần 1" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+      '<td><input type="text" class="lab-input-cell as-found-2" placeholder="Lần 2" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+      '<td><input type="text" class="lab-input-cell as-found-3" placeholder="Lần 3" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+      '<td><input type="text" class="lab-input-cell uncertainty" value="' + escHtml(cmcLines[i] || '') + '" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+      '<td><input type="text" class="lab-input-cell ref-value" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+      '<td><input type="text" class="lab-input-cell tolerance" style="font-weight:500;" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+      '<td><input type="text" class="lab-input-cell conformity" style="font-weight:700;color:var(--accent);"></td>';
+    if (i === 0) {
+      html += '<td rowspan="' + n + '" class="ref-eq-col">' + (typeof renderRefEqControl === 'function' ? renderRefEqControl(paramName, '') : '') + '</td>';
+    }
+    html += '<td style="text-align:center;"><button onclick="deleteCalRow(this);" class="btn-rm">×</button></td>';
+    row.innerHTML = html;
+    tbody.appendChild(row);
+  }
+  updateRowCount();
+}
+
+// Đồng bộ ô "Quy trình hiệu chuẩn" từ mã quy trình của các máy đã chọn
+function syncProcedureFromCalibrateMethods() {
+  const codes = [];
+  calibrateMethods.forEach(m => {
+    const c = (m.QUY_TRINH || '').trim();
+    if (c && !codes.includes(c)) codes.push(c);
+  });
+  const el = document.getElementById('f-proc');
+  if (!el) return;
+  if (codes.length > 0) {
+    cmLastSyncedProc = codes.join(', ');
+    el.value = cmLastSyncedProc;
+  } else if (calibrateMethods.length === 0 && el.value === cmLastSyncedProc) {
+    // Bỏ hết máy → gỡ mã quy trình tự điền, không đụng giá trị nhập tay
+    el.value = '';
+    cmLastSyncedProc = '';
+  }
+}
+
+function renderCalibrateMethodSelection() {
+  const wrap = document.getElementById('cm-selected');
+  const counter = document.getElementById('cm-counter');
+  if (!wrap) return;
+
+  if (calibrateMethods.length === 0) {
+    wrap.innerHTML = '<div class="cm-hint">Chưa chọn máy nào — tối thiểu cần <b>1</b> máy/phép thử được công nhận.</div>';
+  } else {
+    wrap.innerHTML = '';
+    calibrateMethods.forEach(m => {
+      const chip = document.createElement('div');
+      chip.className = 'cm-chip';
+      const info = document.createElement('div');
+      info.className = 'cm-chip-info';
+      const name = document.createElement('div');
+      name.className = 'cm-chip-name';
+      name.textContent = `${m.STT}. ${m.TEN_VN}`;
+      const sub = document.createElement('div');
+      sub.className = 'cm-chip-sub';
+      sub.textContent = [m.TEN_EN, m.QUY_TRINH ? 'QT: ' + m.QUY_TRINH : '', m.PHAM_VI_DO ? String(m.PHAM_VI_DO).replace(/\n/g, ' ') : ''].filter(Boolean).join(' | ');
+      info.appendChild(name);
+      info.appendChild(sub);
+      chip.appendChild(info);
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'cm-chip-remove';
+      rm.title = 'Gỡ máy này';
+      rm.innerHTML = '&times;';
+      rm.onclick = () => removeCalibrateMethod(m.STT);
+      chip.appendChild(rm);
+      wrap.appendChild(chip);
+    });
+  }
+  if (counter) {
+    counter.innerHTML = `Đã chọn: <b>${calibrateMethods.length}</b>/${CALIBRATE_METHOD_MAX} máy` +
+      (calibrateMethods.length >= CALIBRATE_METHOD_MAX ? ' <span style="color:var(--danger);">(đã đạt tối đa)</span>' : '');
+  }
+}
+
+// Khôi phục danh sách máy đã chọn từ mã quy trình (f-proc) khi mở workspace / chọn mẫu
+async function restoreCalibrateMethodFromProcedure() {
+  const proc = (document.getElementById('f-proc')?.value || '').trim();
+  if (!proc || calibrateMethods.length > 0) return;
+  try {
+    const list = await fetchCalibrateMethodList();
+    if (!Array.isArray(list)) return;
+    const procCodes = proc.split(/[,;]/).map(normalizeCode).filter(Boolean);
+    if (procCodes.length === 0) return;
+    const matched = list
+      .filter(rec => {
+        const qc = normalizeCode(rec.QUY_TRINH);
+        return qc && procCodes.some(pc => qc.includes(pc) || pc.includes(qc));
+      })
+      .sort((a, b) => {
+        // Ưu tiên máy có mã quy trình khớp chính xác hơn, giảm over-match khi lấy 4 đầu
+        const score = r => {
+          const qc = normalizeCode(r.QUY_TRINH);
+          let best = 3;
+          procCodes.forEach(pc => {
+            const s = qc === pc ? 0 : (qc.includes(pc) || pc.includes(qc) ? 1 : 2);
+            if (s < best) best = s;
+          });
+          return best;
+        };
+        return score(a) - score(b);
+      })
+      .slice(0, CALIBRATE_METHOD_MAX);
+    if (matched.length > 0) {
+      calibrateMethods = matched.map(rec => ({
+        STT: rec.STT, TEN_VN: rec.TEN_VN || '', TEN_EN: rec.TEN_EN || '',
+        QUY_TRINH: rec.QUY_TRINH || '', PHAM_VI_DO: rec.PHAM_VI_DO || ''
+      }));
+      renderCalibrateMethodSelection();
+    }
+  } catch (e) {
+    console.warn('Không khôi phục được danh sách máy từ mã quy trình:', e.message);
+  }
+}
+
 function openCalibrationForRow(btn) {
     const tr = btn.closest('tr');
     // Ưu tiên equipmentId (liên kết bền vững), fallback về equipmentName
@@ -1652,6 +1976,8 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null) {
   renderStandardsForm();
   renderResultsForm();
   updateRowCount();
+  // Khôi phục danh sách máy/phép thử được công nhận từ mã quy trình đã lưu
+  restoreCalibrateMethodFromProcedure();
   window.scrollTo(0,0);
 }
 
@@ -1724,6 +2050,8 @@ function selectEquipmentTemplate(key) {
   // Tự động đổ dữ liệu từ EQUIPMENT_TEMPLATES vào các trường còn thiếu
   if (eq.procedure) document.getElementById('f-proc').value = eq.procedure;
   if (eq.refStandard) document.getElementById('f-ref').value = eq.refStandard;
+  // Đồng bộ danh sách máy được công nhận từ mã quy trình của mẫu
+  restoreCalibrateMethodFromProcedure();
   if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
   // Tự động điền Ngày hiệu chuẩn = hôm nay nếu chưa có
   if (!document.getElementById('f-caldate').value) {
@@ -1763,6 +2091,14 @@ function selectEquipmentTemplate(key) {
     tbody.appendChild(row);
   });
   updateRowCount();
+  
+  // Recalculate conformity for all loaded points
+  const allRows = tbody.querySelectorAll('tr');
+  allRows.forEach(row => {
+    if (typeof calculateConformity === 'function') {
+      calculateConformity(row);
+    }
+  });
 }
 
 /* ====== SMART DATA-DRIVEN TABLE RENDERING ====== */
@@ -1779,10 +2115,9 @@ function captureTableData() {
     if (!paramName) {
       var pInput = row.querySelector('.param-input');
       if (pInput) paramName = pInput.value;
-    }
-
-    data.push({
+    }      data.push({
       paramName: paramName,
+      calibrateStt: row.dataset.calibrateStt || '',
       calPoint: (row.querySelector('.cal-point') || {}).value || '',
       v1: (row.querySelector('.as-found-1') || {}).value || '',
       v2: (row.querySelector('.as-found-2') || {}).value || '',
@@ -1847,6 +2182,7 @@ function renderTableFromData(data) {
       var r = data[k];
       var row = document.createElement('tr');
       row.dataset.parameterName = paramName;
+      if (r.calibrateStt) row.dataset.calibrateStt = r.calibrateStt;
 
       var html = '';
       if (k === i) {
@@ -2120,6 +2456,17 @@ function collectAllStandards() {
   return standards.filter(s => s.name || s.id);
 }
 
+// HTML danh sách máy/phép thử được công nhận (STT + tên VN/EN + mã quy trình) cho bản in thử
+function accreditedMethodsListHtml() {
+  if (!calibrateMethods || calibrateMethods.length === 0) return '';
+  return calibrateMethods.map(m =>
+    `<div style="margin:2px 0;font-size:9pt;">${m.STT}. ${escHtml(m.TEN_VN)}` +
+    (m.TEN_EN ? ` <i style="color:#555;font-size:8.5pt;">(${escHtml(m.TEN_EN)})</i>` : '') +
+    (m.QUY_TRINH ? ` <b style="font-size:8.5pt;">— QT: ${escHtml(m.QUY_TRINH)}</b>` : '') +
+    `</div>`
+  ).join('');
+}
+
 function buildPrintTemplate() {
   const allStd = collectAllStandards();
   const allRes = collectCalibrationResults();
@@ -2175,7 +2522,7 @@ function buildPrintTemplate() {
     <table class="cert-info-table">
       <tr>
         <td class="lbl" style="width:23%">11. Quy trình hiệu chuẩn:<br><span class="lbl-en">Calibration Procedure</span></td>
-        <td class="val" style="width:27%">${txt('f-proc')}</td>
+        <td class="val" style="width:27%">${accreditedMethodsListHtml() || txt('f-proc')}</td>
         <td class="lbl" style="width:23%">12. Tiêu chuẩn tham chiếu:<br><span class="lbl-en">Reference Standard</span></td>
         <td class="val" style="width:27%">${txt('f-ref')}</td>
       </tr>
@@ -2444,6 +2791,12 @@ async function exportFile(format) {
     return;
   }
 
+  // Tối thiểu 1 máy/phép thử được công nhận trong phần Quy trình & Tiêu chuẩn áp dụng
+  if (calibrateMethods.length === 0 && !(txt('f-proc') || '').trim()) {
+    showToast('Vui lòng chọn ít nhất 1 máy/phép thử được công nhận trong phần "Quy trình & Tiêu chuẩn áp dụng"!', 'warning');
+    return;
+  }
+
   const formatNames = { pdf: 'PDF', excel: 'Excel', docx: 'Word' };
   const formatEmojis = { pdf: '📄', excel: '📊', docx: '📝' };
   showToast(`${formatEmojis[format]} Đang lưu dữ liệu và sinh file ${formatNames[format]}...`, 'info');
@@ -2487,7 +2840,8 @@ async function exportFile(format) {
     headOfLab:      txt('f-sign1'),
     director:       txt('f-sign2'),
     points:         pointRecords.map((p, idx) => ({ ...p, refEq: collectCalibrationResults()[idx].refEq })),
-    standards:      standardRecords
+    standards:      standardRecords,
+    accreditedMethods: calibrateMethods.map(m => ({ stt: m.STT, tenVn: m.TEN_VN, tenEn: m.TEN_EN, quyTrinh: m.QUY_TRINH, phamViDo: m.PHAM_VI_DO }))
   };
 
   const apiEndpoints = {
@@ -2533,6 +2887,11 @@ async function exportFile(format) {
 }
 
 async function saveCalibrationData() {
+    // Tối thiểu 1 máy/phép thử được công nhận trong phần Quy trình & Tiêu chuẩn áp dụng
+    if (calibrateMethods.length === 0 && !(txt('f-proc') || '').trim()) {
+        showToast('Vui lòng chọn ít nhất 1 máy/phép thử được công nhận trong phần "Quy trình & Tiêu chuẩn áp dụng"!', 'warning');
+        return;
+    }
     const user = JSON.parse(localStorage.getItem('labmaster_user'));
     const payload = {
         certNo: document.getElementById('f-certno').value,
@@ -3022,6 +3381,8 @@ function resetWorkspaceForm() {
     }
     
     selectedStandards = [];
+    calibrateMethods = [];
+    renderCalibrateMethodSelection();
     
     const tableBody = document.getElementById('calibration-table-body');
     if (tableBody) {

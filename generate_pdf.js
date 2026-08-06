@@ -246,7 +246,7 @@ function wrapText(doc, text, x, y, width, size, bold, ital, gap) {
   return lines.length;
 }
 
-function drawPage1Body(doc, cert, pts, stds) {
+function drawPage1Body(doc, cert, pts, stds, accM) {
   var name = (cert.CUSTOMER_NAME && cert.CUSTOMER_NAME !== 'null') ? cert.CUSTOMER_NAME : '';
   var addr = (cert.CUSTOMER_ADDRESS && cert.CUSTOMER_ADDRESS !== 'null') ? cert.CUSTOMER_ADDRESS : '';
   var inst = (cert.INSTRUMENT_NAME && cert.INSTRUMENT_NAME !== 'null') ? cert.INSTRUMENT_NAME : '';
@@ -296,50 +296,67 @@ function drawPage1Body(doc, cert, pts, stds) {
   sf(doc, false, true); doc.text(VN.sec6En, R_LBL_X, Y1.row46En, {lineGap: 0});
 
   // ---- Section 7-9: Spec table ----
-  drawSpecTable(doc, pts, proc, refStd);
+  // drawSpecTable trả về cạnh dưới của bảng; đẩy các mục phía dưới xuống nếu bảng cao hơn layout chuẩn 5 dòng
+  var specBottom = drawSpecTable(doc, pts, proc, refStd, accM);
+  var dy = Math.max(0, specBottom - (Y1.specRow1 + 5 * Y1.specRowSp));
 
   // ---- Section 11: Place ----
-  sf(doc, false); doc.fontSize(10); doc.text(VN.sec11, LBL_X, Y1.s11, {lineGap: 0});
-  sf(doc, true); doc.text(name, VAL_X, Y1.s11, {lineGap: 0});
-  sf(doc, false, true); doc.text('Place of', LBL_X, Y1.s11En1, {lineGap: 0});
-  sf(doc, false, true); doc.text('Performance', LBL_X, Y1.s11En2, {lineGap: 0});
+  sf(doc, false); doc.fontSize(10); doc.text(VN.sec11, LBL_X, Y1.s11 + dy, {lineGap: 0});
+  sf(doc, true); doc.text(name, VAL_X, Y1.s11 + dy, {lineGap: 0});
+  sf(doc, false, true); doc.text('Place of', LBL_X, Y1.s11En1 + dy, {lineGap: 0});
+  sf(doc, false, true); doc.text('Performance', LBL_X, Y1.s11En2 + dy, {lineGap: 0});
   if (addr) {
     sf(doc, true); doc.fontSize(10);
-    var aLines = wrapText(doc, addr, VAL_X, Y1.s11Val2, 427.4, 10, true, false, 15);
+    var aLines = wrapText(doc, addr, VAL_X, Y1.s11Val2 + dy, 427.4, 10, true, false, 15);
   }
 
   // ---- Row 12 & 13: Dates ----
-  sf(doc, false); doc.fontSize(10); doc.text(VN.sec12, LBL_X, Y1.row1213, {lineGap: 0});
-  sf(doc, true); doc.text(calDate, VAL_X, Y1.row1213, {lineGap: 0});
-  sf(doc, false); doc.text(VN.sec13, R_LBL_X, Y1.row1213, {lineGap: 0});
+  sf(doc, false); doc.fontSize(10); doc.text(VN.sec12, LBL_X, Y1.row1213 + dy, {lineGap: 0});
+  sf(doc, true); doc.text(calDate, VAL_X, Y1.row1213 + dy, {lineGap: 0});
+  sf(doc, false); doc.text(VN.sec13, R_LBL_X, Y1.row1213 + dy, {lineGap: 0});
   sf(doc, true);
-  doc.text(reCal, 526.4, Y1.row1213, {lineGap: 0});
-  sf(doc, false, true); doc.text(VN.sec12En, LBL_X, Y1.row1213En, {lineGap: 0});
-  sf(doc, false, true); doc.text(VN.sec13En, R_LBL_X, Y1.row1213En, {lineGap: 0});
+  doc.text(reCal, 526.4, Y1.row1213 + dy, {lineGap: 0});
+  sf(doc, false, true); doc.text(VN.sec12En, LBL_X, Y1.row1213En + dy, {lineGap: 0});
+  sf(doc, false, true); doc.text(VN.sec13En, R_LBL_X, Y1.row1213En + dy, {lineGap: 0});
 
   // ---- Section 14: Environment ----
-  sf(doc, false); doc.fontSize(10); doc.text('14. Điều kiện môi ', LBL_X, Y1.s14, {lineGap: 0});
-  sf(doc, false); doc.text('trường: ', LBL_X, Y1.s14En, {lineGap: 0});
-  sf(doc, false); doc.text(VN.temp + '  ', VAL_X, Y1.s14, {lineGap: 0});
-  sf(doc, false); doc.text(temp, 246.8, Y1.s14, {lineGap: 0});
-  sf(doc, false); doc.text(VN.humi + '  ', 360.4, Y1.s14, {lineGap: 0});
-  sf(doc, false); doc.text(humi, 452.4, Y1.s14, {lineGap: 0});
-  sf(doc, false, true); doc.text(VN.tempEn + ' ', VAL_X, Y1.s14En, {lineGap: 0});
-  sf(doc, false, true); doc.text(VN.humiEn, 360.4, Y1.s14En, {lineGap: 0});
-  sf(doc, false, true); doc.text(VN.sec14En, LBL_X, Y1.s14Env, {lineGap: 0});
+  sf(doc, false); doc.fontSize(10); doc.text('14. Điều kiện môi ', LBL_X, Y1.s14 + dy, {lineGap: 0});
+  sf(doc, false); doc.text('trường: ', LBL_X, Y1.s14En + dy, {lineGap: 0});
+  sf(doc, false); doc.text(VN.temp + '  ', VAL_X, Y1.s14 + dy, {lineGap: 0});
+  sf(doc, false); doc.text(temp, 246.8, Y1.s14 + dy, {lineGap: 0});
+  sf(doc, false); doc.text(VN.humi + '  ', 360.4, Y1.s14 + dy, {lineGap: 0});
+  sf(doc, false); doc.text(humi, 452.4, Y1.s14 + dy, {lineGap: 0});
+  sf(doc, false, true); doc.text(VN.tempEn + ' ', VAL_X, Y1.s14En + dy, {lineGap: 0});
+  sf(doc, false, true); doc.text(VN.humiEn, 360.4, Y1.s14En + dy, {lineGap: 0});
+  sf(doc, false, true); doc.text(VN.sec14En, LBL_X, Y1.s14Env + dy, {lineGap: 0});
 
   // ---- Section 15: Standards ----
-  drawStandardsTable(doc, stds);
+  drawStandardsTable(doc, stds, dy);
 
   // ---- Signature ----
-  drawSignature(doc, cert);
+  drawSignature(doc, cert, dy);
 }
 
 // Spec table (sections 7-9). Reference: single header line at y=303.9
 // with '7. Đặc trưng kĩ thuật' (x=27), 'Phạm vi đo:' (x=127.9), 'Độ phân giải:' (x=275.3),
 // '8. Quy trình thực hiện' (x=346.3), '9. Tiêu chuẩn tham khảo' (x=459.7)
 // EN line at y=315.4: Spectification, Range, Resolution, Procedure, Reference Standard
-function drawSpecTable(doc, pts, proc, refStd) {
+// Bọc text thuần (không vẽ) — trả về mảng các dòng khớp chiều rộng cho trước
+function splitLines(doc, text, width, size) {
+  doc.fontSize(size || 7);
+  var words = String(text || '').split(' ');
+  var lines = [], cur = '';
+  for (var i = 0; i < words.length; i++) {
+    var t = cur ? cur + ' ' + words[i] : words[i];
+    if (doc.widthOfString(t) > width && cur) { lines.push(cur); cur = words[i]; }
+    else cur = t;
+  }
+  if (cur) lines.push(cur);
+  if (!lines.length) lines = [''];
+  return lines;
+}
+
+function drawSpecTable(doc, pts, proc, refStd, accM) {
   var SPEC_X = [27.0, 133.6, 275.3, 346.3, 459.7];
   var H1 = [VN.sec7, VN.sec7Range, VN.sec7Res, VN.sec8, VN.sec9];
   var H2 = [VN.sec7En, VN.sec7RangeEn, VN.sec7ResEn, VN.sec8En, VN.sec9En];
@@ -352,28 +369,40 @@ function drawSpecTable(doc, pts, proc, refStd) {
   }
   // Data rows: range column = 'VN/EN: value' mixed style; proc/ref lines
   var rangeLines = [];
-  var resLines = [];
-  if (pts && pts.length) {
-    var seen = {};
-    for (var pi = 0; pi < pts.length; pi++) {
-      var pp = pts[pi];
-      var pn = pp.PARAMETER_NAME || '';
-      if (pn && !seen[pn]) {
-        seen[pn] = true;
-        var rng = pp.CAL_POINT || '';
-        if (rng && rng.indexOf('\n') >= 0) {
-          var sub = rng.split('\n');
-          for (var si = 0; si < sub.length; si++) if (sub[si].trim()) rangeLines.push(sub[si]);
-          break; // Exit loop if we found the multi-line range block
-        } else if (rng) rangeLines.push(rng);
-        else rangeLines.push(pn);
+  var procLines = [], procSize = 10;
+  if (accM && accM.length) {
+    procSize = 9;
+    for (var ai = 0; ai < accM.length && ai < 4; ai++) {
+      var m = accM[ai] || {};
+      var rngVal = m.phamViDo || m.pham_vi_do || '--';
+      var procVal = m.quyTrinh || m.quy_trinh || '--';
+      rangeLines.push(rngVal);
+      procLines.push(procVal);
+    }
+  } else {
+    if (pts && pts.length) {
+      var seen = {};
+      for (var pi = 0; pi < pts.length; pi++) {
+        var pp = pts[pi];
+        var pn = pp.PARAMETER_NAME || '';
+        if (pn && !seen[pn]) {
+          seen[pn] = true;
+          var rng = pp.CAL_POINT || '';
+          if (rng && rng.indexOf('\n') >= 0) {
+            var sub = rng.split('\n');
+            for (var si = 0; si < sub.length; si++) if (sub[si].trim()) rangeLines.push(sub[si]);
+            break; // Exit loop if we found the multi-line range block
+          } else if (rng) rangeLines.push(rng);
+          else rangeLines.push(pn);
+        }
       }
     }
+    if (rangeLines.length === 0) rangeLines = ['--'];
+    procLines = (proc || '').split(/[\n;]+/).map(function(s){return s.trim();}).filter(Boolean);
   }
-  if (rangeLines.length === 0) rangeLines = ['--'];
-  var procLines = (proc || '').split(/[\n;]+/).map(function(s){return s.trim();}).filter(Boolean);
   var refLines = (refStd || '').split(/[\n;]+/).map(function(s){return s.trim();}).filter(Boolean);
   var rows = Math.max(rangeLines.length, procLines.length, refLines.length);
+  if (accM && accM.length && rows > 7) rows = 7; // cùng giới hạn an toàn cho mọi cột khi có accM
   var y = Y1.specRow1;
   for (var r = 0; r < rows; r++) {
     var rl = rangeLines[r] || '';
@@ -397,28 +426,31 @@ function drawSpecTable(doc, pts, proc, refStd) {
     }
     sf(doc, false); doc.fontSize(9);
     doc.text('--', SPEC_X[2], y, {lineGap: 0});
+    sf(doc, false); doc.fontSize(procSize);
     doc.text(procLines[r] || '', SPEC_X[3], y, {lineGap: 0});
     sf(doc, false); doc.fontSize(10);
     doc.text(refLines[r] || '', SPEC_X[4], y, {lineGap: 0});
     y += Y1.specRowSp;
   }
+  return y; // cạnh dưới của bảng (dùng để tính dy ở drawPage1Body)
 }
 
 // Standards table (section 15)
-function drawStandardsTable(doc, stds) {
+function drawStandardsTable(doc, stds, dy) {
+  dy = dy || 0;
   var STD_X = [27.0, 133.6, 251.1, 363.1, 475.2];
   sf(doc, false); doc.fontSize(10).fillColor('#000000');
-  doc.text(VN.sec15, LBL_X, Y1.s15, {lineGap: 0});
+  doc.text(VN.sec15, LBL_X, Y1.s15 + dy, {lineGap: 0});
   sf(doc, false, true);
-  doc.text(VN.sec15En, 121.0, Y1.s15, {lineGap: 0});
+  doc.text(VN.sec15En, 121.0, Y1.s15 + dy, {lineGap: 0});
   sf(doc, false);
   for (var i = 0; i < 5; i++) {
-    doc.text(VN.stdH[i], STD_X[i], Y1.stdH, {lineGap: 0});
+    doc.text(VN.stdH[i], STD_X[i], Y1.stdH + dy, {lineGap: 0});
     sf(doc, false, true);
-    doc.text(VN.stdHE[i], STD_X[i], Y1.stdHE, {lineGap: 0});
+    doc.text(VN.stdHE[i], STD_X[i], Y1.stdHE + dy, {lineGap: 0});
     sf(doc, false);
   }
-  var y = Y1.stdRow1;
+  var y = Y1.stdRow1 + dy;
   if (stds && stds.length) {
     for (var si = 0; si < stds.length; si++) {
       var s = stds[si];
@@ -432,23 +464,39 @@ function drawStandardsTable(doc, stds) {
 }
 
 // Signature - NO lines (per user: match reference, no signature lines)
-function drawSignature(doc, cert) {
+function drawSignature(doc, cert, dy) {
+  dy = dy || 0;
   var headLab = (cert.HEAD_OF_LAB && cert.HEAD_OF_LAB !== 'null') ? cert.HEAD_OF_LAB : '';
   var director = (cert.DIRECTOR && cert.DIRECTOR !== 'null') ? cert.DIRECTOR : '';
   var leftC = 166.5, rightC = 428.0;
   sf(doc, true); doc.fontSize(11).fillColor('#000000');
-  doc.text(VN.sigL, leftC - 95, Y1.sig, {width: 190, align: 'center', lineGap: 0});
-  doc.text(VN.sigLEn, leftC - 95, Y1.sigEn, {width: 190, align: 'center', lineGap: 0});
-  doc.text(VN.sigR, rightC - 55, Y1.sig, {width: 110, align: 'center', lineGap: 0});
-  doc.text(VN.sigREn, rightC - 55, Y1.sigEn, {width: 110, align: 'center', lineGap: 0});
-  if (headLab) { doc.text(headLab, leftC - 95, Y1.sigName, {width: 190, align: 'center', lineGap: 0}); }
-  if (director) { doc.text(director, rightC - 55, Y1.sigName, {width: 110, align: 'center', lineGap: 0}); }
+  doc.text(VN.sigL, leftC - 95, Y1.sig + dy, {width: 190, align: 'center', lineGap: 0});
+  doc.text(VN.sigLEn, leftC - 95, Y1.sigEn + dy, {width: 190, align: 'center', lineGap: 0});
+  doc.text(VN.sigR, rightC - 55, Y1.sig + dy, {width: 110, align: 'center', lineGap: 0});
+  doc.text(VN.sigREn, rightC - 55, Y1.sigEn + dy, {width: 110, align: 'center', lineGap: 0});
+  if (headLab) { doc.text(headLab, leftC - 95, Y1.sigName + dy, {width: 190, align: 'center', lineGap: 0}); }
+  if (director) { doc.text(director, rightC - 55, Y1.sigName + dy, {width: 110, align: 'center', lineGap: 0}); }
 }
 
 // ── PAGE 2: RESULTS TABLE ────────────────────────────────────────────
 // Reference: title y=159.8 (11pt bold + bold-italic), table left=28.7 right=574.3
 // Header top y=174.0 h=38.8. VN labels y=180.6-181.4, EN y=193.0-193.9 (10pt)
 // Data rows y=212.8 + per-row heights (16pt for 1-line point rows, 38pt for 2-line)
+
+// Vẽ dòng đầu tên thông số; nếu cuối dòng có marker (M)/(C)/(*) thì vẽ marker dạng
+// CHỮ NHỎ NÂNG LÊN (superscript ~65% cỡ chữ chính, dịch y lên 2.5pt) ngay sau dòng VN
+function drawParamFirstLine(doc, line, x, y, size) {
+  sf(doc, false); doc.fontSize(size || 10).fillColor('#000000');
+  var m = String(line).match(/\(([MC*])\)\s*$/);
+  if (!m) { doc.text(line, x, y, {lineGap: 0}); return; }
+  var clean = line.substring(0, line.length - m[0].length);
+  doc.text(clean, x, y, {lineGap: 0});
+  var w = doc.widthOfString(clean);
+  sf(doc, false); doc.fontSize((size || 10) * 0.65);
+  doc.text(m[0], x + w, y - 2.5, {lineGap: 0});
+  doc.fontSize(size || 10);
+}
+
 function drawResultsTable(doc, pts) {
   // Title
   sf(doc, true); doc.fontSize(11).fillColor('#000000');
@@ -513,7 +561,7 @@ function drawResultsTable(doc, pts) {
       if (ri === grp.rows.length - 1) {
         doc.moveTo(dcols[0], y + rowH).lineTo(dR[6], y + rowH).stroke();
       } else {
-        doc.moveTo(dcols[1], y + rowH).lineTo(dR[6], y + rowH).stroke();
+        doc.moveTo(dcols[1], y + rowH).lineTo(dR[3], y + rowH).stroke();
       }
       for (var g2 = 0; g2 < 7; g2++) {
         doc.moveTo(dcols[g2], y).lineTo(dcols[g2], y + rowH).stroke();
@@ -536,19 +584,19 @@ function drawResultsTable(doc, pts) {
         var lines = paramTxt.split('\n');
         if (lines.length >= 3) {
           if (isMulti) {
-            doc.text(lines[0], 34.2, y + 1.8, {lineGap: 0});
+            drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10);
             doc.text(lines[1], 34.2, y + 14.5, {lineGap: 0});
             doc.text(lines[2], 34.2, y + 27.7, {lineGap: 0});
           } else {
-            doc.text(lines[0], 34.2, y + 1.8, {lineGap: 0});
+            drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10);
             doc.text(lines[1], 34.2, y + 13.3, {lineGap: 0});
             doc.text(lines[2], 34.2, y + 25.0, {lineGap: 0});
           }
         } else if (lines.length === 2) {
-          doc.text(lines[0], 34.2, y + 1.8, {lineGap: 0});
+          drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10);
           doc.text(lines[1], 34.2, y + 13.3, {lineGap: 0});
         } else {
-          doc.text(paramTxt, 34.2, y + 1.8, {lineGap: 0});
+          drawParamFirstLine(doc, paramTxt, 34.2, y + 1.8, 10);
         }
       }
       if (pointTxt) doc.text(pointTxt, dcols[1], pyV, {width: dR[1] - dcols[1], align: 'center', lineGap: 0});
@@ -570,7 +618,7 @@ function drawResultsTable(doc, pts) {
 
 // Section 17 + legal text. Reference: all 8pt, x=20.0, EXACT line spacing 10.55pt
 // Reference line positions: startY=483.4, each line at startY + n*10.55
-function drawSection17(doc, startY, cNo) {
+function drawSection17(doc, startY, cNo, pts) {
   var x = 20.0, w = 564.4;
   var lh = 10.55;
   var vn, en;
@@ -645,8 +693,16 @@ function drawSection17(doc, startY, cNo) {
   for (var oi2 = 0; oi2 < o2.length; oi2++) { sf(doc, false, true); doc.fontSize(8); doc.text(o2[oi2], x, startY + (l + oi2) * lh, {lineGap: 0}); }
   l += o2.length;
 
-  // Skip otherVN2 / otherEN2 for the demo crocking meter to match reference exactly
-  if (cNo !== '345189') {
+  // Ghi chú (M)/(C): hiển thị khi có ít nhất 1 thông số trong pts được đánh dấu (M) hoặc (C)
+  // KHÔNG hardcode theo số GCN — phụ thuộc hoàn toàn vào dữ liệu thực tế
+  var hasMCMark = false;
+  if (pts && pts.length) {
+    for (var pi17 = 0; pi17 < pts.length; pi17++) {
+      var pn17 = (pts[pi17] && (pts[pi17].PARAMETER_NAME || '')) || '';
+      if (/\(([MC])\)/.test(pn17)) { hasMCMark = true; break; }
+    }
+  }
+  if (hasMCMark) {
     var o3 = wrapLines(doc, VN.otherVN2, w);
     var o4 = wrapLines(doc, VN.otherEN2, w);
     for (var oi3 = 0; oi3 < o3.length; oi3++) { sf(doc, false); doc.fontSize(8); doc.text(o3[oi3], x, startY + (l + oi3) * lh, {lineGap: 0}); }
@@ -702,6 +758,7 @@ async function main(opts) {
     var cNo = (opts && opts.certNo) || certNo;
     var dUrl = (opts && opts.downloadUrl) || downloadUrl;
     var eqName = (opts && opts.equipmentName) || equipmentName;
+    var accM = (opts && opts.accreditedMethods) || []; // danh sách máy/phép thử được công nhận (STT + tên + mã QT)
     if (!cNo) {
       var errMsg = 'Loi: Vui long cung cap ma so.';
       if (require.main === module) { console.error(errMsg); process.exit(1); }
@@ -752,7 +809,7 @@ async function main(opts) {
     // ═══ PAGE 1 ═══
     doc.addPage();
     drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
-    drawPage1Body(doc, cert, pts, stds);
+    drawPage1Body(doc, cert, pts, stds, accM);
     drawFooter(doc, 1, 2);
 
     // ═══ PAGE 2 ═══
@@ -761,7 +818,7 @@ async function main(opts) {
     var tableEnd = drawResultsTable(doc, pts);
     // Section 17 starts after table + spacing
     var sec17Y = Math.max(tableEnd + 71.9, 477.7);
-    drawSection17(doc, sec17Y, cNo);
+    drawSection17(doc, sec17Y, cNo, pts);
     drawFooter(doc, 2, 2);
 
     return new Promise(function(resolve, reject) {

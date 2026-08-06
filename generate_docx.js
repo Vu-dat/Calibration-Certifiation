@@ -435,6 +435,7 @@ async function main(opts) {
         
         const dUrl = (opts && opts.downloadUrl) || downloadUrl || '';
         const eqName = (opts && opts.equipmentName) || equipmentName || '';
+        const accMethods = (opts && opts.accreditedMethods) || []; // danh sách máy/phép thử được công nhận (STT + tên + mã QT)
         let finalDUrl = dUrl;
         if (!finalDUrl) {
             const baseUrl = getPublicBaseUrl();
@@ -827,11 +828,21 @@ async function main(opts) {
         });
         
         const resParas = specs.resolution.split('\n').map(line => para(line, { fontSize: 9 }));
-        const procParas = (displayProcedure || '–').split(/[\n,;]+/).map(line => para(line.trim(), { fontSize: 9 }));
+        let procParas;
+        if (accMethods && accMethods.length) {
+            // Danh sách máy/phép thử được công nhận (STT + tên VN/EN + mã quy trình) thay vì chỉ mã quy trình
+            procParas = accMethods.map(m => para(
+                (m.stt != null ? m.stt + '. ' : '') + (m.tenVn || '') + (m.tenEn ? ' (' + m.tenEn + ')' : '') + (m.quyTrinh ? ' — QT: ' + m.quyTrinh : ''),
+                { fontSize: 9 }
+            ));
+        } else {
+            procParas = (displayProcedure || '–').split(/[\n,;]+/).map(line => para(line.trim(), { fontSize: 9 }));
+        }
         const refParas = (displayRefStandard || '–').split(/[\n,;]+/).map(line => para(line.trim(), { fontSize: 10 }));
 
         t1Rows.push(new TableRow({
-            height: { value: 1200, rule: HeightRule.EXACT },
+            // AT_LEAST: hàng tự nở để chứa danh sách máy/phép thử được công nhận (tối đa 4)
+            height: { value: 1200, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 2132, 2), // spacer
                 t1Cell(rangeLabelsParas, 2126, 1),
