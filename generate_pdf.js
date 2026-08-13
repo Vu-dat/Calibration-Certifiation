@@ -51,6 +51,117 @@ function sf(doc, b, ital, font) {
   else { doc.font(b ? 'Helvetica-Bold' : 'Helvetica'); }
 }
 
+function normalizeDegree(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/\u00BA/g, '°')
+    .replace(/\u02DA/g, '°')
+    .replace(/\u00B0/g, '°');
+}
+
+function drawTextWithDegree(doc, text, x, y, options) {
+  text = normalizeDegree(text);
+  if (typeof text !== 'string' || !text.includes('°')) {
+    if (x !== undefined && y !== undefined) {
+      doc.text(text, x, y, options);
+    } else {
+      doc.text(text, options);
+    }
+    return;
+  }
+
+  const originalFont = doc._font;
+  const originalFontName = originalFont ? originalFont.name : 'Helvetica';
+  
+  const parts = text.split('°');
+
+  if (options && options.align === 'center' && options.width !== undefined && x !== undefined) {
+    const originalSize = doc._fontSize;
+    let totalW = 0;
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i] !== '') {
+        doc.font(originalFontName).fontSize(originalSize);
+        totalW += doc.widthOfString(parts[i]);
+      }
+      if (i < parts.length - 1) {
+        let hFont = 'Helvetica';
+        if (originalFontName === 'AB' || originalFontName === 'Helvetica-Bold' || originalFontName === 'ABI' || originalFontName === 'Helvetica-BoldOblique') {
+          hFont = 'Helvetica-Bold';
+        } else if (originalFontName === 'AI' || originalFontName === 'Helvetica-Oblique') {
+          hFont = 'Helvetica-Oblique';
+        }
+        doc.font(hFont).fontSize(originalSize);
+        totalW += doc.widthOfString('°');
+      }
+    }
+    x = x + (options.width - totalW) / 2;
+    options = { ...options };
+    delete options.width;
+    delete options.align;
+  }
+  
+  for (let i = 0; i < parts.length; i++) {
+    const isLast = (i === parts.length - 1);
+    
+    if (parts[i] !== '') {
+      doc.font(originalFontName);
+      if (x !== undefined && y !== undefined) {
+        doc.text(parts[i], x, y, { ...options, continued: !isLast });
+        x = undefined;
+        y = undefined;
+      } else {
+        doc.text(parts[i], { ...options, continued: !isLast });
+      }
+    }
+    
+    if (!isLast) {
+      let hFont = 'Helvetica';
+      if (originalFontName === 'AB' || originalFontName === 'Helvetica-Bold' || originalFontName === 'ABI' || originalFontName === 'Helvetica-BoldOblique') {
+        hFont = 'Helvetica-Bold';
+      } else if (originalFontName === 'AI' || originalFontName === 'Helvetica-Oblique') {
+        hFont = 'Helvetica-Oblique';
+      }
+      
+      doc.font(hFont);
+      const nextPartEmpty = (parts[i + 1] === '');
+      if (x !== undefined && y !== undefined) {
+        doc.text('°', x, y, { ...options, continued: !nextPartEmpty });
+        x = undefined;
+        y = undefined;
+      } else {
+        doc.text('°', { ...options, continued: !nextPartEmpty });
+      }
+    }
+  }
+}
+
+function drawCell(doc, text, x, y, colWidth, rowH, pyV) {
+  if (!text) return;
+  const normalized = normalizeDegree(text);
+  const originalSize = doc._fontSize || 10;
+  
+  let size = originalSize;
+  while (size >= 5) {
+    doc.fontSize(size);
+    const h = doc.heightOfString(normalized, { width: colWidth });
+    if (h <= rowH + 0.1) {
+      break;
+    }
+    size -= 0.5;
+  }
+  
+  let drawY = pyV;
+  if (size < originalSize) {
+    doc.fontSize(size);
+    const textHeight = doc.heightOfString(normalized, { width: colWidth });
+    drawY = y + (rowH - textHeight) / 2;
+  }
+  
+  doc.fontSize(size);
+  drawTextWithDegree(doc, normalized, x, drawY, { width: colWidth, align: 'center', lineGap: 0 });
+  doc.fontSize(originalSize);
+}
+
 function pd(d) { if (!d) return ''; var p = d.split('-'); return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : d; }
 
 function toUpperKeys(obj) {
@@ -323,7 +434,7 @@ function drawPage1Body(doc, cert, pts, stds, accM) {
   sf(doc, false); doc.fontSize(10); doc.text('14. Điều kiện môi ', LBL_X, Y1.s14 + dy, {lineGap: 0});
   sf(doc, false); doc.text('trường: ', LBL_X, Y1.s14En + dy, {lineGap: 0});
   sf(doc, false); doc.text(VN.temp + '  ', VAL_X, Y1.s14 + dy, {lineGap: 0});
-  sf(doc, false); doc.text(temp, 246.8, Y1.s14 + dy, {lineGap: 0});
+  sf(doc, false); drawTextWithDegree(doc, temp, 246.8, Y1.s14 + dy, {lineGap: 0});
   sf(doc, false); doc.text(VN.humi + '  ', 360.4, Y1.s14 + dy, {lineGap: 0});
   sf(doc, false); doc.text(humi, 452.4, Y1.s14 + dy, {lineGap: 0});
   sf(doc, false, true); doc.text(VN.tempEn + ' ', VAL_X, Y1.s14En + dy, {lineGap: 0});
@@ -419,10 +530,10 @@ function drawSpecTable(doc, pts, proc, refStd, accM) {
       sf(doc, false, true); doc.fontSize(9);
       doc.text(enPart, vnx, y, {lineGap: 0});
       sf(doc, false); doc.fontSize(9);
-      doc.text(valPart, vnx + doc.widthOfString(enPart), y, {lineGap: 0});
+      drawTextWithDegree(doc, valPart, vnx + doc.widthOfString(enPart), y, {lineGap: 0});
     } else {
       sf(doc, false); doc.fontSize(9).fillColor('#000000');
-      doc.text(rl, SPEC_X[1], y, {lineGap: 0});
+      drawTextWithDegree(doc, rl, SPEC_X[1], y, {lineGap: 0});
     }
     sf(doc, false); doc.fontSize(9);
     doc.text('--', SPEC_X[2], y, {lineGap: 0});
@@ -488,12 +599,12 @@ function drawSignature(doc, cert, dy) {
 function drawParamFirstLine(doc, line, x, y, size) {
   sf(doc, false); doc.fontSize(size || 10).fillColor('#000000');
   var m = String(line).match(/\(([MC*])\)\s*$/);
-  if (!m) { doc.text(line, x, y, {lineGap: 0}); return; }
+  if (!m) { drawTextWithDegree(doc, line, x, y, {lineGap: 0}); return; }
   var clean = line.substring(0, line.length - m[0].length);
-  doc.text(clean, x, y, {lineGap: 0});
+  drawTextWithDegree(doc, clean, x, y, {lineGap: 0});
   var w = doc.widthOfString(clean);
   sf(doc, false); doc.fontSize((size || 10) * 0.65);
-  doc.text(m[0], x + w, y - 2.5, {lineGap: 0});
+  drawTextWithDegree(doc, m[0], x + w, y - 2.5, {lineGap: 0});
   doc.fontSize(size || 10);
 }
 
@@ -599,12 +710,12 @@ function drawResultsTable(doc, pts) {
           drawParamFirstLine(doc, paramTxt, 34.2, y + 1.8, 10);
         }
       }
-      if (pointTxt) doc.text(pointTxt, dcols[1], pyV, {width: dR[1] - dcols[1], align: 'center', lineGap: 0});
-      if (foundTxt) doc.text(foundTxt, dcols[2], pyV, {width: dR[2] - dcols[2], align: 'center', lineGap: 0});
-      if (uncTxt) doc.text(uncTxt, dcols[3], pyV, {width: dR[3] - dcols[3], align: 'center', lineGap: 0});
-      if (refTxt) doc.text(refTxt, dcols[4], pyV, {width: dR[4] - dcols[4], align: 'center', lineGap: 0});
-      if (tolTxt) doc.text(tolTxt, dcols[5], pyV, {width: dR[5] - dcols[5], align: 'center', lineGap: 0});
-      if (confTxt) doc.text(confTxt, dcols[6], pyV, {width: dR[6] - dcols[6], align: 'center', lineGap: 0});
+      if (pointTxt) drawCell(doc, pointTxt, dcols[1], y, dR[1] - dcols[1], rowH, pyV);
+      if (foundTxt) drawCell(doc, foundTxt, dcols[2], y, dR[2] - dcols[2], rowH, pyV);
+      if (uncTxt) drawCell(doc, uncTxt, dcols[3], y, dR[3] - dcols[3], rowH, pyV);
+      if (refTxt) drawCell(doc, refTxt, dcols[4], y, dR[4] - dcols[4], rowH, pyV);
+      if (tolTxt) drawCell(doc, tolTxt, dcols[5], y, dR[5] - dcols[5], rowH, pyV);
+      if (confTxt) drawCell(doc, confTxt, dcols[6], y, dR[6] - dcols[6], rowH, pyV);
       y += rowH;
     }
   }

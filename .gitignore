@@ -29,8 +29,8 @@ build/
 # Windows reserved device names
 nul
 
-# Word temporary lock files
-~$*.doc*
+# Office temporary lock files
+~$*
 
 # Reference documents (tài liệu tham khảo — không push lên repo)
 1.1 Auto Crocking Meter.docx

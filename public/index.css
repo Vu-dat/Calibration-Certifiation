@@ -1015,8 +1015,11 @@ textarea {
 /* ═══════════════════════════════════════════════
    A4 PREVIEW
    ═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   A4 PREVIEW (khớp bố cục file PDF xuất thật)
+   ═══════════════════════════════════════════════ */
 .preview-panel {
-  max-width: 860px;
+  max-width: 920px;
   margin: 24px auto;
   padding: 0 16px;
 }
@@ -1031,54 +1034,130 @@ textarea {
   justify-content: space-between;
 }
 
-.a4 {
-  background: var(--surface);
+/* ─── Khổ giấy A4 ─── */
+.cert-page {
+  box-sizing: border-box;
   width: 210mm;
   min-height: 297mm;
   padding: 15mm;
-  margin: 0 auto 24px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  margin: 0 auto 28px;
+  background: #fff;
   color: #000;
-  font-family: Arial, "Segoe UI", sans-serif;
+  font-family: Arial, "Helvetica Neue", "Segoe UI", sans-serif;
   font-size: 10pt;
-  max-width: 100%;
-  overflow-x: auto;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  border: 0.75pt solid #000;
+  display: flex;
+  flex-direction: column;
 }
+.cert-page-2 { page-break-before: always; }
 
-/* A4 Certificate Styles */
-.cert-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 16px; }
-.cert-logo-box { width: 85px; }
-.cert-company-name { font-size: 14pt; font-weight: 800; color: #004d4d; text-transform: uppercase; }
-.cert-company-detail { font-size: 8.5pt; color: #333; line-height: 1.4; }
-.cert-iso { border: 1.5px solid #004d4d; padding: 4px 10px; font-size: 9pt; font-weight: 700; color: #004d4d; }
-.cert-qr-box { display:flex;flex-direction:column;align-items:center; }
-.cert-qr-label { font-size:6.5pt;color:#004d4d;margin-top:2px;font-weight:600; }
-.cert-title-block { text-align: center; margin-bottom: 20px; }
-.cert-title-vi { font-size: 18pt; font-weight: 800; text-transform: uppercase; }
-.cert-title-en { font-size: 11pt; font-style: italic; color: #444; }
-.cert-info-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-.cert-info-table td { border: 1px solid #000; padding: 5px 8px; font-size: 9.5pt; vertical-align: middle; }
-.cert-info-table td.lbl { background: #f2f2f2; font-weight: 700; width: 20%; }
-.cert-info-table td.val { font-weight: 600; }
-.cert-info-table td.no-border { border: none !important; }
-.lbl-en { font-size: 7.5pt; font-style: italic; color: #333; }
-.cert-env { border: 1px solid #000; padding: 7px 10px; margin: 10px 0 16px; font-size: 9pt; }
-.cert-sign { display: grid; grid-template-columns: 1fr 1fr; margin-top: 24px; text-align: center; page-break-inside: avoid; }
-.cert-sign-title { font-size: 10pt; font-weight: 700; }
-.cert-sign-en { font-size: 8pt; font-style: italic; color: #444; }
-.cert-sign-name { margin-top: 60px; font-size: 10.5pt; font-weight: 700; }
-.cert-no-repeat { font-size: 9pt; font-weight: bold; text-align: right; margin-bottom: 8px; }
-.cert-section-title { font-size: 11pt; font-weight: 800; text-transform: uppercase; margin: 16px 0 6px; }
-.cert-results { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-.cert-results th { background: #f2f2f2; border: 1px solid #000; padding: 7px; font-size: 9pt; font-weight: 700; text-align: center; }
-.cert-results td { border: 1px solid #000; padding: 5px 8px; font-size: 9pt; text-align: center; }
+/* ─── Header: logo + ISO trái, công ty giữa, QR phải ─── */
+.cert-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8mm;
+  padding-bottom: 4mm;
+}
+.cert-logo-box { width: 40mm; flex-shrink: 0; }
+.cert-logo-img { width: 37mm; height: auto; display: block; }
+.cert-iso { font-size: 10pt; font-weight: 700; margin-top: 2mm; }
+.cert-company-block { flex: 1; text-align: center; min-width: 0; }
+.cert-company-name { font-size: 16pt; font-weight: 700; line-height: 1.15; }
+.cert-company-addr { font-size: 9pt; margin-top: 1mm; }
+.cert-company-contact { font-size: 9pt; }
+.cert-qr-box { width: 20mm; flex-shrink: 0; text-align: right; }
+.cert-qr-img { width: 17mm; height: 17mm; display: inline-block; }
+
+/* ─── Tiêu đề + dòng Số GCN/Ngày cấp ─── */
+.cert-title-block { text-align: center; margin: 6mm 0 2.5mm; }
+.cert-title-vi { font-size: 14pt; font-weight: 700; color: #008080; }
+.cert-title-en { font-size: 12pt; color: #008080; }
+.cert-num-line { text-align: center; font-size: 8pt; margin-bottom: 4mm; }
+
+/* ─── Bảng thông tin mục 1-6, 11-14 (không viền như PDF) ─── */
+.cert-info-grid { width: 100%; border-collapse: collapse; }
+.cert-info-grid td { padding: 2mm 1.5mm; font-size: 10pt; vertical-align: top; text-align: left; }
+.cert-info-grid td.lbl { width: 19%; }
+.cert-info-grid td.val { width: 41%; }
+.cert-info-grid td.lbl + td.val + td.lbl { width: 22%; }
+.cert-info-grid td.lbl + td.val + td.lbl + td.val { width: 18%; }
+.lbl-en { font-style: italic; font-size: 8.5pt; color: #000; }
+.val-b { font-weight: 700; }
+.val-ital { font-weight: 700; font-style: italic; }
+.env-item { display: inline-block; vertical-align: top; }
+.env-item-2 { margin-left: 28mm; }
+
+/* ─── Bảng mục 7: Đặc trưng kỹ thuật (5 cột, BẢNG THẬT có viền) ─── */
+.cert-spec-table { width: 100%; border-collapse: collapse; margin: 2mm 0 3mm; }
+.cert-spec-table th,
+.cert-spec-table td { border: 1px solid #000; padding: 1.8mm 2mm; font-size: 9pt; font-weight: 400; text-align: left; vertical-align: top; }
+.cert-spec-table th:first-child, .cert-spec-table td:first-child { width: 19%; }
+.cert-spec-table th:nth-child(2), .cert-spec-table td:nth-child(2) { width: 25%; }
+.cert-spec-table th:nth-child(3), .cert-spec-table td:nth-child(3) { width: 13%; }
+.cert-spec-table th:nth-child(4), .cert-spec-table td:nth-child(4) { width: 20%; }
+.cert-spec-table th:nth-child(5), .cert-spec-table td:nth-child(5) { width: 23%; }
+
+/* ─── Mục 15: Chuẩn sử dụng (5 cột, không viền như PDF) ─── */
+.cert-sec15 { margin-top: 3mm; }
+.cert-sec15-title { font-size: 10pt; margin-bottom: 1.5mm; }
+.cert-std-table { width: 100%; border-collapse: collapse; }
+.cert-std-table th,
+.cert-std-table td { text-align: left; font-size: 9pt; font-weight: 400; padding: 1.5mm 1mm; vertical-align: top; }
+.cert-std-table th:first-child, .cert-std-table td:first-child { width: 19%; }
+.cert-std-table th:nth-child(2), .cert-std-table td:nth-child(2) { width: 21%; }
+.cert-std-table th:nth-child(3), .cert-std-table td:nth-child(3) { width: 20%; }
+.cert-std-table th:nth-child(4), .cert-std-table td:nth-child(4) { width: 20%; }
+.cert-std-table th:nth-child(5), .cert-std-table td:nth-child(5) { width: 20%; }
+
+/* ─── Chữ ký 2 cột ─── */
+.cert-sign {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+  margin-top: 10mm;
+  page-break-inside: avoid;
+}
+.cert-sign-title { font-size: 11pt; font-weight: 700; }
+.cert-sign-en { font-size: 9pt; font-style: italic; margin-top: 1mm; }
+.cert-sign-name { margin-top: 38mm; font-size: 11pt; font-weight: 700; }
+
+/* ─── Trang 2: Mục 16 Kết quả (6 cột, BẢNG THẬT có viền) ─── */
+.cert-sec16-title { font-size: 11pt; font-weight: 700; margin: 4mm 0 3mm; }
+.cert-results { width: 100%; border-collapse: collapse; margin-bottom: 4mm; }
+.cert-results th { border: 1px solid #000; padding: 2.2mm 1.5mm; font-size: 10pt; font-weight: 700; text-align: center; vertical-align: middle; }
+.cert-results th i { font-weight: 700; }
+.cert-results td { border: 1px solid #000; padding: 2.2mm 1.5mm; font-size: 10pt; text-align: center; vertical-align: middle; }
 .cert-results td.tdl { text-align: left; font-weight: 600; }
-.cert-notes { border: 1px solid #000; padding: 8px; font-size: 8.5pt; }
-.cert-footer { border-top: 1px solid #444; margin-top: 16px; padding-top: 6px; text-align: center; font-size: 8pt; color: #555; }
+.cert-sup { font-size: 65%; vertical-align: super; }
+
+/* ─── Ghi chú & Mục 17 ─── */
+.cert-notes { font-size: 8pt; margin: 2mm 0; page-break-inside: avoid; }
+.cert-notes p { margin: 0 0 1.5mm 0; }
+.sec17 { font-size: 8pt; margin-top: 2mm; }
+.sec17-title { font-weight: 700; margin-bottom: 2mm; }
+.sec17-item { margin: 0 0 2mm 0; line-height: 1.45; page-break-inside: avoid; }
+
+/* ─── Footer mỗi trang ─── */
+.cert-footer {
+  margin-top: auto;
+  padding-top: 2mm;
+  border-top: 0.75pt solid #000;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 11pt;
+  font-style: italic;
+  color: #000;
+}
+.cert-page-num { font-style: normal; font-size: 11pt; }
+.cert-page-num i { font-style: italic; }
 
 /* ═══════════════════════════════════════════════
    MODAL / OVERLAY
    ═══════════════════════════════════════════════ */
+
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -1912,13 +1991,19 @@ textarea {
    PRINT
    ═══════════════════════════════════════════════ */
 @media print {
-  * { font-family: Arial, "Segoe UI", sans-serif !important; }
+  * { font-family: Arial, "Helvetica Neue", "Segoe UI", sans-serif !important; }
   @page { size: A4 portrait; margin: 15mm; }
-  body { background: #fff !important; color: #000 !important; }
-  .header, .navbar, .btn, .btn-rm, .no-print,
-  .preview-toolbar, .proj-actions-bar,
-  .workspace-header-actions { display: none !important; }
+  html, body { background: #fff !important; }
+  body { color: #000 !important; margin: 0 !important; padding: 0 !important; }
+  .header, .navbar, .hamburger-btn, .mobile-menu, .mobile-backdrop, .btn, .btn-rm, .no-print,
+  .preview-toolbar, .proj-actions-bar, .workspace-header-actions,
+  .modal-overlay, .modal-card, .page-overlay, .toast-container, #toast-container,
+  .dropdown, .dropdown-menu, .dropdown-item { display: none !important; }
   .preview-panel, #print-content { width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
-  .a4 { width: 100% !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; }
-  .page-break { page-break-before: always !important; }
+  .cert-page { width: 100% !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; border: 1px solid #000 !important; }
+  .cert-page-1 { height: 267mm; }
+  .cert-page-2 { page-break-before: always !important; }
+  .cert-page { break-inside: avoid; }
+  .cert-footer { margin-top: auto; }
+  .cert-info-grid tr, .cert-spec-table tr, .cert-results tr, .cert-sign, .cert-notes, .sec17-item { page-break-inside: avoid; }
 }

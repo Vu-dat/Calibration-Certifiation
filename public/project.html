@@ -777,7 +777,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
       </div>
-      <div class="a4" id="print-content"></div>
+      <div id="print-content"></div>
     </div>
   </div>
 </main>
@@ -2467,138 +2467,280 @@ function accreditedMethodsListHtml() {
   ).join('');
 }
 
+function fmtDateSlash(d) { if (!d) return ''; const p = d.split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : d; }
+
+// Param name cho bảng kết quả: xuống dòng theo \n, marker (M)/(C)/(*) cuối dòng 1 -> superscript nhỏ (giống PDF)
+function paramCellHtml(name) {
+  const lines = String(name || '').split('\n');
+  let first = escHtml(lines[0] || '');
+  first = first.replace(/(\([MC*]\))\s*$/, '<sup class="cert-sup">$1</sup>');
+  const rest = lines.slice(1).map(function(l) { return escHtml(l); }).join('<br>');
+  return first + (rest ? '<br>' + rest : '');
+}
+
+// 'Lực tỳ/Downward force: 9 N' -> VN + /EN nghiêng + : value (mirror drawSpecTable trong generate_pdf.js)
+function specRangeHtml(line) {
+  const s = escHtml(line || '');
+  const slash = s.indexOf('/');
+  const colon = s.indexOf(':');
+  if (slash > 0 && colon > slash) {
+    return s.substring(0, slash + 1) + '<i>' + s.substring(slash + 1, colon) + '</i>' + s.substring(colon);
+  }
+  return s;
+}
+
+// Bảng mục 7-9: Đặc trưng kỹ thuật (5 cột, BẢNG THẬT có viền, đúng số cột như PDF)
+function buildSpecTableHtml() {
+  const accM = calibrateMethods || [];
+  let rangeLines = [], procLines = [];
+  if (accM.length) {
+    accM.slice(0, 4).forEach(function(m) {
+      rangeLines.push(m.phamViDo || m.PHAM_VI_DO || '--');
+      procLines.push(m.quyTrinh || m.QUY_TRINH || '--');
+    });
+  } else {
+    const pts = collectCalibrationResults();
+    const seen = {};
+    pts.forEach(function(pp) {
+      const pn = pp.param || '';
+      if (pn && !seen[pn]) {
+        seen[pn] = true;
+        const rng = pp.point || '';
+        if (rng.indexOf('\n') >= 0) {
+          rng.split('\n').forEach(function(sub) { if (sub.trim()) rangeLines.push(sub.trim()); });
+        } else if (rng) rangeLines.push(rng);
+        else rangeLines.push(pn);
+      }
+    });
+    if (!rangeLines.length) rangeLines = ['--'];
+    procLines = txt('f-proc').split(/[\n;]+/).map(function(s) { return s.trim(); }).filter(Boolean);
+  }
+  const refLines = txt('f-ref').split(/[\n;]+/).map(function(s) { return s.trim(); }).filter(Boolean);
+  let rows = Math.max(rangeLines.length, procLines.length, refLines.length);
+  if (accM.length && rows > 7) rows = 7;
+  let h = '<table class="cert-spec-table"><thead><tr>'
+    + '<th>7. Đặc trưng kĩ thuật<br><span class="lbl-en">Spectification</span></th>'
+    + '<th>Phạm vi đo:<br><span class="lbl-en">Range</span></th>'
+    + '<th>Độ phân giải:<br><span class="lbl-en">Resolution</span></th>'
+    + '<th>8. Quy trình thực hiện<br><span class="lbl-en">Procedure</span></th>'
+    + '<th>9. Tiêu chuẩn tham khảo<br><span class="lbl-en">Reference Standard</span></th>'
+    + '</tr></thead><tbody>';
+  for (let r = 0; r < rows; r++) {
+    h += '<tr><td></td>'
+      + '<td>' + specRangeHtml(rangeLines[r] || '') + '</td>'
+      + '<td>--</td>'
+      + '<td>' + escHtml(procLines[r] || '') + '</td>'
+      + '<td>' + escHtml(refLines[r] || '') + '</td></tr>';
+  }
+  return h + '</tbody></table>';
+}
+
+// Bảng mục 16: Kết quả (6 cột như PDF, gộp thông số rowspan, ref/dung sai/kết luận ở dòng giữa)
+function buildResultsTableHtml(allRes) {
+  const groups = [];
+  let cur = null;
+  allRes.forEach(function(r) {
+    if (!cur || cur.name !== r.param) { cur = { name: r.param, rows: [] }; groups.push(cur); }
+    cur.rows.push(r);
+  });
+  let h = '<table class="cert-results"><thead><tr>'
+    + '<th style="width:27%">Thông số<br><i>Parameter</i></th>'
+    + '<th>Giá trị đo được<br><i>As found value</i></th>'
+    + '<th>ĐKĐBĐ<br><i>Uncertainty</i></th>'
+    + '<th>Giá trị tham chiếu<br><i>Reference Value</i></th>'
+    + '<th>Dung sai<br><i>Tolerane</i></th>'
+    + '<th>Kết luận<br><i>Conslution</i></th>'
+    + '</tr></thead><tbody>';
+  if (!groups.length) {
+    h += '<tr><td colspan="6" style="text-align:center;">Chưa có dữ liệu</td></tr>';
+  } else {
+    groups.forEach(function(g) {
+      const n = g.rows.length;
+      const mid = Math.floor(n / 2);
+      g.rows.forEach(function(r, i) {
+        h += '<tr>';
+        if (i === 0) h += '<td class="tdl" rowspan="' + n + '">' + paramCellHtml(g.name) + '</td>';
+        h += '<td>' + escHtml(r.point) + '</td>';
+        h += '<td>' + escHtml(r.found || r.foundAvg || '') + '</td>';
+        h += '<td>' + escHtml(r.unc || '') + '</td>';
+        if (i === mid) {
+          h += '<td>' + escHtml(r.refValue || '') + '</td><td>' + escHtml(r.tol || '') + '</td><td>' + escHtml(r.conf || '') + '</td>';
+        } else {
+          h += '<td></td><td></td><td></td>';
+        }
+        h += '</tr>';
+      });
+    });
+  }
+  return h + '</tbody></table>';
+}
+
+// Header lặp lại trên cả 2 trang (logo + ISO, công ty giữa, QR phải) + tiêu đề + dòng Số GCN/Ngày cấp
+function buildCertHeaderHtml(certNo, calDate) {
+  const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data='
+    + encodeURIComponent(window.location.origin + '/static/GCN_' + (certNo || '').replace(/[^a-zA-Z0-9]/g, '_') + '.pdf');
+  const QR_FALLBACK = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="#fff" stroke="#000" stroke-width="2"/><text x="60" y="66" font-size="13" text-anchor="middle" font-family="Arial">QR</text></svg>'
+  );
+  return `
+    <div class="cert-header">
+      <div class="cert-logo-box">
+        <img src="img/logo_240.png" alt="LabMaster" class="cert-logo-img" onerror="this.style.display='none'">
+        <div class="cert-iso">${escHtml(txt('f-iso'))}</div>
+      </div>
+      <div class="cert-company-block">
+        <div class="cert-company-name">${escHtml(txt('f-co'))}</div>
+        <div class="cert-company-addr">${escHtml(txt('f-co-addr'))}</div>
+        <div class="cert-company-contact">Email: ${escHtml(txt('f-co-email'))} / Phone: ${escHtml(txt('f-co-phone'))}</div>
+      </div>
+      <div class="cert-qr-box">
+        <img src="${qrUrl}" alt="QR" class="cert-qr-img" onerror="this.onerror=null;this.src='${QR_FALLBACK}'">
+      </div>
+    </div>
+    <div class="cert-title-block">
+      <div class="cert-title-vi">GIẤY CHỨNG NHẬN HIỆU CHUẨN – ĐO LƯỜNG</div>
+      <div class="cert-title-en">CERTIFICATE OF CALIBRATION – MEASUREMENT</div>
+    </div>
+    <div class="cert-num-line">Số GCN/Certificate No: ${escHtml(certNo) || '...........'}&nbsp;&nbsp;&nbsp;&nbsp;Ngày cấp/Date of issue: ${calDate || '............'}</div>
+  `;
+}
+
 function buildPrintTemplate() {
   const allStd = collectAllStandards();
   const allRes = collectCalibrationResults();
-  const stdRows = allStd.map(s=>`<tr><td>${s.name}</td><td style="text-align:center">${s.id}</td><td style="text-align:center">${s.trace}</td><td style="text-align:center">${s.due}</td></tr>`).join('');
-  const resRows = allRes.map(r=>`<tr><td class="tdl">${r.param}</td><td>${r.point}</td><td>${r.foundAvg !== '' ? r.foundAvg : (r.found || '')}</td><td>${r.unc}</td><td>${r.refValue || ''}</td><td>${r.tol}</td><td>${r.conf}</td><td style="font-size:9pt;">${r.refEq || ''}</td></tr>`).join('');
+  const certNo = txt('f-certno');
+  const calDate = fmtDateSlash(txt('f-caldate'));
+  const reCal = fmtDateSlash(txt('f-recaldate'));
+  const cust = txt('f-cust');
+  const addr = txt('f-cust-addr');
+  const hasMCMark = allRes.some(function(r) { return /\(([MC])\)/.test(r.param || ''); });
+
+  // Bảng 15: Chuẩn sử dụng — 5 cột, dự phòng 7 dòng trống giống bố cục PDF
+  const stdRows = [];
+  const stdCount = Math.max(allStd.length, 7);
+  for (let i = 0; i < stdCount; i++) {
+    const s = allStd[i] || {};
+    stdRows.push('<tr><td>' + escHtml(s.name || '') + '</td><td>' + escHtml(s.id || '') + '</td><td>-</td><td>' + escHtml(s.trace || '') + '</td><td>' + escHtml(s.due || '') + '</td></tr>');
+  }
 
   document.getElementById('print-content').innerHTML = `
-    <div class="cert-header">
-      <div class="cert-logo-box">
-        <svg viewBox="0 0 100 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="60" rx="6" fill="#0d9488"/>
-          <text x="50%" y="42%" dominant-baseline="middle" text-anchor="middle" fill="white" font-family="Arial" font-size="12" font-weight="bold">LABMASTER</text>
-            <text x="50%" y="72%" dominant-baseline="middle" text-anchor="middle" fill="#e6f2f2" font-family="Arial" font-size="8">ST CO., LTD</text>
-        </svg>
-      </div>
-      <div>
-        <div class="cert-company-name">${txt('f-co')}</div>
-        <div class="cert-company-detail">${txt('f-co-addr')}<br>Email: ${txt('f-co-email')} &nbsp;/&nbsp; Phone: ${txt('f-co-phone')}</div>
-      </div>
-      <div class="cert-iso">${txt('f-iso')}</div>
-    </div>
+    <!-- ══════════ TRANG 1: Mục 1-15 + Chữ ký ══════════ -->
+    <div class="cert-page cert-page-1">
+      ${buildCertHeaderHtml(certNo, calDate)}
 
-    <div class="cert-title-block">
-      <div class="cert-title-vi">Giấy Chứng Nhận Hiệu Chuẩn</div>
-      <div class="cert-title-en">CERTIFICATE OF CALIBRATION</div>
-    </div>
-
-    <table class="cert-info-table">
-      <tr>
-        <td class="lbl">1. Tên thiết bị:<br><span class="lbl-en">Instrument</span></td>
-        <td class="val" colspan="2">${txt('f-inst-vi')}<br><span style="font-weight:normal;font-style:italic;">${txt('f-inst-en')}</span></td>
-        <td class="lbl">8. Số giấy chứng nhận:<br><span class="lbl-en">Certificate No.</span></td>
-        <td class="val">${txt('f-certno')}</td>
-      </tr>
-      <tr>
-        <td class="lbl">2. Nhà sản xuất:<br><span class="lbl-en">Manufacturer</span></td>
-        <td class="val" colspan="2">${txt('f-mfr')}</td>
-        <td class="lbl">9. Ngày hiệu chuẩn:<br><span class="lbl-en">Calibration Date</span></td>
-        <td class="val">${parseDate(txt('f-caldate'))}</td>
-      </tr>
-      <tr>
-        <td class="lbl">3. Kiểu:<br><span class="lbl-en">Model</span></td>
-        <td class="val" colspan="2">${txt('f-model')}</td>
-        <td class="lbl">10. Ngày hiệu chuẩn tiếp theo:<br><span class="lbl-en">Re-calibration Date</span></td>
-        <td class="val">${parseDate(txt('f-recaldate'))}</td>
-      </tr>
-      <tr><td class="lbl">4. ID:</td><td class="val" colspan="2">${txt('f-id')}</td><td class="no-border" colspan="2"></td></tr>
-      <tr><td class="lbl">5. Số sản xuất:<br><span class="lbl-en">SN</span></td><td class="val" colspan="2">${txt('f-sn')}</td><td class="no-border" colspan="2"></td></tr>
-      <tr><td class="lbl">6. Tên khách hàng:<br><span class="lbl-en">Customer</span></td><td class="val" colspan="4">${txt('f-cust')}</td></tr>
-      <tr><td class="lbl">7. Địa chỉ:<br><span class="lbl-en">Address</span></td><td colspan="4" style="font-weight:bold;">${txt('f-cust-addr')}</td></tr>
-    </table>
-
-    <table class="cert-info-table">
-      <tr>
-        <td class="lbl" style="width:23%">11. Quy trình hiệu chuẩn:<br><span class="lbl-en">Calibration Procedure</span></td>
-        <td class="val" style="width:27%">${accreditedMethodsListHtml() || txt('f-proc')}</td>
-        <td class="lbl" style="width:23%">12. Tiêu chuẩn tham chiếu:<br><span class="lbl-en">Reference Standard</span></td>
-        <td class="val" style="width:27%">${txt('f-ref')}</td>
-      </tr>
-    </table>
-
-    <!-- 13. Thiết bị chuẩn sử dụng -->
-    ${allStd.length > 0 ? `
-    <div style="margin-top: 12px; font-family: Arial, sans-serif;">
-      <div style="font-weight:bold; font-size:11pt; text-align:center; margin-bottom:6px;">13. CHUẨN SỬ DỤNG / STANDARDS USED:</div>
-      <table class="cert-info-table" style="margin-top:4px;">
-        <thead><tr style="background:#e6f7f7;">
-          <th style="width:40%; border:1px solid #000; padding:5px; font-size:9pt;">Tên thiết bị chuẩn (Name)</th>
-          <th style="width:20%; border:1px solid #000; padding:5px; font-size:9pt;">Mã số (ID)</th>
-          <th style="width:20%; border:1px solid #000; padding:5px; font-size:9pt;">Liên kết chuẩn (Traceable)</th>
-          <th style="width:20%; border:1px solid #000; padding:5px; font-size:9pt;">Hiệu lực (Due Date)</th>
-        </tr></thead>
-        <tbody>${stdRows}</tbody>
-      </table>
-    </div>
-    ` : ''}
-
-    <table class="cert-info-table">
-      <tr>
-        <td class="lbl" style="width:23%">14. Nơi hiệu chuẩn:<br><span class="lbl-en">Place of Calibration</span></td>
-        <td colspan="3" style="font-weight:bold;">${txt('f-place')}</td>
-      </tr>
-    </table>
-
-    <div class="cert-env">
-      <b>15. Môi trường hiệu chuẩn / Calibration Environment:</b><br>
-      – Nhiệt độ / Temperature: <b>${txt('f-temp')}</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; – Độ ẩm / Humidity: <b>${txt('f-humi')}</b>
-    </div>
-
-    <div class="cert-sign">
-      <div>
-        <div class="cert-sign-title">Người soát xét</div>
-        <div class="cert-sign-en">Reviewed by</div>
-        <div class="cert-sign-name">${txt('f-sign1')}</div>
-      </div>
-      <div>
-        <div class="cert-sign-title">Giám đốc</div>
-        <div class="cert-sign-en">Director</div>
-        <div class="cert-sign-name">${txt('f-sign2')}</div>
-      </div>
-    </div>
-
-    <div class="page-break">
-      <div class="cert-no-repeat">Số giấy chứng nhận / Certificate No.: ${txt('f-certno')}</div>
-      <div class="cert-section-title">16. Kết quả hiệu chuẩn / Calibration Results:</div>
-      <table class="cert-results">
-        <thead><tr>
-          <th style="width:30%">Thông số<br><span style="font-weight:normal;font-style:italic;">Parameters</span></th>
-          <th>Điểm hiệu chuẩn<br><span style="font-weight:normal;font-style:italic;">Calibration Points</span></th>
-          <th>Giá trị đo được<br><span style="font-weight:normal;font-style:italic;">As Found Value</span></th>
-          <th>Độ KĐBĐ (±)<br><span style="font-weight:normal;font-style:italic;">Uncertainty</span></th>
-          <th>Giá trị tham chiếu<br><span style="font-weight:normal;font-style:italic;">Reference Value</span></th>
-          <th>Dung sai<br><span style="font-weight:normal;font-style:italic;">Tolerance</span></th>
-          <th>Sự phù hợp<br><span style="font-weight:normal;font-style:italic;">Conformity</span></th>
-          <th>Thiết bị chuẩn<br><span style="font-weight:normal;font-style:italic;">Ref. Equipment</span></th>
-        </tr></thead>
-        <tbody>${resRows}</tbody>
+      <table class="cert-info-grid">
+        <tr>
+          <td class="lbl">1. Khách hàng:<br><span class="lbl-en">Customer</span></td>
+          <td class="val" colspan="3"><span class="val-b">${escHtml(cust)}</span><br><span class="val-b">${escHtml(addr)}</span></td>
+        </tr>
+        <tr>
+          <td class="lbl">2. Tên thiết bị:<br><span class="lbl-en">Instrument</span></td>
+          <td class="val" colspan="3"><span class="val-b">${escHtml(txt('f-inst-vi'))}</span><br><span class="val-ital">${escHtml(txt('f-inst-en'))}</span></td>
+        </tr>
+        <tr>
+          <td class="lbl">3. Nhà sản xuất:<br><span class="lbl-en">Manufacturer</span></td>
+          <td class="val">${escHtml(txt('f-mfr'))}</td>
+          <td class="lbl">5. Kiểu:<br><span class="lbl-en">Model</span></td>
+          <td class="val">${escHtml(txt('f-model'))}</td>
+        </tr>
+        <tr>
+          <td class="lbl">4. Mã quản lý<br><span class="lbl-en">ID</span></td>
+          <td class="val">${escHtml(txt('f-id'))}</td>
+          <td class="lbl">6. Số sản xuất:<br><span class="lbl-en">Serial No.</span></td>
+          <td class="val">${escHtml(txt('f-sn'))}</td>
+        </tr>
       </table>
 
-      <div class="cert-section-title" style="margin-top:6mm;">17. Thông tin khác / Other information:</div>
+      ${buildSpecTableHtml()}
+
+      <table class="cert-info-grid">
+        <tr>
+          <td class="lbl">11. Nơi thực hiện:<br><span class="lbl-en">Place of<br>Performance</span></td>
+          <td class="val" colspan="3"><span class="val-b">${escHtml(cust)}</span><br><span class="val-b">${escHtml(addr)}</span></td>
+        </tr>
+        <tr>
+          <td class="lbl">12. Ngày thực hiện:<br><span class="lbl-en">Date of performance</span></td>
+          <td class="val">${calDate}</td>
+          <td class="lbl">13. Ngày thực hiện tiếp theo:<br><span class="lbl-en">Date of next performance</span></td>
+          <td class="val">${reCal}</td>
+        </tr>
+        <tr>
+          <td class="lbl">14. Điều kiện môi trường:<br><span class="lbl-en">Environment</span></td>
+          <td class="val" colspan="3">
+            <span class="env-item"><span class="val-b">Nhiệt độ: ${escHtml(txt('f-temp'))}</span><br><i>Temperature</i></span>
+            <span class="env-item env-item-2"><span class="val-b">Độ ẩm: ${escHtml(txt('f-humi'))}</span><br><i>Humidity</i></span>
+          </td>
+        </tr>
+      </table>
+
+      <div class="cert-sec15">
+        <div class="cert-sec15-title">15. Chuẩn sử dụng / <i>Standards Used :</i></div>
+        <table class="cert-std-table">
+          <thead><tr>
+            <th>Tên thiết bị<br><span class="lbl-en">Name of Standard</span></th>
+            <th>Số quản lý<br><span class="lbl-en">ID</span></th>
+            <th>Số chứng nhận<br><span class="lbl-en">Certificate No.</span></th>
+            <th>Liên kết chuẩn<br><span class="lbl-en">Traceable to</span></th>
+            <th>Hiệu lực<br><span class="lbl-en">Due date</span></th>
+          </tr></thead>
+          <tbody>${stdRows.join('')}</tbody>
+        </table>
+      </div>
+
+      <div class="cert-sign">
+        <div class="cert-sign-col">
+          <div class="cert-sign-title">PHỤ TRÁCH PHÒNG HIỆU CHUẨN</div>
+          <div class="cert-sign-en">HEAD OF CALIBRATION LAB.</div>
+          <div class="cert-sign-name">${escHtml(txt('f-sign1'))}</div>
+        </div>
+        <div class="cert-sign-col">
+          <div class="cert-sign-title">GIÁM ĐỐC</div>
+          <div class="cert-sign-en">DIRECTOR</div>
+          <div class="cert-sign-name">${escHtml(txt('f-sign2'))}</div>
+        </div>
+      </div>
+
+      <div class="cert-footer">
+        <span>www.labmaster.vn &nbsp;|&nbsp; Textile – Footwear – Leather - Children product Safety Tester</span>
+        <span class="cert-page-num">Trang/<i>Page</i>: 1/2</span>
+      </div>
+    </div>
+
+    <!-- ══════════ TRANG 2: Mục 16 + Ghi chú + Mục 17 ══════════ -->
+    <div class="cert-page cert-page-2">
+      ${buildCertHeaderHtml(certNo, calDate)}
+
+      <div class="cert-sec16-title">16. Kết quả/ <b><i>Results:</i></b></div>
+      ${buildResultsTableHtml(allRes)}
+
       <div class="cert-notes">
-        <p><b>17.1 Độ không đảm bảo đo / Uncertainty:</b></p>
-        <p>Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy.<br>
-        <span style="font-style:italic;color:#333;">The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.</span></p>
-        <p style="margin-top:2mm;"><b>17.2. Công bố về sự phù hợp / Statements of conformity:</b></p>
-        <p><b>+ A:</b> Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép. <span style="font-style:italic;color:#333;">Within tolerance.</span></p>
-        <p><b>+ B:</b> Kết quả đo nằm ngoài giới hạn cho phép. <span style="font-style:italic;color:#333;">Out of tolerance.</span></p>
-        <p><b>+ C:</b> Kết quả đo có thể nằm ngoài giới hạn. Không có kết luận. <span style="font-style:italic;color:#333;">May be out of tolerance. No conclusion.</span></p>
-        <p><b>+ D:</b> Tiêu chuẩn kỹ thuật không quy định dung sai. <span style="font-style:italic;color:#333;">No tolerance stated.</span></p>
+        <p class="cert-note-title">Ghi chú/ <i>Note:</i></p>
+        <p>*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Đánh giá theo thông số kỹ thuật của nhà sản xuất/ <i>Acceptance limit base on Manufacturer's specifications.</i></p>
+        <p>*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Đánh giá theo yêu cầu kỹ thuật của khách hàng/ <i>Acceptance limit base on Customer request.</i></p>
+      </div>
+
+      <div class="sec17">
+        <p class="sec17-title">17. Thông tin khác/ <i>Other information:</i></p>
+        <p class="sec17-item"><b>17.1 Độ không đảm bảo đo</b> <b><i>/ Uncertainty:</i></b><br>
+          Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy/ <i>The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.</i></p>
+        <p class="sec17-item"><b>17.2. Công bố về sự phù hợp</b> <b><i>/ Statements of conformity:</i></b><br>
+          <b>+ A:</b> Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép của tiêu chuẩn đánh giá. <i>The measurement reported with expanded uncertainty is within tolerance of standards.</i><br>
+          <b>+ B:</b> Kết quả đo khi tính cả độ không đảm bảo đo hoàn toàn nằm ngoài giới hạn cho phép của tiêu chuẩn đánh giá. <i>The measurement reported with expanded uncertainty is out of tolerance of standards.</i><br>
+          <b>+ C:</b> Kết quả đo khi tính cả độ không đảm bảo đo có thể nằm ngoài giới hạn cho phép của tiêu chuẩn. Không có kết luận trong trường hợp này. <i>The measurement reported with expanded uncertainty may be out of tolerance of standards. There is no conclusion for this measurement.</i><br>
+          <b>+ D:</b> Tiêu chuẩn kỹ thuật không quy định dung sai của thông số đo. <i>There is no tolerance stated in technical standard and there is no conclusion for this measurement.</i></p>
+        <p class="sec17-item"><b>17.3 Khác</b> <b><i>/ Other:</i></b><br>
+          Các thông số được đánh dấu (*) là không đạt công nhận ISO/IEC 17025 <i>The characteristics marked with (*) are not accredited to comply with ISO/IEC 17025</i>
+          ${hasMCMark ? '<br>Các thông số đánh dấu (C) là kết quả hiệu chuẩn, các thông số đánh dấu (M) là kết quả đo thử nghiệm <i>The characteristics marked with (C) are results of calibration, (M) are results of measurement</i>' : ''}</p>
+        <p class="sec17-item">Giấy chứng nhận này không được sao chép dưới bất kỳ hình thức nào nếu không có sự đồng ý bằng văn bản của LabMaster./ <i>This form shall not be reproduced, without the expressed written consent of LabMaster.</i></p>
+        <p class="sec17-item">Phương tiện đo này không được để sử dụng định lượng hàng hóa, dịch vụ trong mua bán, thanh toán, đảm bảo an toàn, bảo vệ sức khỏe cộng đồng, bảo vệ môi trường, trong thanh tra, kiểm tra, giám định tư pháp và trong các hoạt động công vụ khác. Phương tiện đo này không được sử dụng trực tiếp để kiểm định phương tiện đo nhóm 2. <i>This instrument do not used for quantifying goods, service in trading, payment, safety assurance, social healthcare, protecting the environment, inspection law and in other public service activities. This instrument shall not be used directly for the verification of group 2 instruments.</i></p>
+        <p class="sec17-item">Chứng chỉ cung cấp khả năng truy xuất nguồn gốc phép đo theo các tiêu chuẩn quốc gia được công nhận hoặc các phòng thí nghiệm tiêu chuẩn quốc gia được công nhận khác./ <i>This certificate provides traceability of measurement to recognised national standards or other national standards laboratories.</i></p>
+      </div>
+
+      <div class="cert-footer">
+        <span>www.labmaster.vn &nbsp;|&nbsp; Textile – Footwear – Leather - Children product Safety Tester</span>
+        <span class="cert-page-num">Trang/<i>Page</i>: 2/2</span>
       </div>
     </div>
-    <div class="cert-footer">www.labmaster.vn &nbsp;|&nbsp; Textile – Footwear – Children Products Safety Tester</div>
   `;
 }
 
