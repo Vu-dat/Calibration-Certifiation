@@ -686,7 +686,32 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       </div>
 
-      
+      <!-- CARD 5: THIẾT BỊ CHUẨN ĐƯỢC CHỌN -->
+      <div class="form-card">
+        <div class="form-card-title"><span>5</span> Thiết bị chuẩn sử dụng</div>
+        <div class="field">
+          <label>Tìm kiếm thiết bị chuẩn để thêm vào chứng nhận</label>
+          <div class="autocomplete-wrapper">
+            <input type="text" id="input-standard-search" oninput="handleStandardSearch(this.value)" placeholder="Gõ mã hoặc tên thiết bị chuẩn..." autocomplete="off">
+            <div id="standard-suggestions" class="autocomplete-suggestions"></div>
+          </div>
+        </div>
+        <div id="selected-standards-wrapper" style="display:none; margin-top:16px;">
+          <table class="data-table" style="font-size:12.5px;">
+            <thead>
+              <tr>
+                <th>Tên thiết bị chuẩn</th>
+                <th>Mã số (ID)</th>
+                <th>Liên kết chuẩn</th>
+                <th>Ngày hết hạn</th>
+                <th style="width:60px">Xóa</th>
+              </tr>
+            </thead>
+            <tbody id="std-form-body"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- CARD 6: MÔI TRƯỜNG -->
       <div class="form-card">
         <div class="form-card-title"><span>6</span> Nơi thực hiện & Môi trường</div>
@@ -2017,8 +2042,8 @@ async function handleStandardSearch(query) {
                 `;
                 
                 div.onclick = function() {
-                    if (typeof addStandardToTable === 'function') {
-                        addStandardToTable(item);
+                    if (typeof addStandardTag === 'function') {
+                        addStandardTag(item);
                     }
                     suggestionsBox.style.display = 'none';
                     document.getElementById('input-standard-search').value = '';
