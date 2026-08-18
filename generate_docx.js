@@ -783,12 +783,6 @@ async function main(opts) {
                     ]),
                 ], 2835, 3),
                 t1Cell([
-                    para([
-                        { text: 'Độ phân giải: ', fontSize: 10 },
-                        { text: 'Resolution', fontSize: 10, italics: true },
-                    ]),
-                ], 1418, 2),
-                t1Cell([
                     para('8. Quy trình thực hiện', { fontSize: 10 }),
                     para('Procedure', { fontSize: 10, italics: true }),
                 ], 2268, 4),
@@ -835,7 +829,6 @@ async function main(opts) {
             }
         });
         
-        const resParas = specs.resolution.split('\n').map(line => para(line, { fontSize: 9 }));
         let procParas;
         if (accMethods && accMethods.length) {
             // Danh sách máy/phép thử được công nhận (STT + tên VN/EN + mã quy trình) thay vì chỉ mã quy trình
@@ -855,7 +848,6 @@ async function main(opts) {
                 t1Cell([], 2132, 2), // spacer
                 t1Cell(rangeLabelsParas, 2126, 1),
                 t1Cell(rangeValuesParas, 709, 2),
-                t1Cell(resParas, 1418, 2),
                 t1Cell(procParas, 2268, 4),
                 t1Cell(refParas, 2551, 4),
             ]
@@ -961,17 +953,19 @@ async function main(opts) {
             ]
         }));
 
-        // Row 12-17: Standards Data Rows (Fixed to 6 slots)
-        for (let idx = 0; idx < 6; idx++) {
-            const std = standards[idx];
+        // Row 12-17: Standards Data Rows (show only rows with data)
+        const stdDataRows = standards.filter(s => s && (s.EQ_NAME || s.EQ_CODE));
+        const stdRowCount = Math.max(stdDataRows.length, 1);
+        for (let idx = 0; idx < stdRowCount; idx++) {
+            const std = stdDataRows[idx];
             t1Rows.push(new TableRow({
-                height: idx === 5 ? { value: 101, rule: HeightRule.EXACT } : undefined,
+                height: idx === stdRowCount - 1 ? { value: 101, rule: HeightRule.EXACT } : undefined,
                 children: [
-                    t1Cell(std ? para(std.EQ_NAME || '–', { fontSize: 10 }) : [], 2132, 2),
-                    t1Cell(std ? para(std.EQ_CODE || '–', { fontSize: 10 }) : [], 2349, 2),
-                    t1Cell(std ? para('–', { fontSize: 10 }) : [], 2241, 5), // Certificate No (leave as -)
-                    t1Cell(std ? para(std.LINK || '–', { fontSize: 10 }) : [], 2241, 3), // Traceable to
-                    t1Cell(std ? para(std.VALIDITY || '–', { fontSize: 10 }) : [], 2241, 3), // Due date
+                    t1Cell(std ? para(std.EQ_NAME || '', { fontSize: 10 }) : [], 2132, 2),
+                    t1Cell(std ? para(std.EQ_CODE || '', { fontSize: 10 }) : [], 2349, 2),
+                    t1Cell(std ? para(std.STD_CERT_NO || '', { fontSize: 10 }) : [], 2241, 5), // Certificate No
+                    t1Cell(std ? para(std.LINK || '', { fontSize: 10 }) : [], 2241, 3), // Traceable to
+                    t1Cell(std ? para(std.VALIDITY || '', { fontSize: 10 }) : [], 2241, 3), // Due date
                 ]
             }));
         }

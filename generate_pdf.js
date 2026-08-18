@@ -468,10 +468,10 @@ function splitLines(doc, text, width, size) {
 }
 
 function drawSpecTable(doc, pts, proc, refStd, accM) {
-  var SPEC_X = [27.0, 133.6, 275.3, 346.3, 459.7];
-  var H1 = [VN.sec7, VN.sec7Range, VN.sec7Res, VN.sec8, VN.sec9];
-  var H2 = [VN.sec7En, VN.sec7RangeEn, VN.sec7ResEn, VN.sec8En, VN.sec9En];
-  var sizes = [10, 9, 9, 10, 10];
+  var SPEC_X = [27.0, 133.6, 290.0, 410.0];
+  var H1 = [VN.sec7, VN.sec7Range, VN.sec8, VN.sec9];
+  var H2 = [VN.sec7En, VN.sec7RangeEn, VN.sec8En, VN.sec9En];
+  var sizes = [10, 9, 10, 10];
   for (var i = 0; i < H1.length; i++) {
     sf(doc, false); doc.fontSize(sizes[i]).fillColor('#000000');
     doc.text(H1[i], SPEC_X[i], Y1.spec, {lineGap: 0});
@@ -535,12 +535,10 @@ function drawSpecTable(doc, pts, proc, refStd, accM) {
       sf(doc, false); doc.fontSize(9).fillColor('#000000');
       drawTextWithDegree(doc, rl, SPEC_X[1], y, {lineGap: 0});
     }
-    sf(doc, false); doc.fontSize(9);
-    doc.text('--', SPEC_X[2], y, {lineGap: 0});
     sf(doc, false); doc.fontSize(procSize);
-    doc.text(procLines[r] || '', SPEC_X[3], y, {lineGap: 0});
+    doc.text(procLines[r] || '', SPEC_X[2], y, {lineGap: 0});
     sf(doc, false); doc.fontSize(10);
-    doc.text(refLines[r] || '', SPEC_X[4], y, {lineGap: 0});
+    doc.text(refLines[r] || '', SPEC_X[3], y, {lineGap: 0});
     y += Y1.specRowSp;
   }
   return y; // cạnh dưới của bảng (dùng để tính dy ở drawPage1Body)
@@ -565,7 +563,7 @@ function drawStandardsTable(doc, stds, dy) {
   if (stds && stds.length) {
     for (var si = 0; si < stds.length; si++) {
       var s = stds[si];
-      var vs = [s.EQ_NAME || '-', s.EQ_CODE || '-', '-', s.LINK || '-', s.VALIDITY || '-'];
+      var vs = [s.EQ_NAME || '', s.EQ_CODE || '', s.STD_CERT_NO || '', s.LINK || '', s.VALIDITY || ''];
       sf(doc, false); doc.fontSize(10).fillColor('#000000');
       for (var ci = 0; ci < 5; ci++) doc.text(vs[ci], STD_X[ci], y, {lineGap: 0});
       y += Y1.stdRowSp;

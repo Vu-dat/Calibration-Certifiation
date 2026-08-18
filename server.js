@@ -192,6 +192,7 @@ async function initDatabaseSchema() {
             CERT_NO TEXT,
             EQ_CODE TEXT,
             EQ_NAME TEXT,
+            STD_CERT_NO TEXT,
             LINK TEXT,
             VALIDITY TEXT
         )`;
@@ -237,7 +238,12 @@ async function initDatabaseSchema() {
         )`;
 
         console.log("✅ Hệ thống bảng Supabase khởi tạo/đồng bộ cấu trúc thành công.");
-        
+
+        // Thêm cột STD_CERT_NO nếu chưa có (dành cho DB cũ)
+        try {
+            await sql`ALTER TABLE CERTIFICATE_STANDARDS ADD COLUMN IF NOT EXISTS STD_CERT_NO TEXT`;
+        } catch(e) { /* ignore if column already exists */ }
+
         // Thực hiện nạp dữ liệu mặc định ban đầu
         await seedDefaultClockData();
         await migrateOrphanCalibrationPoints();
@@ -1269,8 +1275,8 @@ async function saveCalibrationDataToDBHelper(data, cert_no) {
     if (stds.length > 0) {
         for (const s of stds) {
             await sql`
-                INSERT INTO CERTIFICATE_STANDARDS (CERT_NO, EQ_CODE, EQ_NAME, LINK, VALIDITY)
-                VALUES (${cert_no}, ${s.id || s.code || ''}, ${s.name || ''}, ${s.trace || s.link || ''}, ${s.due || s.validity || ''})
+                INSERT INTO CERTIFICATE_STANDARDS (CERT_NO, EQ_CODE, EQ_NAME, STD_CERT_NO, LINK, VALIDITY)
+                VALUES (${cert_no}, ${s.id || s.code || ''}, ${s.name || ''}, ${s.certNo || ''}, ${s.trace || s.link || ''}, ${s.due || s.validity || ''})
             `;
         }
     }
