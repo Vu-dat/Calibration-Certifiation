@@ -38,6 +38,14 @@ function parseDate(d) {
     return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : d;
 }
 
+function cleanParamName(name) {
+    if (!name) return '';
+    return String(name)
+        .replace(/\(x\)/gi, '')
+        .replace(/\(X\)/gi, '')
+        .trim();
+}
+
 const primaryColor = '007a78';
 const lightBg = 'e6f7f7';
 const borderColor = 'b8b5ae';
@@ -167,8 +175,8 @@ async function main(opts) {
         ws.getRow(r).height = 24;
         r++;
 
-        // Results header (7 columns: A through G)
-        var resH = ['Thông số', 'Điểm HC', 'Giá trị đo được', 'KĐBĐ ±', 'Dung sai', 'Phù hợp', 'TB chuẩn'];
+        // Results header (7 columns: A through G, merging F & G for Phù hợp)
+        var resH = ['Thông số', 'Điểm HC', 'Giá trị đo được', 'KĐBĐ ±', 'Dung sai', 'Phù hợp'];
         ws.getRow(r).height = 28;
         var resColLetters = ['A','B','C','D','E','F','G'];
         resH.forEach(function(h, i) {
@@ -179,6 +187,8 @@ async function main(opts) {
             cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
             cell.border = defaultBorder();
         });
+        ws.mergeCells('F' + r + ':G' + r);
+        ws.getCell('G' + r).border = defaultBorder();
         r++;
 
         if (points.length === 0) {
@@ -206,15 +216,14 @@ async function main(opts) {
                     var p = group.rows[ri];
                     ws.getRow(r).height = 22;
 
-                    var paramName = ri === 0 ? group.paramName : '';
+                    var paramName = ri === 0 ? cleanParamName(group.paramName) : '';
                     var calPt = String(p.CAL_POINT || p.cal_point || '–');
                     var asFound = String(p.AS_FOUND_VALUE || p.as_found_value || '–');
                     var unc = String(p.UNCERTAINTY || p.uncertainty || '–');
                     var tol = String(p.TOLERANCE || p.tolerance || '–');
                     var conf = String(p.CONFORMITY || p.conformity || '–');
-                    var refEq = String(p.REF_EQUIPMENT || p.ref_equipment || '–');
 
-                    var vals = [paramName, calPt, asFound, unc, tol, conf, refEq];
+                    var vals = [paramName, calPt, asFound, unc, tol, conf];
                     for (var vi = 0; vi < vals.length; vi++) {
                         var cell = ws.getCell(resColLetters[vi] + r);
                         cell.value = vals[vi];
@@ -222,6 +231,8 @@ async function main(opts) {
                         cell.alignment = { horizontal: vi === 0 ? 'left' : 'center', vertical: 'middle', wrapText: true };
                         cell.border = defaultBorder();
                     }
+                    ws.mergeCells('F' + r + ':G' + r);
+                    ws.getCell('G' + r).border = defaultBorder();
                     r++;
                 }
             }

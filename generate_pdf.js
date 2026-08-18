@@ -608,6 +608,14 @@ function drawParamFirstLine(doc, line, x, y, size) {
   doc.fontSize(size || 10);
 }
 
+function cleanParamName(name) {
+  if (!name) return '';
+  return String(name)
+    .replace(/\(x\)/gi, '')
+    .replace(/\(X\)/gi, '')
+    .trim();
+}
+
 function drawResultsTable(doc, pts) {
   // Title
   sf(doc, true); doc.fontSize(11).fillColor('#000000');
@@ -679,7 +687,7 @@ function drawResultsTable(doc, pts) {
       }
       doc.moveTo(dR[6], y).lineTo(dR[6], y + rowH).stroke();
       // Cell values
-      var paramTxt = isFirst ? grp.name : '';
+      var paramTxt = isFirst ? cleanParamName(grp.name) : '';
       var pointTxt = String(r.CAL_POINT || '');
       if (pointTxt.indexOf('\n') >= 0) pointTxt = 'BEGIN';
       var foundTxt = String(r.AS_FOUND_VALUE || '');

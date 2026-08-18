@@ -208,9 +208,17 @@ function getSpecsForInstrument(instName) {
     };
 }
 
+function cleanParamName(name) {
+    if (!name) return '';
+    return String(name)
+        .replace(/\(x\)/gi, '')
+        .replace(/\(X\)/gi, '')
+        .trim();
+}
+
 // ─── English translation matcher for Table 2 parameter names ───────────
 function formatParamName(paramName) {
-    const name = (paramName || '').trim();
+    const name = cleanParamName(paramName);
     const lower = name.toLowerCase();
     
     if (lower.includes('lực tỳ') || lower.includes('downward force')) {

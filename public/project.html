@@ -1774,44 +1774,81 @@ function fillCalibrationTableFromCalibrateMethod(rec) {
 
   const rangeLines = String(rec.PHAM_VI_DO || '').split('\n').map(s => s.trim()).filter(Boolean);
   const cmcLines = String(rec.CMC || '').split('\n').map(s => s.trim()).filter(Boolean);
-  const n = Math.max(rangeLines.length, cmcLines.length, 1);
-  const paramName = [rec.TEN_VN, rec.TEN_EN].filter(Boolean).join('\n');
-
+  
   // Xoá dòng trạng thái trống (empty-state) nếu có
   const emptyRow = tbody.querySelector('.cal-empty-state');
   if (emptyRow) emptyRow.remove();
 
-  const parts = paramName.split('\n');
-  const displayName = escHtml(parts[0]) + (parts[1] ? '<br><span style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:12px;">' + escHtml(parts[1]) + '</span>' : '');
+  const methodParamName = cleanParamName([rec.TEN_VN, rec.TEN_EN].filter(Boolean).join('\n'));
+  const hasDigits = (str) => /\d/.test(str);
+  
+  // Kiểm tra xem đây là danh sách thông số con hay dải đo thông thường
+  const isSubParams = rangeLines.length > 0 && rangeLines.every(line => !hasDigits(line));
 
-  for (let i = 0; i < n; i++) {
-    const row = document.createElement('tr');
-    row.dataset.parameterName = paramName;
-    row.dataset.calibrateStt = String(rec.STT);
-    // Lưu giá trị tự điền gốc để khi gỡ máy không xoá nhầm hàng đã được chỉnh sửa
-    row.dataset.origPoint = rangeLines[i] || '';
-    row.dataset.origUnc = cmcLines[i] || '';
-    let html = '';
-    if (i === 0) {
-      html += '<td rowspan="' + n + '" class="group-header" style="vertical-align:middle;">' +
-        '<div class="param-display">' + displayName + '</div>' +
-        '<input type="hidden" class="group-param-name" value="' + escHtml(paramName) + '">' +
+  if (isSubParams) {
+    // Mỗi thông số con là một hàng độc lập (rowspan = 1)
+    for (let i = 0; i < rangeLines.length; i++) {
+      const paramName = rangeLines[i];
+      const unc = cmcLines[i] || '';
+      
+      const row = document.createElement('tr');
+      row.dataset.parameterName = paramName;
+      row.dataset.calibrateStt = String(rec.STT);
+      row.dataset.origPoint = '';
+      row.dataset.origUnc = unc;
+
+      let html = '';
+      // Cột 1: Tên thông số đo con (có thể sửa)
+      html += '<td class="group-header" style="vertical-align:middle;">' +
+        '<textarea class="lab-input-cell group-param-name" style="font-weight:700;font-size:12.5px;width:100%;min-height:36px;resize:vertical;padding:4px;border:1px solid transparent;background:transparent;" onfocus="this.style.borderColor=\'var(--border)\';" onblur="this.style.borderColor=\'transparent\';" oninput="syncGroupParamName(this.closest(\'tr\'), this.value)">' + escHtml(paramName) + '</textarea>' +
       '</td>';
+
+      html += '<td><input type="text" class="lab-input-cell cal-point" value="" style="font-weight:700;"></td>' +
+        '<td><input type="text" class="lab-input-cell measured-active as-found-1" placeholder="Lần 1" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell as-found-2" placeholder="Lần 2" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell as-found-3" placeholder="Lần 3" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell uncertainty" value="' + escHtml(unc) + '" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell ref-value" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell tolerance" style="font-weight:500;" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell conformity" style="font-weight:700;color:var(--accent);"></td>';
+      
+      html += '<td class="ref-eq-col">' + (typeof renderRefEqControl === 'function' ? renderRefEqControl(paramName, '') : '') + '</td>';
+      html += '<td style="text-align:center;"><button onclick="deleteCalRow(this);" class="btn-rm">×</button></td>';
+      
+      row.innerHTML = html;
+      tbody.appendChild(row);
     }
-    html += '<td><input type="text" class="lab-input-cell cal-point" value="' + escHtml(rangeLines[i] || '') + '" style="font-weight:700;"></td>' +
-      '<td><input type="text" class="lab-input-cell measured-active as-found-1" placeholder="Lần 1" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
-      '<td><input type="text" class="lab-input-cell as-found-2" placeholder="Lần 2" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
-      '<td><input type="text" class="lab-input-cell as-found-3" placeholder="Lần 3" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
-      '<td><input type="text" class="lab-input-cell uncertainty" value="' + escHtml(cmcLines[i] || '') + '" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
-      '<td><input type="text" class="lab-input-cell ref-value" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
-      '<td><input type="text" class="lab-input-cell tolerance" style="font-weight:500;" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
-      '<td><input type="text" class="lab-input-cell conformity" style="font-weight:700;color:var(--accent);"></td>';
-    if (i === 0) {
-      html += '<td rowspan="' + n + '" class="ref-eq-col">' + (typeof renderRefEqControl === 'function' ? renderRefEqControl(paramName, '') : '') + '</td>';
+  } else {
+    // Nhóm gộp theo phương pháp hiệu chuẩn (bản gốc)
+    const n = Math.max(rangeLines.length, cmcLines.length, 1);
+    for (let i = 0; i < n; i++) {
+      const row = document.createElement('tr');
+      row.dataset.parameterName = methodParamName;
+      row.dataset.calibrateStt = String(rec.STT);
+      row.dataset.origPoint = rangeLines[i] || '';
+      row.dataset.origUnc = cmcLines[i] || '';
+      
+      let html = '';
+      if (i === 0) {
+        html += '<td rowspan="' + n + '" class="group-header" style="vertical-align:middle;">' +
+          '<textarea class="lab-input-cell group-param-name" style="font-weight:700;font-size:12.5px;width:100%;min-height:48px;resize:vertical;padding:4px;border:1px solid transparent;background:transparent;" onfocus="this.style.borderColor=\'var(--border)\';" onblur="this.style.borderColor=\'transparent\';" oninput="syncGroupParamName(this.closest(\'tr\'), this.value)">' + escHtml(methodParamName) + '</textarea>' +
+        '</td>';
+      }
+      html += '<td><input type="text" class="lab-input-cell cal-point" value="' + escHtml(rangeLines[i] || '') + '" style="font-weight:700;"></td>' +
+        '<td><input type="text" class="lab-input-cell measured-active as-found-1" placeholder="Lần 1" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell as-found-2" placeholder="Lần 2" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell as-found-3" placeholder="Lần 3" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell uncertainty" value="' + escHtml(cmcLines[i] || '') + '" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell ref-value" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell tolerance" style="font-weight:500;" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell conformity" style="font-weight:700;color:var(--accent);"></td>';
+      if (i === 0) {
+        html += '<td rowspan="' + n + '" class="ref-eq-col">' + (typeof renderRefEqControl === 'function' ? renderRefEqControl(methodParamName, '') : '') + '</td>';
+      }
+      html += '<td style="text-align:center;"><button onclick="deleteCalRow(this);" class="btn-rm">×</button></td>';
+      row.innerHTML = html;
+      tbody.appendChild(row);
     }
-    html += '<td style="text-align:center;"><button onclick="deleteCalRow(this);" class="btn-rm">×</button></td>';
-    row.innerHTML = html;
-    tbody.appendChild(row);
   }
   updateRowCount();
 }
@@ -2091,9 +2128,8 @@ function selectEquipmentTemplate(key) {
     row.dataset.parameterName = pt.paramName.replace('\n', ' ');
     let html = '';
     if (pt.rowspan > 0) {
-      const parts = pt.paramName.split('\n');
-      html += `<td rowspan="${pt.rowspan}" class="group-header">${parts[0]}${parts[1]?`<br><span style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:12px;">${parts[1]}</span>`:''}
-        <input type="hidden" class="group-param-name" value="${pt.paramName}">
+      html += `<td rowspan="${pt.rowspan}" class="group-header" style="vertical-align:middle;">
+        <textarea class="lab-input-cell group-param-name" style="font-weight:700;font-size:12.5px;width:100%;min-height:48px;resize:vertical;padding:4px;border:1px solid transparent;background:transparent;" onfocus="this.style.borderColor='var(--border)';" onblur="this.style.borderColor='transparent';" oninput="syncGroupParamName(this.closest('tr'), this.value)">${escHtml(pt.paramName)}</textarea>
       </td>`;
     }
     html += `
@@ -2132,15 +2168,19 @@ function captureTableData() {
   const rows = document.querySelectorAll('#calibration-table-body tr:not(.cal-empty-state)');
   const data = [];
   rows.forEach(function(row) {
-    var paramName = row.dataset.parameterName || '';
-    if (!paramName) {
-      var hidden = row.querySelector('.group-param-name');
-      if (hidden) paramName = hidden.value;
+    let paramName = '';
+    let groupRow = row;
+    while (groupRow && !groupRow.querySelector('.group-param-name')) {
+      groupRow = groupRow.previousElementSibling;
+    }
+    if (groupRow) {
+      const pInput = groupRow.querySelector('.group-param-name');
+      if (pInput) paramName = pInput.value;
     }
     if (!paramName) {
-      var pInput = row.querySelector('.param-input');
-      if (pInput) paramName = pInput.value;
-    }      data.push({
+      paramName = row.dataset.parameterName || '';
+    }
+    data.push({
       paramName: paramName,
       calibrateStt: row.dataset.calibrateStt || '',
       calPoint: (row.querySelector('.cal-point') || {}).value || '',
@@ -2179,6 +2219,15 @@ function escHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
 
+// Clean parameter name for results table by stripping ISO marks "(x)"
+function cleanParamName(name) {
+  if (!name) return '';
+  return String(name)
+    .replace(/\(x\)/gi, '')
+    .replace(/\(X\)/gi, '')
+    .trim();
+}
+
 // Re-render entire tbody with proper rowspan grouping
 function renderTableFromData(data) {
   var tbody = document.getElementById('calibration-table-body');
@@ -2211,14 +2260,8 @@ function renderTableFromData(data) {
 
       var html = '';
       if (k === i) {
-        var parts = paramName.split('\n');
-        var displayName = parts[0] + (parts[1] ? '<br><span style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:12px;">' + escHtml(parts[1]) + '</span>' : '');
         html += '<td rowspan="' + groupSize + '" class="group-header" style="vertical-align:middle;">' +
-          '<input type="text" class="lab-input-cell param-input group-name-input" value="' + escHtml(paramName) + '"' +
-          ' placeholder="Thông số"' +
-          ' oninput="syncGroupParamName(this.closest(\'tr\'), this.value)"' +
-          ' style="font-weight:700;font-size:13px;background:transparent;border:none;width:100%;text-align:left;padding:2px 4px;outline:none;">' +
-          '<input type="hidden" class="group-param-name" value="' + escHtml(paramName) + '">' +
+          '<textarea class="lab-input-cell group-param-name" style="font-weight:700;font-size:12.5px;width:100%;min-height:48px;resize:vertical;padding:4px;border:1px solid transparent;background:transparent;" onfocus="this.style.borderColor=\'var(--border)\';" onblur="this.style.borderColor=\'transparent\';" oninput="syncGroupParamName(this.closest(\'tr\'), this.value)">' + escHtml(paramName) + '</textarea>' +
         '</td>';
       }
 
@@ -2421,22 +2464,18 @@ function collectCalibrationResults() {
     const calPoint = row.querySelector('.cal-point');
     if (!calPoint) return;
 
-        let paramName = row.dataset.parameterName || '';
-        if (!paramName) {
-          const pInput = row.querySelector('td:first-child input:not(.cal-point)');
-          if (pInput) paramName = pInput.value;
-        }
-
+    let paramName = '';
+    // Find the textarea in the current row or the group head row
+    let groupRow = row;
+    while (groupRow && !groupRow.querySelector('.group-param-name')) {
+      groupRow = groupRow.previousElementSibling;
+    }
+    if (groupRow) {
+      const pInput = groupRow.querySelector('.group-param-name');
+      if (pInput) paramName = pInput.value;
+    }
     if (!paramName) {
-      let prev = row.previousElementSibling;
-      while(prev) {
-            const prevParam = prev.dataset.parameterName || (prev.querySelector('td:first-child input:not(.cal-point)') ? prev.querySelector('td:first-child input:not(.cal-point)').value : '');
-            if (prevParam && prev.querySelector('td[rowspan]')) {
-              paramName = prevParam;
-              break;
-            }
-        prev = prev.previousElementSibling;
-      }
+      paramName = row.dataset.parameterName || '';
     }
     const v1 = (row.querySelector('.as-found-1')||{}).value || '';
     const v2 = (row.querySelector('.as-found-2')||{}).value || '';
@@ -2565,16 +2604,18 @@ function buildResultsTableHtml(allRes) {
   const groups = [];
   let cur = null;
   allRes.forEach(function(r) {
-    if (!cur || cur.name !== r.param) { cur = { name: r.param, rows: [] }; groups.push(cur); }
+    const cleanedName = cleanParamName(r.param);
+    if (!cur || cur.name !== cleanedName) { cur = { name: cleanedName, rows: [] }; groups.push(cur); }
     cur.rows.push(r);
   });
   let h = '<table class="cert-results"><thead><tr>'
     + '<th style="width:27%">Thông số<br><i>Parameter</i></th>'
+    + '<th>Điểm HC<br><i>Cal. Point</i></th>'
     + '<th>Giá trị đo được<br><i>As found value</i></th>'
     + '<th>ĐKĐBĐ<br><i>Uncertainty</i></th>'
     + '<th>Giá trị tham chiếu<br><i>Reference Value</i></th>'
-    + '<th>Dung sai<br><i>Tolerane</i></th>'
-    + '<th>Kết luận<br><i>Conslution</i></th>'
+    + '<th>Dung sai<br><i>Tolerance</i></th>'
+    + '<th>Kết luận<br><i>Conclusion</i></th>'
     + '</tr></thead><tbody>';
   if (!groups.length) {
     h += '<tr><td colspan="6" style="text-align:center;">Chưa có dữ liệu</td></tr>';
