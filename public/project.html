@@ -388,6 +388,175 @@
       font-size: 12.5px; color: #b45309; background: #fffbeb;
       border: 1px dashed #f59e0b; border-radius: 8px; padding: 8px 12px; margin-top: 10px;
     }
+
+    /* ─── PREMIUM CARD & INPUT DESIGN SYSTEM OVERRIDES ─── */
+    .form-card {
+      background: #ffffff !important;
+      border: 1px solid rgba(15, 23, 42, 0.08) !important;
+      border-radius: 16px !important;
+      padding: 24px !important;
+      margin-bottom: 24px !important;
+      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.02), 0 2px 6px rgba(15, 23, 42, 0.01) !important;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    
+    .form-card:hover {
+      box-shadow: 0 10px 30px rgba(0, 77, 77, 0.04), 0 4px 12px rgba(0, 77, 77, 0.02) !important;
+      border-color: rgba(0, 77, 77, 0.15) !important;
+      transform: translateY(-2px);
+    }
+    
+    .form-card-title {
+      font-size: 16px !important;
+      font-weight: 800 !important;
+      color: #0f172a !important;
+      border-bottom: 2px solid #f1f5f9 !important;
+      padding-bottom: 14px !important;
+      margin-bottom: 20px !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      letter-spacing: -0.3px !important;
+    }
+    
+    .form-card-title span {
+      background: linear-gradient(135deg, var(--primary) 0%, #0d9488 100%) !important;
+      color: #ffffff !important;
+      width: 26px !important;
+      height: 26px !important;
+      border-radius: 8px !important;
+      font-size: 13px !important;
+      font-weight: 800 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      box-shadow: 0 3px 8px rgba(0, 77, 77, 0.2) !important;
+    }
+    
+    .field {
+      margin-bottom: 18px !important;
+    }
+    
+    .field label {
+      font-size: 12.5px !important;
+      font-weight: 600 !important;
+      color: #475569 !important;
+      margin-bottom: 8px !important;
+      display: block !important;
+      letter-spacing: -0.1px !important;
+    }
+    
+    .field input[type="text"], 
+    .field input:not([type]), 
+    .field select, 
+    .field textarea,
+    #cust-search-detail {
+      width: 100% !important;
+      padding: 12px 16px !important;
+      border: 1.5px solid #cbd5e1 !important;
+      border-radius: 10px !important;
+      font-size: 14px !important;
+      background: #f8fafc !important;
+      color: #1e293b !important;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    
+    .field input[type="text"]:focus, 
+    .field input:not([type]):focus, 
+    .field select:focus, 
+    .field textarea:focus,
+    #cust-search-detail:focus {
+      border-color: var(--primary) !important;
+      box-shadow: 0 0 0 4px rgba(0, 77, 77, 0.12) !important;
+      background: #ffffff !important;
+      outline: none !important;
+      transform: translateY(-1px);
+    }
+    
+    .field input:hover:not(:focus), 
+    .field select:hover:not(:focus), 
+    .field textarea:hover:not(:focus),
+    #cust-search-detail:hover:not(:focus) {
+      border-color: #94a3b8 !important;
+      background: #f1f5f9 !important;
+    }
+    
+    .field input[readonly], 
+    .field select[readonly], 
+    .field textarea[readonly] {
+      background: #f1f5f9 !important;
+      color: #64748b !important;
+      border-style: dashed !important;
+      cursor: not-allowed !important;
+    }
+    
+    /* ─── Lab Input Table Cell overrides ─── */
+    .lab-input-cell {
+      padding: 10px 12px !important;
+      border: 1.5px solid #e2e8f0 !important;
+      border-radius: 8px !important;
+      background: #ffffff !important;
+      font-size: 13.5px !important;
+      color: #1e293b !important;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    
+    .lab-input-cell:focus {
+      border-color: var(--primary) !important;
+      box-shadow: 0 0 0 3px rgba(0, 77, 77, 0.08) !important;
+      outline: none !important;
+      background: #ffffff !important;
+    }
+    
+    .lab-input-cell:hover:not(:focus) {
+      border-color: #cbd5e1 !important;
+      background: #f8fafc !important;
+    }
+    
+    /* Row style upgrades */
+    #calibration-table-body tr {
+      transition: background-color 0.2s ease;
+    }
+    #calibration-table-body tr:hover {
+      background-color: #f8fafc !important;
+    }
+    
+    /* Action button styling */
+    .btn {
+      border-radius: 10px !important;
+      padding: 10px 20px !important;
+      font-weight: 700 !important;
+      font-size: 13.5px !important;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+    }
+    .btn-sm {
+      padding: 6px 14px !important;
+      font-size: 12px !important;
+      border-radius: 8px !important;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, #0d9488 100%) !important;
+      border: none !important;
+      box-shadow: 0 4px 14px rgba(0, 77, 77, 0.25) !important;
+      color: #fff !important;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px) !important;
+      box-shadow: 0 8px 24px rgba(0, 77, 77, 0.35) !important;
+    }
+    .btn-secondary {
+      background: #f1f5f9 !important;
+      color: #475569 !important;
+      border: 1.5px solid #e2e8f0 !important;
+    }
+    .btn-secondary:hover {
+      background: #e2e8f0 !important;
+      color: #1e293b !important;
+      transform: translateY(-1px) !important;
+    }
     </style>
 </head>
 <body>
@@ -612,15 +781,25 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
 
       <!-- CARD 1: THÔNG TIN TỔ CHỨC -->
-      <div class="form-card">
-        <div class="form-card-title"><span>1</span> Thông tin tổ chức hiệu chuẩn</div>
-        <div class="field"><label>Tên đơn vị (EN)</label><input id="f-co" value="Labmaster Company"></div>
-        <div class="field"><label>Địa chỉ đơn vị</label><input id="f-co-addr" value="17 street 179, Tang Nhon Phu ward, Ho Chi Minh city"></div>
-        <div class="field-row">
-          <div class="field"><label>Email</label><input id="f-co-email" value="sale@labmaster.vn"></div>
-          <div class="field"><label>Hotline</label><input id="f-co-phone" value="(+84) 938 088 239"></div>
+      <div class="form-card" id="card-organization">
+        <div class="form-card-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: 2px solid #f1f5f9; padding-bottom: 14px; margin-bottom: 0;" onclick="toggleCard('card-org-content', this)">
+          <div class="form-card-title" style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">
+            <span>1</span> Thông tin tổ chức hiệu chuẩn
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-org" style="margin: 0; padding: 6px 12px; font-size: 12px; font-weight: 700; border-radius: 8px; border: 1.5px solid #cbd5e1; background: #fff; color: #475569; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <span id="btn-toggle-org-text">Xem chi tiết</span>
+          </button>
         </div>
-        <div class="field"><label>Tiêu chuẩn phòng LAB</label><input id="f-iso" value="ISO/IEC 17025:2017"></div>
+        <div id="card-org-content" style="display: none; margin-top: 20px;">
+          <div class="field"><label>Tên đơn vị (EN)</label><input id="f-co" value="Labmaster Company"></div>
+          <div class="field"><label>Địa chỉ đơn vị</label><input id="f-co-addr" value="17 street 179, Tang Nhon Phu ward, Ho Chi Minh city"></div>
+          <div class="field-row">
+            <div class="field"><label>Email</label><input id="f-co-email" value="sale@labmaster.vn"></div>
+            <div class="field"><label>Hotline</label><input id="f-co-phone" value="(+84) 938 088 239"></div>
+          </div>
+          <div class="field"><label>Tiêu chuẩn phòng LAB</label><input id="f-iso" value="ISO/IEC 17025:2017"></div>
+        </div>
       </div>
 
       <!-- CARD 2: THÔNG TIN THIẾT BỊ -->
@@ -702,6 +881,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <tr>
                 <th>Tên thiết bị chuẩn</th>
                 <th>Mã số (ID)</th>
+                <th>Số chứng nhận</th>
                 <th>Liên kết chuẩn</th>
                 <th>Ngày hết hạn</th>
                 <th style="width:60px">Xóa</th>
@@ -847,6 +1027,33 @@ document.addEventListener("DOMContentLoaded", () => {
 <div id="toast-container"></div>
 
 <script>
+  function toggleCard(id, headerEl) {
+    const content = document.getElementById(id);
+    if (!content) return;
+    const btnText = document.getElementById('btn-toggle-org-text');
+    const btnIcon = headerEl.querySelector('button svg');
+    
+    if (content.style.display === 'none') {
+      content.style.display = 'block';
+      content.style.animation = 'cmChipIn 0.3s ease forwards';
+      headerEl.style.borderBottom = '2px solid #f1f5f9';
+      headerEl.style.paddingBottom = '14px';
+      headerEl.style.marginBottom = '20px';
+      if (btnText) btnText.textContent = 'Thu gọn';
+      if (btnIcon) {
+        btnIcon.outerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye-off"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+      }
+    } else {
+      content.style.display = 'none';
+      headerEl.style.borderBottom = 'none';
+      headerEl.style.paddingBottom = '0';
+      headerEl.style.marginBottom = '0';
+      if (btnText) btnText.textContent = 'Xem chi tiết';
+      if (btnIcon) {
+        btnIcon.outerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+      }
+    }
+  }
   function handleLogout() {
     localStorage.removeItem('labmaster_user');
     window.location.href = 'login.html';
@@ -971,6 +1178,8 @@ function getCombinedStandardsDB() {
     NAME: eq.NAME || '',
     MANUFACTURER: eq.MANUFACTURER || '',
     NEXT_DUE: eq.VALIDITY || '',
+    GCN: eq.GCN || '',
+    LINK: eq.LINK || '',
     isStatic: false
   }));
   return liveList;
@@ -2388,8 +2597,9 @@ function addStandardTag(eq) {
   const standardEntry = {
     name: eq.NAME || '',
     id: eq.EQUIPMENT_ID || '',
-    trace: eq.MANUFACTURER || '---',
-    due: eq.NEXT_DUE || '---'
+    certNo: eq.GCN || '',
+    trace: eq.MANUFACTURER || '',
+    due: eq.NEXT_DUE || ''
   };
 
   standards.push(standardEntry);
@@ -2421,15 +2631,16 @@ function renderStandardsForm() {
     <tr>
       <td><input class="lab-input-cell" value="${s.name || ''}" oninput="standards[${i}].name=this.value"></td>
       <td><input class="lab-input-cell" value="${s.id || ''}" oninput="standards[${i}].id=this.value"></td>
+      <td><input class="lab-input-cell" value="${s.certNo || ''}" oninput="standards[${i}].certNo=this.value"></td>
       <td><input class="lab-input-cell" value="${s.trace || ''}" oninput="standards[${i}].trace=this.value"></td>
       <td><input class="lab-input-cell" value="${s.due || ''}" oninput="standards[${i}].due=this.value"></td>
       <td style="text-align:center;"><button class="btn-rm" onclick="standards.splice(${i},1);renderStandardsForm()">×</button></td>
     </tr>
   `).join('');
-  if (standards.length === 0) c.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;">Chưa có thiết bị chuẩn nào được chọn.</td></tr>';
+  if (standards.length === 0) c.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px;">Chưa có thiết bị chuẩn nào được chọn.</td></tr>';
 }
 
-function addStandardRow() { standards.push({name:'',id:'',trace:'',due:''}); renderStandardsForm(); }
+function addStandardRow() { standards.push({name:'',id:'',certNo:'',trace:'',due:''}); renderStandardsForm(); }
 
 function renderResultsForm() {
   const c = document.getElementById('res-form-body');
@@ -2585,14 +2796,12 @@ function buildSpecTableHtml() {
   let h = '<table class="cert-spec-table"><thead><tr>'
     + '<th>7. Đặc trưng kĩ thuật<br><span class="lbl-en">Spectification</span></th>'
     + '<th>Phạm vi đo:<br><span class="lbl-en">Range</span></th>'
-    + '<th>Độ phân giải:<br><span class="lbl-en">Resolution</span></th>'
     + '<th>8. Quy trình thực hiện<br><span class="lbl-en">Procedure</span></th>'
     + '<th>9. Tiêu chuẩn tham khảo<br><span class="lbl-en">Reference Standard</span></th>'
     + '</tr></thead><tbody>';
   for (let r = 0; r < rows; r++) {
     h += '<tr><td></td>'
       + '<td>' + specRangeHtml(rangeLines[r] || '') + '</td>'
-      + '<td>--</td>'
       + '<td>' + escHtml(procLines[r] || '') + '</td>'
       + '<td>' + escHtml(refLines[r] || '') + '</td></tr>';
   }
@@ -2681,12 +2890,16 @@ function buildPrintTemplate() {
   const addr = txt('f-cust-addr');
   const hasMCMark = allRes.some(function(r) { return /\(([MC])\)/.test(r.param || ''); });
 
-  // Bảng 15: Chuẩn sử dụng — 5 cột, dự phòng 7 dòng trống giống bố cục PDF
+  // Bảng 15: Chuẩn sử dụng — 5 cột, chỉ hiển thị hàng có dữ liệu
   const stdRows = [];
-  const stdCount = Math.max(allStd.length, 7);
-  for (let i = 0; i < stdCount; i++) {
-    const s = allStd[i] || {};
-    stdRows.push('<tr><td>' + escHtml(s.name || '') + '</td><td>' + escHtml(s.id || '') + '</td><td>-</td><td>' + escHtml(s.trace || '') + '</td><td>' + escHtml(s.due || '') + '</td></tr>');
+  allStd.forEach(function(s) {
+    stdRows.push('<tr><td>' + escHtml(s.name || '') + '</td><td>' + escHtml(s.id || '') + '</td><td>' + escHtml(s.certNo || '') + '</td><td>' + escHtml(s.trace || '') + '</td><td>' + escHtml(s.due || '') + '</td></tr>');
+  });
+  // Thêm dòng trống nếu chưa có chuẩn nào
+  if (stdRows.length === 0) {
+    for (var si = 0; si < 7; si++) {
+      stdRows.push('<tr><td></td><td></td><td></td><td></td><td></td></tr>');
+    }
   }
 
   document.getElementById('print-content').innerHTML = `
@@ -3020,10 +3233,11 @@ async function exportFile(format) {
   }));
 
   const standardRecords = collectAllStandards().map(s => ({
-    name:  s.name,
-    id:    s.id,
-    trace: s.trace,
-    due:   s.due
+    name:    s.name,
+    id:      s.id,
+    certNo:  s.certNo || '',
+    trace:   s.trace,
+    due:     s.due
   }));
 
   const payload = {
@@ -3180,10 +3394,11 @@ async function loadExistingCalibration(projectId, equipmentName) {
 
             if (result.standards && result.standards.length > 0) {
                 standards = result.standards.map(s => ({
-                    name:  s.EQ_NAME  || '',
-                    id:    s.EQ_CODE  || '',
-                    trace: s.LINK     || '',
-                    due:   s.VALIDITY || ''
+                    name:    s.EQ_NAME   || '',
+                    id:      s.EQ_CODE   || '',
+                    certNo:  s.CERT_NO  || s.certNo || '',
+                    trace:   s.LINK      || '',
+                    due:     s.VALIDITY  || ''
                 }));
                 renderStandardsForm();
             }
@@ -3664,6 +3879,7 @@ async function executeCreateProject(payload) {
                             standards: (c.standards || []).map(s => ({
                                 name: s.EQ_NAME || '',
                                 id: s.EQ_CODE || '',
+                                certNo: s.CERT_NO || s.certNo || '',
                                 trace: s.LINK || '',
                                 due: s.VALIDITY || ''
                             })),
@@ -3763,6 +3979,7 @@ async function copyProjectData(projectId) {
                         standards: (c.standards || []).map(function(s) { return {
                             name: s.EQ_NAME || '',
                             id: s.EQ_CODE || '',
+                            certNo: s.CERT_NO || s.certNo || '',
                             trace: s.LINK || '',
                             due: s.VALIDITY || ''
                         };}),
