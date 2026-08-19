@@ -992,7 +992,7 @@ async function main(opts) {
                     t1Cell(std ? para(std.EQ_CODE || '', { fontSize: 10 }) : [], 2349, 2),
                     t1Cell(std ? para(std.STD_CERT_NO || '', { fontSize: 10 }) : [], 2241, 5), // Certificate No
                     t1Cell(std ? para(std.LINK || '', { fontSize: 10 }) : [], 2241, 3), // Traceable to
-                    t1Cell(std ? para(std.VALIDITY || '', { fontSize: 10 }) : [], 2241, 3), // Due date
+                    t1Cell(std ? para(parseDate(std.VALIDITY) || '', { fontSize: 10 }) : [], 2241, 3), // Due date
                 ]
             }));
         }

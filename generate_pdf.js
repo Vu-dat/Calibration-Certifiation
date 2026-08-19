@@ -622,7 +622,7 @@ function drawStandardsTable(doc, stds, dy) {
   if (stds && stds.length) {
     for (var si = 0; si < stds.length; si++) {
       var s = stds[si];
-      var vs = [s.EQ_NAME || '', s.EQ_CODE || '', s.STD_CERT_NO || '', s.LINK || '', s.VALIDITY || ''];
+      var vs = [s.EQ_NAME || '', s.EQ_CODE || '', s.STD_CERT_NO || '', s.LINK || '', pd(s.VALIDITY) || ''];
       sf(doc, false); doc.fontSize(10).fillColor('#000000');
       for (var ci = 0; ci < 5; ci++) doc.text(vs[ci], STD_X[ci], y, {lineGap: 0});
       y += Y1.stdRowSp;

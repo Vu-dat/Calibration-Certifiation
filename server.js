@@ -965,6 +965,16 @@ app.post('/api/calibration/save', async (req, res) => {
 
         await sql`DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${data.certNo}`;
         
+        const stds = data.standards || [];
+        if (stds.length > 0) {
+            for (const s of stds) {
+                await sql`
+                    INSERT INTO CERTIFICATE_STANDARDS (CERT_NO, EQ_CODE, EQ_NAME, STD_CERT_NO, LINK, VALIDITY)
+                    VALUES (${data.certNo}, ${s.id || s.code || ''}, ${s.name || ''}, ${s.certNo || ''}, ${s.trace || s.link || ''}, ${s.due || s.validity || ''})
+                `;
+            }
+        }
+        
         if (data.equipmentName) {
             await sql`DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ${data.certNo} AND EQUIPMENT_NAME = ${data.equipmentName}`;
         } else {
