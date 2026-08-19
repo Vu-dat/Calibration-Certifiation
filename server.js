@@ -221,7 +221,15 @@ async function initDatabaseSchema() {
             NEXT_DUE TEXT,
             EQUIPMENT_ID TEXT,
             PROCEDURE TEXT,
-            REF_STANDARD TEXT
+            REF_STANDARD TEXT,
+            MODEL TEXT,
+            SERIAL_NUMBER TEXT,
+            MODEL_SERIAL TEXT,
+            MANUFACTURER_ID TEXT,
+            SPEC_RANGE TEXT,
+            SPEC_RESOLUTION TEXT,
+            STANDARDS_USED TEXT,
+            NAME_VI TEXT
         )`;
 
         await sql`CREATE TABLE IF NOT EXISTS TEMPLATE_POINTS (
@@ -242,6 +250,7 @@ async function initDatabaseSchema() {
         // Thêm cột STD_CERT_NO nếu chưa có (dành cho DB cũ)
         try {
             await sql`ALTER TABLE CERTIFICATE_STANDARDS ADD COLUMN IF NOT EXISTS STD_CERT_NO TEXT`;
+            await sql`ALTER TABLE EQUIPMENT_TEMPLATES ADD COLUMN IF NOT EXISTS NAME_VI TEXT`;
         } catch(e) { /* ignore if column already exists */ }
 
         // Thực hiện nạp dữ liệu mặc định ban đầu
@@ -502,6 +511,13 @@ app.get('/api/init', async (req, res) => {
                 EQUIPMENT_ID: t.equipment_id,
                 PROCEDURE: t.procedure,
                 REF_STANDARD: t.ref_standard,
+                MODEL: t.model,
+                SERIAL_NUMBER: t.serial_number,
+                MODEL_SERIAL: t.model_serial,
+                MANUFACTURER_ID: t.manufacturer_id,
+                SPEC_RANGE: t.spec_range,
+                SPEC_RESOLUTION: t.spec_resolution,
+                STANDARDS_USED: t.standards_used,
                 formPoints: points.map(p => ({
                     ID: p.id,
                     TEMPLATE_NAME: p.template_name,
@@ -996,11 +1012,19 @@ async function getEquipmentTemplatesHelper(req, res) {
 
             // Map sang key IN HOA cho frontend cũ nhận diện đúng
             template.NAME = template.name;
+            template.NAME_VI = template.name_vi;
             template.MANUFACTURER = template.manufacturer;
             template.NEXT_DUE = template.next_due;
             template.EQUIPMENT_ID = template.equipment_id;
             template.PROCEDURE = template.procedure;
             template.REF_STANDARD = template.ref_standard;
+            template.MODEL = template.model;
+            template.SERIAL_NUMBER = template.serial_number;
+            template.MODEL_SERIAL = template.model_serial;
+            template.MANUFACTURER_ID = template.manufacturer_id;
+            template.SPEC_RANGE = template.spec_range;
+            template.SPEC_RESOLUTION = template.spec_resolution;
+            template.STANDARDS_USED = template.standards_used;
             template.formPoints = points.map(p => ({
                 ID: p.id,
                 TEMPLATE_NAME: p.template_name,
@@ -1030,16 +1054,29 @@ app.get('/api/equipment', async (req, res) => {
 
 app.post('/api/equipment', async (req, res) => {
     try {
-        const { equipment_id, standard_name, manufacturer, due_date, procedure, ref_standard, points } = req.body;
+        const { equipment_id, standard_name, manufacturer, due_date, procedure, ref_standard, points, model, serial_number, model_serial, manufacturer_id, spec_range, spec_resolution, standards_used, name_vi } = req.body;
 
         if (!equipment_id || !standard_name) {
             return res.status(400).json({ success: false, message: "Thiếu mã nhận diện hoặc tên thiết bị chuẩn!" });
         }
 
         await sql`
-            INSERT INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID, PROCEDURE, REF_STANDARD)
-            VALUES (${standard_name}, ${manufacturer || ''}, ${due_date || ''}, ${equipment_id}, ${procedure || ''}, ${ref_standard || ''})
-            ON CONFLICT (NAME) DO UPDATE SET MANUFACTURER = EXCLUDED.MANUFACTURER, NEXT_DUE = EXCLUDED.NEXT_DUE, EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID, PROCEDURE = EXCLUDED.PROCEDURE, REF_STANDARD = EXCLUDED.REF_STANDARD
+            INSERT INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID, PROCEDURE, REF_STANDARD, MODEL, SERIAL_NUMBER, MODEL_SERIAL, MANUFACTURER_ID, SPEC_RANGE, SPEC_RESOLUTION, STANDARDS_USED, NAME_VI)
+            VALUES (${standard_name}, ${manufacturer || ''}, ${due_date || ''}, ${equipment_id}, ${procedure || ''}, ${ref_standard || ''}, ${model || ''}, ${serial_number || ''}, ${model_serial || ''}, ${manufacturer_id || ''}, ${spec_range || ''}, ${spec_resolution || ''}, ${standards_used || ''}, ${name_vi || ''})
+            ON CONFLICT (NAME) DO UPDATE SET 
+                MANUFACTURER = EXCLUDED.MANUFACTURER, 
+                NEXT_DUE = EXCLUDED.NEXT_DUE, 
+                EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID, 
+                PROCEDURE = EXCLUDED.PROCEDURE, 
+                REF_STANDARD = EXCLUDED.REF_STANDARD,
+                MODEL = EXCLUDED.MODEL,
+                SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER,
+                MODEL_SERIAL = EXCLUDED.MODEL_SERIAL,
+                MANUFACTURER_ID = EXCLUDED.MANUFACTURER_ID,
+                SPEC_RANGE = EXCLUDED.SPEC_RANGE,
+                SPEC_RESOLUTION = EXCLUDED.SPEC_RESOLUTION,
+                STANDARDS_USED = EXCLUDED.STANDARDS_USED,
+                NAME_VI = EXCLUDED.NAME_VI
         `;
 
         await sql`DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ${standard_name}`;

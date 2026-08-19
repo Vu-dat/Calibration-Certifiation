@@ -748,9 +748,6 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
 
       <div class="proj-actions-bar">
-        <button class="btn btn-primary ripple-btn" onclick="openCalibrationWorkspace()">
-          <i class="fas fa-clipboard-list"></i> Mở không gian nhập liệu & Xuất chứng nhận
-        </button>
         <button class="btn btn-success ripple-btn" onclick="markProjectAsFinished()">
           <i class="fas fa-check-circle"></i> Đánh dấu hoàn thành
         </button>
@@ -1338,11 +1335,22 @@ function applyEquipmentCache(templates) {
   liveDbEquipmentKeys = new Set();
   templates.forEach(t => {
     if (!t.NAME) return;
+    let stds = [];
+    try {
+      stds = JSON.parse(t.STANDARDS_USED || '[]');
+    } catch (e) {
+      stds = (t.STANDARDS_USED || '').split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
+    }
     freshDB[t.NAME] = {
       manufacturer: t.MANUFACTURER || '',
       model: t.MODEL || '',
       instEn: t.NAME,
+      nameVi: t.NAME_VI || '',
       equipmentId: t.EQUIPMENT_ID || '',
+      serialNumber: t.SERIAL_NUMBER || '',
+      modelSerial: t.MODEL_SERIAL || '',
+      manufacturerId: t.MANUFACTURER_ID || '',
+      standardsUsed: Array.isArray(stds) ? stds : [],
       procedure: t.PROCEDURE || t.procedure || '',
       refStandard: t.REF_STANDARD || t.ref_standard || '',
       nextDue: t.NEXT_DUE || t.next_due || '',
@@ -2229,6 +2237,9 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null) {
       document.getElementById('f-mfr').value = eq.manufacturer || '';
       document.getElementById('f-model').value = eq.model || '';
       document.getElementById('f-id').value = eq.equipmentId || '';
+      if (eq.serialNumber) document.getElementById('f-sn').value = eq.serialNumber;
+      if (eq.manufacturerId) document.getElementById('f-mfr-id').value = eq.manufacturerId;
+      if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
       if (eq.procedure) document.getElementById('f-proc').value = eq.procedure;
       if (eq.refStandard) document.getElementById('f-ref').value = eq.refStandard;
       if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
@@ -2309,13 +2320,16 @@ async function handleStandardSearch(query) {
 }
 
 function selectEquipmentTemplate(key) {
-  document.getElementById('f-inst-vi').value = key;
-  document.getElementById('equipment-suggestions').style.display = 'none';
   const eq = MockDatabaseEquipment[key];
   if (!eq) return;
+  document.getElementById('f-inst-vi').value = eq.nameVi || key;
+  document.getElementById('equipment-suggestions').style.display = 'none';
   document.getElementById('f-mfr').value = eq.manufacturer || '';
   document.getElementById('f-model').value = eq.model || '';
   document.getElementById('f-id').value = eq.equipmentId || '';
+  if (eq.serialNumber) document.getElementById('f-sn').value = eq.serialNumber;
+  if (eq.manufacturerId) document.getElementById('f-mfr-id').value = eq.manufacturerId;
+  if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
   if (eq.instEn) document.getElementById('f-inst-en').value = eq.instEn;
   
   // Tự động đổ dữ liệu từ EQUIPMENT_TEMPLATES vào các trường còn thiếu
@@ -2324,6 +2338,36 @@ function selectEquipmentTemplate(key) {
   // Đồng bộ danh sách máy được công nhận từ mã quy trình của mẫu
   restoreCalibrateMethodFromProcedure();
   if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
+  
+  // Tự động điền các chuẩn sử dụng từ standardsUsed
+  if (Array.isArray(eq.standardsUsed) && eq.standardsUsed.length > 0) {
+    standards = [];
+    eq.standardsUsed.forEach(stdId => {
+      const matched = (liveStandardsDB || []).find(s => s.ID === stdId || s.id === stdId || s.EQUIPMENT_ID === stdId || s.key_field === stdId);
+      if (matched) {
+        standards.push({
+          name: matched.NAME || matched.name || '',
+          id: matched.ID || matched.id || matched.EQUIPMENT_ID || '',
+          certNo: matched.GCN || matched.gcn || '',
+          trace: matched.MANUFACTURER || matched.manufacturer || matched.LINK || matched.link || '',
+          due: matched.VALIDITY || matched.validity || matched.NEXT_DUE || matched.next_due || ''
+        });
+      } else {
+        standards.push({
+          name: '',
+          id: stdId,
+          certNo: '',
+          trace: '',
+          due: ''
+        });
+      }
+    });
+    renderStandardsForm();
+  } else {
+    standards = [];
+    renderStandardsForm();
+  }
+
   // Tự động điền Ngày hiệu chuẩn = hôm nay nếu chưa có
   if (!document.getElementById('f-caldate').value) {
     const today = new Date().toISOString().split('T')[0];

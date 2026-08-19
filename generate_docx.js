@@ -152,6 +152,7 @@ function t1Cell(children, width, colSpan = 1, opts = {}) {
         width: { size: width, type: WidthType.DXA },
         verticalAlign: opts.vAlign || 'center',
         margins: opts.margins || { top: 0, bottom: 0, left: 108, right: 108 },
+        shading: opts.shading,
         borders: opts.borders || {
             top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE,
         },
@@ -178,7 +179,7 @@ function getSpecsForInstrument(instName) {
     const name = (instName || '').toLowerCase();
     if (name.includes('ma sát') || name.includes('crocking') || name.includes('crockmaster')) {
         return {
-            range: 'Lực tỳ/Downward force: 9 N\nHành trình/Stroke: 104 mm\nĐường kính đầu ma sát: 16 mm Finger Diameter\nTốc độ/Speed: --',
+            range: 'Lực tỳ/Downward force: 9 N\nHành trình/Stroke: 104 mm\nĐường kính đầu ma sát: 16 mm\nFinger Diameter\nTốc độ/Speed: --',
             resolution: '--------'
         };
     } else if (name.includes('giặt') || name.includes('washing') || name.includes('wascator')) {
@@ -373,6 +374,14 @@ function createHeaderTable1(logoData, qrBuffer = null) {
 }
 
 function createHeaderTable2(cNo, calDate) {
+    // Calculate font size dynamically to prevent overflow / wrapping of Certificate No.
+    // Default size is 20 (10pt). Co font size down if it is long.
+    let fontSize = 20;
+    if (cNo && cNo.length > 8) {
+        fontSize = Math.max(11, 20 - (cNo.length - 8) * 1.0);
+    }
+    fontSize = Math.round(fontSize);
+
     return new Table({
         rows: [
             new TableRow({
@@ -385,18 +394,19 @@ function createHeaderTable2(cNo, calDate) {
                                 spacing: { before: 60, after: 0, line: 276, lineRule: 'auto' }
                             })
                         ],
-                        width: { size: 4395, type: WidthType.DXA },
+                        width: { size: 4000, type: WidthType.DXA },
                         borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
                     }),
                     new TableCell({
                         children: [
                             new Paragraph({
                                 alignment: AlignmentType.LEFT,
-                                children: [new TextRun({ text: cNo, font: 'Arial', size: 20, bold: true })],
+                                children: [new TextRun({ text: cNo, font: 'Arial', size: fontSize, bold: true })],
                                 spacing: { before: 60, after: 0, line: 276, lineRule: 'auto' }
                             })
                         ],
-                        width: { size: 1423, type: WidthType.DXA },
+                        width: { size: 2000, type: WidthType.DXA },
+                        noWrap: true,
                         borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
                     }),
                     new TableCell({
@@ -407,7 +417,7 @@ function createHeaderTable2(cNo, calDate) {
                                 spacing: { before: 60, after: 0, line: 276, lineRule: 'auto' }
                             })
                         ],
-                        width: { size: 2409, type: WidthType.DXA },
+                        width: { size: 2400, type: WidthType.DXA },
                         borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
                     }),
                     new TableCell({
@@ -418,14 +428,14 @@ function createHeaderTable2(cNo, calDate) {
                                 spacing: { before: 60, after: 0, line: 276, lineRule: 'auto' }
                             })
                         ],
-                        width: { size: 2988, type: WidthType.DXA },
+                        width: { size: 2815, type: WidthType.DXA },
                         borders: { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
                     })
                 ]
             })
         ],
         width: { size: 11215, type: WidthType.DXA },
-        columnWidths: [4395, 1423, 2409, 2988],
+        columnWidths: [4000, 2000, 2400, 2815],
         indent: { size: -289, type: WidthType.DXA },
         alignment: AlignmentType.CENTER,
         borders: TABLE_BORDER_NONE
@@ -469,6 +479,25 @@ async function main(opts) {
             else throw new Error(errMsg);
         }
         cert = toUpperKeys(cert);
+
+        let cleanName = (cert.INSTRUMENT_NAME || '').replace(/[\s_]+/g, ' ').replace(/ thử/gi, '').trim();
+        let tpl = await dbGet(`SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ? OR NAME = ? OR REPLACE(NAME_VI, ' thử', '') = ?`, [cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME_EN, cleanName]);
+        if (tpl) tpl = toUpperKeys(tpl);
+
+        let specRange = '';
+        let specResolution = '';
+        if (tpl && tpl.SPEC_RANGE) {
+            specRange = tpl.SPEC_RANGE;
+            specResolution = tpl.SPEC_RESOLUTION || '--------';
+        } else {
+            const specsDefault = getSpecsForInstrument(cert.INSTRUMENT_NAME);
+            specRange = specsDefault.range;
+            specResolution = specsDefault.resolution;
+        }
+        const specs = {
+            range: specRange,
+            resolution: specResolution
+        };
 
         let points;
         if (eqName) {
@@ -647,12 +676,13 @@ async function main(opts) {
                 const children = [];
 
         // Determine instDisplay early for dynamic line estimation
-        let instDisplay = cert.INSTRUMENT_NAME || '–';
-        if (instDisplay.toLowerCase().includes('bền màu ma sát') && !instDisplay.toLowerCase().includes('crocking')) {
-            instDisplay += ' Crocking meter';
+        let instVi = (tpl && tpl.NAME_VI) ? tpl.NAME_VI : (cert.INSTRUMENT_NAME || '–');
+        let instEn = cert.INSTRUMENT_NAME_EN || '';
+        if (!instEn && tpl && tpl.NAME) {
+            instEn = tpl.NAME;
         }
-        if (cert.INSTRUMENT_NAME_EN && !instDisplay.toLowerCase().includes(cert.INSTRUMENT_NAME_EN.toLowerCase())) {
-            instDisplay += ' ' + cert.INSTRUMENT_NAME_EN;
+        if (!instEn && instVi.toLowerCase().includes('bền màu ma sát')) {
+            instEn = 'Crocking meter';
         }
 
         // ─── DYNAMIC SPACER AND FONT SIZE CALCULATION FOR TABLE 1 ───
@@ -666,8 +696,9 @@ async function main(opts) {
 
         const nameText = truncateText(cert.CUSTOMER_NAME || '', MAX_NAME_LEN);
         const addressText = truncateText(cert.CUSTOMER_ADDRESS || '', MAX_ADDR_LEN);
-        const instText = truncateText(instDisplay || '', MAX_INST_LEN);
-        const specsTemp = getSpecsForInstrument(cert.INSTRUMENT_NAME);
+        const displayInstVi = truncateText(instVi, MAX_INST_LEN);
+        const displayInstEn = truncateText(instEn, MAX_INST_LEN);
+        const specsTemp = specs;
         const specRangeText = specsTemp.range || '';
         const procedureText = truncateText(cert.PROCEDURE || '', MAX_PROC_LEN);
         const refStandardText = truncateText(cert.REF_STANDARD || '', MAX_REF_LEN);
@@ -688,7 +719,6 @@ async function main(opts) {
         // (These are truncated versions for display)
         const displayCustomerName = nameText;
         const displayCustomerAddress = addressText;
-        const displayInstrument = instText;
         const displayProcedure = procedureText;
         const displayRefStandard = refStandardText;
 
@@ -700,7 +730,7 @@ async function main(opts) {
 
         // Row 1: Customer Name & Address
         t1Rows.push(new TableRow({
-            height: { value: 979, rule: HeightRule.EXACT },
+            height: { value: 979, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('1. Khách hàng:', { fontSize: 10 }),
@@ -715,21 +745,22 @@ async function main(opts) {
 
         // Row 2: Instrument Name
         t1Rows.push(new TableRow({
-            height: { value: 695, rule: HeightRule.EXACT },
+            height: { value: 695, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('2. Tên thiết bị:', { fontSize: 10 }),
                     para('Instrument', { fontSize: 10, italics: true }),
                 ], 2132, 2),
                 t1Cell([
-                    para(displayInstrument, { fontSize: 10, bold: true }),
-                ], 9072, 13),
+                    para(displayInstVi, { fontSize: 10, bold: true }),
+                    displayInstEn ? para(displayInstEn, { fontSize: 10, bold: true, italics: true }) : null,
+                ].filter(Boolean), 9072, 13),
             ]
         }));
 
         // Row 3: Manufacturer and Model
         t1Rows.push(new TableRow({
-            height: { value: 558, rule: HeightRule.EXACT },
+            height: { value: 558, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('3. Nhà sản xuất:', { fontSize: 10 }),
@@ -750,7 +781,7 @@ async function main(opts) {
 
         // Row 4: ID and Serial Number
         t1Rows.push(new TableRow({
-            height: { value: 650, rule: HeightRule.EXACT },
+            height: { value: 650, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('4. Mã quản lý ID', { fontSize: 10 }),
@@ -770,7 +801,7 @@ async function main(opts) {
 
         // Row 5: Specifications Headers
         t1Rows.push(new TableRow({
-            height: { value: 510, rule: HeightRule.EXACT },
+            height: { value: 510, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('7. Đặc trưng kĩ thuật', { fontSize: 10 }),
@@ -782,6 +813,7 @@ async function main(opts) {
                         { text: 'Range', fontSize: 10, italics: true },
                     ]),
                 ], 2835, 3),
+                t1Cell([], 1418, 2), // empty Resolution cell matching the reference!
                 t1Cell([
                     para('8. Quy trình thực hiện', { fontSize: 10 }),
                     para('Procedure', { fontSize: 10, italics: true }),
@@ -794,7 +826,6 @@ async function main(opts) {
         }));
 
         // Row 6: Specifications Values
-        const specs = getSpecsForInstrument(cert.INSTRUMENT_NAME);
         const rangeLabelsParas = [];
         const rangeValuesParas = [];
         
@@ -802,12 +833,7 @@ async function main(opts) {
             const lineStr = line.trim();
             if (!lineStr) return;
             
-            if (lineStr.includes('Finger Diameter')) {
-                rangeLabelsParas.push(para('Đường kính đầu ma sát: ', { fontSize: 9 }));
-                rangeLabelsParas.push(para('Finger Diameter', { fontSize: 9, italics: true }));
-                rangeValuesParas.push(para('16 mm', { fontSize: 9 }));
-                rangeValuesParas.push(para('', { fontSize: 9 }));
-            } else if (lineStr.includes(':')) {
+            if (lineStr.includes(':')) {
                 const colonIdx = lineStr.indexOf(':');
                 const labelPart = lineStr.substring(0, colonIdx).trim();
                 const valuePart = lineStr.substring(colonIdx + 1).trim();
@@ -822,9 +848,10 @@ async function main(opts) {
                 } else {
                     rangeLabelsParas.push(para(labelPart + ':', { fontSize: 9 }));
                 }
-                rangeValuesParas.push(para(valuePart, { fontSize: 9 }));
+                rangeValuesParas.push(para(valuePart.replace(/\s+/g, '\u00A0'), { fontSize: 9 }));
             } else {
-                rangeLabelsParas.push(para(lineStr, { fontSize: 9 }));
+                const isEn = /^[A-Za-z\s\(\)]+$/.test(lineStr);
+                rangeLabelsParas.push(para(lineStr, { fontSize: 9, italics: isEn }));
                 rangeValuesParas.push(para('', { fontSize: 9 }));
             }
         });
@@ -846,8 +873,9 @@ async function main(opts) {
             height: { value: 1200, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 2132, 2), // spacer
-                t1Cell(rangeLabelsParas, 2126, 1),
-                t1Cell(rangeValuesParas, 709, 2),
+                t1Cell(rangeLabelsParas, 2126, 1, { margins: { top: 0, bottom: 0, left: 108, right: 0 } }),
+                t1Cell(rangeValuesParas, 709, 2, { margins: { top: 0, bottom: 0, left: 0, right: 0 } }),
+                t1Cell([], 1418, 2), // empty Resolution cell matching the reference!
                 t1Cell(procParas, 2268, 4),
                 t1Cell(refParas, 2551, 4),
             ]
@@ -855,7 +883,7 @@ async function main(opts) {
 
         // Row 7: Place of Performance
         t1Rows.push(new TableRow({
-            height: { value: 1033, rule: HeightRule.EXACT },
+            height: { value: 1033, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('11. Nơi thực hiện:', { fontSize: 10 }),
@@ -870,7 +898,7 @@ async function main(opts) {
 
         // Row 8: Calibration Date & Next Calibration Date
         t1Rows.push(new TableRow({
-            height: { value: 848, rule: HeightRule.EXACT },
+            height: { value: 848, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('12. Ngày thực hiện:', { fontSize: 10 }),
@@ -891,7 +919,7 @@ async function main(opts) {
 
         // Row 9: Environment Conditions
         t1Rows.push(new TableRow({
-            height: { value: 849, rule: HeightRule.EXACT },
+            height: { value: 849, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('14. Điều kiện môi trường :', { fontSize: 10 }),
@@ -916,7 +944,7 @@ async function main(opts) {
 
         // Row 10: Standards Used Header Label
         t1Rows.push(new TableRow({
-            height: { value: 378, rule: HeightRule.EXACT },
+            height: { value: 378, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para([
@@ -933,23 +961,23 @@ async function main(opts) {
                 t1Cell([
                     para('Tên thiết bị', { fontSize: 10 }),
                     para('Name of Standard', { fontSize: 10, italics: true }),
-                ], 2132, 2),
+                ], 2132, 2, { shading: { fill: 'F2F2F2' } }),
                 t1Cell([
                     para('Số quản lý', { fontSize: 10 }),
                     para('ID', { fontSize: 10, italics: true }),
-                ], 2349, 2),
+                ], 2349, 2, { shading: { fill: 'F2F2F2' } }),
                 t1Cell([
                     para('Số chứng nhận', { fontSize: 10 }),
                     para('Certificate No.', { fontSize: 10, italics: true }),
-                ], 2241, 5),
+                ], 2241, 5, { shading: { fill: 'F2F2F2' } }),
                 t1Cell([
                     para('Liên kết chuẩn', { fontSize: 10 }),
                     para('Traceable to', { fontSize: 10, italics: true }),
-                ], 2241, 3),
+                ], 2241, 3, { shading: { fill: 'F2F2F2' } }),
                 t1Cell([
                     para('Hiệu lực', { fontSize: 10 }),
                     para('Due date', { fontSize: 10, italics: true }),
-                ], 2241, 3),
+                ], 2241, 3, { shading: { fill: 'F2F2F2' } }),
             ]
         }));
 
@@ -959,7 +987,6 @@ async function main(opts) {
         for (let idx = 0; idx < stdRowCount; idx++) {
             const std = stdDataRows[idx];
             t1Rows.push(new TableRow({
-                height: idx === stdRowCount - 1 ? { value: 101, rule: HeightRule.EXACT } : undefined,
                 children: [
                     t1Cell(std ? para(std.EQ_NAME || '', { fontSize: 10 }) : [], 2132, 2),
                     t1Cell(std ? para(std.EQ_CODE || '', { fontSize: 10 }) : [], 2349, 2),
@@ -970,7 +997,7 @@ async function main(opts) {
             }));
         }
 
-                // Row 18: Signatures Header
+        // Row 18: Signatures Header
         t1Rows.push(new TableRow({
             children: [
                 t1Cell([], 289, 1),
@@ -986,9 +1013,9 @@ async function main(opts) {
             ]
         }));
 
-        // Row 19: Signature Spacing (Empty row with exact height to prevent overflow)
+        // Row 19: Signature Spacing (Empty row with at-least height to prevent overflow)
         t1Rows.push(new TableRow({
-            height: { value: 1500, rule: HeightRule.EXACT },
+            height: { value: 1500, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 289, 1),
                 t1Cell([
@@ -1003,7 +1030,7 @@ async function main(opts) {
 
         // Row 20: Signee Names
         t1Rows.push(new TableRow({
-            height: { value: 278, rule: HeightRule.EXACT },
+            height: { value: 278, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 289, 1),
                 t1Cell([
@@ -1058,8 +1085,8 @@ async function main(opts) {
                         para('Thông số', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 20, after: 0 } }),
                         para('Parameter', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 } }),
                     ],
-                    columnSpan: 3,
-                    width: { size: 2965, type: WidthType.DXA },
+                    columnSpan: 2,
+                    width: { size: 3121, type: WidthType.DXA },
                     verticalAlign: 'center',
                     borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
                 }),
@@ -1090,6 +1117,7 @@ async function main(opts) {
                         para('Giá trị tham chiếu', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 20, after: 0 } }),
                         para('Reference Value', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 } }),
                     ],
+                    columnSpan: 2,
                     width: { size: 1918, type: WidthType.DXA },
                     verticalAlign: 'center',
                     borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
@@ -1101,6 +1129,7 @@ async function main(opts) {
                           { text: 'Tolerance', bold: true, italics: true, fontSize: 10 }
                         ], { alignment: AlignmentType.CENTER })
                     ],
+                    columnSpan: 2,
                     width: { size: 1199, type: WidthType.DXA },
                     verticalAlign: 'center',
                     borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
@@ -1112,12 +1141,10 @@ async function main(opts) {
                           { text: 'Conclusion', bold: true, italics: true, fontSize: 10 }
                         ], { alignment: AlignmentType.CENTER })
                     ],
-                    columnSpan: 2,
                     width: { size: 1261, type: WidthType.DXA },
                     verticalAlign: 'center',
                     borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
-                }),
-                t2Cell([], 8, 1, { borders: TABLE_BORDER_NONE }) // Col 10 Spacer
+                })
             ]
         }));
 
@@ -1125,85 +1152,110 @@ async function main(opts) {
         if (points.length === 0) {
             t2Rows.push(new TableRow({
                 children: [
-                    t2Cell(para('Chưa có dữ liệu', { fontSize: 10, alignment: AlignmentType.CENTER }), 2965, 3),
+                    t2Cell(para('Chưa có dữ liệu', { fontSize: 10, alignment: AlignmentType.CENTER }), 3121, 2),
                     t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1855, 1),
                     t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
-                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 1),
-                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1199, 1),
-                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1261, 2),
-                    t2Cell([], 8, 1, { borders: TABLE_BORDER_NONE }),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 2),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1199, 2),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1261, 1),
                 ]
             }));
         } else {
+            // Pre-process and expand slash values in calibration points
+            const expandedPoints = [];
             points.forEach(p => {
-                const paramName = p.PARAMETER_NAME || '–';
-                const calPt = String(p.CAL_POINT || '–');
-                const asFound = String(p.AS_FOUND_VALUE || '–');
-                const unc = String(p.UNCERTAINTY || '–');
-                const refVal = String(p.REFERENCE_VALUE || '–');
-                const tol = String(p.TOLERANCE || '–');
-                const conformity = String(p.CONFORMITY || '–');
-                const exactHeight = getRowHeightForParam(paramName);
-                
-                // If the as_found_value contains a slash, split it into sub-rows
+                const asFound = String(p.AS_FOUND_VALUE || '');
                 if (asFound.includes('/')) {
                     const valParts = asFound.split('/');
                     const count = valParts.length;
-                    
-                    const asFoundSub = getSubValues(asFound, count);
-                    const uncSub      = getSubValues(unc, count);
+                    const unc = String(p.UNCERTAINTY || '');
+                    const uncParts = unc.includes('/') ? unc.split('/') : Array(count).fill(unc);
                     
                     let subLabels = ['1', '2', '3', '4', '5'];
-                    if (paramName.toLowerCase().includes('lực') || paramName.toLowerCase().includes('force')) {
+                    if ((p.PARAMETER_NAME || '').toLowerCase().includes('lực') || (p.PARAMETER_NAME || '').toLowerCase().includes('force')) {
                         subLabels = ['BEGIN', 'MIDDLE', 'END'];
                     }
                     
                     for (let idx = 0; idx < count; idx++) {
-                        if (idx === 0) {
-                            // First sub-row (restart vertical merges)
-                            t2Rows.push(new TableRow({
-                                height: { value: 312, rule: HeightRule.EXACT },
-                                children: [
-                                    t2Cell(para(formatParamName(paramName)), 1985, 1, { verticalMerge: VerticalMergeType.RESTART }),
-                                    t2Cell(para(subLabels[idx], { fontSize: 10, alignment: AlignmentType.CENTER }), 972, 1),
-                                    t2Cell(para(asFoundSub[idx], { fontSize: 10, alignment: AlignmentType.CENTER }), 1863, 2),
-                                    t2Cell(para(uncSub[idx], { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
-                                    t2Cell(para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 1, { verticalMerge: VerticalMergeType.RESTART }),
-                                    t2Cell(para(tol, { fontSize: 10, alignment: AlignmentType.CENTER }), 1207, 2, { verticalMerge: VerticalMergeType.RESTART }),
-                                    t2Cell(para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER }), 1261, 2, { verticalMerge: VerticalMergeType.RESTART }),
-                                ]
-                            }));
-                        } else {
-                            // Subsequent sub-rows (continue vertical merges)
-                            t2Rows.push(new TableRow({
-                                height: { value: 312, rule: HeightRule.EXACT },
-                                children: [
-                                    t2Cell([], 1985, 1, { verticalMerge: VerticalMergeType.CONTINUE }),
-                                    t2Cell(para(subLabels[idx], { fontSize: 10, alignment: AlignmentType.CENTER }), 972, 1),
-                                    t2Cell(para(asFoundSub[idx], { fontSize: 10, alignment: AlignmentType.CENTER }), 1863, 2),
-                                    t2Cell(para(uncSub[idx], { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
-                                    t2Cell([], 1918, 1, { verticalMerge: VerticalMergeType.CONTINUE }),
-                                    t2Cell([], 1207, 2, { verticalMerge: VerticalMergeType.CONTINUE }),
-                                    t2Cell([], 1261, 2, { verticalMerge: VerticalMergeType.CONTINUE }),
-                                ]
-                            }));
-                        }
+                        expandedPoints.push({
+                            ...p,
+                            CAL_POINT: subLabels[idx] || String(idx + 1),
+                            AS_FOUND_VALUE: (valParts[idx] || '').trim(),
+                            UNCERTAINTY: (uncParts[idx] || '').trim()
+                        });
                     }
                 } else {
-                    // Single row parameter
-                    t2Rows.push(new TableRow({
-                        height: exactHeight ? { value: exactHeight, rule: HeightRule.EXACT } : undefined,
-                        children: [
-                            t2Cell(para(formatParamName(paramName)), 2965, 3),
-                            t2Cell(para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER }), 1855, 1),
-                            t2Cell(para(unc, { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
-                            t2Cell(para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 1),
-                            t2Cell(para(tol, { fontSize: 10, alignment: AlignmentType.CENTER }), 1199, 1),
-                            t2Cell(para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER }), 1261, 2),
-                            t2Cell([], 8, 1, { borders: TABLE_BORDER_NONE }),
-                        ]
-                    }));
+                    expandedPoints.push(p);
                 }
+            });
+
+            // Group expanded points by PARAMETER_NAME
+            const groups = [];
+            let cg = null;
+            expandedPoints.forEach(p => {
+                const pn = p.PARAMETER_NAME || '';
+                if (!cg || cg.name !== pn) {
+                    cg = { name: pn, rows: [] };
+                    groups.push(cg);
+                }
+                cg.rows.push(p);
+            });
+
+            // Draw grouped rows with vertical merges
+            groups.forEach(grp => {
+                const isMulti = grp.rows.length > 1;
+                const groupSize = grp.rows.length;
+                
+                grp.rows.forEach((p, ri) => {
+                    const paramName = p.PARAMETER_NAME || '–';
+                    const calPt = String(p.CAL_POINT || '–');
+                    const asFound = String(p.AS_FOUND_VALUE || '–');
+                    const unc = String(p.UNCERTAINTY || '–');
+                    const refVal = String(p.REFERENCE_VALUE || '–');
+                    const tol = String(p.TOLERANCE || '–');
+                    const conformity = String(p.CONFORMITY || '–');
+                    const exactHeight = getRowHeightForParam(paramName);
+                    
+                    let paramMerge = undefined;
+                    let refMerge = undefined;
+                    let tolMerge = undefined;
+                    let confMerge = undefined;
+                    
+                    if (isMulti) {
+                        paramMerge = (ri === 0) ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE;
+                        refMerge = (ri === 0) ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE;
+                        tolMerge = (ri === 0) ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE;
+                        confMerge = (ri === 0) ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE;
+                    }
+                    
+                    if (isMulti) {
+                        t2Rows.push(new TableRow({
+                            height: { value: 312, rule: HeightRule.EXACT },
+                            children: [
+                                t2Cell(ri > 0 ? [] : [para(formatParamName(paramName))], 1278, 1, { verticalMerge: paramMerge }),
+                                t2Cell([para(calPt, { fontSize: 10, alignment: AlignmentType.CENTER })], 1843, 1),
+                                t2Cell([para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER })], 1855, 1),
+                                t2Cell([para(unc, { fontSize: 10, alignment: AlignmentType.CENTER })], 1720, 2),
+                                t2Cell(ri > 0 ? [] : [para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER })], 1918, 2, { verticalMerge: refMerge }),
+                                t2Cell(ri > 0 ? [] : [para(tol, { fontSize: 10, alignment: AlignmentType.CENTER })], 1191, 1, { verticalMerge: tolMerge }),
+                                t2Cell(ri > 0 ? [] : [para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER })], 1261, 1, { verticalMerge: confMerge }),
+                            ]
+                        }));
+                    } else {
+                        // Single row parameter layout
+                        t2Rows.push(new TableRow({
+                            height: exactHeight ? { value: exactHeight, rule: HeightRule.EXACT } : undefined,
+                            children: [
+                                t2Cell(para(formatParamName(paramName)), 3121, 2),
+                                t2Cell(para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER }), 1855, 1),
+                                t2Cell(para(unc, { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
+                                t2Cell(para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 2),
+                                t2Cell(para(tol, { fontSize: 10, alignment: AlignmentType.CENTER }), 1199, 2),
+                                t2Cell(para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER }), 1261, 1),
+                            ]
+                        }));
+                    }
+                });
             });
         }
 
@@ -1211,18 +1263,16 @@ async function main(opts) {
         children.push(
             new Table({
                 rows: t2Rows,
-                width: { size: 10918, type: WidthType.DXA },
-                columnWidths: [1985, 972, 8, 1855, 1712, 1918, 1199, 8, 1253, 8],
-                indent: { size: -147, type: WidthType.DXA },
+                width: { size: 11066, type: WidthType.DXA },
+                columnWidths: [1278, 1843, 1855, 1712, 8, 1910, 8, 1191, 1261],
+                indent: { size: -220, type: WidthType.DXA },
                 alignment: AlignmentType.CENTER,
                 borders: TABLE_BORDER_GRID
             })
         );
 
-        // Add exactly 6 empty paragraphs between Table 2 and Table 3 to match the reference layout
-        for (let i = 0; i < 6; i++) {
-            children.push(new Paragraph({ spacing: { before: 0, after: 0, line: 276, lineRule: 'auto' } }));
-        }
+        // Explicit PageBreak before Table 3 (notes and disclaimers) to push it to page 3 entirely
+        children.push(new Paragraph({ children: [new PageBreak()] }));
 
         // ─── TABLE 3: Notes, Disclaimers, and Other Information (completely borderless, 8pt) ───
         const t3Rows = [];
@@ -1273,7 +1323,7 @@ async function main(opts) {
                         { text: '/ Uncertainty:', fontSize: 8, bold: true, italics: true }
                     ]),
                     para([
-                        { text: 'Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy/ ', fontSize: 8, bold: true },
+                        { text: 'Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy/ ', fontSize: 8 },
                         { text: 'The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.', fontSize: 8, italics: true }
                     ])
                 ], 11483)
@@ -1340,11 +1390,33 @@ async function main(opts) {
         t3Rows.push(new TableRow({
             children: [
                 t1Cell(para([
-                    { text: 'Các thông số được đánh dấu (*) là không đạt công nhận ISO/IEC 17025 ', fontSize: 8, bold: true },
+                    { text: 'Các thông số được đánh dấu (*) là không đạt công nhận ISO/IEC 17025 ', fontSize: 8 },
                     { text: 'The characteristics marked with (*) is not accredited to comply with ISO/IEC 17025', fontSize: 8, italics: true }
                 ]), 11483)
             ]
         }));
+
+        // Dynamic Row 12b: Marker (C)/(M) note
+        let hasMCMark = false;
+        if (points && points.length) {
+            for (let pi = 0; pi < points.length; pi++) {
+                const pn = points[pi] && points[pi].PARAMETER_NAME || '';
+                if (/\(([MC])\)/.test(pn)) {
+                    hasMCMark = true;
+                    break;
+                }
+            }
+        }
+        if (hasMCMark) {
+            t3Rows.push(new TableRow({
+                children: [
+                    t1Cell(para([
+                        { text: 'Các thông số đánh dấu (C) là kết quả hiệu chuẩn, các thông số đánh dấu (M) là kết quả đo thử nghiệm ', fontSize: 8 },
+                        { text: 'The characteristics marked with (C) are results of calibration, (M) are results of measurement', fontSize: 8, italics: true }
+                    ]), 11483)
+                ]
+            }));
+        }
 
         // Row 13: Empty
         t3Rows.push(new TableRow({

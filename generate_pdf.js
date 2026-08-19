@@ -357,11 +357,13 @@ function wrapText(doc, text, x, y, width, size, bold, ital, gap) {
   return lines.length;
 }
 
-function drawPage1Body(doc, cert, pts, stds, accM) {
+function drawPage1Body(doc, cert, pts, stds, accM, tpl) {
   var name = (cert.CUSTOMER_NAME && cert.CUSTOMER_NAME !== 'null') ? cert.CUSTOMER_NAME : '';
   var addr = (cert.CUSTOMER_ADDRESS && cert.CUSTOMER_ADDRESS !== 'null') ? cert.CUSTOMER_ADDRESS : '';
-  var inst = (cert.INSTRUMENT_NAME && cert.INSTRUMENT_NAME !== 'null') ? cert.INSTRUMENT_NAME : '';
+  var inst = (tpl && tpl.NAME_VI) ? tpl.NAME_VI : ((cert.INSTRUMENT_NAME && cert.INSTRUMENT_NAME !== 'null') ? cert.INSTRUMENT_NAME : '');
   var instEn = (cert.INSTRUMENT_NAME_EN && cert.INSTRUMENT_NAME_EN !== 'null') ? cert.INSTRUMENT_NAME_EN : '';
+  if (!instEn && tpl && tpl.NAME) instEn = tpl.NAME;
+  if (!instEn && inst.toLowerCase().includes('bền màu ma sát')) instEn = 'Crocking meter';
   var manuf = (cert.MANUFACTURER && cert.MANUFACTURER !== 'null') ? cert.MANUFACTURER : '';
   var model = (cert.MODEL && cert.MODEL !== 'null' && cert.MODEL !== '') ? cert.MODEL : '';
   var eid = (cert.EQUIPMENT_ID && cert.EQUIPMENT_ID !== 'null') ? cert.EQUIPMENT_ID : '';
@@ -408,7 +410,7 @@ function drawPage1Body(doc, cert, pts, stds, accM) {
 
   // ---- Section 7-9: Spec table ----
   // drawSpecTable trả về cạnh dưới của bảng; đẩy các mục phía dưới xuống nếu bảng cao hơn layout chuẩn 5 dòng
-  var specBottom = drawSpecTable(doc, pts, proc, refStd, accM);
+  var specBottom = drawSpecTable(doc, pts, proc, refStd, accM, tpl);
   var dy = Math.max(0, specBottom - (Y1.specRow1 + 5 * Y1.specRowSp));
 
   // ---- Section 11: Place ----
@@ -467,17 +469,35 @@ function splitLines(doc, text, width, size) {
   return lines;
 }
 
-function drawSpecTable(doc, pts, proc, refStd, accM) {
-  var SPEC_X = [27.0, 133.6, 290.0, 410.0];
-  var H1 = [VN.sec7, VN.sec7Range, VN.sec8, VN.sec9];
-  var H2 = [VN.sec7En, VN.sec7RangeEn, VN.sec8En, VN.sec9En];
-  var sizes = [10, 9, 10, 10];
+function drawSpecTable(doc, pts, proc, refStd, accM, tpl) {
+  var is5Col = true;
+  var nameLower = (tpl && tpl.NAME || '').toLowerCase();
+  if (nameLower.includes('rubbing') || nameLower.includes('veslic')) {
+    is5Col = false;
+  }
+
+  var SPEC_X, H1, H2, sizes;
+  if (is5Col) {
+    SPEC_X = [27.0, 133.6, 275.3, 346.3, 459.7];
+    H1 = [VN.sec7, VN.sec7Range, VN.sec7Res, VN.sec8, VN.sec9];
+    H2 = [VN.sec7En, VN.sec7RangeEn, VN.sec7ResEn, VN.sec8En, VN.sec9En];
+    sizes = [10, 9, 9, 10, 10];
+  } else {
+    SPEC_X = [27.0, 133.6, 290.0, 410.0];
+    H1 = [VN.sec7, VN.sec7Range, VN.sec8, VN.sec9];
+    H2 = [VN.sec7En, VN.sec7RangeEn, VN.sec8En, VN.sec9En];
+    sizes = [10, 9, 10, 10];
+  }
+
+  var valX = is5Col ? 236.0 : 246.0;
+
   for (var i = 0; i < H1.length; i++) {
     sf(doc, false); doc.fontSize(sizes[i]).fillColor('#000000');
     doc.text(H1[i], SPEC_X[i], Y1.spec, {lineGap: 0});
     sf(doc, false, true); doc.fontSize(sizes[i]).fillColor('#000000');
     doc.text(H2[i], SPEC_X[i], Y1.specEn, {lineGap: 0});
   }
+
   // Data rows: range column = 'VN/EN: value' mixed style; proc/ref lines
   var rangeLines = [];
   var procLines = [], procSize = 10;
@@ -491,7 +511,9 @@ function drawSpecTable(doc, pts, proc, refStd, accM) {
       procLines.push(procVal);
     }
   } else {
-    if (pts && pts.length) {
+    if (tpl && tpl.SPEC_RANGE) {
+      rangeLines = tpl.SPEC_RANGE.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+    } else if (pts && pts.length) {
       var seen = {};
       for (var pi = 0; pi < pts.length; pi++) {
         var pp = pts[pi];
@@ -517,31 +539,66 @@ function drawSpecTable(doc, pts, proc, refStd, accM) {
   var y = Y1.specRow1;
   for (var r = 0; r < rows; r++) {
     var rl = rangeLines[r] || '';
-    // Parse 'VN/EN: value' if present
-    var slash = rl.indexOf('/');
+    var pl = procLines[r] || '';
+    var rfl = refLines[r] || '';
+
+    // Calculate dynamic height for this row
+    sf(doc, false); doc.fontSize(9);
+    var hRange = Y1.specRowSp;
+    
+    sf(doc, false); doc.fontSize(procSize);
+    var hProc = pl ? doc.heightOfString(pl, { width: (is5Col ? SPEC_X[3] : SPEC_X[2]) - SPEC_X[1] - 5, lineGap: 0 }) : 0;
+    
+    sf(doc, false); doc.fontSize(10);
+    var hRef = rfl ? doc.heightOfString(rfl, { width: CONTENT_R - (is5Col ? SPEC_X[4] : SPEC_X[3]) - 5, lineGap: 0 }) : 0;
+
+    var rowHeight = Math.max(Y1.specRowSp, hRange, hProc, hRef);
+
+    // Draw Range column (col 2)
     var colon = rl.indexOf(':');
-    if (slash > 0 && colon > slash) {
-      var vnPart = rl.substring(0, slash + 1);
-      var enPart = rl.substring(slash + 1, colon);
-      var valPart = rl.substring(colon);
+    if (colon > 0) {
+      var labelPart = rl.substring(0, colon).trim();
+      var valPart = rl.substring(colon + 1).trim();
+      var slash = labelPart.indexOf('/');
       sf(doc, false); doc.fontSize(9).fillColor('#000000');
-      doc.text(vnPart, SPEC_X[1], y, {lineGap: 0});
-      var vnx = SPEC_X[1] + doc.widthOfString(vnPart);
-      sf(doc, false, true); doc.fontSize(9);
-      doc.text(enPart, vnx, y, {lineGap: 0});
+      if (slash > 0) {
+        var vnPart = labelPart.substring(0, slash + 1);
+        var enPart = labelPart.substring(slash + 1);
+        doc.text(vnPart, SPEC_X[1], y, { lineGap: 0 });
+        var vnx = SPEC_X[1] + doc.widthOfString(vnPart);
+        sf(doc, false, true); doc.fontSize(9);
+        doc.text(enPart, vnx, y, { lineGap: 0 });
+        var enx = vnx + doc.widthOfString(enPart);
+        sf(doc, false); doc.fontSize(9);
+        doc.text(':', enx, y, { lineGap: 0 });
+      } else {
+        doc.text(labelPart + ':', SPEC_X[1], y, { lineGap: 0 });
+      }
       sf(doc, false); doc.fontSize(9);
-      drawTextWithDegree(doc, valPart, vnx + doc.widthOfString(enPart), y, {lineGap: 0});
+      drawTextWithDegree(doc, valPart, valX, y, { lineGap: 0 });
     } else {
       sf(doc, false); doc.fontSize(9).fillColor('#000000');
-      drawTextWithDegree(doc, rl, SPEC_X[1], y, {lineGap: 0});
+      var isEnOnly = /^[A-Za-z\s\(\)]+$/.test(rl);
+      if (isEnOnly) {
+        sf(doc, false, true); doc.fontSize(9);
+        doc.text(rl, SPEC_X[1], y, { lineGap: 0 });
+      } else {
+        drawTextWithDegree(doc, rl, SPEC_X[1], y, { lineGap: 0 });
+      }
     }
+
+    if (is5Col) {
+      sf(doc, false); doc.fontSize(9).fillColor('#000000');
+      doc.text('', SPEC_X[2], y, { lineGap: 0 }); // Empty Resolution cell below the header
+    }
+
     sf(doc, false); doc.fontSize(procSize);
-    doc.text(procLines[r] || '', SPEC_X[2], y, {lineGap: 0});
+    doc.text(pl, is5Col ? SPEC_X[3] : SPEC_X[2], y, { width: (is5Col ? SPEC_X[4] : SPEC_X[3]) - (is5Col ? SPEC_X[3] : SPEC_X[2]) - 5, lineGap: 0 });
     sf(doc, false); doc.fontSize(10);
-    doc.text(refLines[r] || '', SPEC_X[3], y, {lineGap: 0});
-    y += Y1.specRowSp;
+    doc.text(rfl, is5Col ? SPEC_X[4] : SPEC_X[3], y, { width: CONTENT_R - (is5Col ? SPEC_X[4] : SPEC_X[3]) - 5, lineGap: 0 });
+    y += rowHeight;
   }
-  return y; // cạnh dưới của bảng (dùng để tính dy ở drawPage1Body)
+  return y;
 }
 
 // Standards table (section 15)
@@ -552,13 +609,15 @@ function drawStandardsTable(doc, stds, dy) {
   doc.text(VN.sec15, LBL_X, Y1.s15 + dy, {lineGap: 0});
   sf(doc, false, true);
   doc.text(VN.sec15En, 121.0, Y1.s15 + dy, {lineGap: 0});
-  sf(doc, false);
+  doc.rect(27.0, Y1.stdH + dy - 3, 547.3, 23.0).fillColor('#F2F2F2').fill();
+  sf(doc, false); doc.fillColor('#000000');
   for (var i = 0; i < 5; i++) {
     doc.text(VN.stdH[i], STD_X[i], Y1.stdH + dy, {lineGap: 0});
-    sf(doc, false, true);
+    sf(doc, false, true); doc.fillColor('#000000');
     doc.text(VN.stdHE[i], STD_X[i], Y1.stdHE + dy, {lineGap: 0});
     sf(doc, false);
   }
+  doc.fillColor('#000000');
   var y = Y1.stdRow1 + dy;
   if (stds && stds.length) {
     for (var si = 0; si < stds.length; si++) {
@@ -594,16 +653,49 @@ function drawSignature(doc, cert, dy) {
 
 // Vẽ dòng đầu tên thông số; nếu cuối dòng có marker (M)/(C)/(*) thì vẽ marker dạng
 // CHỮ NHỎ NÂNG LÊN (superscript ~65% cỡ chữ chính, dịch y lên 2.5pt) ngay sau dòng VN
-function drawParamFirstLine(doc, line, x, y, size) {
+function drawParamFirstLine(doc, line, x, y, size, width) {
   sf(doc, false); doc.fontSize(size || 10).fillColor('#000000');
   var m = String(line).match(/\(([MC*])\)\s*$/);
-  if (!m) { drawTextWithDegree(doc, line, x, y, {lineGap: 0}); return; }
+  if (!m) { drawTextWithDegree(doc, line, x, y, { width: width, lineGap: 0 }); return; }
   var clean = line.substring(0, line.length - m[0].length);
-  drawTextWithDegree(doc, clean, x, y, {lineGap: 0});
-  var w = doc.widthOfString(clean);
-  sf(doc, false); doc.fontSize((size || 10) * 0.65);
-  drawTextWithDegree(doc, m[0], x + w, y - 2.5, {lineGap: 0});
-  doc.fontSize(size || 10);
+  
+  if (!width) {
+    drawTextWithDegree(doc, clean, x, y, {lineGap: 0});
+    var w = doc.widthOfString(clean);
+    sf(doc, false); doc.fontSize((size || 10) * 0.65);
+    drawTextWithDegree(doc, m[0], x + w, y - 2.5, {lineGap: 0});
+    doc.fontSize(size || 10);
+    return;
+  }
+
+  var words = clean.split(' ');
+  var lines = [];
+  var currentLine = '';
+  for (var i = 0; i < words.length; i++) {
+    var word = words[i];
+    var testLine = currentLine ? currentLine + ' ' + word : word;
+    if (doc.widthOfString(testLine) > width) {
+      if (currentLine) lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+
+  var lineH = (size || 10) * 1.15;
+  for (var j = 0; j < lines.length; j++) {
+    var drawY = y + j * lineH;
+    if (j === lines.length - 1) {
+      drawTextWithDegree(doc, lines[j], x, drawY, { lineGap: 0 });
+      var w = doc.widthOfString(lines[j]);
+      sf(doc, false); doc.fontSize((size || 10) * 0.65);
+      drawTextWithDegree(doc, m[0], x + w, drawY - 2.5, { lineGap: 0 });
+      doc.fontSize(size || 10);
+    } else {
+      drawTextWithDegree(doc, lines[j], x, drawY, { lineGap: 0 });
+    }
+  }
 }
 
 function cleanParamName(name) {
@@ -667,6 +759,23 @@ function drawResultsTable(doc, pts) {
         else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 38.4;
         else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 38.2;
         else rowH = 38.0;
+
+        var testTxt = cleanParamName(grp.name);
+        if (testTxt && !testTxt.includes('\n')) {
+          testTxt = testTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
+        }
+        var testLines = testTxt.split('\n');
+        var calcH = 0;
+        sf(doc, false); doc.fontSize(10);
+        testLines.forEach(function(line) {
+          var m = String(line).match(/\(([MC*])\)\s*$/);
+          var clean = m ? line.substring(0, line.length - m[0].length) : line;
+          calcH += doc.heightOfString(clean, { width: 127.9 - 34.2, lineGap: 0 });
+        });
+        calcH += 8; // vertical padding
+        if (calcH > rowH) {
+          rowH = calcH;
+        }
       }
       if (y + rowH > 790) break;
       var dcols = [28.7, 127.9, 176.9, 269.7, 355.4, 451.3, 511.2];
@@ -686,6 +795,9 @@ function drawResultsTable(doc, pts) {
       doc.moveTo(dR[6], y).lineTo(dR[6], y + rowH).stroke();
       // Cell values
       var paramTxt = isFirst ? cleanParamName(grp.name) : '';
+      if (paramTxt && !paramTxt.includes('\n')) {
+        paramTxt = paramTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
+      }
       var pointTxt = String(r.CAL_POINT || '');
       if (pointTxt.indexOf('\n') >= 0) pointTxt = 'BEGIN';
       var foundTxt = String(r.AS_FOUND_VALUE || '');
@@ -695,25 +807,25 @@ function drawResultsTable(doc, pts) {
       var tolTxt = (isMulti && ri !== midIndex) ? '' : String(r.TOLERANCE || '');
       var confTxt = (isMulti && ri !== midIndex) ? '' : String(r.CONFORMITY || '--');
       sf(doc, false); doc.fontSize(10).fillColor('#000000');
-      var isThreeLine = grp.name.includes('\n') && grp.name.split('\n').length >= 3;
-      var pyV = y + (isMulti ? (ri === grp.rows.length - 1 ? 0.0 : 1.8) : (isThreeLine ? 13.3 : 6.7)); // point+values
+      var isThreeLine = paramTxt.includes('\n') && paramTxt.split('\n').length >= 3;
+      var pyV = y + (isMulti ? (ri === grp.rows.length - 1 ? 0.0 : 1.8) : (isThreeLine ? 13.3 : (rowH > 38.0 ? (rowH - 11.5) / 2 : 6.7))); // point+values
       if (paramTxt) {
         var lines = paramTxt.split('\n');
         if (lines.length >= 3) {
           if (isMulti) {
-            drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10);
-            doc.text(lines[1], 34.2, y + 14.5, {lineGap: 0});
-            doc.text(lines[2], 34.2, y + 27.7, {lineGap: 0});
+            drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, 127.9 - 34.2);
+            doc.text(lines[1], 34.2, y + 14.5, { width: 127.9 - 34.2, lineGap: 0 });
+            doc.text(lines[2], 34.2, y + 27.7, { width: 127.9 - 34.2, lineGap: 0 });
           } else {
-            drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10);
-            doc.text(lines[1], 34.2, y + 13.3, {lineGap: 0});
-            doc.text(lines[2], 34.2, y + 25.0, {lineGap: 0});
+            drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, 127.9 - 34.2);
+            doc.text(lines[1], 34.2, y + 13.3, { width: 127.9 - 34.2, lineGap: 0 });
+            doc.text(lines[2], 34.2, y + 25.0, { width: 127.9 - 34.2, lineGap: 0 });
           }
         } else if (lines.length === 2) {
-          drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10);
-          doc.text(lines[1], 34.2, y + 13.3, {lineGap: 0});
+          drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, 127.9 - 34.2);
+          doc.text(lines[1], 34.2, y + 13.3, { width: 127.9 - 34.2, lineGap: 0 });
         } else {
-          drawParamFirstLine(doc, paramTxt, 34.2, y + 1.8, 10);
+          drawParamFirstLine(doc, paramTxt, 34.2, y + 1.8, 10, 127.9 - 34.2);
         }
       }
       if (pointTxt) drawCell(doc, pointTxt, dcols[1], y, dR[1] - dcols[1], rowH, pyV);
@@ -885,6 +997,10 @@ async function main(opts) {
     if (dUrl) { try { qr = await QRCode.toBuffer(dUrl, {width: 120, margin: 1, color: {dark: '#000000', light: '#ffffff'}}); } catch(e) {} }
     var cert = await g('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]);
     cert = toUpperKeys(cert);
+
+    var cleanName = (cert.INSTRUMENT_NAME || '').replace(/[\s_]+/g, ' ').replace(/ thử/gi, '').trim();
+    var tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ? OR NAME = ? OR REPLACE(NAME_VI, ' thử', '') = ?", [cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME_EN, cleanName]);
+    if (tpl) tpl = toUpperKeys(tpl);
     const SD = process.env.VERCEL ? require('os').tmpdir() : path.join(BD, 'static');
     if (!fs.existsSync(SD)) fs.mkdirSync(SD, { recursive: true });
     const SN = cNo.replace(/[^a-zA-Z0-9]/g, '_');
@@ -926,7 +1042,7 @@ async function main(opts) {
     // ═══ PAGE 1 ═══
     doc.addPage();
     drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
-    drawPage1Body(doc, cert, pts, stds, accM);
+    drawPage1Body(doc, cert, pts, stds, accM, tpl);
     drawFooter(doc, 1, 2);
 
     // ═══ PAGE 2 ═══
