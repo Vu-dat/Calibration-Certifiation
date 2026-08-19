@@ -2,13 +2,14 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Standard Equipment - LabMaster</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Equipment - LabMaster</title>
     
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
     /* ════════════════════════════════════════════
-       DATABASE EQUIPMENT — Premium Design
+       DATABASE EQUIPMENT — Premium Design System
        ════════════════════════════════════════════ */
     :root {
         --teal: var(--accent);
@@ -18,7 +19,7 @@
         --teal-glow: var(--accent-glow);
     }
 
-    .db-container { max-width: 1200px; margin: 28px auto; padding: 0 24px; }
+    .db-container { max-width: 1280px; margin: 28px auto; padding: 0 24px; }
 
     /* ─── Stats Cards ─── */
     .db-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 36px; }
@@ -32,12 +33,19 @@
     .db-stat::after {
         content: ''; position: absolute; top: 0; right: 0;
         width: 100px; height: 100px; border-radius: 50%;
-        background: radial-gradient(circle, rgba(13,148,136,0.06), transparent);
+        background: radial-gradient(circle, rgba(0,77,77,0.04), transparent);
         pointer-events: none;
     }
-    .db-stat:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
-    .db-stat .stat-icon { font-size: 26px; margin-bottom: 10px; display: block; }
-    .db-stat h4 { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+    .db-stat:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+    .db-stat .stat-icon {
+        width: 48px; height: 48px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 20px; margin-bottom: 14px;
+        background: var(--accent-light); color: var(--accent);
+        transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .db-stat:hover .stat-icon { transform: scale(1.1); }
+    .db-stat h4 { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
     .db-stat p { font-size: 28px; font-weight: 800; color: var(--primary); line-height: 1.2; }
 
     /* ─── Section Header ─── */
@@ -56,11 +64,16 @@
     /* ─── Search Bar ─── */
     .db-search {
         margin-bottom: 22px; background: var(--surface);
-        padding: 16px 20px; border-radius: var(--radius-lg);
+        padding: 14px 20px; border-radius: var(--radius-lg);
         border: 1px solid var(--border); box-shadow: var(--shadow-sm);
         display: flex; align-items: center; gap: 12px;
+        transition: border-color 0.2s, box-shadow 0.2s;
     }
-    .db-search .search-icon { color: var(--text-hint); font-size: 18px; flex-shrink: 0; }
+    .db-search:focus-within {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .db-search .search-icon { color: var(--text-hint); font-size: 16px; flex-shrink: 0; }
     .db-search input {
         flex: 1; border: none; background: transparent; outline: none;
         font-family: var(--font); font-size: 14px; color: var(--text);
@@ -75,11 +88,12 @@
     }
     .db-table { width: 100%; border-collapse: collapse; }
     .db-table thead th {
-        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-        color: white; padding: 13px 18px;
+        background: #f8fafc; color: var(--text-secondary);
+        padding: 14px 18px;
         font-size: 11px; font-weight: 700; text-transform: uppercase;
         letter-spacing: 0.05em; text-align: left;
-        border-bottom: none;
+        border-bottom: 2px solid var(--border);
+        white-space: nowrap;
     }
     .db-table thead th:last-child { text-align: center; }
     .db-table td {
@@ -96,7 +110,7 @@
     .db-table tbody tr:nth-child(4) { animation-delay: 0.20s; }
     .db-table tbody tr:nth-child(5) { animation-delay: 0.25s; }
     .db-table tbody tr:last-child td { border-bottom: none; }
-    .db-table tbody tr:hover { background: #f0fdfa; }
+    .db-table tbody tr:hover { background: #f8fafc; }
     .db-table tbody tr:active { transform: scale(0.998); }
     .db-table .eq-code-cell { font-weight: 700; color: var(--accent); font-family: var(--font-mono); font-size: 12px; }
     .db-table .eq-name-cell { font-weight: 600; }
@@ -105,47 +119,49 @@
     .db-admin-grid {
         background: var(--surface); border-radius: var(--radius-lg);
         border: 1px solid var(--border); box-shadow: var(--shadow-sm);
-        padding: 24px; margin-bottom: 24px;
+        padding: 28px; margin-bottom: 24px;
         display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 18px;
+        gap: 20px;
     }
     .db-admin-grid .field-group label {
         font-size: 12px; font-weight: 600; color: var(--text-secondary);
-        text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block;
+        text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: block;
     }
     .db-admin-grid input {
-        width: 100%; padding: 10px 14px;
+        width: 100%; padding: 11px 14px;
         border: 1.5px solid var(--border); border-radius: var(--radius-sm);
-        font-family: var(--font); font-size: 13px; outline: none;
+        font-family: var(--font); font-size: 14px; outline: none;
         transition: all var(--transition); box-sizing: border-box;
+        background: #fafbfc;
     }
-    .db-admin-grid input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .db-admin-grid input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); transform: translateY(-1px); }
 
     /* ─── Buttons ─── */
     .btn-save {
-        background: linear-gradient(135deg, var(--accent), #14b8a6);
-        color: white; border: none; padding: 10px 28px;
+        background: var(--primary);
+        color: white; border: none; padding: 11px 28px;
         border-radius: var(--radius-md); font-family: var(--font);
         font-size: 14px; font-weight: 700; cursor: pointer;
         transition: all var(--transition);
         display: inline-flex; align-items: center; gap: 8px;
     }
-    .btn-save:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(13,148,136,0.3); }
+    .btn-save:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,77,77,0.3); }
 
-    /* ─── Continue using index.css button classes ─── */
+    /* ─── Calibration Table (edit view) ─── */
     #calibration-table {
         width: 100%; border-collapse: collapse; table-layout: fixed;
         font-family: Arial, sans-serif; font-size: 13px; text-align: center;
     }
     #calibration-table th {
-        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-        color: white; padding: 10px 6px; font-size: 11px;
-        font-weight: 600; line-height: 1.3;
-        border: 1px solid var(--accent);
+        background: #f8fafc; color: var(--text-secondary);
+        padding: 12px 6px; font-size: 11px;
+        font-weight: 700; line-height: 1.3;
+        border-bottom: 2px solid var(--border);
+        text-transform: uppercase; letter-spacing: 0.03em;
     }
-    #calibration-table th span { font-weight: 400; font-size: 10px; opacity: 0.85; display: block; }
+    #calibration-table th span { font-weight: 400; font-size: 10px; opacity: 0.7; display: block; text-transform: none; letter-spacing: 0; }
     #calibration-table td {
-        border: 1px solid var(--border); padding: 6px 4px;
+        border: 1px solid var(--border-light); padding: 6px 4px;
         background: var(--surface);
     }
     .cell-input {
@@ -168,15 +184,15 @@
     /* ─── Modal ─── */
     .modal-backdrop {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(15,23,42,0.6); z-index: 9999;
+        background: rgba(15,23,42,0.55); z-index: 9999;
         justify-content: center; align-items: center;
-        backdrop-filter: blur(4px); display: none;
+        backdrop-filter: blur(6px); display: none;
     }
     .modal-backdrop.active { display: flex; }
     .modal-content {
-        background: var(--surface); padding: 28px; border-radius: var(--radius-lg);
+        background: var(--surface); padding: 28px; border-radius: 16px;
         width: calc(100% - 32px); max-width: 540px;
-        box-shadow: var(--shadow-xl);
+        box-shadow: 0 25px 60px rgba(0,0,0,0.22);
         animation: modalFadeIn 0.25s ease-out forwards;
         max-height: 90vh; overflow-y: auto;
     }
@@ -188,8 +204,8 @@
     /* ─── YouTube-style Search Widget (for standard-eq-cell) ─── */
     .std-search-wrapper { position: relative; width: 100%; }
     .std-search-input {
-        width: 100%; padding: 6px 10px;
-        border: 1.5px solid var(--border); border-radius: 6px;
+        width: 100%; padding: 7px 10px;
+        border: 1.5px solid var(--border); border-radius: 8px;
         font-size: 13px; font-weight: 600; color: var(--accent);
         box-sizing: border-box; background: var(--accent-light);
         transition: border-color 0.2s, box-shadow 0.2s;
@@ -201,8 +217,8 @@
     .std-search-input.has-value { background: #e6fffa; border-color: #38a169; color: #276749; }
     .std-dropdown {
         position: fixed; background: var(--surface);
-        border: 1px solid var(--border); border-radius: var(--radius);
-        box-shadow: var(--shadow-lg); z-index: 99999;
+        border: 1px solid var(--border); border-radius: 12px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.15); z-index: 99999;
         max-height: 260px; overflow-y: auto; display: none;
         min-width: 360px; max-width: min(620px, calc(100vw - 32px));
         text-align: left;
@@ -219,8 +235,8 @@
     .std-dropdown-empty { padding: 12px 14px; color: var(--text-muted); font-size: 13px; text-align: center; }
 
     .ref-eq-clock-select {
-        width: 100%; padding: 6px 8px;
-        border: 2px solid var(--accent); border-radius: 6px;
+        width: 100%; padding: 7px 8px;
+        border: 1.5px solid var(--accent); border-radius: 8px;
         font-size: 13px; font-weight: 700; color: var(--accent);
         background: var(--accent-light); cursor: pointer; transition: all 0.2s;
     }
@@ -231,7 +247,7 @@
     .param-suggestions-box {
         position: absolute; top: 100%; left: 0; right: 0;
         background: var(--surface); border: 1px solid var(--border);
-        border-radius: 6px; box-shadow: var(--shadow-lg);
+        border-radius: 8px; box-shadow: var(--shadow-lg);
         max-height: 180px; overflow-y: auto; z-index: 99999; display: none;
     }
     .param-suggestion-item {
@@ -242,7 +258,6 @@
     .param-suggestion-item:last-child { border-bottom: none; }
     .param-suggestion-item:hover { background: var(--accent-light); }
 
-    
     /* ─── PAGE TRANSITION ANIMATIONS ─── */
     @keyframes dbPageSlideOut {
         0%   { opacity: 1; transform: translateY(0) scale(1); }
@@ -306,7 +321,7 @@
     }
     .db-stat:hover {
         transform: translateY(-6px) scale(1.02) !important;
-        box-shadow: 0 12px 32px -8px rgba(13,148,136,0.25) !important;
+        box-shadow: 0 12px 32px -8px rgba(0,77,77,0.2) !important;
     }
     .db-stat.reveal.visible p {
         animation: dbStatCountIn 0.6s 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -351,33 +366,33 @@
     .db-table tbody tr:nth-child(9) { animation-delay: 1.11s; }
     .db-table tbody tr:nth-child(10) { animation-delay: 1.18s; }
 
-        /* ═══ PREMIUM SKELETON LOADING ═══ */
-        .sk-row td {
-            padding: 13px 18px; border-bottom: 1px solid var(--border-light);
-            vertical-align: middle;
-        }
-        .sk-row:last-child td { border-bottom: none; }
-        .sk-cell {
-            height: 16px; border-radius: 4px;
-            background: linear-gradient(90deg, #e8e8e8 25%, #f5f5f5 37%, #e8e8e8 63%);
-            background-size: 400% 100%;
-            animation: skShimmer 1.6s ease infinite;
-            max-width: 140px;
-        }
-        .sk-cell.code { width: 100px; max-width: 100px; }
-        .sk-cell.name { width: 100%; max-width: 200px; }
-        .sk-cell.manu { width: 100px; max-width: 100px; }
-        .sk-cell.due { width: 80px; max-width: 80px; }
-        .sk-cell.action { width: 60px; height: 28px; border-radius: 8px; max-width: 60px; }
-        .sk-row:nth-child(1) .sk-cell { animation-delay: 0s; }
-        .sk-row:nth-child(2) .sk-cell { animation-delay: 0.08s; }
-        .sk-row:nth-child(3) .sk-cell { animation-delay: 0.16s; }
-        .sk-row:nth-child(4) .sk-cell { animation-delay: 0.24s; }
-        .sk-row:nth-child(5) .sk-cell { animation-delay: 0.32s; }
-        @keyframes skShimmer {
-            0%   { background-position: -468px 0; }
-            100% { background-position: 468px 0; }
-        }
+    /* ═══ PREMIUM SKELETON LOADING ═══ */
+    .sk-row td {
+        padding: 13px 18px; border-bottom: 1px solid var(--border-light);
+        vertical-align: middle;
+    }
+    .sk-row:last-child td { border-bottom: none; }
+    .sk-cell {
+        height: 16px; border-radius: 4px;
+        background: linear-gradient(90deg, #eee 25%, #f8f8f8 37%, #eee 63%);
+        background-size: 400% 100%;
+        animation: skShimmer 1.6s ease infinite;
+        max-width: 140px;
+    }
+    .sk-cell.code { width: 100px; max-width: 100px; }
+    .sk-cell.name { width: 100%; max-width: 200px; }
+    .sk-cell.manu { width: 100px; max-width: 100px; }
+    .sk-cell.due { width: 80px; max-width: 80px; }
+    .sk-cell.action { width: 60px; height: 28px; border-radius: 8px; max-width: 60px; }
+    .sk-row:nth-child(1) .sk-cell { animation-delay: 0s; }
+    .sk-row:nth-child(2) .sk-cell { animation-delay: 0.08s; }
+    .sk-row:nth-child(3) .sk-cell { animation-delay: 0.16s; }
+    .sk-row:nth-child(4) .sk-cell { animation-delay: 0.24s; }
+    .sk-row:nth-child(5) .sk-cell { animation-delay: 0.32s; }
+    @keyframes skShimmer {
+        0%   { background-position: -468px 0; }
+        100% { background-position: 468px 0; }
+    }
     </style>
 </head>
 <body class="anim-page-in">
@@ -395,6 +410,13 @@
   .modal-content { max-width: 96vw !important; padding: 20px; }
   #edit-view .btn-add-row-group { flex-direction: column; }
   #edit-view .btn-add-row-group .btn-add-row { width: 100%; }
+}
+@media (max-width: 600px) {
+  .db-container { padding: 0 12px; margin: 16px auto; }
+  .db-stats { grid-template-columns: 1fr; gap: 12px; margin-bottom: 24px; }
+  .db-stat { padding: 18px 20px; }
+  .db-stat p { font-size: 24px; }
+  .db-section-header h2 { font-size: 1.15rem; }
 }
 </style>
 
@@ -488,17 +510,17 @@ document.addEventListener("DOMContentLoaded", () => {
 <main class="db-container anim-page-in">
     <div class="db-stats">
         <div class="db-stat reveal" style="animation-delay:0.1s">
-            <span class="stat-icon"><i class="fas fa-microchip" style="color:var(--accent)"></i></span>
+            <span class="stat-icon"><i class="fas fa-microchip"></i></span>
             <h4>Mẫu thiết bị</h4>
             <p id="stat-equipments">--</p>
         </div>
         <div class="db-stat reveal" style="animation-delay:0.2s;border-left-color:var(--success)">
-            <span class="stat-icon"><i class="fas fa-file-pdf" style="color:var(--success)"></i></span>
+            <span class="stat-icon" style="background:#e8f5e9;color:var(--success);"><i class="fas fa-file-pdf"></i></span>
             <h4>Đã đồng bộ PDF</h4>
             <p id="stat-pdf">--</p>
         </div>
         <div class="db-stat reveal" style="animation-delay:0.3s;border-left-color:var(--danger)">
-            <span class="stat-icon"><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i></span>
+            <span class="stat-icon" style="background:#fbe9e7;color:var(--danger);"><i class="fas fa-exclamation-triangle"></i></span>
             <h4>Chưa có quy trình</h4>
             <p id="stat-noprocedure">--</p>
         </div>
