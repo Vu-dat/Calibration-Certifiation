@@ -222,7 +222,7 @@
 </style>
 
 <header class="header">
-    <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer;">
+    <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer; display: flex; align-items: center;">
         <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
     </div>
     
@@ -234,14 +234,18 @@
     
     <div class="nav-container">
         <nav class="navbar">
-            <a href="index.html">Home</a>
-            <a href="project.html">Project</a> 
-            <a href="customer.html">Customer</a> 
-            <a href="equipment.html">Standard Equipment Database</a>
-            <a href="databasequipment.html">Database Equipment</a>
+            <a href="index.html" id="nav-home">Home</a>
+            <a href="project.html" id="nav-project">Project</a> 
+            <a href="customer.html" id="nav-customer">Customer</a> 
+            <a href="equipment.html" id="nav-equipment">Standard Equipment Database</a>
+            <a href="databasequipment.html" id="nav-databasequipment">Database Equipment</a>
             <a href="users.html" class="active" id="nav-users">👥 Users</a>
         </nav>
-        <button class="btn-shiny" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        <div class="nav-container-right" style="display:flex;align-items:center;gap:8px;">
+            <span id="navbar-username" style="color:#b8d4d4;font-size:13px;display:none;"></span>
+            <button class="btn btn-shiny" id="btn-signin" onclick="location.href='login.html'">Sign In</button>
+            <button class="btn btn-soft" id="btn-logout" style="display:none;" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
     </div>
 </header>
 
@@ -483,6 +487,18 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             document.getElementById('unauthorized-section').style.display = 'none';
             document.getElementById('main-content').style.display = 'block';
+
+            // Đồng bộ trạng thái navbar
+            const btnSignin = document.getElementById('btn-signin');
+            const btnLogout = document.getElementById('btn-logout');
+            const navUsername = document.getElementById('navbar-username');
+            if (btnSignin) btnSignin.style.display = 'none';
+            if (btnLogout) btnLogout.style.display = 'inline-flex';
+            if (navUsername) {
+                navUsername.style.display = 'inline';
+                navUsername.textContent = '👤 ' + (user.fullName || user.username);
+            }
+
             loadUsers();
         } catch(e) {
             window.location.href = 'login.html';

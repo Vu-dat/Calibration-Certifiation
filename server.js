@@ -372,34 +372,38 @@ async function seedDefaultUsers() {
 
 // Migration cột mới: chạy mỗi lần khởi động để đảm bảo các cột tồn tại
 async function runColumnMigrations() {
-    const migrations = [
-        'ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS INSTRUMENT_NAME_EN TEXT',
-        'ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS MANUFACTURER_ID TEXT',
-        'ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS MODEL_SERIAL TEXT',
-        'ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS SPEC_RANGE TEXT',
-        'ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS SPEC_RESOLUTION TEXT',
-        // Bảng danh mục phép thử/thiết bị được công nhận ISO 17025 (nguồn: Danh sách công nhận_Labmaster.xlsx)
-        'CREATE TABLE IF NOT EXISTS CALIBRATE_METHOD (\n' +
-        '    ID SERIAL PRIMARY KEY,\n' +
-        '    STT INTEGER NOT NULL,\n' +
-        '    TEN_VN TEXT NOT NULL,\n' +
-        '    TEN_EN TEXT,\n' +
-        '    MO_TA TEXT,\n' +
-        '    PHAM_VI_DO TEXT,\n' +
-        '    QUY_TRINH TEXT,\n' +
-        '    CMC TEXT,\n' +
-        '    SEARCH_TEXT TEXT,\n' +
-        '    CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n' +
-        ')',
-        'CREATE INDEX IF NOT EXISTS idx_calibrate_method_search ON CALIBRATE_METHOD (SEARCH_TEXT)',
-    ];
-    for (const query of migrations) {
-        try { 
-            await sql.unsafe(query); 
-            console.log(`✅ Migration thành công: ${query}`);
-        } catch(e) { 
-            console.error(`❌ Migration thất bại (${query}):`, e.message);
-        }
+    try {
+        await sql.unsafe(`
+            ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS INSTRUMENT_NAME_EN TEXT;
+            ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS MANUFACTURER_ID TEXT;
+            ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS MODEL_SERIAL TEXT;
+            ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS SPEC_RANGE TEXT;
+            ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS SPEC_RESOLUTION TEXT;
+            
+            CREATE TABLE IF NOT EXISTS CALIBRATE_METHOD (
+                ID SERIAL PRIMARY KEY,
+                STT INTEGER NOT NULL,
+                TEN_VN TEXT NOT NULL,
+                TEN_EN TEXT,
+                MO_TA TEXT,
+                PHAM_VI_DO TEXT,
+                QUY_TRINH TEXT,
+                CMC TEXT,
+                SEARCH_TEXT TEXT,
+                CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_calibrate_method_search ON CALIBRATE_METHOD (SEARCH_TEXT);
+            CREATE INDEX IF NOT EXISTS idx_calibration_points_cert_no ON CALIBRATION_POINTS (CERT_NO);
+            CREATE INDEX IF NOT EXISTS idx_calibration_points_cert_no_eq_name ON CALIBRATION_POINTS (CERT_NO, EQUIPMENT_NAME);
+            CREATE INDEX IF NOT EXISTS idx_certificate_standards_cert_no ON CERTIFICATE_STANDARDS (CERT_NO);
+            CREATE INDEX IF NOT EXISTS idx_template_points_template_name ON TEMPLATE_POINTS (TEMPLATE_NAME);
+            CREATE INDEX IF NOT EXISTS idx_projects_created_at ON PROJECTS (CREATED_AT DESC);
+        `);
+        console.log("✅ Khởi chạy migrations & tạo database indexes thành công trong 1 batch.");
+    } catch (err) {
+        console.error("❌ Migration thất bại:", err.message);
+        throw err;
     }
 }
 
@@ -493,21 +497,44 @@ app.get('/api/static/:filename', (req, res) => {
 // Combined /api/init endpoint — trả về tất cả dữ liệu cần thiết cho frontend trong 1 request
 app.get('/api/init', async (req, res) => {
     try {
-        const [projectsResult, certCountResult, templatesResult, clockResult] = await Promise.all([
+        const [projectsResult, certCountResult, templatesResult, clockResult, allPointsResult] = await Promise.all([
             sql`SELECT COUNT(*) as total,
                        COUNT(*) FILTER (WHERE status = 'In Progress') as progress,
                        COUNT(*) FILTER (WHERE status = 'Finished') as finished
                 FROM PROJECTS`,
             sql`SELECT COUNT(*) as cert_count FROM CERTIFICATES`,
             sql`SELECT * FROM EQUIPMENT_TEMPLATES ORDER BY NAME ASC`,
-            sql`SELECT * FROM CLOCK ORDER BY ID ASC`
+            sql`SELECT * FROM CLOCK ORDER BY ID ASC`,
+            sql`SELECT * FROM TEMPLATE_POINTS ORDER BY ID ASC`
         ]);
 
-        // Load template points for each equipment template
-        const templates = await Promise.all(templatesResult.map(async (t) => {
-            const points = await sql`SELECT * FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ${t.name} ORDER BY ID ASC`;
+        // Group points by TEMPLATE_NAME in-memory
+        const pointsByTemplate = {};
+        for (const p of allPointsResult) {
+            const tName = p.template_name;
+            if (!pointsByTemplate[tName]) {
+                pointsByTemplate[tName] = [];
+            }
+            pointsByTemplate[tName].push({
+                ID: p.id,
+                TEMPLATE_NAME: p.template_name,
+                PARAMETER_NAME: p.parameter_name,
+                CAL_POINT: p.cal_point,
+                AS_FOUND_VALUE: p.as_found_value,
+                REFERENCE_VALUE: p.reference_value,
+                UNCERTAINTY: p.uncertainty,
+                TOLERANCE: p.tolerance,
+                CONFORMITY: p.conformity,
+                STANDARD_EQUIPMENT: p.standard_equipment
+            });
+        }
+
+        // Map templates using the in-memory grouped points
+        const templates = templatesResult.map((t) => {
+            const formPoints = pointsByTemplate[t.name] || [];
             return {
                 NAME: t.name,
+                NAME_VI: t.name_vi,
                 MANUFACTURER: t.manufacturer,
                 NEXT_DUE: t.next_due,
                 EQUIPMENT_ID: t.equipment_id,
@@ -520,20 +547,9 @@ app.get('/api/init', async (req, res) => {
                 SPEC_RANGE: t.spec_range,
                 SPEC_RESOLUTION: t.spec_resolution,
                 STANDARDS_USED: t.standards_used,
-                formPoints: points.map(p => ({
-                    ID: p.id,
-                    TEMPLATE_NAME: p.template_name,
-                    PARAMETER_NAME: p.parameter_name,
-                    CAL_POINT: p.cal_point,
-                    AS_FOUND_VALUE: p.as_found_value,
-                    REFERENCE_VALUE: p.reference_value,
-                    UNCERTAINTY: p.uncertainty,
-                    TOLERANCE: p.tolerance,
-                    CONFORMITY: p.conformity,
-                    STANDARD_EQUIPMENT: p.standard_equipment
-                }))
+                formPoints: formPoints
             };
-        }));
+        });
 
         // Map clock rows to uppercase keys
         const clockData = clockResult.map(r => ({
@@ -924,20 +940,18 @@ app.get('/api/calibration/:certNo', async (req, res) => {
     const certNo = req.params.certNo;
     const eqName = req.query.equipment_name || '';
     try {
-        const certRows = await sql`SELECT * FROM CERTIFICATES WHERE CERT_NO = ${certNo}`;
+        const [certRows, pointsRows, standardsRows] = await Promise.all([
+            sql`SELECT * FROM CERTIFICATES WHERE CERT_NO = ${certNo}`,
+            eqName
+                ? sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo} AND EQUIPMENT_NAME = ${eqName}`
+                : sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo}`,
+            sql`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${certNo}`
+        ]);
+
         if (certRows.length === 0) {
             return res.json({ success: true, dataExists: false, cert: null, points: [], standards: [] });
         }
 
-        let pointsRows;
-        if (eqName) {
-            pointsRows = await sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo} AND EQUIPMENT_NAME = ${eqName}`;
-        } else {
-            pointsRows = await sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo}`;
-        }
-
-        const standardsRows = await sql`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${certNo}`;
-        
         const toUpperKeys = (obj) => obj ? Object.fromEntries(Object.entries(obj).map(([k, v]) => [k.toUpperCase(), v])) : null;
 
         res.json({ 
@@ -1017,10 +1031,38 @@ async function getEquipmentTemplatesHelper(req, res) {
 
         if (templates.length === 0) return res.json([]);
 
+        // Optimize: Fetch all template points for these templates in a single query using = ANY()
+        const templateNames = templates.map(t => t.name || t.NAME);
+        const points = await sql`
+            SELECT * FROM TEMPLATE_POINTS 
+            WHERE TEMPLATE_NAME = ANY(${templateNames}) 
+            ORDER BY ID ASC
+        `;
+
+        // Group points by TEMPLATE_NAME in-memory
+        const pointsByTemplate = {};
+        for (const p of points) {
+            const tName = p.template_name;
+            if (!pointsByTemplate[tName]) {
+                pointsByTemplate[tName] = [];
+            }
+            pointsByTemplate[tName].push({
+                ID: p.id,
+                TEMPLATE_NAME: p.template_name,
+                PARAMETER_NAME: p.parameter_name,
+                CAL_POINT: p.cal_point,
+                AS_FOUND_VALUE: p.as_found_value,
+                REFERENCE_VALUE: p.reference_value,
+                UNCERTAINTY: p.uncertainty,
+                TOLERANCE: p.tolerance,
+                CONFORMITY: p.conformity,
+                STANDARD_EQUIPMENT: p.standard_equipment
+            });
+        }
+
         for (let template of templates) {
-            // PostgreSQL trả về tên trường ở dạng viết thường, ánh xạ lại sang chữ IN HOA để giữ tương thích frontend của bạn
             const templateName = template.name || template.NAME;
-            const points = await sql`SELECT * FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ${templateName} ORDER BY ID ASC`;
+            const formPoints = pointsByTemplate[templateName] || [];
 
             // Map sang key IN HOA cho frontend cũ nhận diện đúng
             template.NAME = template.name;
@@ -1037,18 +1079,7 @@ async function getEquipmentTemplatesHelper(req, res) {
             template.SPEC_RANGE = template.spec_range;
             template.SPEC_RESOLUTION = template.spec_resolution;
             template.STANDARDS_USED = template.standards_used;
-            template.formPoints = points.map(p => ({
-                ID: p.id,
-                TEMPLATE_NAME: p.template_name,
-                PARAMETER_NAME: p.parameter_name,
-                CAL_POINT: p.cal_point,
-                AS_FOUND_VALUE: p.as_found_value,
-                REFERENCE_VALUE: p.reference_value,
-                UNCERTAINTY: p.uncertainty,
-                TOLERANCE: p.tolerance,
-                CONFORMITY: p.conformity,
-                STANDARD_EQUIPMENT: p.standard_equipment
-            }));
+            template.formPoints = formPoints;
         }
         res.json(templates);
     } catch (err) {

@@ -584,7 +584,6 @@
         </nav>
         <div class="nav-container-right" style="display:flex;align-items:center;gap:8px;">
             <span id="navbar-username" style="color:#b8d4d4;font-size:13px;display:none;"></span>
-            <button class="btn btn-shiny" id="btn-signin" onclick="location.href='login.html'">Sign In</button>
             <button class="btn btn-soft" id="btn-logout" style="display:none;" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
         </div>
     </div>
@@ -1349,7 +1348,7 @@ function applyEquipmentCache(templates) {
     freshDB[t.NAME] = {
       manufacturer: t.MANUFACTURER || '',
       model: t.MODEL || '',
-      instEn: t.NAME,
+      instEn: (t.NAME.toLowerCase().includes('crocking') || t.NAME.toLowerCase().includes('rubbing') || (t.NAME_VI && t.NAME_VI.toLowerCase().includes('bền màu ma sát'))) ? 'Crocking meter' : t.NAME,
       nameVi: t.NAME_VI || '',
       equipmentId: t.EQUIPMENT_ID || '',
       serialNumber: t.SERIAL_NUMBER || '',
@@ -1598,10 +1597,19 @@ function showProjectList() {
   }
 }
 
-function viewProjectDetail(id) {
+async function viewProjectDetail(id) {
   currentProjectId = id;
   const proj = projectsList.find(p => p.ID === id);
   if(!proj) return;
+
+  // Đảm bảo cache thiết bị mẫu (MockDatabaseEquipment) đã sẵn sàng để hiển thị danh sách máy
+  if (Object.keys(MockDatabaseEquipment).length === 0) {
+    try {
+      await syncEquipmentDBFromAPI();
+    } catch (e) {
+      console.warn("Không đồng bộ được danh sách thiết bị mẫu khi vào dự án:", e.message);
+    }
+  }
 
   currentTitle = proj.TITLE;
 
@@ -1748,7 +1756,7 @@ function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum
           <td>
               <div style="display:flex; gap:6px; justify-content:center;">
                   <button class="btn btn-teal btn-sm" onclick="openCalibrationForRow(this)" title="Bắt đầu hiệu chuẩn">Calibration</button>
-                  <button class="btn btn-secondary btn-sm" onclick="openCalibrationWorkspace('${eqId.replace(/'/g, "\\'")}'); setTimeout(switchToPreview, 500);" title="Xem bản in">Print</button>
+                  <button class="btn btn-secondary btn-sm" onclick="openCalibrationWorkspace('${equipmentName.replace(/'/g, "\\'")}'); setTimeout(switchToPreview, 500);" title="Xem bản in">Print</button>
               </div>
           </td>
       `;
@@ -2177,13 +2185,13 @@ async function restoreCalibrateMethodFromProcedure() {
 
 function openCalibrationForRow(btn) {
     const tr = btn.closest('tr');
-    // Ưu tiên equipmentId (liên kết bền vững), fallback về equipmentName
-    const equipmentId = tr?.dataset?.equipmentId || tr?.dataset?.equipmentName || tr?.querySelector('.device-search-input')?.value || '';
-    if (!equipmentId) {
+    // Ưu tiên equipmentName (tên mẫu thiết bị, là khóa duy nhất), fallback về equipmentId
+    const equipmentName = tr?.dataset?.equipmentName || tr?.dataset?.equipmentId || tr?.querySelector('.device-search-input')?.value || '';
+    if (!equipmentName) {
         showToast('Vui lòng chọn thiết bị trước khi hiệu chuẩn!', 'warning');
         return;
     }
-    openCalibrationWorkspace(equipmentId);
+    openCalibrationWorkspace(equipmentName);
 }
 
 function backToProjectDetail() {
@@ -2202,8 +2210,8 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null) {
   const certNo = currentProjectId.replace('PRJ-', '');
   document.getElementById('f-certno').value = certNo;
 
-  // Tải mới danh sách thiết bị chuẩn từ DB mỗi khi mở Workspace để đảm bảo dữ liệu mới nhất
-  await fetchLiveStandards();
+  // Tải mới danh sách thiết bị chuẩn từ DB mỗi khi mở Workspace để đảm bảo dữ liệu mới nhất (chạy nền)
+  fetchLiveStandards();
 
   // Lưu tên thiết bị đang hiệu chuẩn (giải mã từ equipmentNameFromRow: có thể là ID hoặc NAME)
   window._currentWorkingEquipment = resolveEquipmentName(equipmentNameFromRow) || equipmentNameFromRow || '';
