@@ -410,7 +410,7 @@ function drawPage1Body(doc, cert, pts, stds, accM, tpl) {
 
   // ---- Section 7-9: Spec table ----
   // drawSpecTable trả về cạnh dưới của bảng; đẩy các mục phía dưới xuống nếu bảng cao hơn layout chuẩn 5 dòng
-  var specBottom = drawSpecTable(doc, pts, proc, refStd, accM, tpl);
+  var specBottom = drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert);
   var dy = Math.max(0, specBottom - (Y1.specRow1 + 5 * Y1.specRowSp));
 
   // ---- Section 11: Place ----
@@ -469,7 +469,7 @@ function splitLines(doc, text, width, size) {
   return lines;
 }
 
-function drawSpecTable(doc, pts, proc, refStd, accM, tpl) {
+function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
   var is5Col = true;
   var nameLower = (tpl && tpl.NAME || '').toLowerCase();
   if (nameLower.includes('rubbing') || nameLower.includes('veslic')) {
@@ -499,9 +499,21 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl) {
   }
 
   // Data rows: range column = 'VN/EN: value' mixed style; proc/ref lines
+  var splitMulti = function(str) {
+    if (!str) return [];
+    if (str.indexOf('\n') >= 0) return str.split('\n');
+    return str.split(/[,;]+/).map(function(s){return s.trim();}).filter(Boolean);
+  };
+
+  // Data rows: range column = 'VN/EN: value' mixed style; proc/ref lines
   var rangeLines = [];
   var procLines = [], procSize = 10;
-  if (accM && accM.length) {
+  var resLines = [];
+  if (cert && cert.SPEC_RANGE) {
+    rangeLines = cert.SPEC_RANGE.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+    procLines = splitMulti(proc);
+    resLines = splitMulti(cert.SPEC_RESOLUTION);
+  } else if (accM && accM.length) {
     procSize = 9;
     for (var ai = 0; ai < accM.length && ai < 4; ai++) {
       var m = accM[ai] || {};
@@ -510,6 +522,7 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl) {
       rangeLines.push(rngVal);
       procLines.push(procVal);
     }
+    resLines = splitMulti(cert && cert.SPEC_RESOLUTION || tpl && tpl.SPEC_RESOLUTION);
   } else {
     if (tpl && tpl.SPEC_RANGE) {
       rangeLines = tpl.SPEC_RANGE.split('\n').map(function(s){return s.trim();}).filter(Boolean);
@@ -531,10 +544,11 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl) {
       }
     }
     if (rangeLines.length === 0) rangeLines = ['--'];
-    procLines = (proc || '').split(/[\n;]+/).map(function(s){return s.trim();}).filter(Boolean);
+    procLines = splitMulti(proc);
+    resLines = splitMulti(cert && cert.SPEC_RESOLUTION || tpl && tpl.SPEC_RESOLUTION);
   }
-  var refLines = (refStd || '').split(/[\n;]+/).map(function(s){return s.trim();}).filter(Boolean);
-  var rows = Math.max(rangeLines.length, procLines.length, refLines.length);
+  var refLines = splitMulti(refStd);
+  var rows = Math.max(rangeLines.length, procLines.length, refLines.length, resLines.length);
   if (accM && accM.length && rows > 7) rows = 7; // cùng giới hạn an toàn cho mọi cột khi có accM
   var y = Y1.specRow1;
   for (var r = 0; r < rows; r++) {
@@ -589,7 +603,9 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl) {
 
     if (is5Col) {
       sf(doc, false); doc.fontSize(9).fillColor('#000000');
-      doc.text('', SPEC_X[2], y, { lineGap: 0 }); // Empty Resolution cell below the header
+      var resVal = resLines[r] || '';
+      if (!resVal && r === 0) resVal = '--------';
+      doc.text(resVal, SPEC_X[2], y, { lineGap: 0 }); // Resolution cell
     }
 
     sf(doc, false); doc.fontSize(procSize);

@@ -486,7 +486,10 @@ async function main(opts) {
 
         let specRange = '';
         let specResolution = '';
-        if (tpl && tpl.SPEC_RANGE) {
+        if (cert && cert.SPEC_RANGE) {
+            specRange = cert.SPEC_RANGE;
+            specResolution = cert.SPEC_RESOLUTION || '--------';
+        } else if (tpl && tpl.SPEC_RANGE) {
             specRange = tpl.SPEC_RANGE;
             specResolution = tpl.SPEC_RESOLUTION || '--------';
         } else {
@@ -858,15 +861,26 @@ async function main(opts) {
         
         let procParas;
         if (accMethods && accMethods.length) {
-            // Danh sách máy/phép thử được công nhận (STT + tên VN/EN + mã quy trình) thay vì chỉ mã quy trình
             procParas = accMethods.map(m => para(
                 (m.stt != null ? m.stt + '. ' : '') + (m.tenVn || '') + (m.tenEn ? ' (' + m.tenEn + ')' : '') + (m.quyTrinh ? ' — QT: ' + m.quyTrinh : ''),
                 { fontSize: 9 }
             ));
         } else {
-            procParas = (displayProcedure || '–').split(/[\n,;]+/).map(line => para(line.trim(), { fontSize: 9 }));
+            const procLines = (displayProcedure || '').indexOf('\n') >= 0 
+                ? (displayProcedure || '').split('\n')
+                : (displayProcedure || '–').split(/[,;]+/);
+            procParas = procLines.map(line => para(line.trim() || '–', { fontSize: 9 }));
         }
-        const refParas = (displayRefStandard || '–').split(/[\n,;]+/).map(line => para(line.trim(), { fontSize: 10 }));
+
+        const refLines = (displayRefStandard || '').indexOf('\n') >= 0 
+            ? (displayRefStandard || '').split('\n')
+            : (displayRefStandard || '–').split(/[,;]+/);
+        const refParas = refLines.map(line => para(line.trim() || '–', { fontSize: 10 }));
+
+        const resLines = (specs.resolution || '').indexOf('\n') >= 0 
+            ? (specs.resolution || '').split('\n')
+            : (specs.resolution || '--------').split(/[,;]+/);
+        const resolutionParas = resLines.map(line => para(line.trim() || '--------', { fontSize: 9 }));
 
         t1Rows.push(new TableRow({
             // AT_LEAST: hàng tự nở để chứa danh sách máy/phép thử được công nhận (tối đa 4)
@@ -875,7 +889,7 @@ async function main(opts) {
                 t1Cell([], 2132, 2), // spacer
                 t1Cell(rangeLabelsParas, 2126, 1, { margins: { top: 0, bottom: 0, left: 108, right: 0 } }),
                 t1Cell(rangeValuesParas, 709, 2, { margins: { top: 0, bottom: 0, left: 0, right: 0 } }),
-                t1Cell([], 1418, 2), // empty Resolution cell matching the reference!
+                t1Cell(resolutionParas, 1418, 2),
                 t1Cell(procParas, 2268, 4),
                 t1Cell(refParas, 2551, 4),
             ]

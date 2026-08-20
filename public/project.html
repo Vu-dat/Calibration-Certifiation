@@ -841,24 +841,29 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="field"><label>Địa chỉ hiển thị</label><textarea id="f-cust-addr">Lô C_6A_CN Khu công nghiệp Bàu Bàng mở rộng, Xã Bàu Bàng, Thành phố Hồ Chí Minh, Việt Nam</textarea></div>
       </div>
 
-      <!-- CARD 4: QUY TRÌNH & TIÊU CHUẨN -->
+      <!-- CARD 4: ĐẶC TRƯNG KĨ THUẬT & QUY TRÌNH -->
       <div class="form-card">
-        <div class="form-card-title"><span>4</span> Quy trình & Tiêu chuẩn áp dụng</div>
+        <div class="form-card-title"><span>4</span> Đặc trưng kĩ thuật & Quy trình</div>
 
-        <!-- SMART SEARCH: máy/phép thử được công nhận ISO 17025 (tối đa 4, tối thiểu 1) -->
         <div class="field">
-          <label>Máy / Phép thử được công nhận ISO 17025 <span style="font-weight:400;color:var(--text-muted);">(chọn tối thiểu 1, tối đa 4)</span></label>
-          <div class="autocomplete-wrapper">
-            <input type="text" id="cm-search-input" placeholder="🔍 Tìm kiếm thông minh: tên máy, phép thử, thiết bị… (VD: crocking, tủ sấy, pipet)" oninput="handleCalibrateMethodSearch(this.value)" autocomplete="off">
-            <div id="cm-suggestions" class="autocomplete-suggestions"></div>
-          </div>
-        </div>
-        <div id="cm-selected" class="cm-selected-list"></div>
-        <div class="cm-counter" id="cm-counter">Đã chọn: <b>0</b>/4 máy</div>
-
-        <div class="field-row">
-          <div class="field"><label>Quy trình hiệu chuẩn (Procedure)</label><input id="f-proc" placeholder="Tự điền từ các máy đã chọn, hoặc nhập tay"></div>
-          <div class="field"><label>Tiêu chuẩn so sánh (Reference)</label><input id="f-ref" placeholder="VD: ISO 6330"></div>
+          <label>Phạm vi đo / Đặc trưng kỹ thuật (Specification / Range)</label>
+          <table id="spec-range-table" class="data-table" style="font-size:12.5px; margin-top:8px;">
+            <thead>
+              <tr>
+                <th>Tên thông số (Parameter)</th>
+                <th>Giá trị (Value)</th>
+                <th>Độ phân giải (Resolution)</th>
+                <th>Quy trình (Procedure)</th>
+                <th>Tiêu chuẩn (Reference)</th>
+                <th style="width:60px; text-align:center;">Xóa</th>
+              </tr>
+            </thead>
+            <tbody id="spec-range-table-body"></tbody>
+          </table>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addSpecRangeRow()" style="margin-top:8px; display:inline-flex; align-items:center; gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-plus"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Thêm thông số
+          </button>
         </div>
       </div>
 
@@ -1353,6 +1358,8 @@ function applyEquipmentCache(templates) {
       standardsUsed: Array.isArray(stds) ? stds : [],
       procedure: t.PROCEDURE || t.procedure || '',
       refStandard: t.REF_STANDARD || t.ref_standard || '',
+      specRange: t.SPEC_RANGE || t.spec_range || '',
+      specResolution: t.SPEC_RESOLUTION || t.spec_resolution || '',
       nextDue: t.NEXT_DUE || t.next_due || '',
       formPoints: groupTemplatePointsToFormPoints(t.formPoints || [])
     };
@@ -2240,8 +2247,10 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null) {
       if (eq.serialNumber) document.getElementById('f-sn').value = eq.serialNumber;
       if (eq.manufacturerId) document.getElementById('f-mfr-id').value = eq.manufacturerId;
       if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
-      if (eq.procedure) document.getElementById('f-proc').value = eq.procedure;
-      if (eq.refStandard) document.getElementById('f-ref').value = eq.refStandard;
+      const hasRows = document.getElementById('spec-range-table-body')?.children.length > 0;
+      if (!hasRows || !hasData) {
+          setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
+      }
       if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
       
       if (!hasData) {
@@ -2258,8 +2267,6 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null) {
   renderStandardsForm();
   renderResultsForm();
   updateRowCount();
-  // Khôi phục danh sách máy/phép thử được công nhận từ mã quy trình đã lưu
-  restoreCalibrateMethodFromProcedure();
   window.scrollTo(0,0);
 }
 
@@ -2318,6 +2325,119 @@ async function handleStandardSearch(query) {
         if (loader) loader.style.display = 'none';
     }
 }
+function addSpecRangeRow(param = '', value = '', resolution = '', procedure = '', reference = '') {
+  const tbody = document.getElementById('spec-range-table-body');
+  if (!tbody) return;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" class="lab-input-cell spec-param-input" value="${escHtml(param)}" placeholder="VD: Lực tỳ/Downward force"></td>
+    <td><input type="text" class="lab-input-cell spec-value-input" value="${escHtml(value)}" placeholder="VD: 9 N"></td>
+    <td><input type="text" class="lab-input-cell spec-res-input" value="${escHtml(resolution)}" placeholder="VD: 0.1 mg"></td>
+    <td><input type="text" class="lab-input-cell spec-proc-input" value="${escHtml(procedure)}" placeholder="VD: FORCE-02:2026"></td>
+    <td><input type="text" class="lab-input-cell spec-ref-input" value="${escHtml(reference)}" placeholder="VD: ISO 6330"></td>
+    <td style="text-align:center;"><button type="button" class="btn-rm" onclick="this.closest('tr').remove()">×</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function getSpecRangeTableData() {
+  const tbody = document.getElementById('spec-range-table-body');
+  if (!tbody) return '';
+  const rows = tbody.querySelectorAll('tr');
+  const lines = [];
+  rows.forEach(tr => {
+    const param = (tr.querySelector('.spec-param-input')?.value || '').trim();
+    const val = (tr.querySelector('.spec-value-input')?.value || '').trim();
+    if (param) {
+      if (val) {
+        lines.push(param + ': ' + val);
+      } else {
+        lines.push(param);
+      }
+    }
+  });
+  return lines.join('\n');
+}
+
+function getSpecResolutionTableData() {
+  const tbody = document.getElementById('spec-range-table-body');
+  if (!tbody) return '';
+  const rows = tbody.querySelectorAll('tr');
+  const lines = [];
+  rows.forEach(tr => {
+    const val = (tr.querySelector('.spec-res-input')?.value || '').trim();
+    lines.push(val);
+  });
+  return lines.join('\n');
+}
+
+function getSpecProcedureTableData() {
+  const tbody = document.getElementById('spec-range-table-body');
+  if (!tbody) return '';
+  const rows = tbody.querySelectorAll('tr');
+  const lines = [];
+  rows.forEach(tr => {
+    const val = (tr.querySelector('.spec-proc-input')?.value || '').trim();
+    lines.push(val);
+  });
+  return lines.join('\n');
+}
+
+function getSpecRefTableData() {
+  const tbody = document.getElementById('spec-range-table-body');
+  if (!tbody) return '';
+  const rows = tbody.querySelectorAll('tr');
+  const lines = [];
+  rows.forEach(tr => {
+    const val = (tr.querySelector('.spec-ref-input')?.value || '').trim();
+    lines.push(val);
+  });
+  return lines.join('\n');
+}
+
+function setSpecTableFromData(specRange, specResolution, procedure, refStandard) {
+  const tbody = document.getElementById('spec-range-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  
+  const rangeLines = (specRange || '').split('\n');
+  const resLines = (specResolution || '').split('\n');
+  
+  const splitMulti = (str) => {
+    if (!str) return [];
+    if (str.includes('\n')) return str.split('\n');
+    return str.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+  };
+  
+  const procLines = splitMulti(procedure);
+  const refLines = splitMulti(refStandard);
+  
+  const totalRows = Math.max(rangeLines.length, resLines.length, procLines.length, refLines.length);
+  
+  for (let r = 0; r < totalRows; r++) {
+    const rangeLine = (rangeLines[r] || '').trim();
+    let param = '', val = '';
+    if (rangeLine.includes(':')) {
+      const idx = rangeLine.indexOf(':');
+      param = rangeLine.substring(0, idx).trim();
+      val = rangeLine.substring(idx + 1).trim();
+    } else {
+      param = rangeLine;
+    }
+    
+    const resolution = (resLines[r] || '').trim();
+    const proc = (procLines[r] || '').trim();
+    const ref = (refLines[r] || '').trim();
+    
+    if (param || val || resolution || proc || ref) {
+      addSpecRangeRow(param, val, resolution, proc, ref);
+    }
+  }
+}
+
+function setSpecRangeTableData(text) {
+  setSpecTableFromData(text, '', '', '');
+}
 
 function selectEquipmentTemplate(key) {
   const eq = MockDatabaseEquipment[key];
@@ -2332,11 +2452,7 @@ function selectEquipmentTemplate(key) {
   if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
   if (eq.instEn) document.getElementById('f-inst-en').value = eq.instEn;
   
-  // Tự động đổ dữ liệu từ EQUIPMENT_TEMPLATES vào các trường còn thiếu
-  if (eq.procedure) document.getElementById('f-proc').value = eq.procedure;
-  if (eq.refStandard) document.getElementById('f-ref').value = eq.refStandard;
-  // Đồng bộ danh sách máy được công nhận từ mã quy trình của mẫu
-  restoreCalibrateMethodFromProcedure();
+  setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
   if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
   
   // Tự động điền các chuẩn sử dụng từ standardsUsed
@@ -2808,48 +2924,80 @@ function specRangeHtml(line) {
   return s;
 }
 
-// Bảng mục 7-9: Đặc trưng kỹ thuật (5 cột, BẢNG THẬT có viền, đúng số cột như PDF)
+// Bảng mục 7-9: Đặc trưng kỹ thuật (5 cột hoặc 4 cột tùy dòng máy, có colgroup tự chỉnh độ rộng)
 function buildSpecTableHtml() {
-  const accM = calibrateMethods || [];
-  let rangeLines = [], procLines = [];
-  if (accM.length) {
-    accM.slice(0, 4).forEach(function(m) {
-      rangeLines.push(m.phamViDo || m.PHAM_VI_DO || '--');
-      procLines.push(m.quyTrinh || m.QUY_TRINH || '--');
-    });
-  } else {
-    const pts = collectCalibrationResults();
-    const seen = {};
-    pts.forEach(function(pp) {
-      const pn = pp.param || '';
-      if (pn && !seen[pn]) {
-        seen[pn] = true;
-        const rng = pp.point || '';
-        if (rng.indexOf('\n') >= 0) {
-          rng.split('\n').forEach(function(sub) { if (sub.trim()) rangeLines.push(sub.trim()); });
-        } else if (rng) rangeLines.push(rng);
-        else rangeLines.push(pn);
-      }
-    });
-    if (!rangeLines.length) rangeLines = ['--'];
-    procLines = txt('f-proc').split(/[\n;]+/).map(function(s) { return s.trim(); }).filter(Boolean);
+  const eqName = (window._currentWorkingEquipment || '').toLowerCase();
+  const is5Col = !(eqName.includes('rubbing') || eqName.includes('veslic'));
+
+  const tbody = document.getElementById('spec-range-table-body');
+  const rows = tbody ? tbody.querySelectorAll('tr') : [];
+  
+  let rangeLines = [], resLines = [], procLines = [], refLines = [];
+  rows.forEach(tr => {
+    const param = (tr.querySelector('.spec-param-input')?.value || '').trim();
+    const val = (tr.querySelector('.spec-value-input')?.value || '').trim();
+    if (param) {
+      rangeLines.push(val ? (param + ': ' + val) : param);
+      resLines.push((tr.querySelector('.spec-res-input')?.value || '').trim());
+      procLines.push((tr.querySelector('.spec-proc-input')?.value || '').trim());
+      refLines.push((tr.querySelector('.spec-ref-input')?.value || '').trim());
+    }
+  });
+
+  if (!rangeLines.length) {
+    rangeLines = ['--'];
+    resLines = [''];
+    procLines = ['--'];
+    refLines = ['--'];
   }
-  const refLines = txt('f-ref').split(/[\n;]+/).map(function(s) { return s.trim(); }).filter(Boolean);
-  let rows = Math.max(rangeLines.length, procLines.length, refLines.length);
-  if (accM.length && rows > 7) rows = 7;
-  let h = '<table class="cert-spec-table"><thead><tr>'
-    + '<th>7. Đặc trưng kĩ thuật<br><span class="lbl-en">Spectification</span></th>'
-    + '<th>Phạm vi đo:<br><span class="lbl-en">Range</span></th>'
-    + '<th>8. Quy trình thực hiện<br><span class="lbl-en">Procedure</span></th>'
-    + '<th>9. Tiêu chuẩn tham khảo<br><span class="lbl-en">Reference Standard</span></th>'
-    + '</tr></thead><tbody>';
-  for (let r = 0; r < rows; r++) {
+
+  let h = '<table class="cert-spec-table">';
+  
+  if (is5Col) {
+    h += '<colgroup>'
+       + '<col style="width: 18%;">'
+       + '<col style="width: 24%;">'
+       + '<col style="width: 13%;">'
+       + '<col style="width: 22%;">'
+       + '<col style="width: 23%;">'
+       + '</colgroup>';
+  } else {
+    h += '<colgroup>'
+       + '<col style="width: 22%;">'
+       + '<col style="width: 30%;">'
+       + '<col style="width: 24%;">'
+       + '<col style="width: 24%;">'
+       + '</colgroup>';
+  }
+
+  h += '<thead><tr>';
+  if (is5Col) {
+    h += '<th>7. Đặc trưng kĩ thuật<br><span class="lbl-en">Specification</span></th>'
+      + '<th>Phạm vi đo:<br><span class="lbl-en">Range</span></th>'
+      + '<th>Độ phân giải:<br><span class="lbl-en">Resolution</span></th>'
+      + '<th>8. Quy trình thực hiện<br><span class="lbl-en">Procedure</span></th>'
+      + '<th>9. Tiêu chuẩn tham khảo<br><span class="lbl-en">Reference Standard</span></th>';
+  } else {
+    h += '<th>7. Đặc trưng kĩ thuật<br><span class="lbl-en">Specification</span></th>'
+      + '<th>Phạm vi đo:<br><span class="lbl-en">Range</span></th>'
+      + '<th>8. Quy trình thực hiện<br><span class="lbl-en">Procedure</span></th>'
+      + '<th>9. Tiêu chuẩn tham khảo<br><span class="lbl-en">Reference Standard</span></th>';
+  }
+  h += '</tr></thead><tbody>';
+
+  for (let r = 0; r < rangeLines.length; r++) {
     h += '<tr><td></td>'
-      + '<td>' + specRangeHtml(rangeLines[r] || '') + '</td>'
-      + '<td>' + escHtml(procLines[r] || '') + '</td>'
+      + '<td>' + specRangeHtml(rangeLines[r] || '') + '</td>';
+    
+    if (is5Col) {
+      h += '<td>' + escHtml(resLines[r] || '') + '</td>';
+    }
+    
+    h += '<td>' + escHtml(procLines[r] || '') + '</td>'
       + '<td>' + escHtml(refLines[r] || '') + '</td></tr>';
   }
-  return h + '</tbody></table>';
+  h += '</tbody></table>';
+  return h;
 }
 
 // Bảng mục 16: Kết quả (6 cột như PDF, gộp thông số rowspan, ref/dung sai/kết luận ở dòng giữa)
@@ -3257,7 +3405,7 @@ async function exportFile(format) {
   }
 
   // Tối thiểu 1 máy/phép thử được công nhận trong phần Quy trình & Tiêu chuẩn áp dụng
-  if (calibrateMethods.length === 0 && !(txt('f-proc') || '').trim()) {
+  if (calibrateMethods.length === 0 && !getSpecProcedureTableData()) {
     showToast('Vui lòng chọn ít nhất 1 máy/phép thử được công nhận trong phần "Quy trình & Tiêu chuẩn áp dụng"!', 'warning');
     return;
   }
@@ -3299,15 +3447,17 @@ async function exportFile(format) {
     customerAddress: txt('f-cust-addr'),
     calDate:        txt('f-caldate'),
     reCalDate:      txt('f-recaldate'),
-    procedure:      txt('f-proc'),
-    refStandard:    txt('f-ref'),
+    procedure:      getSpecProcedureTableData(),
+    refStandard:    getSpecRefTableData(),
     tempEnv:        txt('f-temp'),
     humiEnv:        txt('f-humi'),
     headOfLab:      txt('f-sign1'),
     director:       txt('f-sign2'),
+    specRange:      getSpecRangeTableData(),
+    specResolution: getSpecResolutionTableData(),
     points:         pointRecords.map((p, idx) => ({ ...p, refEq: collectCalibrationResults()[idx].refEq })),
     standards:      standardRecords,
-    accreditedMethods: calibrateMethods.map(m => ({ stt: m.STT, tenVn: m.TEN_VN, tenEn: m.TEN_EN, quyTrinh: m.QUY_TRINH, phamViDo: m.PHAM_VI_DO }))
+    accreditedMethods: []
   };
 
   const apiEndpoints = {
@@ -3353,9 +3503,9 @@ async function exportFile(format) {
 }
 
 async function saveCalibrationData() {
-    // Tối thiểu 1 máy/phép thử được công nhận trong phần Quy trình & Tiêu chuẩn áp dụng
-    if (calibrateMethods.length === 0 && !(txt('f-proc') || '').trim()) {
-        showToast('Vui lòng chọn ít nhất 1 máy/phép thử được công nhận trong phần "Quy trình & Tiêu chuẩn áp dụng"!', 'warning');
+    // Tối thiểu có mã quy trình hoặc phạm vi đo
+    if (!getSpecProcedureTableData() && !getSpecRangeTableData()) {
+        showToast('Vui lòng nhập Quy trình hiệu chuẩn hoặc Đặc trưng kĩ thuật!', 'warning');
         return;
     }
     const user = JSON.parse(localStorage.getItem('labmaster_user'));
@@ -3363,9 +3513,12 @@ async function saveCalibrationData() {
         certNo: document.getElementById('f-certno').value,
         instrumentName: txt('f-inst-vi'), instrumentNameEn: txt('f-inst-en'), manufacturer: txt('f-mfr'), manufacturerId: txt('f-mfr-id'), model: txt('f-model'), modelSerial: txt('f-model-sn'),
         equipmentId: txt('f-id'), serialNumber: txt('f-sn'), customerName: txt('f-cust'),
-        calDate: txt('f-caldate'), reCalDate: txt('f-recaldate'), procedure: txt('f-proc'),
-        refStandard: txt('f-ref'), tempEnv: txt('f-temp'), humiEnv: txt('f-humi'),
+        calDate: txt('f-caldate'), reCalDate: txt('f-recaldate'), 
+        procedure: getSpecProcedureTableData(),
+        refStandard: getSpecRefTableData(), 
+        tempEnv: txt('f-temp'), humiEnv: txt('f-humi'),
         headOfLab: txt('f-sign1'), director: txt('f-sign2'),
+        specRange: getSpecRangeTableData(), specResolution: getSpecResolutionTableData(),
         equipmentName: window._currentWorkingEquipment || '',
         points: collectCalibrationResults().map(p => ({
             parameterName: p.param, calPoint: p.point, asFoundValue: p.found,
@@ -3427,8 +3580,7 @@ async function loadExistingCalibration(projectId, equipmentName) {
             setVal('f-cust-addr', c.CUSTOMER_ADDRESS || '');
             setVal('f-caldate',   c.CAL_DATE);
             setVal('f-recaldate', c.RE_CAL_DATE);
-            setVal('f-proc',      c.PROCEDURE);
-            setVal('f-ref',       c.REF_STANDARD);
+            setSpecTableFromData(c.SPEC_RANGE || '', c.SPEC_RESOLUTION || '', c.PROCEDURE || '', c.REF_STANDARD || '');
             setVal('f-temp',      c.TEMP_ENV);
             setVal('f-humi',      c.HUMI_ENV);
             setVal('f-sign1',     c.HEAD_OF_LAB);
@@ -3846,6 +3998,9 @@ function resetWorkspaceForm() {
             if (!el.classList.contains('cal-point')) el.value = '';
         });
     }
+    
+    const specTableBody = document.getElementById('spec-range-table-body');
+    if (specTableBody) specTableBody.innerHTML = '';
     
     selectedStandards = [];
     calibrateMethods = [];
