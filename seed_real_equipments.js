@@ -150,31 +150,7 @@ const templates = [
       { parameter: "Bộ đếm (*)Counter", value: "", asFound: "10", ref: "10", unc: "--", tol: "--", conf: "--", std: "" }
     ]
   },
-  {
-    name: "2. LINEAR-07 QTHC Tensile Tester",
-    name_vi: "Máy thử cường lực",
-    manufacturer: "GOTECH",
-    next_due: "2027-01-08",
-    equipment_id: "--",
-    procedure: "LINEAR-07",
-    ref_standard: "",
-    model: "AI-3000",
-    serial_number: "TC150601359",
-    model_serial: "TC150601359",
-    manufacturer_id: "",
-    spec_range: "Dải đo Range: 800 mm",
-    spec_resolution: "0.1 mm",
-    standards_used: '["LAB-LINEAR.01"]',
-    points: [
-      { parameter: "Hành trình dịch chuyển (M) Crosshead Displacement (mm)", value: "", asFound: "50", ref: "50,014", unc: "0,058", tol: "± 1", conf: "A", std: "LAB-LINEAR.01" },
-      { parameter: "Hành trình dịch chuyển (M) Crosshead Displacement (mm)", value: "", asFound: "100,2", ref: "100,213", unc: "0,058", tol: "± 1", conf: "A", std: "LAB-LINEAR.01" },
-      { parameter: "Hành trình dịch chuyển (M) Crosshead Displacement (mm)", value: "", asFound: "200,1", ref: "200,078", unc: "0,077", tol: "± 1", conf: "A", std: "LAB-LINEAR.01" },
-      { parameter: "Hành trình dịch chuyển (M) Crosshead Displacement (mm)", value: "", asFound: "299,8", ref: "299,814", unc: "0,058", tol: "± 1", conf: "A", std: "LAB-LINEAR.01" },
-      { parameter: "Hành trình dịch chuyển (M) Crosshead Displacement (mm)", value: "", asFound: "400", ref: "400,012", unc: "0,058", tol: "± 1", conf: "A", std: "LAB-LINEAR.01" },
-      { parameter: "Hành trình dịch chuyển (M) Crosshead Displacement (mm)", value: "", asFound: "500,2", ref: "500,212", unc: "0,058", tol: "± 1", conf: "A", std: "LAB-LINEAR.01" },
-      { parameter: "Hành trình dịch chuyển (M) Crosshead Displacement (mm)", value: "", asFound: "600,2", ref: "600,211", unc: "0,058", tol: "± 1", conf: "A", std: "LAB-LINEAR.01" }
-    ]
-  }
+
 ];
 
 async function main() {
