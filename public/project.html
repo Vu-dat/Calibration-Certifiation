@@ -3580,7 +3580,17 @@ async function loadExistingCalibration(projectId, equipmentName) {
             setVal('f-cust-addr', c.CUSTOMER_ADDRESS || '');
             setVal('f-caldate',   c.CAL_DATE);
             setVal('f-recaldate', c.RE_CAL_DATE);
-            setSpecTableFromData(c.SPEC_RANGE || '', c.SPEC_RESOLUTION || '', c.PROCEDURE || '', c.REF_STANDARD || '');
+            let specRange = c.SPEC_RANGE || '';
+            let specResolution = c.SPEC_RESOLUTION || '';
+            if (!specRange.trim()) {
+                const resolvedName = window._currentWorkingEquipment;
+                const eq = resolvedName ? MockDatabaseEquipment[resolvedName] : null;
+                if (eq) {
+                    specRange = eq.specRange || '';
+                    specResolution = eq.specResolution || '';
+                }
+            }
+            setSpecTableFromData(specRange, specResolution, c.PROCEDURE || '', c.REF_STANDARD || '');
             setVal('f-temp',      c.TEMP_ENV);
             setVal('f-humi',      c.HUMI_ENV);
             setVal('f-sign1',     c.HEAD_OF_LAB);
