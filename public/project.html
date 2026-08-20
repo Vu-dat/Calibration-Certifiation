@@ -2927,7 +2927,7 @@ function specRangeHtml(line) {
 // Bảng mục 7-9: Đặc trưng kỹ thuật (5 cột hoặc 4 cột tùy dòng máy, có colgroup tự chỉnh độ rộng)
 function buildSpecTableHtml() {
   const eqName = (window._currentWorkingEquipment || '').toLowerCase();
-  const is5Col = !(eqName.includes('rubbing') || eqName.includes('veslic'));
+  const is5Col = !(eqName.includes('rubbing') || eqName.includes('veslic') || eqName.includes('crocking') || eqName.includes('crock'));
 
   const tbody = document.getElementById('spec-range-table-body');
   const rows = tbody ? tbody.querySelectorAll('tr') : [];

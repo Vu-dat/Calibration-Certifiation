@@ -472,7 +472,7 @@ function splitLines(doc, text, width, size) {
 function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
   var is5Col = true;
   var nameLower = (tpl && tpl.NAME || '').toLowerCase();
-  if (nameLower.includes('rubbing') || nameLower.includes('veslic')) {
+  if (nameLower.includes('rubbing') || nameLower.includes('veslic') || nameLower.includes('crocking') || nameLower.includes('crock')) {
     is5Col = false;
   }
 
