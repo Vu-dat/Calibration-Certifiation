@@ -3026,8 +3026,12 @@ function buildResultsTableHtml(allRes) {
       const mid = Math.floor(n / 2);
       g.rows.forEach(function(r, i) {
         h += '<tr>';
-        if (i === 0) h += '<td class="tdl" rowspan="' + n + '">' + paramCellHtml(g.name) + '</td>';
-        h += '<td>' + escHtml(r.point) + '</td>';
+        if (n > 1) {
+          if (i === 0) h += '<td class="tdl" rowspan="' + n + '">' + paramCellHtml(g.name) + '</td>';
+          h += '<td>' + escHtml(r.point) + '</td>';
+        } else {
+          h += '<td class="tdl" colspan="2">' + paramCellHtml(g.name) + '</td>';
+        }
         h += '<td>' + escHtml(r.found || r.foundAvg || '') + '</td>';
         h += '<td>' + escHtml(r.unc || '') + '</td>';
         if (i === mid) {

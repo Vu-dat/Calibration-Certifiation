@@ -806,6 +806,7 @@ function drawResultsTable(doc, pts) {
         doc.moveTo(dcols[1], y + rowH).lineTo(dR[3], y + rowH).stroke();
       }
       for (var g2 = 0; g2 < 7; g2++) {
+        if (g2 === 1 && !isMulti) continue;
         doc.moveTo(dcols[g2], y).lineTo(dcols[g2], y + rowH).stroke();
       }
       doc.moveTo(dR[6], y).lineTo(dR[6], y + rowH).stroke();
@@ -825,26 +826,30 @@ function drawResultsTable(doc, pts) {
       sf(doc, false); doc.fontSize(10).fillColor('#000000');
       var isThreeLine = paramTxt.includes('\n') && paramTxt.split('\n').length >= 3;
       var pyV = y + (isMulti ? (ri === grp.rows.length - 1 ? 0.0 : 1.8) : (isThreeLine ? 13.3 : (rowH > 38.0 ? (rowH - 11.5) / 2 : 6.7))); // point+values
+      
+      var rightBoundary = isMulti ? 127.9 : 176.9;
+      var textWidth = rightBoundary - 34.2;
+      
       if (paramTxt) {
         var lines = paramTxt.split('\n');
         if (lines.length >= 3) {
           if (isMulti) {
-            drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, 127.9 - 34.2);
-            doc.text(lines[1], 34.2, y + 14.5, { width: 127.9 - 34.2, lineGap: 0 });
-            doc.text(lines[2], 34.2, y + 27.7, { width: 127.9 - 34.2, lineGap: 0 });
+            drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, textWidth);
+            doc.text(lines[1], 34.2, y + 14.5, { width: textWidth, lineGap: 0 });
+            doc.text(lines[2], 34.2, y + 27.7, { width: textWidth, lineGap: 0 });
           } else {
-            drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, 127.9 - 34.2);
-            doc.text(lines[1], 34.2, y + 13.3, { width: 127.9 - 34.2, lineGap: 0 });
-            doc.text(lines[2], 34.2, y + 25.0, { width: 127.9 - 34.2, lineGap: 0 });
+            drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, textWidth);
+            doc.text(lines[1], 34.2, y + 13.3, { width: textWidth, lineGap: 0 });
+            doc.text(lines[2], 34.2, y + 25.0, { width: textWidth, lineGap: 0 });
           }
         } else if (lines.length === 2) {
-          drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, 127.9 - 34.2);
-          doc.text(lines[1], 34.2, y + 13.3, { width: 127.9 - 34.2, lineGap: 0 });
+          drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, textWidth);
+          doc.text(lines[1], 34.2, y + 13.3, { width: textWidth, lineGap: 0 });
         } else {
-          drawParamFirstLine(doc, paramTxt, 34.2, y + 1.8, 10, 127.9 - 34.2);
+          drawParamFirstLine(doc, paramTxt, 34.2, y + 1.8, 10, textWidth);
         }
       }
-      if (pointTxt) drawCell(doc, pointTxt, dcols[1], y, dR[1] - dcols[1], rowH, pyV);
+      if (isMulti && pointTxt) drawCell(doc, pointTxt, dcols[1], y, dR[1] - dcols[1], rowH, pyV);
       if (foundTxt) drawCell(doc, foundTxt, dcols[2], y, dR[2] - dcols[2], rowH, pyV);
       if (uncTxt) drawCell(doc, uncTxt, dcols[3], y, dR[3] - dcols[3], rowH, pyV);
       if (refTxt) drawCell(doc, refTxt, dcols[4], y, dR[4] - dcols[4], rowH, pyV);
