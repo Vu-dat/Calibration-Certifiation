@@ -561,9 +561,24 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     var pl = procLines[r] || '';
     var rfl = refLines[r] || '';
 
-    // Calculate dynamic height for this row
+    // Draw Range column (col 2)
+    var colon = rl.indexOf(':');
+    var labelPart = '', valPart = '';
+    if (colon > 0) {
+      labelPart = rl.substring(0, colon).trim();
+      valPart = rl.substring(colon + 1).trim();
+    }
+
+    // Calculate dynamic height for this row (AFTER labelPart is defined)
     sf(doc, false); doc.fontSize(9);
     var hRange = Y1.specRowSp;
+    // Calculate label text height within the label column width
+    var lblW = valX - SPEC_X[1] - 5;
+    if (colon > 0) {
+      sf(doc, false); doc.fontSize(9);
+      var hLbl = doc.heightOfString(labelPart + ':', { width: lblW, lineGap: 0 });
+      hRange = Math.max(hRange, hLbl);
+    }
     
     sf(doc, false); doc.fontSize(procSize);
     var hProc = pl ? doc.heightOfString(pl, { width: (is5Col ? SPEC_X[3] : SPEC_X[2]) - SPEC_X[1] - 5, lineGap: 0 }) : 0;
@@ -573,25 +588,20 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
 
     var rowHeight = Math.max(Y1.specRowSp, hRange, hProc, hRef);
 
-    // Draw Range column (col 2)
-    var colon = rl.indexOf(':');
+    // Now draw the Range column with wrapping
     if (colon > 0) {
-      var labelPart = rl.substring(0, colon).trim();
-      var valPart = rl.substring(colon + 1).trim();
       var slash = labelPart.indexOf('/');
       sf(doc, false); doc.fontSize(9).fillColor('#000000');
       if (slash > 0) {
         var vnPart = labelPart.substring(0, slash + 1);
         var enPart = labelPart.substring(slash + 1);
-        doc.text(vnPart, SPEC_X[1], y, { lineGap: 0 });
-        var vnx = SPEC_X[1] + doc.widthOfString(vnPart);
+        doc.text(vnPart, SPEC_X[1], y, { width: lblW, continued: true, lineGap: 0 });
         sf(doc, false, true); doc.fontSize(9);
-        doc.text(enPart, vnx, y, { lineGap: 0 });
-        var enx = vnx + doc.widthOfString(enPart);
+        doc.text(enPart, { width: lblW, continued: true, lineGap: 0 });
         sf(doc, false); doc.fontSize(9);
-        doc.text(':', enx, y, { lineGap: 0 });
+        doc.text(':', { lineGap: 0 });
       } else {
-        doc.text(labelPart + ':', SPEC_X[1], y, { lineGap: 0 });
+        doc.text(labelPart + ':', SPEC_X[1], y, { width: lblW, lineGap: 0 });
       }
       sf(doc, false); doc.fontSize(9);
       drawTextWithDegree(doc, valPart, valX, y, { lineGap: 0 });
@@ -677,7 +687,10 @@ function drawSignature(doc, cert, dy) {
 function drawParamFirstLine(doc, line, x, y, size, width) {
   sf(doc, false); doc.fontSize(size || 10).fillColor('#000000');
   var m = String(line).match(/\(([MC*])\)\s*$/);
-  if (!m) { drawTextWithDegree(doc, line, x, y, { width: width, lineGap: 0 }); return; }
+  if (!m) {
+    drawTextWithDegree(doc, line, x, y, { width: width, lineGap: 0 });
+    return doc.heightOfString(line, { width: width || 999, lineGap: 0 });
+  }
   var clean = line.substring(0, line.length - m[0].length);
   
   if (!width) {
@@ -686,37 +699,38 @@ function drawParamFirstLine(doc, line, x, y, size, width) {
     sf(doc, false); doc.fontSize((size || 10) * 0.65);
     drawTextWithDegree(doc, m[0], x + w, y - 2.5, {lineGap: 0});
     doc.fontSize(size || 10);
-    return;
+    return (size || 10) * 1.15;
   }
 
   var words = clean.split(' ');
-  var lines = [];
+  var wrappedLines = [];
   var currentLine = '';
   for (var i = 0; i < words.length; i++) {
     var word = words[i];
     var testLine = currentLine ? currentLine + ' ' + word : word;
     if (doc.widthOfString(testLine) > width) {
-      if (currentLine) lines.push(currentLine);
+      if (currentLine) wrappedLines.push(currentLine);
       currentLine = word;
     } else {
       currentLine = testLine;
     }
   }
-  if (currentLine) lines.push(currentLine);
+  if (currentLine) wrappedLines.push(currentLine);
 
   var lineH = (size || 10) * 1.15;
-  for (var j = 0; j < lines.length; j++) {
+  for (var j = 0; j < wrappedLines.length; j++) {
     var drawY = y + j * lineH;
-    if (j === lines.length - 1) {
-      drawTextWithDegree(doc, lines[j], x, drawY, { lineGap: 0 });
-      var w = doc.widthOfString(lines[j]);
+    if (j === wrappedLines.length - 1) {
+      drawTextWithDegree(doc, wrappedLines[j], x, drawY, { lineGap: 0 });
+      var w = doc.widthOfString(wrappedLines[j]);
       sf(doc, false); doc.fontSize((size || 10) * 0.65);
       drawTextWithDegree(doc, m[0], x + w, drawY - 2.5, { lineGap: 0 });
       doc.fontSize(size || 10);
     } else {
-      drawTextWithDegree(doc, lines[j], x, drawY, { lineGap: 0 });
+      drawTextWithDegree(doc, wrappedLines[j], x, drawY, { lineGap: 0 });
     }
   }
+  return wrappedLines.length * lineH;
 }
 
 function cleanParamName(name) {
@@ -735,7 +749,7 @@ function drawResultsTable(doc, pts) {
   doc.text(VN.sec16En, 100.9, 146.1, {lineGap: 0});
  
   var T = 160.3, TH = 38.8;
-  var cols = [28.7, 176.9, 269.7, 355.4, 451.3, 511.2, 574.3]; // 6 header cells
+  var cols = [28.7, 182.6, 274.1, 358.9, 453.5, 512.1, 574.3]; // 6 header cells
   // Draw header row: VN at y+6.6, EN at y+19
   for (var i = 0; i < 6; i++) {
     var x0 = i === 0 ? cols[0] : cols[i];
@@ -775,6 +789,33 @@ function drawResultsTable(doc, pts) {
       if (isMulti) {
         if (ri === grp.rows.length - 1) rowH = 13.7;
         else rowH = 17.2;
+        // Dynamic height: simulate word-wrap to count visual lines
+        if (isFirst) {
+          var mRH_textW = 127.9 - 34.2;
+          var mTestTxt = cleanParamName(grp.name);
+          if (mTestTxt && !mTestTxt.includes('\n')) {
+            mTestTxt = mTestTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
+          }
+          var mTestLines = mTestTxt.split('\n');
+          var mCalcH = 0;
+          var mLH = 10 * 1.15;
+          sf(doc, false); doc.fontSize(10);
+          mTestLines.forEach(function(ml) {
+            var mm = String(ml).match(/\(([MC*])\)\s*$/);
+            var mclean = mm ? ml.substring(0, ml.length - mm[0].length) : ml;
+            // Count wrapped lines by word-splitting (same logic as drawParamFirstLine)
+            var mwords = mclean.split(' ');
+            var mcur = '', mlines = 1;
+            for (var mi = 0; mi < mwords.length; mi++) {
+              var mt = mcur ? mcur + ' ' + mwords[mi] : mwords[mi];
+              if (doc.widthOfString(mt) > mRH_textW && mcur) { mlines++; mcur = mwords[mi]; }
+              else mcur = mt;
+            }
+            mCalcH += mlines * mLH;
+          });
+          mCalcH += 8;
+          if (mCalcH > rowH) rowH = mCalcH;
+        }
       } else {
         if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 44.0;
         else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 38.4;
@@ -791,7 +832,7 @@ function drawResultsTable(doc, pts) {
         testLines.forEach(function(line) {
           var m = String(line).match(/\(([MC*])\)\s*$/);
           var clean = m ? line.substring(0, line.length - m[0].length) : line;
-          calcH += doc.heightOfString(clean, { width: 127.9 - 34.2, lineGap: 0 });
+          calcH += doc.heightOfString(clean, { width: 176.9 - 34.2, lineGap: 0 });
         });
         calcH += 8; // vertical padding
         if (calcH > rowH) {
@@ -799,8 +840,8 @@ function drawResultsTable(doc, pts) {
         }
       }
       if (y + rowH > 790) break;
-      var dcols = [28.7, 127.9, 176.9, 269.7, 355.4, 451.3, 511.2];
-      var dR = [127.9, 176.9, 269.7, 355.4, 451.3, 511.2, 574.3];
+      var dcols = [28.7, 127.9, 182.6, 274.1, 358.9, 453.5, 512.1];
+      var dR = [127.9, 182.6, 274.1, 358.9, 453.5, 512.1, 574.3];
       doc.lineWidth(0.3).strokeColor('#000000');
       if (isFirst) {
         doc.moveTo(dcols[0], y).lineTo(dR[6], y).stroke();
@@ -832,24 +873,20 @@ function drawResultsTable(doc, pts) {
       var isThreeLine = paramTxt.includes('\n') && paramTxt.split('\n').length >= 3;
       var pyV = y + (isMulti ? (ri === grp.rows.length - 1 ? 0.0 : 1.8) : (isThreeLine ? 13.3 : (rowH > 38.0 ? (rowH - 11.5) / 2 : 6.7))); // point+values
       
-      var rightBoundary = isMulti ? 127.9 : 176.9;
+      var rightBoundary = isMulti ? 127.9 : 182.6;
       var textWidth = rightBoundary - 34.2;
       
       if (paramTxt) {
         var lines = paramTxt.split('\n');
         if (lines.length >= 3) {
-          if (isMulti) {
-            drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, textWidth);
-            doc.text(lines[1], 34.2, y + 14.5, { width: textWidth, lineGap: 0 });
-            doc.text(lines[2], 34.2, y + 27.7, { width: textWidth, lineGap: 0 });
-          } else {
-            drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, textWidth);
-            doc.text(lines[1], 34.2, y + 13.3, { width: textWidth, lineGap: 0 });
-            doc.text(lines[2], 34.2, y + 25.0, { width: textWidth, lineGap: 0 });
-          }
+          var viH3 = drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, textWidth);
+          var l1y3 = y + 1.8 + viH3;
+          doc.text(lines[1], 34.2, l1y3, { width: textWidth, lineGap: 0 });
+          var l1h3 = doc.heightOfString(lines[1], { width: textWidth, lineGap: 0 });
+          doc.text(lines[2], 34.2, l1y3 + l1h3, { width: textWidth, lineGap: 0 });
         } else if (lines.length === 2) {
-          drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, textWidth);
-          doc.text(lines[1], 34.2, y + 13.3, { width: textWidth, lineGap: 0 });
+          var viH2 = drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, textWidth);
+          doc.text(lines[1], 34.2, y + 1.8 + viH2, { width: textWidth, lineGap: 0 });
         } else {
           drawParamFirstLine(doc, paramTxt, 34.2, y + 1.8, 10, textWidth);
         }
@@ -875,81 +912,51 @@ function drawResultsTable(doc, pts) {
 // Reference line positions: startY=483.4, each line at startY + n*10.55
 function drawSection17(doc, startY, cNo, pts) {
   var x = 20.0, w = 564.4;
-  var lh = 10.55;
+  var lh = 10.5;
+  var fs = 8;
+  var curY = startY;
   var vn, en;
  
-  // Notes block (lines 0, 1, 2)
-  sf(doc, false); doc.fontSize(8).fillColor('#000000');
-  doc.text(VN.note, x, startY + 0 * lh - 0.2, {lineGap: 0});
-  doc.text(VN.note1, x, startY + 1 * lh, {lineGap: 0});
-  doc.text(VN.note2, x, startY + 2 * lh, {lineGap: 0});
+  function drawLines(textArr, opts) {
+    var isBold = opts && opts.bold;
+    var isItalic = opts && opts.italic;
+    for (var i = 0; i < textArr.length; i++) {
+      sf(doc, isBold, isItalic); doc.fontSize(fs).fillColor('#000000');
+      doc.text(textArr[i], x, curY, {lineGap: 0});
+      curY += lh;
+    }
+  }
+  function drawMixed(vnText, enText) {
+    sf(doc, true); doc.fontSize(fs).fillColor('#000000');
+    doc.text(vnText, x, curY, {continued: true});
+    sf(doc, true, true); doc.fontSize(fs);
+    doc.text(enText);
+    curY += lh;
+  }
  
-  var l = 3;
+  // Notes block
+  sf(doc, false); doc.fontSize(fs).fillColor('#000000');
+  doc.text(VN.note, x, curY, {lineGap: 0}); curY += lh;
+  doc.text(VN.note1, x, curY, {lineGap: 0}); curY += lh;
+  doc.text(VN.note2, x, curY, {lineGap: 0}); curY += lh;
  
-  // 17 title (line 3)
-  sf(doc, true); doc.fontSize(8).fillColor('#000000');
-  doc.text(VN.sec17, x, startY + l * lh, {continued: true});
-  sf(doc, true, true); doc.fontSize(8);
-  doc.text(VN.sec17En);
-  l++;
+  drawMixed(VN.sec17, VN.sec17En);
+  drawMixed(VN.uncertTitle, VN.uncertTitleEn);
+  drawLines(wrapLines(doc, VN.uncertVN, w));
+  drawLines(wrapLines(doc, VN.uncertEN, w), {italic: true});
  
-  // 17.1 title (line 4)
-  sf(doc, true); doc.fontSize(8);
-  doc.text(VN.uncertTitle, x, startY + l * lh, {continued: true});
-  sf(doc, true, true); doc.fontSize(8);
-  doc.text(VN.uncertTitleEn);
-  l++;
- 
-  // 17.1 text: VN + EN inline using continued: true (lines 5-7)
-  sf(doc, false); doc.fontSize(8);
-  doc.text(VN.uncertVN, x, startY + l * lh, {width: w, continued: true, lineGap: 1.35});
-  sf(doc, false, true);
-  doc.text(VN.uncertEN, {lineGap: 1.35});
-  var l = 8;
- 
-  // 17.2 title
-  sf(doc, true); doc.fontSize(8);
-  doc.text(VN.confTitle, x, startY + l * lh, {continued: true});
-  sf(doc, true, true); doc.fontSize(8);
-  doc.text(VN.confTitleEn);
-  l++;
- 
-  // A-D items: bold '+ X:' + regular VN (line), EN italic (next line)
+  drawMixed(VN.confTitle, VN.confTitleEn);
   for (var ci = 0; ci < VN.conf.length; ci++) {
     var parts = VN.conf[ci].split(' | ');
     vn = parts[0]; en = parts[1];
-    var letter = vn.substring(0, 2);
-    var rest = vn.substring(2);
-    sf(doc, true); doc.fontSize(8); doc.text(letter, x, startY + l * lh, {continued: true});
-    sf(doc, false); doc.fontSize(8);
-    doc.text(rest, {width: w - 15});
-    l++;
-    sf(doc, false, true); doc.fontSize(8);
-    var enL2 = wrapLines(doc, en, w);
-    for (var ei2 = 0; ei2 < enL2.length; ei2++) {
-      sf(doc, false, true); doc.fontSize(8);
-      doc.text(enL2[ei2], x, startY + (l + ei2) * lh, {lineGap: 0});
-    }
-    l += enL2.length;
+    drawLines(wrapLines(doc, vn, w), {bold: true});
+    drawLines(wrapLines(doc, en, w), {italic: true});
   }
  
-  // 17.3 title
-  sf(doc, true); doc.fontSize(8);
-  doc.text(VN.otherTitle, x, startY + l * lh, {continued: true});
-  sf(doc, true, true); doc.fontSize(8);
-  doc.text(VN.otherTitleEn);
-  l++;
- 
-  // 17.3 texts
-  var o1 = wrapLines(doc, VN.otherVN, w);
-  var o2 = wrapLines(doc, VN.otherEN, w);
-  for (var oi = 0; oi < o1.length; oi++) { sf(doc, false); doc.fontSize(8); doc.text(o1[oi], x, startY + (l + oi) * lh, {lineGap: 0}); }
-  l += o1.length;
-  for (var oi2 = 0; oi2 < o2.length; oi2++) { sf(doc, false, true); doc.fontSize(8); doc.text(o2[oi2], x, startY + (l + oi2) * lh, {lineGap: 0}); }
-  l += o2.length;
+  drawMixed(VN.otherTitle, VN.otherTitleEn);
+  drawLines(wrapLines(doc, VN.otherVN, w));
+  drawLines(wrapLines(doc, VN.otherEN, w), {italic: true});
 
-  // Ghi chú (M)/(C): hiển thị khi có ít nhất 1 thông số trong pts được đánh dấu (M) hoặc (C)
-  // KHÔNG hardcode theo số GCN — phụ thuộc hoàn toàn vào dữ liệu thực tế
   var hasMCMark = false;
   if (pts && pts.length) {
     for (var pi17 = 0; pi17 < pts.length; pi17++) {
@@ -958,39 +965,53 @@ function drawSection17(doc, startY, cNo, pts) {
     }
   }
   if (hasMCMark) {
-    var o3 = wrapLines(doc, VN.otherVN2, w);
-    var o4 = wrapLines(doc, VN.otherEN2, w);
-    for (var oi3 = 0; oi3 < o3.length; oi3++) { sf(doc, false); doc.fontSize(8); doc.text(o3[oi3], x, startY + (l + oi3) * lh, {lineGap: 0}); }
-    l += o3.length;
-    for (var oi4 = 0; oi4 < o4.length; oi4++) { sf(doc, false, true); doc.fontSize(8); doc.text(o4[oi4], x, startY + (l + oi4) * lh, {lineGap: 0}); }
-    l += o4.length;
+    drawLines(wrapLines(doc, VN.otherVN2, w));
+    drawLines(wrapLines(doc, VN.otherEN2, w), {italic: true});
   }
-  l++; // blank line
  
-  // Legal 1: VN + EN inline using continued: true
-  sf(doc, false); doc.fontSize(8);
-  doc.text(VN.legal1, x, startY + l * lh, {width: w, continued: true, lineGap: 1.35});
-  sf(doc, false, true);
-  doc.text(VN.legal1En, {lineGap: 1.35});
-  // Legal 1 wraps to 2 lines
-  l += 2;
+  drawLines(wrapLines(doc, VN.legal1 + VN.legal1En, w));
+  drawLines(wrapLines(doc, VN.legal2, w));
+  drawLines(wrapLines(doc, VN.legal2En, w), {italic: true});
+  drawLines(wrapLines(doc, VN.legal3 + VN.legal3En, w));
+ 
+  return curY;
+}
 
-  // Legal 2: VN (3 lines) then EN (2 lines)
-  var lg2v = wrapLines(doc, VN.legal2, w);
-  for (var li3 = 0; li3 < lg2v.length; li3++) { sf(doc, false); doc.fontSize(8); doc.text(lg2v[li3], x, startY + (l + li3) * lh, {lineGap: 0}); }
-  l += lg2v.length;
-  var lg2e = wrapLines(doc, VN.legal2En, w);
-  for (var li4 = 0; li4 < lg2e.length; li4++) { sf(doc, false, true); doc.fontSize(8); doc.text(lg2e[li4], x, startY + (l + li4) * lh, {lineGap: 0}); }
-  l += lg2e.length;
-
-  // Legal 3: VN + EN inline using continued: true
-  sf(doc, false); doc.fontSize(8);
-  doc.text(VN.legal3, x, startY + l * lh, {width: w, continued: true, lineGap: 1.35});
-  sf(doc, false, true);
-  doc.text(VN.legal3En, {lineGap: 1.35});
-  // Legal 3 wraps to 2 lines
-  l += 2;
-  return startY + l * lh;
+// Estimate Section 17 total height (dry-run)
+function estimateSection17Height(doc, pts) {
+  var w = 564.4, lh = 10.5, fs = 8, lines = 0;
+  function countLines(textArr) { lines += textArr.length; }
+  sf(doc, false); doc.fontSize(fs);
+  countLines(['n1']); // note
+  countLines(['n1']); // note1
+  countLines(['n1']); // note2
+  countLines([VN.sec17 + VN.sec17En]);
+  countLines([VN.uncertTitle + VN.uncertTitleEn]);
+  countLines(wrapLines(doc, VN.uncertVN, w));
+  countLines(wrapLines(doc, VN.uncertEN, w));
+  countLines([VN.confTitle + VN.confTitleEn]);
+  for (var ci = 0; ci < VN.conf.length; ci++) {
+    var parts = VN.conf[ci].split(' | ');
+    countLines(wrapLines(doc, parts[0], w));
+    countLines(wrapLines(doc, parts[1], w));
+  }
+  countLines([VN.otherTitle + VN.otherTitleEn]);
+  countLines(wrapLines(doc, VN.otherVN, w));
+  countLines(wrapLines(doc, VN.otherEN, w));
+  var hasMC = false;
+  if (pts) for (var i = 0; i < pts.length; i++) {
+    var pn = (pts[i] && pts[i].PARAMETER_NAME) || '';
+    if (/\(([MC])\)/.test(pn)) { hasMC = true; break; }
+  }
+  if (hasMC) {
+    countLines(wrapLines(doc, VN.otherVN2, w));
+    countLines(wrapLines(doc, VN.otherEN2, w));
+  }
+  countLines(wrapLines(doc, VN.legal1 + VN.legal1En, w));
+  countLines(wrapLines(doc, VN.legal2, w));
+  countLines(wrapLines(doc, VN.legal2En, w));
+  countLines(wrapLines(doc, VN.legal3 + VN.legal3En, w));
+  return lines * lh;
 }
 
 // Word-wrap a string to fit width (uses current font), returns array of lines
@@ -1042,11 +1063,13 @@ async function main(opts) {
       if (require.main === module) { console.error(errMsg2); process.exit(1); }
       else throw new Error(errMsg2);
     }
-    var ptsQ = eqName
-      ? "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC"
-      : "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC";
-    var ptsParams = eqName ? [cNo, eqName] : [cNo];
-    var pts = toUpperKeys(await a(ptsQ, ptsParams));
+    if (!eqName) {
+      var errMsgEq = 'Thieu equipmentName cho GCN ' + cNo + ' — khong the xac dinh diem hieu chuan dung.';
+      if (require.main === module) { console.error(errMsgEq); process.exit(1); }
+      else throw new Error(errMsgEq);
+    }
+    var ptsQ = "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC";
+    var pts = toUpperKeys(await a(ptsQ, [cNo, eqName]));
     var stds = toUpperKeys(await a('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]));
 
     // Logo: use project asset (240x84, matches reference logo rect)
@@ -1081,8 +1104,9 @@ async function main(opts) {
     doc.addPage();
     drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
     var tableEnd = drawResultsTable(doc, pts);
-    // Section 17 starts after table + spacing
-    var sec17Y = Math.max(tableEnd + 71.9, 477.7);
+    // Section 17: estimate total height, then pick startY so it fits before footer
+    var sec17EstH = estimateSection17Height(doc, pts);
+    var sec17Y = Math.max(tableEnd + 8, 810 - sec17EstH - 10);
     drawSection17(doc, sec17Y, cNo, pts);
     drawFooter(doc, 2, 2);
 

@@ -124,17 +124,33 @@ function txtRun(text, opts = {}) {
         bold: opts.bold || false,
         italics: opts.italics || false,
         color: opts.color || COL_DARK,
+        break: opts.break, // Support break option
+        superScript: opts.superScript || false, // Support superscript option
     });
 }
 
 function para(text, opts = {}) {
     const runs = [];
     if (typeof text === 'string') {
-        runs.push(txtRun(text, opts));
+        const lines = text.split('\n');
+        lines.forEach((line, idx) => {
+            runs.push(txtRun(line, idx > 0 ? { ...opts, break: 1 } : opts));
+        });
     } else if (Array.isArray(text)) {
-        text.forEach(t => {
-            if (typeof t === 'string') runs.push(txtRun(t, opts));
-            else runs.push(txtRun(t.text, { ...opts, ...t }));
+        text.forEach((t, tIdx) => {
+            if (typeof t === 'string') {
+                const lines = t.split('\n');
+                lines.forEach((line, idx) => {
+                    runs.push(txtRun(line, (idx > 0 || (tIdx > 0 && idx === 0 && t.startsWith('\n'))) ? { ...opts, break: 1 } : opts));
+                });
+            } else {
+                const tText = String(t.text !== undefined && t.text !== null ? t.text : '');
+                const tOpts = { ...opts, ...t };
+                const lines = tText.split('\n');
+                lines.forEach((line, idx) => {
+                    runs.push(txtRun(line, (idx > 0 || (tIdx > 0 && idx === 0 && tText.startsWith('\n'))) ? { ...tOpts, break: 1 } : tOpts));
+                });
+            }
         });
     }
     return new Paragraph({
@@ -218,69 +234,96 @@ function cleanParamName(name) {
 }
 
 // ─── English translation matcher for Table 2 parameter names ───────────
-function formatParamName(paramName) {
-    const name = cleanParamName(paramName);
-    const lower = name.toLowerCase();
+function formatParamParagraphs(paramName, alignment = AlignmentType.LEFT) {
+    const rawName = String(paramName || '');
     
-    if (lower.includes('lực tỳ') || lower.includes('downward force')) {
-        return [
-            { text: 'Lực tỳ lên mẫu ', fontSize: 10 },
-            { text: 'Downward Force', fontSize: 10, italics: true },
-            { text: '(N)', fontSize: 10 }
-        ];
-    }
-    if (lower.includes('hành trình') || lower.includes('stroke length')) {
-        return [
-            { text: 'Hành trình ma sát', fontSize: 10 },
-            { text: 'Stroke length', fontSize: 10, italics: true },
-            { text: '(mm)', fontSize: 10 }
-        ];
-    }
-    if (lower.includes('đường kính') || lower.includes('finger diameter')) {
-        return [
-            { text: 'Đường kính đầu ma sát', fontSize: 10 },
-            { text: 'Finger diameter', fontSize: 10, italics: true },
-            { text: '(mm)', fontSize: 10 }
-        ];
-    }
-    if (lower.includes('tốc độ') && (lower.includes('ma sát') || lower.includes('speed'))) {
-        return [
-            { text: 'Tốc độ', fontSize: 10 },
-            { text: 'Speed', fontSize: 10, italics: true },
-            { text: '(rpm)', fontSize: 10 }
-        ];
-    }
-    if (lower.includes('bộ đếm') || lower.includes('counter')) {
-        return [
-            { text: 'Bộ đếm', fontSize: 10 },
-            { text: 'Counter', fontSize: 10, italics: true }
-        ];
+    // 1. Extract unit at the end in parentheses
+    let unit = '';
+    const unitMatch = rawName.match(/\((mm|rpm|N|g|°C|cpm|mm\/s)\)\s*$/i);
+    let raw = rawName;
+    if (unitMatch) {
+        unit = unitMatch[0];
+        raw = raw.substring(0, raw.length - unitMatch[0].length).trim();
     }
     
-    // Fallback for Wascator parameters
-    if (lower.includes('tốc độ vắt') || lower.includes('spin speed')) {
-        return [
-            { text: 'Tốc độ vắt ', fontSize: 10 },
-            { text: 'Spin speed', fontSize: 10, italics: true },
-            { text: ' (rpm)', fontSize: 10 }
-        ];
-    }
-    if (lower.includes('mực nước') || lower.includes('water level')) {
-        return [
-            { text: 'Mực nước ', fontSize: 10 },
-            { text: 'Water level', fontSize: 10, italics: true },
-            { text: ' (mm)', fontSize: 10 }
-        ];
-    }
-    if (lower.includes('nhiệt độ') || lower.includes('temperature')) {
-        return [
-            { text: 'Nhiệt độ ', fontSize: 10 },
-            { text: 'Temperature', fontSize: 10, italics: true },
-            { text: ' (°C)', fontSize: 10 }
-        ];
+    // 2. Extract marker (M), (C), or (*)
+    let marker = '';
+    const markerMatch = raw.match(/\(([MC*])\)/);
+    if (markerMatch) {
+        marker = markerMatch[0];
+        raw = raw.replace(/\(([MC*])\)/g, '').trim();
     }
     
-    return [{ text: name, fontSize: 10 }];
+    // 3. Separate Vietnamese and English parts
+    let vi = '';
+    let en = '';
+    
+    raw = raw.replace(/\s+/g, ' ').trim();
+    if (raw.indexOf('\n') >= 0) {
+        const parts = raw.split('\n');
+        vi = parts[0].trim();
+        en = parts[1].trim();
+    } else {
+        // Match known parameter translations if not split by newline
+        const lower = raw.toLowerCase();
+        if (lower.includes('hành trình') || lower.includes('stroke')) {
+            vi = 'Hành trình ma sát';
+            en = 'Stroke length';
+        } else if (lower.includes('đường kính') || lower.includes('finger')) {
+            vi = 'Đường kính đầu ma sát';
+            en = 'Finger diameter';
+        } else if (lower.includes('lực tỳ') || lower.includes('downward force')) {
+            vi = 'Lực tỳ lên mẫu';
+            en = 'Downward Force';
+        } else if (lower.includes('tốc độ vắt') || lower.includes('spin speed')) {
+            vi = 'Tốc độ vắt';
+            en = 'Spin speed';
+        } else if (lower.includes('tốc độ') || lower.includes('speed')) {
+            vi = 'Tốc độ';
+            en = 'Speed';
+        } else if (lower.includes('bộ đếm') || lower.includes('counter')) {
+            vi = 'Bộ đếm';
+            en = 'Counter';
+        } else if (lower.includes('mực nước') || lower.includes('water level')) {
+            vi = 'Mực nước';
+            en = 'Water level';
+        } else if (lower.includes('nhiệt độ') || lower.includes('temperature')) {
+            vi = 'Nhiệt độ';
+            en = 'Temperature';
+        } else {
+            vi = raw;
+            en = '';
+        }
+    }
+    
+    const paras = [];
+    
+    // Paragraph 1: Vietnamese + marker (superscript)
+    const viRuns = [txtRun(vi, { fontSize: 10 })];
+    if (marker) {
+        viRuns.push(txtRun(marker, { fontSize: 10, superScript: true }));
+    }
+    paras.push(new Paragraph({ children: viRuns, alignment, spacing: { before: 0, after: 0 } }));
+    
+    // Paragraph 2: English (italics)
+    if (en) {
+        paras.push(new Paragraph({
+            children: [txtRun(en, { fontSize: 10, italics: true })],
+            alignment,
+            spacing: { before: 0, after: 0 }
+        }));
+    }
+    
+    // Paragraph 3: Unit
+    if (unit) {
+        paras.push(new Paragraph({
+            children: [txtRun(unit, { fontSize: 10 })],
+            alignment,
+            spacing: { before: 0, after: 0 }
+        }));
+    }
+    
+    return paras;
 }
 
 // Helper to get exact row heights for calibration parameters
@@ -664,15 +707,14 @@ async function main(opts) {
                     width: { size: 10457, type: WidthType.DXA },
                     columnWidths: [2547, 5812, 2098],
                     alignment: AlignmentType.CENTER,
-                    borders: TABLE_BORDER_NONE
-                }),
-                // Line ngang phía dưới footer (giống file mẫu)
-                new Paragraph({
-                    spacing: { before: 0, after: 0 },
-                    border: {
-                        top: { style: BorderStyle.SINGLE, size: 4, color: '7F7F7F', space: 1 },
-                    },
-                    children: []
+                    borders: {
+                        top: { style: BorderStyle.SINGLE, size: 4, color: '7F7F7F' },
+                        bottom: BORDER_NONE,
+                        left: BORDER_NONE,
+                        right: BORDER_NONE,
+                        insideHorizontal: BORDER_NONE,
+                        insideVertical: BORDER_NONE,
+                    }
                 })
             ]
         });
@@ -888,8 +930,11 @@ async function main(opts) {
 
         const resLines = (specs.resolution || '').indexOf('\n') >= 0 
             ? (specs.resolution || '').split('\n')
-            : (specs.resolution || '--------').split(/[,;]+/);
-        const resolutionParas = resLines.map(line => para(line.trim() || '--------', { fontSize: 9 }));
+            : (specs.resolution || '').split(/[,;]+/);
+        const resolutionParas = resLines.map(line => {
+            const trimLine = line.trim();
+            return para((trimLine === '--------' || !trimLine) ? '' : trimLine, { fontSize: 9 });
+        });
 
         t1Rows.push(new TableRow({
             // AT_LEAST: hàng tự nở để chứa danh sách máy/phép thử được công nhận (tối đa 4)
@@ -1019,6 +1064,14 @@ async function main(opts) {
                 ]
             }));
         }
+
+        // Spacing spacer between standards used table and signature block (300 dxa = ~15pt)
+        t1Rows.push(new TableRow({
+            height: { value: 300, rule: HeightRule.AT_LEAST },
+            children: [
+                t1Cell([], 11483, 15)
+            ]
+        }));
 
         // Row 18: Signatures Header
         t1Rows.push(new TableRow({
@@ -1253,9 +1306,9 @@ async function main(opts) {
                     
                     if (isMulti) {
                         t2Rows.push(new TableRow({
-                            height: { value: 312, rule: HeightRule.EXACT },
+                            height: { value: 312, rule: HeightRule.AT_LEAST },
                             children: [
-                                t2Cell(ri > 0 ? [] : [para(formatParamName(paramName))], 1278, 1, { verticalMerge: paramMerge }),
+                                t2Cell(ri > 0 ? [] : formatParamParagraphs(paramName, AlignmentType.LEFT), 1278, 1, { verticalMerge: paramMerge }),
                                 t2Cell([para(calPt, { fontSize: 10, alignment: AlignmentType.CENTER })], 1843, 1),
                                 t2Cell([para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER })], 1855, 1),
                                 t2Cell([para(unc, { fontSize: 10, alignment: AlignmentType.CENTER })], 1720, 2),
@@ -1267,9 +1320,9 @@ async function main(opts) {
                     } else {
                         // Single row parameter layout
                         t2Rows.push(new TableRow({
-                            height: exactHeight ? { value: exactHeight, rule: HeightRule.EXACT } : undefined,
+                            height: exactHeight ? { value: exactHeight, rule: HeightRule.AT_LEAST } : undefined,
                             children: [
-                                t2Cell(para(formatParamName(paramName)), 3121, 2),
+                                t2Cell(formatParamParagraphs(paramName, AlignmentType.LEFT), 3121, 2),
                                 t2Cell(para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER }), 1855, 1),
                                 t2Cell(para(unc, { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
                                 t2Cell(para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 2),
@@ -1294,8 +1347,7 @@ async function main(opts) {
             })
         );
 
-        // Explicit PageBreak before Table 3 (notes and disclaimers) to push it to page 3 entirely
-        children.push(new Paragraph({ children: [new PageBreak()] }));
+
 
         // ─── TABLE 3: Notes, Disclaimers, and Other Information (completely borderless, 8pt) ───
         const t3Rows = [];
@@ -1504,7 +1556,7 @@ async function main(opts) {
                 properties: {
                     page: {
                         size: { width: 11907, height: 16840 },
-                        margin: { top: 669, bottom: 426, left: 720, right: 720, header: 742, footer: 0 },
+                        margin: { top: 669, bottom: 426, left: 720, right: 720, header: 742, footer: 240 },
                         borders: {
                             pageBorders: { offsetFrom: 'page' },
                             pageBorderTop:    { style: BorderStyle.SINGLE, size: 4, color: 'auto', space: 10 },

@@ -2433,6 +2433,7 @@ async function exportFile(format) {
 
   const payload = {
     cert_no:        certNo,
+    equipmentName:  currentEquipmentName || '',
     instrumentName: txt('f-inst-vi'),
     manufacturer:   txt('f-mfr'),
     model:          txt('f-model'),
