@@ -362,13 +362,10 @@ function drawPage1Body(doc, cert, pts, stds, accM, tpl) {
   var addr = (cert.CUSTOMER_ADDRESS && cert.CUSTOMER_ADDRESS !== 'null') ? cert.CUSTOMER_ADDRESS : '';
   var inst = (tpl && tpl.NAME_VI) ? tpl.NAME_VI : ((cert.INSTRUMENT_NAME && cert.INSTRUMENT_NAME !== 'null') ? cert.INSTRUMENT_NAME : '');
   var instEn = (cert.INSTRUMENT_NAME_EN && cert.INSTRUMENT_NAME_EN !== 'null') ? cert.INSTRUMENT_NAME_EN : '';
-  if (instEn.toLowerCase().includes('crocking') || instEn.toLowerCase().includes('rubbing') || instEn.toLowerCase().includes('crock')) {
-    instEn = 'Crocking meter';
-  }
   if (!instEn && tpl && tpl.NAME) {
-    instEn = (tpl.NAME.toLowerCase().includes('crocking') || tpl.NAME.toLowerCase().includes('rubbing') || tpl.NAME.toLowerCase().includes('crock')) ? 'Crocking meter' : tpl.NAME;
+    // Strip leading number prefix (e.g. "1.1 Auto Crocking Meter" → "Auto Crocking Meter")
+    instEn = tpl.NAME.replace(/^\d+\.\d*\s*/, '').trim();
   }
-  if (!instEn && inst.toLowerCase().includes('bền màu ma sát')) instEn = 'Crocking meter';
   var manuf = (cert.MANUFACTURER && cert.MANUFACTURER !== 'null') ? cert.MANUFACTURER : '';
   var model = (cert.MODEL && cert.MODEL !== 'null' && cert.MODEL !== '') ? cert.MODEL : '';
   var eid = (cert.EQUIPMENT_ID && cert.EQUIPMENT_ID !== 'null') ? cert.EQUIPMENT_ID : '';

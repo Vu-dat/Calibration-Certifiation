@@ -1348,7 +1348,7 @@ function applyEquipmentCache(templates) {
     freshDB[t.NAME] = {
       manufacturer: t.MANUFACTURER || '',
       model: t.MODEL || '',
-      instEn: (t.NAME.toLowerCase().includes('crocking') || t.NAME.toLowerCase().includes('rubbing') || (t.NAME_VI && t.NAME_VI.toLowerCase().includes('bền màu ma sát'))) ? 'Crocking meter' : t.NAME,
+      instEn: t.NAME.replace(/^\d+\.\d*\s*/, '').trim(),
       nameVi: t.NAME_VI || '',
       equipmentId: t.EQUIPMENT_ID || '',
       serialNumber: t.SERIAL_NUMBER || '',

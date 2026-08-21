@@ -729,14 +729,9 @@ async function main(opts) {
         // Determine instDisplay early for dynamic line estimation
         let instVi = (tpl && tpl.NAME_VI) ? tpl.NAME_VI : (cert.INSTRUMENT_NAME || '–');
         let instEn = cert.INSTRUMENT_NAME_EN || '';
-        if (instEn.toLowerCase().includes('crocking') || instEn.toLowerCase().includes('rubbing') || instEn.toLowerCase().includes('crock')) {
-            instEn = 'Crocking meter';
-        }
         if (!instEn && tpl && tpl.NAME) {
-            instEn = (tpl.NAME.toLowerCase().includes('crocking') || tpl.NAME.toLowerCase().includes('rubbing') || tpl.NAME.toLowerCase().includes('crock')) ? 'Crocking meter' : tpl.NAME;
-        }
-        if (!instEn && instVi.toLowerCase().includes('bền màu ma sát')) {
-            instEn = 'Crocking meter';
+            // Strip leading number prefix (e.g. "1.1 Auto Crocking Meter" → "Auto Crocking Meter")
+            instEn = tpl.NAME.replace(/^\d+\.\d*\s*/, '').trim();
         }
 
         // ─── DYNAMIC SPACER AND FONT SIZE CALCULATION FOR TABLE 1 ───
