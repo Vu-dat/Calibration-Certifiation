@@ -521,9 +521,14 @@ document.addEventListener("DOMContentLoaded", () => {
     <section id="equipment-list-view">
         <div class="eq-header reveal" style="animation-delay:0.3s">
             <h1><i class="fas fa-flask"></i> Standard Equipment Database</h1>
-            <button class="btn btn-primary ripple-btn" onclick="showAddForm()">
-                <i class="fas fa-plus-circle"></i> Add New Equipment
-            </button>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-success ripple-btn" onclick="exportToExcel()">
+                    <i class="fas fa-file-excel"></i> Export Excel
+                </button>
+                <button class="btn btn-primary ripple-btn" onclick="showAddForm()">
+                    <i class="fas fa-plus-circle"></i> Add New Equipment
+                </button>
+            </div>
         </div>
 
         <div class="eq-search reveal" style="animation-delay:0.4s">
@@ -962,6 +967,7 @@ async function loadEquipment() {
 
             if (result.success) {
                 showToast('✅ Equipment added successfully!', 'success');
+                localStorage.removeItem('lm_clock_standards');
                 document.getElementById('new-eq-code').value = '';
                 document.getElementById('new-eq-name').value = '';
                 document.getElementById('new-manu').value = '';
@@ -991,6 +997,7 @@ async function loadEquipment() {
             const result = await res.json();
             if (result.success) {
                 showToast('🗑️ Equipment deleted!', 'success');
+                localStorage.removeItem('lm_clock_standards');
                 await loadEquipment();
             } else {
                 showToast('❌ Delete failed: ' + (result.message || result.error), 'danger');
@@ -998,6 +1005,147 @@ async function loadEquipment() {
         } catch (err) {
             showToast('❌ Error: ' + err.message, 'danger');
         }
+    }
+
+    // ════════════════════════════════════
+    //   EXPORT EXCEL
+    // ════════════════════════════════════
+    function exportToExcel() {
+        if (!equipmentList || equipmentList.length === 0) {
+            showToast('No data to export', 'warning');
+            return;
+        }
+
+        let html = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+            <!--[if gte mso 9]>
+            <xml>
+                <x:ExcelWorkbook>
+                    <x:ExcelWorksheets>
+                        <x:ExcelWorksheet>
+                            <x:Name>ThietBiChuan</x:Name>
+                            <x:WorksheetOptions>
+                                <x:DisplayGridlines/>
+                            </x:WorksheetOptions>
+                        </x:ExcelWorksheet>
+                    </x:ExcelWorksheets>
+                </x:ExcelWorkbook>
+            </xml>
+            <![endif]-->
+            <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+            <style>
+                table { border-collapse: collapse; width: 100%; font-family: 'Segoe UI', Arial, sans-serif; margin: 20px 0; }
+                th { 
+                    background-color: #0d9488; 
+                    color: #ffffff; 
+                    font-weight: bold; 
+                    border: 1px solid #cbd5e1; 
+                    padding: 18px 12px; 
+                    text-align: center;
+                    font-size: 19px;
+                }
+                td { 
+                    border: 1px solid #e2e8f0; 
+                    padding: 14px 12px; 
+                    font-size: 15px;
+                    color: #1e293b;
+                }
+                tr:nth-child(even) { background-color: #f8fafc; }
+                .center { text-align: center; }
+                .expired { color: #dc2626; font-weight: bold; text-align: center; background-color: #fef2f2; }
+                .expiring-soon { color: #d97706; font-weight: bold; text-align: center; background-color: #fffbeb; }
+                .valid { color: #16a34a; font-weight: bold; text-align: center; background-color: #f0fdf4; }
+            </style>
+        </head>
+        <body>
+            <h2 style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; text-align: center; margin-top: 20px; font-size: 24px;">DANH SÁCH THIẾT BỊ CHUẨN (STANDARD EQUIPMENT DATABASE)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>STT</th>
+                        <th>Mã thiết bị (Equipment ID)</th>
+                        <th>Tên thiết bị (Name)</th>
+                        <th>Hãng sản xuất (Manufacturer)</th>
+                        <th>Model</th>
+                        <th>Số Serial (Serial Number)</th>
+                        <th>GCN</th>
+                        <th>Liên kết (Link)</th>
+                        <th>Ngày hiệu chuẩn (Cal Date)</th>
+                        <th>Ngày hết hạn (Validity)</th>
+                        <th>Trạng thái (Status)</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        const now = new Date();
+        now.setHours(0,0,0,0);
+
+        equipmentList.forEach((item, idx) => {
+            const id = item.ID || item.EQUIPMENT_ID || '--';
+            const name = item.NAME || '--';
+            const manu = item.MANUFACTURER || '--';
+            const model = item.MODEL || '--';
+            const serial = item.SERIAL_NUMBER || '--';
+            const gcn = item.GCN || '--';
+            const link = item.LINK || '--';
+            const calDate = item.CAL_DATE || '--';
+            const validity = item.VALIDITY || '--';
+
+            let statusLabel = 'Valid';
+            let statusClass = 'valid';
+            if (validity && validity !== '1900-12-31' && validity !== '---') {
+                const valDate = new Date(validity);
+                if (!isNaN(valDate)) {
+                    if (valDate < now) {
+                        statusLabel = 'Expired';
+                        statusClass = 'expired';
+                    } else {
+                        const diffTime = valDate - now;
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays <= 30) {
+                            statusLabel = 'Expiring Soon';
+                            statusClass = 'expiring-soon';
+                        }
+                    }
+                }
+            }
+
+            html += `
+                <tr>
+                    <td class="center">${idx + 1}</td>
+                    <td class="center" style="mso-number-format:'\\@';">${id}</td>
+                    <td>${name}</td>
+                    <td>${manu}</td>
+                    <td>${model}</td>
+                    <td class="center" style="mso-number-format:'\\@';">${serial}</td>
+                    <td class="center">${gcn}</td>
+                    <td>${link}</td>
+                    <td class="center">${calDate}</td>
+                    <td class="center">${validity}</td>
+                    <td class="${statusClass}">${statusLabel}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                </tbody>
+            </table>
+        </body>
+        </html>
+        `;
+
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+
+        const linkEl = document.createElement('a');
+        linkEl.setAttribute('href', url);
+        linkEl.setAttribute('download', `danh_sach_thiet_bi_chuan_${new Date().toISOString().slice(0,10)}.xls`);
+        linkEl.style.visibility = 'hidden';
+        document.body.appendChild(linkEl);
+        linkEl.click();
+        document.body.removeChild(linkEl);
     }
 
     // ════════════════════════════════════
