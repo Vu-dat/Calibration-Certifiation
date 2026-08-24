@@ -642,7 +642,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     <tr>
                         <th style="width: 20%;">Thông số<br><span>Parameters</span></th>
                         <th style="width: 10%;">Điểm HC<br><span>Cal. Points</span></th>
-                        <th colspan="3" style="width: 18%;">Giá trị đo được<br><span>As Found (lần 1 / 2 / 3)</span></th>
+                        <th colspan="3" style="width: 15%;">Giá trị đo được<br><span>As Found (lần 1 / 2 / 3)</span></th>
+                        <th style="width: 7%;">Giá trị TB<br><span>Average</span></th>
                         <th style="width: 8%;">KĐBĐ ±<br><span>Uncertainty</span></th>
                         <th style="width: 8%;">Giá trị tham chiếu<br><span>Reference Value</span></th>
                         <th style="width: 8%;">Dung sai<br><span>Tolerance</span></th>
@@ -1324,11 +1325,16 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         const displayRefVal = refVal || '';
         const displayTol = tol || '± 3';
 
+        // Tính giá trị trung bình mẫu từ dữ liệu template
+        var tplVals = [val1, val2, val3].filter(function(v) { return v && v.trim() !== ''; });
+        var tplNums = tplVals.map(function(v) { return parseFloat(v.replace(',', '.')); }).filter(function(n) { return !isNaN(n); });
+        var tplAvg = tplNums.length > 0 ? (Math.round(tplNums.reduce(function(a,b){return a+b;},0) / tplNums.length * 100) / 100) : '';
         return `
             <td class="point-cell" style="padding:4px;font-weight:600;background:#f8fafc;"><input type="text" value="${p}" class="cell-input point-input" style="font-weight:600;text-align:center;"></td>
-            <td style="padding:4px;"><input type="text" value="${val1}" class="cell-input v1" placeholder="Lần 1" oninput="calculateConformity(this.closest('tr'))"></td>
-            <td style="padding:4px;"><input type="text" value="${val2}" class="cell-input v2" placeholder="Lần 2" oninput="calculateConformity(this.closest('tr'))"></td>
-            <td style="padding:4px;"><input type="text" value="${val3}" class="cell-input v3" placeholder="Lần 3" oninput="calculateConformity(this.closest('tr'))"></td>
+            <td style="padding:4px;"><input type="text" value="" class="cell-input v1" placeholder="Lần 1" oninput="calculateConformity(this.closest('tr'))"></td>
+            <td style="padding:4px;"><input type="text" value="" class="cell-input v2" placeholder="Lần 2" oninput="calculateConformity(this.closest('tr'))"></td>
+            <td style="padding:4px;"><input type="text" value="" class="cell-input v3" placeholder="Lần 3" oninput="calculateConformity(this.closest('tr'))"></td>
+            <td style="padding:4px;"><input type="text" value="${tplAvg}" class="cell-input avg-val" readonly style="background:#f0fdf4;font-weight:700;color:#065f46;text-align:center;"></td>
             <td style="padding:4px;"><input type="text" value="${displayUnc}" class="cell-input unc" oninput="calculateConformity(this.closest('tr'))"></td>
             <td style="padding:4px;"><input type="text" value="${displayRefVal}" class="cell-input ref-val" placeholder="Giá trị tham chiếu" oninput="calculateConformity(this.closest('tr'))"></td>
             <td style="padding:4px;"><input type="text" value="${displayTol}" class="cell-input tol" oninput="calculateConformity(this.closest('tr'))"></td>
@@ -1359,6 +1365,11 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         var v2 = (row.querySelector('.v2') || {}).value || '';
         var v3 = (row.querySelector('.v3') || {}).value || '';
         var asFound = [v1, v2, v3].filter(Boolean).join(' / ') || v1;
+        // Nếu v1/v2/v3 trống → lấy giá trị trung bình mẫu từ cột avg-val để lưu
+        if (!asFound) {
+          var avgCell = row.querySelector('.avg-val');
+          if (avgCell && avgCell.value.trim()) asFound = avgCell.value.trim();
+        }
 
         data.push({
           paramName: paramName || '',
@@ -1555,7 +1566,12 @@ async function fetchEquipmentTemplates(searchQuery = '') {
             const val1 = v1Input ? v1Input.value.trim() : '';
             const val2 = v2Input ? v2Input.value.trim() : '';
             const val3 = v3Input ? v3Input.value.trim() : '';
-            const mergedAsFound = [val1, val2, val3].filter(Boolean).join(' / ') || val1;
+            var mergedAsFound = [val1, val2, val3].filter(Boolean).join(' / ') || val1;
+            // Nếu v1/v2/v3 trống → lấy giá trị trung bình mẫu từ cột avg-val để lưu
+            if (!mergedAsFound) {
+              var avgCell = row.querySelector('.avg-val');
+              if (avgCell && avgCell.value.trim()) mergedAsFound = avgCell.value.trim();
+            }
 
             points.push({
                 parameterName: lastParamName,
@@ -1927,6 +1943,19 @@ function calculateConformity(row) {
     if (conformity) {
       var confEl = row.querySelector('.conf');
       if (confEl) confEl.value = conformity;
+    }
+
+    // Cập nhật ô giá trị trung bình (chỉ cập nhật khi người dùng đã nhập giá trị mới)
+    var avgEl = row.querySelector('.avg-val');
+    if (avgEl) {
+      var rawV1 = (row.querySelector('.v1')||{}).value || '';
+      var rawV2 = (row.querySelector('.v2')||{}).value || '';
+      var rawV3 = (row.querySelector('.v3')||{}).value || '';
+      var hasUserInput = rawV1.trim() !== '' || rawV2.trim() !== '' || rawV3.trim() !== '';
+      if (hasUserInput && vals.length > 0) {
+        avgEl.value = Math.round(avg * 100) / 100;
+      }
+      // Nếu chưa nhập gì → giữ nguyên giá trị trung bình mẫu từ template
     }
   } catch(e) {}
 }

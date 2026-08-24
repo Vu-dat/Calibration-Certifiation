@@ -846,7 +846,7 @@ function drawResultsTable(doc, pts) {
       if (ri === grp.rows.length - 1) {
         doc.moveTo(dcols[0], y + rowH).lineTo(dR[6], y + rowH).stroke();
       } else {
-        doc.moveTo(dcols[1], y + rowH).lineTo(dR[3], y + rowH).stroke();
+        doc.moveTo(dcols[1], y + rowH).lineTo(dR[6], y + rowH).stroke();
       }
       for (var g2 = 0; g2 < 7; g2++) {
         if (g2 === 1 && !isMulti) continue;
@@ -859,13 +859,14 @@ function drawResultsTable(doc, pts) {
         paramTxt = paramTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
       }
       var pointTxt = String(r.CAL_POINT || '');
-      if (pointTxt.indexOf('\n') >= 0) pointTxt = 'BEGIN';
-      var foundTxt = String(r.AS_FOUND_VALUE || '');
-      var uncTxt = String(r.UNCERTAINTY || '--');
-      var midIndex = Math.floor(grp.rows.length / 2);
-      var refTxt = (isMulti && ri !== midIndex) ? '' : String(r.REFERENCE_VALUE || '');
-      var tolTxt = (isMulti && ri !== midIndex) ? '' : String(r.TOLERANCE || '');
-      var confTxt = (isMulti && ri !== midIndex) ? '' : String(r.CONFORMITY || '--');
+      if (pointTxt.indexOf('\n') >= 0 && (pointTxt.toLowerCase().includes('begin') || pointTxt.toLowerCase().includes('middle') || pointTxt.toLowerCase().includes('end'))) {
+        pointTxt = 'BEGIN';
+      }
+      var foundTxt = (r.AS_FOUND_VALUE !== null && r.AS_FOUND_VALUE !== undefined && r.AS_FOUND_VALUE !== '') ? String(r.AS_FOUND_VALUE) : '';
+      var uncTxt = (r.UNCERTAINTY !== null && r.UNCERTAINTY !== undefined && r.UNCERTAINTY !== '') ? String(r.UNCERTAINTY) : '--';
+      var refTxt = (r.REFERENCE_VALUE !== null && r.REFERENCE_VALUE !== undefined && r.REFERENCE_VALUE !== '') ? String(r.REFERENCE_VALUE) : '';
+      var tolTxt = (r.TOLERANCE !== null && r.TOLERANCE !== undefined && r.TOLERANCE !== '') ? String(r.TOLERANCE) : '';
+      var confTxt = (r.CONFORMITY !== null && r.CONFORMITY !== undefined && r.CONFORMITY !== '') ? String(r.CONFORMITY) : '--';
       sf(doc, false); doc.fontSize(10).fillColor('#000000');
       var isThreeLine = paramTxt.includes('\n') && paramTxt.split('\n').length >= 3;
       var pyV = y + (isMulti ? (ri === grp.rows.length - 1 ? 0.0 : 1.8) : (isThreeLine ? 13.3 : (rowH > 38.0 ? (rowH - 11.5) / 2 : 6.7))); // point+values

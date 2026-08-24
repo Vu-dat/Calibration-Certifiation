@@ -138,15 +138,15 @@ const templates = [
     serial_number: "TM092026",
     model_serial: "TM092026",
     manufacturer_id: "",
-    spec_range: "Tải trọng/Downward force: 1000 g\nHành trình/Stroke: 40 mm\nTốc độ/Speed: 40 mm",
+    spec_range: "Tải trọng/Downward force: 1000 g\nHành trình/Stroke: 40 mm\nTốc độ/Speed: 40 cpm",
     spec_resolution: "--------\n--------\n--------",
     standards_used: "[\"LAB-BALANCE.01\",\"LAB-CALIPER.01\",\"LAB-TACHO.01\"]",
     points: [
-      { parameter: "Tải trọng (C)\nDownward Force(g)", value: "Quả tải\nWeight", asFound: "502.4", ref: "500", unc: "0.43", tol: "±10", conf: "A", std: "LAB-BALANCE.01" },
-      { parameter: "Tải trọng (C)\nDownward Force(g)", value: "Thanh gắng mẫu\nRubbing finger", asFound: "498.9", ref: "500", unc: "0.43", tol: "±10", conf: "A", std: "LAB-BALANCE.01" },
-      { parameter: "Tải trọng (C)\nDownward Force(g)", value: "Tổng cộng\nTotal", asFound: "1001.3", ref: "1000", unc: "0.43", tol: "±20", conf: "A", std: "LAB-BALANCE.01" },
-      { parameter: "Hành trình ma sát (M)\nStroke length(mm)", value: "", asFound: "36.65", ref: "35 - 40", unc: "0.2", tol: "--", conf: "A", std: "LAB-CALIPER.01" },
-      { parameter: "Tốc độ (C)\nSpeed(rpm)", value: "", asFound: "39.3", ref: "40", unc: "0.6", tol: "± 2", conf: "A", std: "LAB-TACHO.01" },
+      { parameter: "Tải trọng (C)\nDownward Force (g)", value: "Quả tải\nWeight", asFound: "502.4", ref: "500", unc: "0.43", tol: "±10", conf: "A", std: "LAB-BALANCE.01" },
+      { parameter: "Tải trọng (C)\nDownward Force (g)", value: "Thanh gắng mẫu\nRubbing finger", asFound: "498.9", ref: "500", unc: "0.43", tol: "±10", conf: "A", std: "LAB-BALANCE.01" },
+      { parameter: "Tải trọng (C)\nDownward Force (g)", value: "Tổng cộng\nTotal", asFound: "1001.3", ref: "1000", unc: "0.43", tol: "±20", conf: "A", std: "LAB-BALANCE.01" },
+      { parameter: "Hành trình ma sát (M)\nStroke length (mm)", value: "", asFound: "36.65", ref: "35 - 40", unc: "0.2", tol: "--", conf: "A", std: "LAB-CALIPER.01" },
+      { parameter: "Tốc độ (C)\nSpeed (rpm)", value: "", asFound: "39.3", ref: "40", unc: "0.6", tol: "± 2", conf: "A", std: "LAB-TACHO.01" },
       { parameter: "Bộ đếm (*)\nCounter", value: "", asFound: "10", ref: "10", unc: "--", tol: "--", conf: "--", std: "" }
     ]
   },
