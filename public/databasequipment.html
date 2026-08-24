@@ -1018,18 +1018,38 @@ function swrFetch(key, fetcher, ttlMs) {
                 
                 // Kiểm tra trạng thái hết hạn
                 let isExpired = false;
+                let isExpiringSoon = false;
                 if (item.VALIDITY && item.VALIDITY !== '1900-12-31' && item.VALIDITY !== '---') {
                     const valDate = new Date(item.VALIDITY);
-                    if (!isNaN(valDate) && valDate < today) {
-                        isExpired = true;
+                    if (!isNaN(valDate)) {
+                        if (valDate < today) {
+                            isExpired = true;
+                        } else {
+                            const diffTime = valDate - today;
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                            if (diffDays <= 30) {
+                                isExpiringSoon = true;
+                            }
+                        }
                     }
                 }
                 
                 const due = item.VALIDITY || '---';
-                const warningHtml = isExpired ? `<span style="color:#e53e3e; font-weight:800; margin-left:8px; font-size:11px;">⚠️ HẾT HẠN</span>` : '';
+                let warningHtml = '';
+                let validityColor = 'var(--muted)';
+                let validityWeight = '400';
+                if (isExpired) {
+                    warningHtml = `<span style="color:#e53e3e; font-weight:800; margin-left:8px; font-size:11px;">⚠️ HẾT HẠN</span>`;
+                    validityColor = '#e53e3e';
+                    validityWeight = '700';
+                } else if (isExpiringSoon) {
+                    warningHtml = `<span style="color:#d97706; font-weight:800; margin-left:8px; font-size:11px;">⚠️ SẮP HẾT HẠN</span>`;
+                    validityColor = '#d97706';
+                    validityWeight = '700';
+                }
                 
                 div.innerHTML = `🏷️ <strong>${item.ID || item.EQUIPMENT_ID || ''}</strong> – ${item.NAME || ''} ${warningHtml}
-                                 <span style="margin-left:auto;color:${isExpired ? '#e53e3e' : 'var(--muted)'};font-size:11px;font-weight:${isExpired ? '700' : '400'};">Hạn: ${due}</span>`;
+                                 <span style="margin-left:auto;color:${validityColor};font-size:11px;font-weight:${validityWeight};">Hạn: ${due}</span>`;
                 
                 div.addEventListener('click', () => {
                     const selectedId = getClockItemId(item);

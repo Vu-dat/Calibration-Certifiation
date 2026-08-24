@@ -33,6 +33,7 @@
         .eq-stat p { font-size: 28px; font-weight: 800; color: var(--primary); line-height: 1.2; }
         .eq-stat.total   { border-left-color: var(--accent); }
         .eq-stat.valid   { border-left-color: var(--success); }
+        .eq-stat.expiring-soon { border-left-color: #f59e0b; }
         .eq-stat.expired { border-left-color: var(--danger); }
 
         /* ─── Section Header ─── */
@@ -59,12 +60,14 @@
             border: 1.5px solid var(--border); border-radius: var(--radius);
             font-family: var(--font); font-size: 14px; outline: none;
             transition: all var(--transition);
+            min-width: 0;
         }
         .eq-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
         .eq-search select {
-            padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius);
-            font-family: var(--font); font-size: 13px; outline: none; min-width: 150px;
+            flex: 1; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius);
+            font-family: var(--font); font-size: 13px; outline: none; min-width: 0;
             background: var(--surface); cursor: pointer;
+            transition: all var(--transition);
         }
         .eq-search select:focus { border-color: var(--accent); }
 
@@ -118,6 +121,7 @@
         .eq-status.valid   { background: var(--success-light); color: #065f46; }
         .eq-status.expired { background: var(--danger-light); color: #b91c1c; }
         .eq-status.pending { background: #fef3c7; color: #b45309; }
+        .eq-status.expiring-soon { background: #fef3c7; color: #b45309; }
 
         /* Action Buttons */
         .eq-actions { display: flex; gap: 6px; justify-content: center; }
@@ -300,6 +304,7 @@
             box-shadow: 0 12px 32px -8px rgba(13,148,136,0.25) !important;
         }
         .eq-stat.valid:hover { box-shadow: 0 12px 32px -8px rgba(16,185,129,0.25) !important; }
+        .eq-stat.expiring-soon:hover { box-shadow: 0 12px 32px -8px rgba(245,158,11,0.25) !important; }
         .eq-stat.expired:hover { box-shadow: 0 12px 32px -8px rgba(239,68,68,0.25) !important; }
         .eq-stat.reveal.visible p {
             animation: eqStatCountIn 0.6s 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -500,6 +505,11 @@ document.addEventListener("DOMContentLoaded", () => {
             <h4>Đạt chuẩn (Còn hạn)</h4>
             <p id="stat-active">--</p>
         </div>
+        <div class="eq-stat expiring-soon reveal" style="animation-delay:0.25s">
+            <span class="stat-icon"><i class="fas fa-clock" style="color:#f59e0b"></i></span>
+            <h4>Sắp hết hạn (1 tháng)</h4>
+            <p id="stat-expiring-soon">--</p>
+        </div>
         <div class="eq-stat expired reveal" style="animation-delay:0.3s">
             <span class="stat-icon"><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i></span>
             <h4>Hết hạn hiệu chuẩn</h4>
@@ -522,6 +532,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <select id="filter-status" onchange="filterEquipment()">
                 <option value="all">All Status</option>
                 <option value="valid">Valid</option>
+                <option value="expiring-soon">Expiring Soon</option>
                 <option value="expired">Expired</option>
             </select>
         </div>
@@ -779,13 +790,14 @@ async function loadEquipment() {
 
         let total = list.length;
         let active = 0;
+        let expiringSoon = 0;
         let expired = 0;
 
         document.getElementById('stat-total').textContent = total;
 
         if (!list || list.length === 0) {
             tbody.innerHTML = `<tr><td colspan="12" class="eq-empty"><span class="empty-icon"><i class="fas fa-database"></i></span><p>No equipment found</p><small>Click "Add New Equipment" to get started</small></td></tr>`;
-            updateStats(0, 0, 0);
+            updateStats(0, 0, 0, 0);
             return;
         }
 
@@ -802,12 +814,27 @@ async function loadEquipment() {
 
             let status = 'valid';
             let statusLabel = 'Valid';
+            let iconClass = 'fa-check-circle';
             if (validity && validity !== '1900-12-31' && validity !== '---') {
                 const valDate = new Date(validity);
-                if (!isNaN(valDate) && valDate < now) {
-                    status = 'expired';
-                    statusLabel = 'Expired';
-                    expired++;
+                if (!isNaN(valDate)) {
+                    if (valDate < now) {
+                        status = 'expired';
+                        statusLabel = 'Expired';
+                        iconClass = 'fa-exclamation-circle';
+                        expired++;
+                    } else {
+                        const diffTime = valDate - now;
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays <= 30) {
+                            status = 'expiring-soon';
+                            statusLabel = 'Expiring Soon';
+                            iconClass = 'fa-clock';
+                            expiringSoon++;
+                        } else {
+                            active++;
+                        }
+                    }
                 } else {
                     active++;
                 }
@@ -826,7 +853,7 @@ async function loadEquipment() {
                 <td>${link}</td>
                 <td>${calDate}</td>
                 <td>${validity}</td>
-                <td><span class="eq-status ${status}"><i class="fas ${status === 'valid' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${statusLabel}</span></td>
+                <td><span class="eq-status ${status}"><i class="fas ${iconClass}"></i> ${statusLabel}</span></td>
                 <td>
                     <div class="eq-actions">
                         <button class="eq-action-btn edit" title="Edit" onclick="event.stopPropagation(); editEquipment('${id}')"><i class="fas fa-pen"></i></button>
@@ -836,12 +863,13 @@ async function loadEquipment() {
             </tr>`;
         }).join('');
 
-        updateStats(total, active, expired);
+        updateStats(total, active, expiringSoon, expired);
     }
 
-    function updateStats(total, active, expired) {
+    function updateStats(total, active, expiringSoon, expired) {
         document.getElementById('stat-total').textContent = total;
         document.getElementById('stat-active').textContent = active;
+        document.getElementById('stat-expiring-soon').textContent = expiringSoon;
         document.getElementById('stat-expired').textContent = expired;
     }
 
@@ -870,8 +898,19 @@ async function loadEquipment() {
                 const validity = item.VALIDITY || '';
                 if (validity && validity !== '1900-12-31' && validity !== '---') {
                     const valDate = new Date(validity);
-                    const isExpired = !isNaN(valDate) && valDate < now;
-                    return statusFilter === 'expired' ? isExpired : !isExpired;
+                    if (!isNaN(valDate)) {
+                        if (valDate < now) {
+                            return statusFilter === 'expired';
+                        } else {
+                            const diffTime = valDate - now;
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                            if (diffDays <= 30) {
+                                return statusFilter === 'expiring-soon';
+                            } else {
+                                return statusFilter === 'valid';
+                            }
+                        }
+                    }
                 }
                 return statusFilter === 'valid';
             });
