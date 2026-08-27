@@ -2036,6 +2036,107 @@ textarea {
 }
 
 /* ═══════════════════════════════════════════════
+   CUSTOM RESPONSIVE OVERRIDES
+   ═══════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  /* Prevent horizontal page overflow on preview by containing the scroll inside #print-content */
+  #preview-view {
+    overflow-x: hidden !important;
+  }
+  #print-content {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    background: #e2e8f0;
+    padding: 16px 8px !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .cert-page {
+    margin: 0 auto 16px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+    flex-shrink: 0;
+  }
+
+  /* Preview toolbar full-width buttons & dropdown on mobile */
+  .preview-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+  .preview-toolbar .dropdown {
+    display: block !important;
+    width: 100% !important;
+  }
+  .preview-toolbar .dropdown .btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  .preview-toolbar .dropdown-menu {
+    width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+  }
+  
+  /* Add more touch padding for calibration table inputs and make them look like actual inputs */
+  #calibration-table td {
+    padding: 4px 2px !important;
+  }
+  #calibration-table td input.lab-input-cell {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    padding: 8px 6px !important;
+    font-size: 13px !important;
+    text-align: center !important;
+    transition: all 0.2s !important;
+  }
+  #calibration-table td input.lab-input-cell:focus {
+    background: #fff !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  /* Table margin wrapper in project detail view should be smaller on mobile to fit the screen */
+  #project-detail-view .cal-table-wrapper {
+    margin: 0 8px 20px !important;
+  }
+
+  /* Make the bottom workspace action buttons stack vertically on mobile */
+  .workspace-container div[style*="justify-content:flex-end"] {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 10px !important;
+  }
+  .workspace-container div[style*="justify-content:flex-end"] .btn {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+  }
+
+  /* Custom styling for vertically stacked .btn-add-row-group */
+  .btn-add-row-group {
+    flex-direction: column !important;
+    border-radius: 0 0 8px 8px !important;
+  }
+  .btn-add-row-group .btn-add-row {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    width: 100% !important;
+    padding: 12px 10px !important;
+    font-size: 13px !important;
+  }
+  .btn-add-row-group .btn-add-row:last-child {
+    border-bottom: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════
    PRINT
    ═══════════════════════════════════════════════ */
 @media print {
@@ -2048,7 +2149,7 @@ textarea {
   .modal-overlay, .modal-card, .page-overlay, .toast-container, #toast-container,
   .dropdown, .dropdown-menu, .dropdown-item { display: none !important; }
   .preview-panel, #print-content { width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
-  .cert-page { width: 100% !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; border: 1px solid #000 !important; }
+  .cert-page { width: 100% !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; border: 1px solid #000 !important; zoom: 1 !important; transform: none !important; margin-bottom: 0 !important; }
   .cert-page-1 { height: 267mm; }
   .cert-page-2 { page-break-before: always !important; }
   .cert-page { break-inside: avoid; }

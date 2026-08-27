@@ -3258,11 +3258,60 @@ function switchToPreview() {
   document.getElementById('editor-view').style.display='none';
   document.getElementById('preview-view').style.display='block';
   window.scrollTo(0,0);
+  adjustPreviewZoom();
 }
 function switchToEditor() {
   document.getElementById('preview-view').style.display='none';
   document.getElementById('editor-view').style.display='block';
 }
+
+function adjustPreviewZoom() {
+  const previewView = document.getElementById('preview-view');
+  if (!previewView || previewView.style.display === 'none') return;
+
+  const container = document.getElementById('print-content');
+  if (!container) return;
+
+  const certPages = container.querySelectorAll('.cert-page');
+  if (certPages.length === 0) return;
+
+  const containerWidth = container.offsetWidth || window.innerWidth;
+  const baseWidth = 794; // ~210mm in pixels
+
+  if (containerWidth < baseWidth + 24) {
+    const targetWidth = containerWidth - 16;
+    const zoomRatio = targetWidth / baseWidth;
+    certPages.forEach(page => {
+      // Dùng zoom cho Chrome, Safari, Edge
+      page.style.zoom = zoomRatio;
+      
+      // Fallback cho Firefox
+      if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
+        page.style.transform = `scale(${zoomRatio})`;
+        page.style.transformOrigin = 'top center';
+        
+        // Bù đắp chiều cao bị co lại do scale
+        const scaledHeight = page.offsetHeight * zoomRatio;
+        const diff = page.offsetHeight - scaledHeight;
+        page.style.marginBottom = `-${diff - 16}px`;
+      } else {
+        page.style.transform = '';
+        page.style.transformOrigin = '';
+        page.style.marginBottom = '';
+      }
+    });
+  } else {
+    certPages.forEach(page => {
+      page.style.zoom = '';
+      page.style.transform = '';
+      page.style.transformOrigin = '';
+      page.style.marginBottom = '';
+    });
+  }
+}
+
+// Lắng nghe sự kiện co giãn màn hình để điều chỉnh zoom xem trước
+window.addEventListener('resize', adjustPreviewZoom);
 
 /* ====== TOAST & MODAL HELPERS ====== */
 function showToast(msg, type='success') {
@@ -4010,11 +4059,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ====== INIT ====== */
-for (let k of Object.keys(localStorage)) {
-    if (k.startsWith('lm_equipment_templates')) {
-        localStorage.removeItem(k);
-    }
-}
 fetchProjects();
 
 const userSession = localStorage.getItem('labmaster_user');

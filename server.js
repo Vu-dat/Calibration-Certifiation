@@ -412,10 +412,7 @@ async function ensureDbInitialized() {
     if (!dbInitPromise) {
         dbInitPromise = (async () => {
             try {
-                // Luôn chạy migration cột mới (ALTER TABLE ... ADD COLUMN IF NOT EXISTS)
-                await runColumnMigrations();
-
-                // Kiểm tra xem bảng USERS đã tồn tại chưa để bỏ qua toàn bộ phần init/seed mất thời gian
+                // 1. Kiểm tra xem bảng USERS đã tồn tại chưa FIRST để tránh chạy phần init/seed mất thời gian
                 const checkTable = await sql`
                     SELECT EXISTS (
                         SELECT FROM information_schema.tables 
@@ -423,11 +420,20 @@ async function ensureDbInitialized() {
                         AND table_name = 'users'
                     )
                 `;
-                if (checkTable[0] && checkTable[0].exists) {
-                    console.log("✅ Supabase đã được khởi tạo và seed trước đó. Bỏ qua chạy lại di chuyển cấu trúc.");
+                
+                const exists = checkTable[0] && checkTable[0].exists;
+                if (exists) {
+                    console.log("✅ Supabase đã được khởi tạo trước đó. Chạy migrations cột mới (nếu có) trong background...");
+                    // Chạy migrations trong background để tránh block request đầu tiên/cold start
+                    runColumnMigrations().catch(err => {
+                        console.error("❌ Background migration thất bại:", err.message);
+                    });
                     return;
                 }
 
+                // 2. Nếu chưa có bảng USERS, chạy đầy đủ quy trình init/migration đồng bộ
+                console.log("🚀 Bảng users chưa tồn tại. Khởi tạo schema mới...");
+                await runColumnMigrations();
                 await initDatabaseSchema();
                 await seedDefaultUsers();
             } catch (err) {
@@ -1342,23 +1348,25 @@ async function saveCalibrationDataToDBHelper(data, cert_no) {
 
     const points = data.points || [];
     if (points.length > 0) {
-        for (const p of points) {
+        const pointInsertPromises = points.map(p => {
             const standardVal = p.refEq || p.standardEquipment || p.standard_equipment || '';
-            await sql`
+            return sql`
                 INSERT INTO CALIBRATION_POINTS (CERT_NO, EQUIPMENT_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, REFERENCE_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT)
                 VALUES (${cert_no}, ${eqName}, ${p.parameterName || p.param || ''}, ${p.calPoint || p.point || ''}, ${p.asFoundValue || p.found || ''}, ${p.referenceValue || p.refValue || p.reference_value || ''}, ${p.uncertainty || p.unc || ''}, ${p.tolerance || p.tol || ''}, ${p.conformity || p.conf || ''}, ${standardVal}, ${standardVal})
             `;
-        }
+        });
+        await Promise.all(pointInsertPromises);
     }
 
     const stds = data.standards || [];
     if (stds.length > 0) {
-        for (const s of stds) {
-            await sql`
+        const stdInsertPromises = stds.map(s => {
+            return sql`
                 INSERT INTO CERTIFICATE_STANDARDS (CERT_NO, EQ_CODE, EQ_NAME, STD_CERT_NO, LINK, VALIDITY)
                 VALUES (${cert_no}, ${s.id || s.code || ''}, ${s.name || ''}, ${s.certNo || ''}, ${s.trace || s.link || ''}, ${s.due || s.validity || ''})
             `;
-        }
+        });
+        await Promise.all(stdInsertPromises);
     }
 }
 
@@ -1385,24 +1393,29 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
 
         const pdfBuffer = await generatePDF({ certNo: cert_no, downloadUrl, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [] });
         const base64 = pdfBuffer.toString('base64');
-        let fileUrl = null;
         
-        // Upload lên Supabase Storage (nếu cấu hình) — dùng Buffer trực tiếp từ generatePDF
+        // Lấy public URL của Supabase trước (tính toán offline nhanh chóng)
+        let fileUrl = isConfigured() ? getPublicUrl(fileName) : null;
+        
+        // Upload lên Supabase Storage trong background (không await để tránh block request)
         if (isConfigured()) {
-            console.log(`🔍 DEBUG: Starting uploadToSupabase for ${fileName} (${(pdfBuffer.length / 1024).toFixed(1)} KB)`);
-            const uploadResult = await uploadToSupabase(pdfBuffer, fileName, 'application/pdf');
-            console.log(`🔍 DEBUG: uploadResult = ${JSON.stringify(uploadResult)}`);
-            if (uploadResult.success) {
-                fileUrl = uploadResult.publicUrl;
-                console.log(`☁️ PDF uploaded to Supabase: ${fileUrl}`);
-            } else {
-                console.warn('⚠️ PDF upload thất bại. Chi tiết:', uploadResult.error || uploadResult);
-            }
+            console.log(`🔍 DEBUG: Starting background uploadToSupabase for ${fileName} (${(pdfBuffer.length / 1024).toFixed(1)} KB)`);
+            uploadToSupabase(pdfBuffer, fileName, 'application/pdf')
+                .then(uploadResult => {
+                    if (uploadResult.success) {
+                        console.log(`☁️ PDF uploaded to Supabase in background: ${uploadResult.publicUrl}`);
+                    } else {
+                        console.warn('⚠️ PDF upload background thất bại. Chi tiết:', uploadResult.error || uploadResult);
+                    }
+                })
+                .catch(err => {
+                    console.error('❌ PDF background upload error:', err.message);
+                });
         } else {
             console.log(`🔍 DEBUG: isConfigured() = false, skipping Supabase upload. downloadUrl used for QR: ${downloadUrl}`);
         }
         
-        // Fallback: dùng local URL nếu chưa upload được lên Supabase
+        // Fallback: dùng local URL nếu chưa/không cấu hình Supabase
         if (!fileUrl) {
             const requestBaseUrl = req.protocol + '://' + req.get('host');
             const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
@@ -1438,27 +1451,30 @@ app.post('/api/calibration/export-excel', async (req, res) => {
         const outputDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, 'static');
         const filePath = path.join(outputDir, fileName);
         let base64 = null;
-        let fileUrl = null;
+        let fileUrl = isConfigured() ? getPublicUrl(fileName) : null;
         
         if (fs.existsSync(filePath)) {
             const buf = fs.readFileSync(filePath);
             base64 = buf.toString('base64');
             
-            // Upload lên Supabase Storage (nếu cấu hình)
+            // Upload lên Supabase Storage (nếu cấu hình) trong background
             if (isConfigured()) {
-                console.log(`🔍 DEBUG: Starting uploadToSupabase for ${fileName} (${(buf ? buf.length : 0)} bytes)`);
-                const uploadResult = await uploadToSupabase(buf, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-                console.log(`🔍 DEBUG: uploadResult = ${JSON.stringify(uploadResult)}`);
-                if (uploadResult.success) {
-                    fileUrl = uploadResult.publicUrl;
-                    console.log(`☁️ Excel uploaded to Supabase: ${fileUrl}`);
-                } else {
-                    console.warn('⚠️ Excel upload thất bại. Chi tiết:', uploadResult.error || uploadResult);
-                }
+                console.log(`🔍 DEBUG: Starting background uploadToSupabase for ${fileName} (${(buf ? buf.length : 0)} bytes)`);
+                uploadToSupabase(buf, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                    .then(uploadResult => {
+                        if (uploadResult.success) {
+                            console.log(`☁️ Excel uploaded to Supabase in background: ${uploadResult.publicUrl}`);
+                        } else {
+                            console.warn('⚠️ Excel upload background thất bại:', uploadResult.error || uploadResult);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('❌ Excel background upload error:', err.message);
+                    });
             }
         }
         
-        // Fallback: dùng local URL nếu chưa upload được lên Supabase
+        // Fallback: dùng local URL nếu chưa/không cấu hình Supabase
         if (!fileUrl) {
             const requestBaseUrl = req.protocol + '://' + req.get('host');
             const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
@@ -1499,24 +1515,29 @@ app.post('/api/calibration/export-docx', async (req, res) => {
         const eqName = data.equipmentName || data.equipment_name || '';
         const docxBuffer = await generateDocx({ certNo: cert_no, downloadUrl, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [] });
         const base64 = docxBuffer.toString('base64');
-        let fileUrl = null;
         
-        // Upload lên Supabase Storage (nếu cấu hình) — dùng Buffer trực tiếp từ generateDocx
+        // Lấy public URL của Supabase trước (tính toán offline nhanh chóng)
+        let fileUrl = isConfigured() ? getPublicUrl(fileName) : null;
+        
+        // Upload lên Supabase Storage (nếu cấu hình) trong background
         if (isConfigured()) {
-            console.log(`🔍 DEBUG: Starting uploadToSupabase for ${fileName} (${(docxBuffer.length / 1024).toFixed(1)} KB)`);
-            const uploadResult = await uploadToSupabase(docxBuffer, fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-            console.log(`🔍 DEBUG: uploadResult = ${JSON.stringify(uploadResult)}`);
-            if (uploadResult.success) {
-                fileUrl = uploadResult.publicUrl;
-                console.log(`☁️ DOCX uploaded to Supabase: ${fileUrl}`);
-            } else {
-                console.warn('⚠️ DOCX upload thất bại. Chi tiết:', uploadResult.error || uploadResult);
-            }
+            console.log(`🔍 DEBUG: Starting background uploadToSupabase for ${fileName} (${(docxBuffer.length / 1024).toFixed(1)} KB)`);
+            uploadToSupabase(docxBuffer, fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                .then(uploadResult => {
+                    if (uploadResult.success) {
+                        console.log(`☁️ DOCX uploaded to Supabase in background: ${uploadResult.publicUrl}`);
+                    } else {
+                        console.warn('⚠️ DOCX upload background thất bại:', uploadResult.error || uploadResult);
+                    }
+                })
+                .catch(err => {
+                    console.error('❌ DOCX background upload error:', err.message);
+                });
         } else {
             console.log(`🔍 DEBUG: isConfigured() = false, skipping Supabase upload. downloadUrl used for QR: ${downloadUrl}`);
         }
         
-        // Fallback: dùng local URL nếu chưa upload được lên Supabase
+        // Fallback: dùng local URL nếu chưa/không cấu hình Supabase
         if (!fileUrl) {
             const requestBaseUrl = req.protocol + '://' + req.get('host');
             const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
