@@ -530,7 +530,6 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="db-section-header">
             <h2><i class="fas fa-database"></i> Database Equipment Templates</h2>
             <div class="header-actions">
-                <button class="btn btn-danger ripple-btn" onclick="resetDatabase()"><i class="fas fa-trash-alt"></i> Xóa dữ liệu</button>
                 <button class="btn btn-primary ripple-btn" onclick="openAddView()"><i class="fas fa-plus-circle"></i> Thêm mẫu thiết bị</button>
             </div>
         </div>
@@ -583,25 +582,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         <input type="date" id="new-due" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font);font-size:14px;outline:none;transition:all 0.2s;box-sizing:border-box;">
                     </div>
                     <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                            <label style="font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;">
-                                <i class="fas fa-list" style="color:var(--accent)"></i> Cấu hình thông số điểm chuẩn mặc định
-                            </label>
-                            <button class="btn btn-secondary btn-sm" onclick="addNewRowToAddForm()"><i class="fas fa-plus"></i> Thêm hàng</button>
-                        </div>
-                        <div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
-                        <table style="width:100%;border-collapse:collapse;">
-                            <thead>
-                                <tr style="background:#f8fafc;font-size:11px;text-align:left;border-bottom:2px solid var(--border);">
-                                    <th style="padding:8px 10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Thông số (Parameter)</th>
-                                    <th style="padding:8px 10px;width:140px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Giá trị mẫu</th>
-                                    <th style="padding:8px 10px;width:40px;text-align:center;font-weight:600;color:var(--text-secondary);">Xóa</th>
-                                </tr>
-                            </thead>
-                            <tbody id="new-calibration-table-rows"></tbody>
-                        </table>
-                        </div>
-                    </div>
                 </div>
                 <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
                     <button class="btn btn-secondary" onclick="closeEquipmentModal()"><i class="fas fa-times"></i> Hủy bỏ</button>
@@ -1874,13 +1854,6 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
         document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
     });
-
-    function resetDatabase() {
-        if (confirm("Xóa toàn bộ dữ liệu tùy chỉnh trong localStorage?")) {
-            localStorage.removeItem('labmaster_equipment_db');
-            location.reload();
-        }
-    }
 
     // Using direct display toggle for list/edit views
     function showView(viewId) {
