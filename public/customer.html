@@ -1155,17 +1155,13 @@ async function loadCustomers(page = 1, searchQuery = '') {
     renderCustomerSkeleton(5);
 
     try {
-        const cacheKey = 'lm_customers_p' + page + (searchQuery ? '_q_' + searchQuery : '');
-        // SWR: dùng cached data (n?u c?), background refresh n?u stale
-        const data = await swrFetch(cacheKey, async () => {
-            const url = new URL(`${API_BASE_URL}/api/customers`);
-            url.searchParams.append('page', page);
-            url.searchParams.append('limit', customersPerPage);
-            if (searchQuery) url.searchParams.append('q', searchQuery);
-            const res = await fetch(url.toString(), { cache: 'no-cache' });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return await res.json();
-        }, 15000); // TTL 15s cho customers (data thay ??i th??ng xuy?n h?n)
+        const url = new URL(`${API_BASE_URL}/api/customers`);
+        url.searchParams.append('page', page);
+        url.searchParams.append('limit', customersPerPage);
+        if (searchQuery) url.searchParams.append('q', searchQuery);
+        const res = await fetch(url.toString(), { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
 
         globalCustomersList = data.data || [];
         filteredList = [...globalCustomersList];
