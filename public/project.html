@@ -4010,6 +4010,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ====== INIT ====== */
+for (let k of Object.keys(localStorage)) {
+    if (k.startsWith('lm_equipment_templates')) {
+        localStorage.removeItem(k);
+    }
+}
 fetchProjects();
 
 const userSession = localStorage.getItem('labmaster_user');

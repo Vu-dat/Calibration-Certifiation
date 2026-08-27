@@ -723,6 +723,11 @@ function swrFetch(key, fetcher, ttlMs) {
     let currentId = '';
     let currentEquipmentId = ''; 
     let fetchedEquipments = []; 
+    for (let k of Object.keys(localStorage)) {
+        if (k.startsWith('lm_equipment_templates')) {
+            localStorage.removeItem(k);
+        }
+    }
 
     function handleLogout() {
         localStorage.removeItem('labmaster_user');
@@ -1210,7 +1215,11 @@ async function fetchEquipmentTemplates(searchQuery = '') {
                 if (searchQuery) url.searchParams.append('q', searchQuery);
                 fetch(url.toString())
                     .then(r => r.json())
-                    .then(fresh => cacheSet(cacheKey, fresh, 30000))
+                    .then(fresh => {
+                        cacheSet(cacheKey, fresh, 30000);
+                        fetchedEquipments = fresh || [];
+                        renderTable(fetchedEquipments, true);
+                    })
                     .catch(() => {});
             }
             

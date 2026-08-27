@@ -503,7 +503,7 @@ app.get('/api/init', async (req, res) => {
                        COUNT(*) FILTER (WHERE status = 'Finished') as finished
                 FROM PROJECTS`,
             sql`SELECT COUNT(*) as cert_count FROM CERTIFICATES`,
-            sql`SELECT * FROM EQUIPMENT_TEMPLATES ORDER BY NAME ASC`,
+            sql`SELECT * FROM EQUIPMENT_TEMPLATES ORDER BY equipment_id ASC`,
             sql`SELECT * FROM CLOCK ORDER BY ID ASC`,
             sql`SELECT * FROM TEMPLATE_POINTS ORDER BY ID ASC`
         ]);
@@ -1027,7 +1027,7 @@ async function getEquipmentTemplatesHelper(req, res) {
             ? sql`WHERE LOWER(name) LIKE ${searchTerm} OR LOWER(equipment_id) LIKE ${searchTerm} OR LOWER(manufacturer) LIKE ${searchTerm}`
             : sql``;
 
-        const templates = await sql`SELECT * FROM EQUIPMENT_TEMPLATES ${whereClause} ORDER BY NAME ASC`;
+        const templates = await sql`SELECT * FROM EQUIPMENT_TEMPLATES ${whereClause} ORDER BY equipment_id ASC`;
 
         if (templates.length === 0) return res.json([]);
 
