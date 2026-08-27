@@ -557,6 +557,11 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     var rl = rangeLines[r] || '';
     var pl = procLines[r] || '';
     var rfl = refLines[r] || '';
+    var resVal = '';
+    if (is5Col) {
+      resVal = resLines[r] || '';
+      if (!resVal && r === 0) resVal = '--------';
+    }
 
     // Draw Range column (col 2)
     var colon = rl.indexOf(':');
@@ -583,7 +588,12 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     sf(doc, false); doc.fontSize(10);
     var hRef = rfl ? doc.heightOfString(rfl, { width: CONTENT_R - (is5Col ? SPEC_X[4] : SPEC_X[3]) - 5, lineGap: 0 }) : 0;
 
-    var rowHeight = Math.max(Y1.specRowSp, hRange, hProc, hRef);
+    sf(doc, false); doc.fontSize(9);
+    var hRes = resVal ? doc.heightOfString(resVal, { 
+      width: SPEC_X[3] - SPEC_X[2] - 5, lineGap: 0 
+    }) : 0;
+
+    var rowHeight = Math.max(Y1.specRowSp, hRange, hProc, hRef, hRes);
 
     // Now draw the Range column with wrapping
     if (colon > 0) {
@@ -615,9 +625,10 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
 
     if (is5Col) {
       sf(doc, false); doc.fontSize(9).fillColor('#000000');
-      var resVal = resLines[r] || '';
-      if (!resVal && r === 0) resVal = '--------';
-      doc.text(resVal, SPEC_X[2], y, { lineGap: 0 }); // Resolution cell
+      doc.text(resVal, SPEC_X[2], y, { 
+        width: SPEC_X[3] - SPEC_X[2] - 5, 
+        lineGap: 0 
+      }); // Resolution cell
     }
 
     sf(doc, false); doc.fontSize(procSize);
@@ -1012,6 +1023,80 @@ function estimateSection17Height(doc, pts) {
   return lines * lh;
 }
 
+// Estimate results table end y coordinate (dry-run)
+function estimateResultsTableHeight(doc, pts) {
+  var T = 160.3, TH = 38.8;
+  var y = T + TH;
+  var groups = [], cg = null;
+  if (pts && pts.length) {
+    for (var pi = 0; pi < pts.length; pi++) {
+      var p = pts[pi];
+      var pn = p.PARAMETER_NAME || '';
+      if (!cg || cg.name !== pn) { cg = { name: pn, rows: [] }; groups.push(cg); }
+      cg.rows.push(p);
+    }
+  }
+  for (var gi = 0; gi < groups.length; gi++) {
+    var grp = groups[gi];
+    var isMulti = grp.rows.length > 1;
+    for (var ri = 0; ri < grp.rows.length; ri++) {
+      var rowH = 16;
+      if (isMulti) {
+        if (ri === grp.rows.length - 1) rowH = 13.7;
+        else rowH = 17.2;
+        if (ri === 0) {
+          var mRH_textW = 127.9 - 34.2;
+          var mTestTxt = cleanParamName(grp.name);
+          if (mTestTxt && !mTestTxt.includes('\n')) {
+            mTestTxt = mTestTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
+          }
+          var mTestLines = mTestTxt.split('\n');
+          var mCalcH = 0;
+          var mLH = 10 * 1.15;
+          sf(doc, false); doc.fontSize(10);
+          mTestLines.forEach(function(ml) {
+            var mm = String(ml).match(/\(([MC*])\)\s*$/);
+            var mclean = mm ? ml.substring(0, ml.length - mm[0].length) : ml;
+            var mwords = mclean.split(' ');
+            var mcur = '', mlines = 1;
+            for (var mi = 0; mi < mwords.length; mi++) {
+              var mt = mcur ? mcur + ' ' + mwords[mi] : mwords[mi];
+              if (doc.widthOfString(mt) > mRH_textW && mcur) { mlines++; mcur = mwords[mi]; }
+              else mcur = mt;
+            }
+            mCalcH += mlines * mLH;
+          });
+          mCalcH += 8;
+          if (mCalcH > rowH) rowH = mCalcH;
+        }
+      } else {
+        if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 44.0;
+        else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 38.4;
+        else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 38.2;
+        else rowH = 38.0;
+
+        var testTxt = cleanParamName(grp.name);
+        if (testTxt && !testTxt.includes('\n')) {
+          testTxt = testTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
+        }
+        var testLines = testTxt.split('\n');
+        var calcH = 0;
+        sf(doc, false); doc.fontSize(10);
+        testLines.forEach(function(line) {
+          var m = String(line).match(/\(([MC*])\)\s*$/);
+          var clean = m ? line.substring(0, line.length - m[0].length) : line;
+          calcH += doc.heightOfString(clean, { width: 176.9 - 34.2, lineGap: 0 });
+        });
+        calcH += 8;
+        if (calcH > rowH) rowH = calcH;
+      }
+      if (y + rowH > 790) break;
+      y += rowH;
+    }
+  }
+  return y;
+}
+
 // Word-wrap a string to fit width (uses current font), returns array of lines
 function wrapLines(doc, text, width) {
   if (!text) return [''];
@@ -1075,7 +1160,7 @@ async function main(opts) {
     var logo = null;
     try { if (fs.existsSync(lp)) logo = fs.readFileSync(lp); } catch(e) {}
 
-    var doc = new PDFDocument({size: 'A4', margin: 0, autoFirstPage: false});
+    var doc = new PDFDocument({size: 'A4', margin: 0, autoFirstPage: false, autoPageBreak: false});
     var buffers = [];
     const collector = new Writable({
       write(chunk, encoding, callback) { buffers.push(chunk); callback(); }
@@ -1092,21 +1177,39 @@ async function main(opts) {
       if (TI) doc.registerFont(FTI, TI);
     } catch(e) {}
 
+    // Estimate heights to determine total pages dynamically
+    var tableEndEst = estimateResultsTableHeight(doc, pts);
+    var sec17EstH = estimateSection17Height(doc, pts);
+    var totalPages = 2;
+    var sec17FitsOnPage2 = (tableEndEst + 8 + sec17EstH <= 810);
+    if (!sec17FitsOnPage2) {
+      totalPages = 3;
+    }
+
     // ═══ PAGE 1 ═══
     doc.addPage();
     drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
     drawPage1Body(doc, cert, pts, stds, accM, tpl);
-    drawFooter(doc, 1, 2);
+    drawFooter(doc, 1, totalPages);
 
     // ═══ PAGE 2 ═══
     doc.addPage();
     drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
     var tableEnd = drawResultsTable(doc, pts);
-    // Section 17: estimate total height, then pick startY so it fits before footer
-    var sec17EstH = estimateSection17Height(doc, pts);
-    var sec17Y = Math.max(tableEnd + 8, 810 - sec17EstH - 10);
-    drawSection17(doc, sec17Y, cNo, pts);
-    drawFooter(doc, 2, 2);
+    
+    if (sec17FitsOnPage2) {
+      var sec17Y = Math.max(tableEnd + 8, 810 - sec17EstH - 10);
+      drawSection17(doc, sec17Y, cNo, pts);
+      drawFooter(doc, 2, totalPages);
+    } else {
+      drawFooter(doc, 2, totalPages);
+
+      // ═══ PAGE 3 ═══
+      doc.addPage();
+      drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
+      drawSection17(doc, 160.3, cNo, pts);
+      drawFooter(doc, 3, totalPages);
+    }
 
     return new Promise(function(resolve, reject) {
       var fileDone = false, memDone = false;
