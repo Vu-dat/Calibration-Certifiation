@@ -61,6 +61,29 @@
 
 html {
   scroll-behavior: smooth;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
+html, body {
+  overflow-x: hidden;
+}
+
+/* Prevent pinch-to-zoom on all pages */
+@media (max-width: 900px) {
+  html {
+    touch-action: manipulation;
+    -ms-touch-action: manipulation;
+  }
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+    overflow-x: hidden;
+  }
+  /* Override any inline zoom/scale styles */
+  * {
+    touch-action: manipulation !important;
+  }
 }
 
 body {

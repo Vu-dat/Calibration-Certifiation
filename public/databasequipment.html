@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
     <title>Database Equipment - LabMaster</title>
     
     <link rel="stylesheet" href="index.css">
@@ -443,13 +443,38 @@
     justify-content: center !important;
     padding: 12px !important;
   }
-}
-@media (max-width: 600px) {
+}    @media (max-width: 600px) {
   .db-container { padding: 0 12px; margin: 16px auto; }
   .db-stats { grid-template-columns: 1fr; gap: 12px; margin-bottom: 24px; }
   .db-stat { padding: 18px 20px; }
   .db-stat p { font-size: 24px; }
   .db-section-header h2 { font-size: 1.15rem; }
+}
+/* ─── Mobile: prevent pinch-to-zoom and fix overflow ─── */
+html, body {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+}
+html {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+body {
+  overflow-x: hidden;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+/* Fix for iOS Safari address bar resize */
+@supports (-webkit-touch-callout: none) {
+  body {
+    min-height: -webkit-fill-available;
+  }
+}
+/* Hide desktop nav completely on mobile */
+@media (max-width: 900px) {
+  .nav-container .navbar { display: none !important; }
+  .header .nav-container { width: 100%; justify-content: flex-end; }
 }
 </style>
 
@@ -1194,10 +1219,10 @@ function swrFetch(key, fetcher, ttlMs) {
     function renderDbEquipmentSkeleton(count) {
   const tbody = document.getElementById('eq-body');
   if (!tbody) return;
-  const rows = count || 5;
+  const rows = count || 3; // Reduced from 5 to 3 for faster perceived loading
   let html = '';
   for (let i = 0; i < rows; i++) {
-    html += '<tr class="sk-row">' +
+    html += '<tr class="sk-row" style="animation-delay:' + (i * 0.05) + 's">' +
       '<td><div class="sk-cell code"></div></td>' +
       '<td><div class="sk-cell name"></div></td>' +
       '<td><div class="sk-cell manu"></div></td>' +
@@ -1206,10 +1231,13 @@ function swrFetch(key, fetcher, ttlMs) {
       '</tr>';
   }
   tbody.innerHTML = html;
+  // Remove pagination during skeleton loading
+  const existingPag = document.getElementById('eq-pagination');
+  if (existingPag) existingPag.style.display = 'none';
 }
 
 async function fetchEquipmentTemplates(searchQuery = '') {
-        renderDbEquipmentSkeleton(5);
+        renderDbEquipmentSkeleton(3);
         const cacheKey = 'lm_equipment_templates' + (searchQuery ? '_q_' + searchQuery : '');
         
         try {
@@ -1221,7 +1249,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
                 const res = await fetch(url.toString());
                 if (!res.ok) throw new Error('API failed');
                 data = await res.json();
-                cacheSet(cacheKey, data, 30000);
+                cacheSet(cacheKey, data, 60000); // Extended cache to 60s
             } else if (cacheIsStale(cacheKey)) {
                 // Background refresh nếu stale
                 const url = new URL(`${TARGET_URL}/api/equipment-templates`);
@@ -1229,7 +1257,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
                 fetch(url.toString())
                     .then(r => r.json())
                     .then(fresh => {
-                        cacheSet(cacheKey, fresh, 30000);
+                        cacheSet(cacheKey, fresh, 60000);
                         fetchedEquipments = fresh || [];
                         renderTable(fetchedEquipments, true);
                     })
@@ -1239,7 +1267,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
             fetchedEquipments = data || [];
             renderTable(fetchedEquipments, true);
         } catch (error) {
-            console.error("Lỗi khi tải danh sách thiết bị t? Database API:", error);
+            console.error("Lỗi khi tải danh sách thiết bị từ Database API:", error);
             renderFallbackLocalStorage();
         }
         return fetchedEquipments;
@@ -1259,6 +1287,11 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         }, 300); // 300ms debounce
     }
 
+    // ─── PAGINATION STATE ───
+    const PAGE_SIZE = 20;
+    let currentPage = 1;
+    let allEquipmentsForRender = [];
+
     function renderTable(equipments, isFromAPI) {
         const tbody = document.getElementById("eq-body");
         if (!tbody) return;
@@ -1267,21 +1300,41 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         const statEl = document.getElementById('stat-equipments');
         if (statEl && isFromAPI) statEl.textContent = String(equipments ? equipments.length : 0).padStart(2, '0');
 
+        allEquipmentsForRender = equipments || [];
+        currentPage = 1;
+
         if (!equipments || equipments.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 15px;">Chưa có mẫu thiết bị nào trong Database</td></tr>`;
+            // Remove pagination if exists
+            const existingPag = document.getElementById('eq-pagination');
+            if (existingPag) existingPag.remove();
             return;
         }
 
-        equipments.forEach((eq, index) => {
+        _renderPageRows(currentPage);
+        _renderPagination(equipments.length);
+    }
+
+    function _renderPageRows(page) {
+        const tbody = document.getElementById("eq-body");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+
+        const start = (page - 1) * PAGE_SIZE;
+        const end = Math.min(start + PAGE_SIZE, allEquipmentsForRender.length);
+
+        for (let i = start; i < end; i++) {
+            const eq = allEquipmentsForRender[i];
             const tr = document.createElement("tr");
             tr.style.cursor = "pointer";
+            tr.style.animationDelay = ((i - start) * 0.04) + 's';
             
-            const eqCode = eq.EQUIPMENT_ID || eq.NAME || eq.equipment_id || eq.ID || eq.id || `EQ${String(index + 1).padStart(3, '0')}`;
+            const eqCode = eq.EQUIPMENT_ID || eq.NAME || eq.equipment_id || eq.ID || eq.id || `EQ${String(i + 1).padStart(3, '0')}`;
             const eqName = eq.NAME || eq.standard_name || '';
             const eqManu = eq.MANUFACTURER || eq.manufacturer || '-';
             const eqDue = eq.NEXT_DUE || eq.next_due || '-';
 
-            tr.onclick = () => editEqFromAPI(index);
+            tr.onclick = () => editEqFromAPI(i);
 
             tr.innerHTML = `
                 <td>#${eqCode}</td>
@@ -1289,7 +1342,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
                 <td>${eqManu}</td>
                 <td><span class="badge" style="background: #edf2f7; color: #2d3748; padding: 4px 8px; border-radius: 4px;">${eqDue || '-'}</span></td>
                 <td style="text-align: center;">
-                    <button onclick="event.stopPropagation(); deleteEquipmentTemplate(${index})"
+                    <button onclick="event.stopPropagation(); deleteEquipmentTemplate(${i})"
                         style="background: #fff5f5; color: #e53e3e; border: 1px solid #fed7d7; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s;"
                         onmouseover="this.style.background='#fed7d7'; this.style.borderColor='#fc8181';"
                         onmouseout="this.style.background='#fff5f5'; this.style.borderColor='#fed7d7';"
@@ -1299,7 +1352,66 @@ async function fetchEquipmentTemplates(searchQuery = '') {
                 </td>
             `;
             tbody.appendChild(tr);
-        });
+        }
+
+        // Scroll to top of table
+        const tableWrap = tbody.closest('.db-table-wrap');
+        if (tableWrap) tableWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function _renderPagination(total) {
+        let pagContainer = document.getElementById('eq-pagination');
+        if (!pagContainer) {
+            pagContainer = document.createElement('div');
+            pagContainer.id = 'eq-pagination';
+            pagContainer.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px;padding:12px;flex-wrap:wrap;';
+            const tableWrap = document.querySelector('.db-table-wrap');
+            if (tableWrap && tableWrap.parentNode) {
+                tableWrap.parentNode.insertBefore(pagContainer, tableWrap.nextSibling);
+            }
+        }
+        pagContainer.innerHTML = '';
+
+        const totalPages = Math.ceil(total / PAGE_SIZE);
+        if (totalPages <= 1) {
+            pagContainer.style.display = 'none';
+            return;
+        }
+        pagContainer.style.display = 'flex';
+
+        const btnStyle = 'padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;';
+        const activeStyle = 'background:var(--primary);color:#fff;border-color:var(--primary);';
+
+        // Previous button
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '← Trước';
+        prevBtn.style.cssText = btnStyle + (currentPage === 1 ? 'opacity:0.4;pointer-events:none;' : '');
+        prevBtn.onclick = () => { currentPage--; _renderPageRows(currentPage); _renderPagination(total); };
+        pagContainer.appendChild(prevBtn);
+
+        // Page numbers (show max 5 visible)
+        const startPage = Math.max(1, currentPage - 2);
+        const endPage = Math.min(totalPages, startPage + 4);
+        for (let p = startPage; p <= endPage; p++) {
+            const pageBtn = document.createElement('button');
+            pageBtn.textContent = p;
+            pageBtn.style.cssText = btnStyle + (p === currentPage ? activeStyle : '');
+            pageBtn.onclick = () => { currentPage = p; _renderPageRows(currentPage); _renderPagination(total); };
+            pagContainer.appendChild(pageBtn);
+        }
+
+        // Next button
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Sau →';
+        nextBtn.style.cssText = btnStyle + (currentPage === totalPages ? 'opacity:0.4;pointer-events:none;' : '');
+        nextBtn.onclick = () => { currentPage++; _renderPageRows(currentPage); _renderPagination(total); };
+        pagContainer.appendChild(nextBtn);
+
+        // Info text
+        const infoSpan = document.createElement('span');
+        infoSpan.style.cssText = 'font-size:11px;color:var(--text-hint);margin-left:8px;';
+        infoSpan.textContent = `(${(currentPage-1)*PAGE_SIZE+1}-${Math.min(currentPage*PAGE_SIZE, total)}/${total})`;
+        pagContainer.appendChild(infoSpan);
     }
 
     function renderFallbackLocalStorage() {

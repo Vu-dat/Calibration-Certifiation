@@ -478,7 +478,7 @@ function createHeaderTable2(cNo, calDate) {
             })
         ],
         width: { size: 11215, type: WidthType.DXA },
-        columnWidths: [4000, 2000, 2400, 2815],
+        columnWidths: [4395, 1423, 2409, 2988],
         indent: { size: -289, type: WidthType.DXA },
         alignment: AlignmentType.CENTER,
         borders: TABLE_BORDER_NONE
@@ -1119,7 +1119,7 @@ async function main(opts) {
             new Table({
                 rows: t1Rows,
                 width: { size: 11204, type: WidthType.DXA },
-                columnWidths: [289, 1843, 2126, 223, 486, 550, 868, 283, 54, 1784, 147, 310, 535, 1248, 458],
+                columnWidths: [289, 1843, 2263, 86, 486, 550, 868, 283, 54, 1784, 147, 310, 535, 1248, 458],
                 indent: { size: -289, type: WidthType.DXA },
                 alignment: AlignmentType.CENTER,
                 borders: TABLE_BORDER_NONE
@@ -1157,7 +1157,7 @@ async function main(opts) {
                         para('Parameter', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 } }),
                     ],
                     columnSpan: 2,
-                    width: { size: 3121, type: WidthType.DXA },
+                    width: { size: 2957, type: WidthType.DXA },
                     verticalAlign: 'center',
                     borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
                 }),
@@ -1212,7 +1212,7 @@ async function main(opts) {
                           { text: 'Conclusion', bold: true, italics: true, fontSize: 10 }
                         ], { alignment: AlignmentType.CENTER })
                     ],
-                    width: { size: 1261, type: WidthType.DXA },
+                    width: { size: 1253, type: WidthType.DXA },
                     verticalAlign: 'center',
                     borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
                 })
@@ -1223,12 +1223,12 @@ async function main(opts) {
         if (points.length === 0) {
             t2Rows.push(new TableRow({
                 children: [
-                    t2Cell(para('Chưa có dữ liệu', { fontSize: 10, alignment: AlignmentType.CENTER }), 3121, 2),
-                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1855, 1),
+                    t2Cell(para('Chưa có dữ liệu', { fontSize: 10, alignment: AlignmentType.CENTER }), 2957, 2),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1863, 2),
                     t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
-                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 2),
-                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1199, 2),
-                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1261, 1),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 1),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1207, 2),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1261, 2),
                 ]
             }));
         } else {
@@ -1303,13 +1303,13 @@ async function main(opts) {
                         t2Rows.push(new TableRow({
                             height: { value: 312, rule: HeightRule.AT_LEAST },
                             children: [
-                                t2Cell(ri > 0 ? [] : formatParamParagraphs(paramName, AlignmentType.LEFT), 1278, 1, { verticalMerge: paramMerge }),
-                                t2Cell([para(calPt, { fontSize: 10, alignment: AlignmentType.CENTER })], 1843, 1),
-                                t2Cell([para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER })], 1855, 1),
-                                t2Cell([para(unc, { fontSize: 10, alignment: AlignmentType.CENTER })], 1720, 2),
-                                t2Cell(ri > 0 ? [] : [para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER })], 1918, 2, { verticalMerge: refMerge }),
-                                t2Cell(ri > 0 ? [] : [para(tol, { fontSize: 10, alignment: AlignmentType.CENTER })], 1191, 1, { verticalMerge: tolMerge }),
-                                t2Cell(ri > 0 ? [] : [para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER })], 1261, 1, { verticalMerge: confMerge }),
+                                t2Cell(ri > 0 ? [] : formatParamParagraphs(paramName, AlignmentType.LEFT), 1985, 1, { verticalMerge: paramMerge }),
+                                t2Cell([para(calPt, { fontSize: 10, alignment: AlignmentType.CENTER })], 972, 1),
+                                t2Cell([para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER })], 1863, 2),
+                                t2Cell([para(unc, { fontSize: 10, alignment: AlignmentType.CENTER })], 1712, 1),
+                                t2Cell(ri > 0 ? [] : [para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER })], 1918, 1, { verticalMerge: refMerge }),
+                                t2Cell(ri > 0 ? [] : [para(tol, { fontSize: 10, alignment: AlignmentType.CENTER })], 1207, 2, { verticalMerge: tolMerge }),
+                                t2Cell(ri > 0 ? [] : [para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER })], 1261, 2, { verticalMerge: confMerge }),
                             ]
                         }));
                     } else {
@@ -1317,12 +1317,12 @@ async function main(opts) {
                         t2Rows.push(new TableRow({
                             height: exactHeight ? { value: exactHeight, rule: HeightRule.AT_LEAST } : undefined,
                             children: [
-                                t2Cell(formatParamParagraphs(paramName, AlignmentType.LEFT), 3121, 2),
-                                t2Cell(para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER }), 1855, 1),
+                                t2Cell(formatParamParagraphs(paramName, AlignmentType.LEFT), 2957, 2),
+                                t2Cell(para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER }), 1863, 2),
                                 t2Cell(para(unc, { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
-                                t2Cell(para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 2),
-                                t2Cell(para(tol, { fontSize: 10, alignment: AlignmentType.CENTER }), 1199, 2),
-                                t2Cell(para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER }), 1261, 1),
+                                t2Cell(para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 1),
+                                t2Cell(para(tol, { fontSize: 10, alignment: AlignmentType.CENTER }), 1207, 2),
+                                t2Cell(para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER }), 1261, 2),
                             ]
                         }));
                     }
@@ -1334,8 +1334,8 @@ async function main(opts) {
         children.push(
             new Table({
                 rows: t2Rows,
-                width: { size: 11066, type: WidthType.DXA },
-                columnWidths: [1278, 1843, 1855, 1712, 8, 1910, 8, 1191, 1261],
+                width: { size: 10918, type: WidthType.DXA },
+                columnWidths: [1985, 972, 8, 1855, 1712, 1918, 1199, 8, 1253, 8],
                 indent: { size: -220, type: WidthType.DXA },
                 alignment: AlignmentType.CENTER,
                 borders: TABLE_BORDER_GRID
@@ -1551,7 +1551,7 @@ async function main(opts) {
                 properties: {
                     page: {
                         size: { width: 11907, height: 16840 },
-                        margin: { top: 669, bottom: 426, left: 720, right: 720, header: 742, footer: 240 },
+                        margin: { top: 720, bottom: 426, left: 720, right: 720, header: 426, footer: 0 },
                         borders: {
                             pageBorders: { offsetFrom: 'page' },
                             pageBorderTop:    { style: BorderStyle.SINGLE, size: 4, color: 'auto', space: 10 },
