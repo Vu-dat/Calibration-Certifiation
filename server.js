@@ -399,6 +399,12 @@ async function runColumnMigrations() {
             CREATE INDEX IF NOT EXISTS idx_certificate_standards_cert_no ON CERTIFICATE_STANDARDS (CERT_NO);
             CREATE INDEX IF NOT EXISTS idx_template_points_template_name ON TEMPLATE_POINTS (TEMPLATE_NAME);
             CREATE INDEX IF NOT EXISTS idx_projects_created_at ON PROJECTS (CREATED_AT DESC);
+            
+            -- Indexes to optimize customer searches
+            CREATE INDEX IF NOT EXISTS idx_customers_name_lower ON CUSTOMERS (LOWER(NAME));
+            CREATE INDEX IF NOT EXISTS idx_customers_company_lower ON CUSTOMERS (LOWER(COMPANY));
+            CREATE INDEX IF NOT EXISTS idx_customers_phone_lower ON CUSTOMERS (LOWER(PHONE));
+            CREATE INDEX IF NOT EXISTS idx_customers_id_lower ON CUSTOMERS (LOWER(ID));
         `);
         console.log("✅ Khởi chạy migrations & tạo database indexes thành công trong 1 batch.");
     } catch (err) {

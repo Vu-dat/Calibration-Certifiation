@@ -746,12 +746,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 </tbody>
             </table>
         </div>
+        <!-- PAGINATION -->
+        <div class="pagination-controls" id="pagination-controls" style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; padding: 10px;">
+            <!-- Rendered by JS -->
+        </div>
     </section>
-
-    <!-- PAGINATION -->
-    <div class="pagination-controls" id="pagination-controls" style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; padding: 10px;">
-        <!-- Rendered by JS -->
-    </div>
 
     <!-- ═══════════════════════════════════ -->
     <!--   DETAIL VIEW                       -->
@@ -1159,17 +1158,33 @@ async function loadCustomers(page = 1, searchQuery = '') {
         url.searchParams.append('page', page);
         url.searchParams.append('limit', customersPerPage);
         if (searchQuery) url.searchParams.append('q', searchQuery);
-        const res = await fetch(url.toString(), { cache: 'no-cache' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        
+        const cacheKey = `lm_customers_list_${page}_${searchQuery}`;
+        
+        const data = await swrFetch(cacheKey, async () => {
+            const res = await fetch(url.toString(), { cache: 'no-cache' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const freshData = await res.json();
+            
+            if (currentPage === page) {
+                globalCustomersList = freshData.data || [];
+                filteredList = [...globalCustomersList];
+                renderTable(filteredList);
+                updateStats(freshData.total, freshData.vipCount);
+                renderPagination(freshData.total, page, customersPerPage);
+                computeNextId();
+            }
+            return freshData;
+        }, 15000); // 15s TTL
 
-        globalCustomersList = data.data || [];
-        filteredList = [...globalCustomersList];
-
-        renderTable(filteredList);
-        updateStats(data.total, data.vipCount);
-        renderPagination(data.total, page, customersPerPage);
-        computeNextId();
+        if (data) {
+            globalCustomersList = data.data || [];
+            filteredList = [...globalCustomersList];
+            renderTable(filteredList);
+            updateStats(data.total, data.vipCount);
+            renderPagination(data.total, page, customersPerPage);
+            computeNextId();
+        }
 
     } catch (err) {
         console.error('❌ loadCustomers:', err);
@@ -1301,26 +1316,38 @@ function renderPagination(totalItems, currentPage, limit) {
 /* ──────────────────────────────────────────────
    SEARCH
 ────────────────────────────────────────────── */
-function handleSearch(query) {
+function clearCustomerCache() {
+    for (let k of Object.keys(localStorage)) {
+        if (k.startsWith('lm_customers_list_')) {
+            localStorage.removeItem(k);
+        }
+    }
+}
+
+function handleSearch(query, immediate = false) {
     const clearBtn = document.getElementById('search-clear-btn');
     const q = (query || '').trim().toLowerCase();
 
     clearBtn.style.display = q ? 'block' : 'none';
 
-    // Debounce search to avoid excessive API calls
     if (window.searchTimeout) {
         clearTimeout(window.searchTimeout);
     }
-    window.searchTimeout = setTimeout(() => {
-        loadCustomers(1, q); // Always go to page 1 for a new search
-    }, 300);
+    
+    if (immediate || !q) {
+        loadCustomers(1, q);
+    } else {
+        window.searchTimeout = setTimeout(() => {
+            loadCustomers(1, q);
+        }, 250);
+    }
 }
 
 function clearSearch() {
     const input = document.getElementById('cust-search-input');
     input.value = '';
     input.focus();
-    handleSearch('');
+    handleSearch('', true);
 }
 
 /* ──────────────────────────────────────────────
@@ -1491,6 +1518,7 @@ async function submitNewCustomer() {
 
         if (result.success) {
             showToast(`✅ Đã khởi tạo thành công: ${result.ID}`, 'success');
+            clearCustomerCache();
             closeAddModal();
             await loadCustomers();
         } else {
@@ -1536,6 +1564,7 @@ async function saveCustomerEdit() {
 
         if (result.success) {
             showToast('✅ Đồng bộ SQL hoàn tất!', 'success');
+            clearCustomerCache();
 
             // Update local state
             globalCustomersList = globalCustomersList.map(item => {
@@ -1609,6 +1638,7 @@ async function executeConfirmedDeletion() {
 
         if (result.success) {
             showToast(`🗑️ Đã xóa hồ sơ ${idToDelete} khỏi SQL.`, 'success');
+            clearCustomerCache();
             
             // Cập nhật state cục bộ ngay lập tức để giao diện phản hồi nhanh
             globalCustomersList = globalCustomersList.filter(c => c.ID !== idToDelete);

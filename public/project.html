@@ -846,19 +846,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <div class="field">
           <label>Phạm vi đo / Đặc trưng kỹ thuật (Specification / Range)</label>
-          <table id="spec-range-table" class="data-table" style="font-size:12.5px; margin-top:8px;">
-            <thead>
-              <tr>
-                <th>Tên thông số (Parameter)</th>
-                <th>Giá trị (Value)</th>
-                <th>Độ phân giải (Resolution)</th>
-                <th>Quy trình (Procedure)</th>
-                <th>Tiêu chuẩn (Reference)</th>
-                <th style="width:60px; text-align:center;">Xóa</th>
-              </tr>
-            </thead>
-            <tbody id="spec-range-table-body"></tbody>
-          </table>
+          <div class="cal-table-wrapper" style="border: 1px solid var(--border); border-radius: 8px;">
+            <table id="spec-range-table" class="data-table" style="font-size:12.5px; margin-top:0;">
+              <thead>
+                <tr>
+                  <th>Tên thông số (Parameter)</th>
+                  <th>Giá trị (Value)</th>
+                  <th>Độ phân giải (Resolution)</th>
+                  <th>Quy trình (Procedure)</th>
+                  <th>Tiêu chuẩn (Reference)</th>
+                  <th style="width:60px; text-align:center;">Xóa</th>
+                </tr>
+              </thead>
+              <tbody id="spec-range-table-body"></tbody>
+            </table>
+          </div>
           <button type="button" class="btn btn-secondary btn-sm" onclick="addSpecRangeRow()" style="margin-top:8px; display:inline-flex; align-items:center; gap:6px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-plus"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Thêm thông số

@@ -406,10 +406,43 @@
   .db-table-wrap { overflow-x: auto; }
   .db-admin-grid { grid-template-columns: 1fr; }
   .std-dropdown { min-width: 280px !important; max-width: calc(100vw - 32px) !important; }
-  #edit-view .btn-save { width: 100%; justify-content: center; }
   .modal-content { max-width: 96vw !important; padding: 20px; }
   #edit-view .btn-add-row-group { flex-direction: column; }
-  #edit-view .btn-add-row-group .btn-add-row { width: 100%; }
+  #edit-view .btn-add-row-group .btn-add-row { 
+    width: 100% !important; 
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 12px 10px !important;
+  }
+  #edit-view .btn-add-row-group .btn-add-row:last-child {
+    border-bottom: none !important;
+  }
+  #calibration-table {
+    min-width: 1000px !important;
+  }
+  #calibration-table td input.cell-input {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    padding: 8px 6px !important;
+    font-size: 13px !important;
+  }
+  #calibration-table td input.cell-input:focus {
+    background: #fff !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15) !important;
+  }
+  .edit-view-actions {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  .edit-view-actions .btn-save {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-top: 10px;
+    justify-content: center !important;
+    padding: 12px !important;
+  }
 }
 @media (max-width: 600px) {
   .db-container { padding: 0 12px; margin: 16px auto; }
@@ -616,7 +649,7 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
         </div>
 
-        <div style="overflow: visible; margin: 20px 0; border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); background: var(--surface);">
+        <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 20px 0; border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); background: var(--surface);">
             <table id="calibration-table" style="width: 100%; border-collapse: collapse; table-layout: fixed; font-family: Arial, sans-serif; font-size: 13px; text-align: center;">
                 <thead>
                     <tr>
@@ -638,7 +671,7 @@ document.addEventListener("DOMContentLoaded", () => {
             </table>
         </div>
 
-        <div style="display:flex; gap:0; margin: 15px 0;">
+        <div class="edit-view-actions" style="display:flex; gap:0; margin: 15px 0;">
             <div class="btn-add-row-group" style="flex:1;">
               <button class="btn-add-row btn-add-param" onclick="addDbParameterRow()">
                 <span class="btn-add-icon">+</span> Thêm thông số
