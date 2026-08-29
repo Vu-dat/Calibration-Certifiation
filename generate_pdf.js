@@ -883,7 +883,8 @@ function drawResultsTable(doc, pts, pageContext) {
     var pageBreakBefore = grp.name.includes('Số đinh trên mỗi thanh') || grp.name.includes('Number of pins on pin bar');
     
     // Page break handling for the group
-    if ((y + groupH > 790 || pageBreakBefore) && y > T + TH) {
+    var canKeepTogether = (groupH <= 200);
+    if (((canKeepTogether && y + groupH > 790) || pageBreakBefore) && y > T + TH) {
       drawFooter(doc, pageContext.currentPage, pageContext.totalPages);
       doc.addPage();
       pageContext.currentPage++;
@@ -1115,8 +1116,9 @@ function determinePages(doc, pts, tpl, sec17EstH) {
       var groupH = rowHeights.reduce((a, b) => a + b, 0);
       var pageBreakBefore = grp.name.includes('Số đinh trên mỗi thanh') || grp.name.includes('Number of pins on pin bar');
       
-      // Keep group together: if it doesn't fit, push to next page
-      if ((y + groupH > 790 || pageBreakBefore) && y > T + TH) {
+      // Keep group together if it is small enough (<= 200 pt) and doesn't fit
+      var canKeepTogether = (groupH <= 200);
+      if (((canKeepTogether && y + groupH > 790) || pageBreakBefore) && y > T + TH) {
         currentPage++;
         y = T + TH;
       }
