@@ -28,8 +28,26 @@ async function dbAll(query, params) {
 const {
     Document, Packer, Paragraph, TextRun, Table, TableRow: DocxTableRow, TableCell,
     AlignmentType, WidthType, BorderStyle, PageBorders, PageNumber, PageBreak,
-    Header, Footer, ImageRun, VerticalMergeType, HeightRule
+    Header, Footer, ImageRun, VerticalMergeType, HeightRule, XmlComponent, XmlAttributeComponent, Run
 } = require('docx');
+
+// Low-level XML components to support native MS Word field codes (e.g. PAGE, NUMPAGES)
+class FldChar extends XmlComponent {
+    constructor(fldCharType) {
+        super("w:fldChar");
+        this.root.push(new XmlAttributeComponent({ fldCharType }));
+    }
+}
+FldChar.xmlKeys = { fldCharType: "w:fldCharType" };
+
+class InstrText extends XmlComponent {
+    constructor(text) {
+        super("w:instrText");
+        this.root.push(new XmlAttributeComponent({ space: "preserve" }));
+        this.root.push(text);
+    }
+}
+InstrText.xmlKeys = { space: "xml:space" };
 
 // Custom TableRow subclass to automatically enforce cantSplit: true by default
 class TableRow extends DocxTableRow {
@@ -157,6 +175,7 @@ function para(text, opts = {}) {
         children: runs,
         alignment: opts.alignment || AlignmentType.LEFT,
         spacing: opts.spacing || { before: 0, after: 0, line: 276, lineRule: 'auto' },
+        keepNext: opts.keepNext || false,
     });
 }
 
@@ -234,7 +253,7 @@ function cleanParamName(name) {
 }
 
 // ─── English translation matcher for Table 2 parameter names ───────────
-function formatParamParagraphs(paramName, alignment = AlignmentType.LEFT) {
+function formatParamParagraphs(paramName, alignment = AlignmentType.LEFT, pageBreakBefore = false, keepNext = false) {
     const rawName = String(paramName || '');
     
     // 1. Extract unit at the end in parentheses
@@ -303,14 +322,15 @@ function formatParamParagraphs(paramName, alignment = AlignmentType.LEFT) {
     if (marker) {
         viRuns.push(txtRun(marker, { fontSize: 10, superScript: true }));
     }
-    paras.push(new Paragraph({ children: viRuns, alignment, spacing: { before: 0, after: 0 } }));
+    paras.push(new Paragraph({ children: viRuns, alignment, spacing: { before: 0, after: 0 }, pageBreakBefore, keepNext }));
     
     // Paragraph 2: English (italics)
     if (en) {
         paras.push(new Paragraph({
             children: [txtRun(en, { fontSize: 10, italics: true })],
             alignment,
-            spacing: { before: 0, after: 0 }
+            spacing: { before: 0, after: 0 },
+            keepNext
         }));
     }
     
@@ -319,7 +339,8 @@ function formatParamParagraphs(paramName, alignment = AlignmentType.LEFT) {
         paras.push(new Paragraph({
             children: [txtRun(unit, { fontSize: 10 })],
             alignment,
-            spacing: { before: 0, after: 0 }
+            spacing: { before: 0, after: 0 },
+            keepNext
         }));
     }
     
@@ -327,7 +348,7 @@ function formatParamParagraphs(paramName, alignment = AlignmentType.LEFT) {
 }
 
 // Helper to get exact row heights for calibration parameters
-function getRowHeightForParam(paramName) {
+function getRowHeightForParam(paramName, tplName = '') {
     const name = (paramName || '').toLowerCase();
     if (name.includes('hành trình') || name.includes('stroke')) return 767;
     if (name.includes('đường kính') || name.includes('finger')) return 693;
@@ -626,9 +647,20 @@ async function main(opts) {
         //  FOOTER
         // ═══════════════════════════════════════════════════════════════
         // Footer (giống file mẫu: bảng 3 cột không border + 1 line ngang bên dưới)
-        const footerLineBorder = { style: BorderStyle.SINGLE, size: 4, color: '7F7F7F' };
         const footer = new Footer({
             children: [
+                new Paragraph({
+                    border: {
+                        bottom: {
+                            style: BorderStyle.SINGLE,
+                            size: 4,
+                            color: '7F7F7F',
+                            space: 6
+                        }
+                    },
+                    spacing: { before: 0, after: 100 },
+                    children: [new TextRun("")]
+                }),
                 new Table({
                     rows: [
                         new TableRow({
@@ -645,11 +677,12 @@ async function main(opts) {
                                                     italics: true,
                                                 })
                                             ],
-                                            spacing: { before: 0, after: 0 }
+                                            spacing: { before: 0, after: 220 }
                                         })
                                     ],
                                     width: { size: 2547, type: WidthType.DXA },
-                                    borders: TABLE_BORDER_NONE
+                                    borders: TABLE_BORDER_NONE,
+                                    margins: { top: 0, bottom: 0, left: 0, right: 0 }
                                 }),
                                 new TableCell({
                                     children: [
@@ -663,11 +696,12 @@ async function main(opts) {
                                                     italics: true,
                                                 })
                                             ],
-                                            spacing: { before: 0, after: 0 }
+                                            spacing: { before: 0, after: 220 }
                                         })
                                     ],
                                     width: { size: 5812, type: WidthType.DXA },
-                                    borders: TABLE_BORDER_NONE
+                                    borders: TABLE_BORDER_NONE,
+                                    margins: { top: 0, bottom: 0, left: 0, right: 0 }
                                 }),
                                 new TableCell({
                                     children: [
@@ -695,11 +729,12 @@ async function main(opts) {
                                                     size: 20,
                                                 })
                                             ],
-                                            spacing: { before: 0, after: 0 }
+                                            spacing: { before: 0, after: 220 }
                                         })
                                     ],
                                     width: { size: 2098, type: WidthType.DXA },
-                                    borders: TABLE_BORDER_NONE
+                                    borders: TABLE_BORDER_NONE,
+                                    margins: { top: 0, bottom: 0, left: 0, right: 0 }
                                 })
                             ]
                         })
@@ -707,14 +742,7 @@ async function main(opts) {
                     width: { size: 10457, type: WidthType.DXA },
                     columnWidths: [2547, 5812, 2098],
                     alignment: AlignmentType.CENTER,
-                    borders: {
-                        top: { style: BorderStyle.SINGLE, size: 4, color: '7F7F7F' },
-                        bottom: BORDER_NONE,
-                        left: BORDER_NONE,
-                        right: BORDER_NONE,
-                        insideHorizontal: BORDER_NONE,
-                        insideVertical: BORDER_NONE,
-                    }
+                    borders: TABLE_BORDER_NONE
                 })
             ]
         });
@@ -1146,7 +1174,7 @@ async function main(opts) {
         // ─── TABLE 2: Calibration Results Table ───
         const t2Rows = [];
 
-        // Table 2 Row 1 (Header)
+        // Table 2 Row 1 (Header) - mathematically aligned with the column width grid
         t2Rows.push(new TableRow({
             height: { value: 770, rule: HeightRule.EXACT },
             tableHeader: true,
@@ -1157,7 +1185,7 @@ async function main(opts) {
                         para('Parameter', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 } }),
                     ],
                     columnSpan: 2,
-                    width: { size: 2957, type: WidthType.DXA },
+                    width: { size: 3757, type: WidthType.DXA },
                     verticalAlign: 'center',
                     borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
                 }),
@@ -1168,7 +1196,8 @@ async function main(opts) {
                           { text: 'As found value', bold: true, italics: true, fontSize: 10 }
                         ], { alignment: AlignmentType.CENTER })
                     ],
-                    width: { size: 1855, type: WidthType.DXA },
+                    columnSpan: 2,
+                    width: { size: 1463, type: WidthType.DXA },
                     verticalAlign: 'center',
                     borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
                 }),
@@ -1179,7 +1208,8 @@ async function main(opts) {
                           { text: 'Uncertainty', bold: true, italics: true, fontSize: 10 }
                         ], { alignment: AlignmentType.CENTER })
                     ],
-                    width: { size: 1712, type: WidthType.DXA },
+                    columnSpan: 1,
+                    width: { size: 1312, type: WidthType.DXA },
                     verticalAlign: 'center',
                     borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
                 }),
@@ -1188,7 +1218,7 @@ async function main(opts) {
                         para('Giá trị tham chiếu', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 20, after: 0 } }),
                         para('Reference Value', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 } }),
                     ],
-                    columnSpan: 2,
+                    columnSpan: 1,
                     width: { size: 1918, type: WidthType.DXA },
                     verticalAlign: 'center',
                     borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
@@ -1201,7 +1231,7 @@ async function main(opts) {
                         ], { alignment: AlignmentType.CENTER })
                     ],
                     columnSpan: 2,
-                    width: { size: 1199, type: WidthType.DXA },
+                    width: { size: 1207, type: WidthType.DXA },
                     verticalAlign: 'center',
                     borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
                 }),
@@ -1212,7 +1242,8 @@ async function main(opts) {
                           { text: 'Conclusion', bold: true, italics: true, fontSize: 10 }
                         ], { alignment: AlignmentType.CENTER })
                     ],
-                    width: { size: 1253, type: WidthType.DXA },
+                    columnSpan: 2,
+                    width: { size: 1261, type: WidthType.DXA },
                     verticalAlign: 'center',
                     borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
                 })
@@ -1223,9 +1254,9 @@ async function main(opts) {
         if (points.length === 0) {
             t2Rows.push(new TableRow({
                 children: [
-                    t2Cell(para('Chưa có dữ liệu', { fontSize: 10, alignment: AlignmentType.CENTER }), 2957, 2),
-                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1863, 2),
-                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
+                    t2Cell(para('Chưa có dữ liệu', { fontSize: 10, alignment: AlignmentType.CENTER }), 3757, 2),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1463, 2),
+                    t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1312, 1),
                     t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 1),
                     t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1207, 2),
                     t2Cell(para('–', { fontSize: 10, alignment: AlignmentType.CENTER }), 1261, 2),
@@ -1260,16 +1291,18 @@ async function main(opts) {
                 }
             });
 
-            // Group expanded points by PARAMETER_NAME
+            // Group expanded points by PARAMETER_NAME (true grouping by name, preserving first-seen order)
             const groups = [];
-            let cg = null;
+            const groupMap = new Map();
             expandedPoints.forEach(p => {
-                const pn = p.PARAMETER_NAME || '';
-                if (!cg || cg.name !== pn) {
-                    cg = { name: pn, rows: [] };
-                    groups.push(cg);
+                const pn = p.PARAMETER_NAME || '' ;
+                let grp = groupMap.get(pn);
+                if (!grp) {
+                    grp = { name: pn, rows: [] };
+                    groupMap.set(pn, grp);
+                    groups.push(grp);
                 }
-                cg.rows.push(p);
+                grp.rows.push(p);
             });
 
             // Draw grouped rows with vertical merges
@@ -1285,7 +1318,9 @@ async function main(opts) {
                     const refVal = String(p.REFERENCE_VALUE || '–');
                     const tol = String(p.TOLERANCE || '–');
                     const conformity = String(p.CONFORMITY || '–');
-                    const exactHeight = getRowHeightForParam(paramName);
+                    const exactHeight = getRowHeightForParam(paramName, tpl && tpl.NAME);
+                    const pageBreakBefore = (ri === 0) && (paramName.includes('Số đinh trên mỗi thanh') || paramName.includes('Number of pins on pin bar'));
+                    const keepNext = isMulti && (ri < groupSize - 1);
                     
                     let paramMerge = undefined;
                     let refMerge = undefined;
@@ -1301,15 +1336,15 @@ async function main(opts) {
                     
                     if (isMulti) {
                         t2Rows.push(new TableRow({
-                            height: { value: 312, rule: HeightRule.AT_LEAST },
+                            height: { value: exactHeight || 312, rule: HeightRule.AT_LEAST },
                             children: [
-                                t2Cell(ri > 0 ? [] : formatParamParagraphs(paramName, AlignmentType.LEFT), 1985, 1, { verticalMerge: paramMerge }),
-                                t2Cell([para(calPt, { fontSize: 10, alignment: AlignmentType.CENTER })], 972, 1),
-                                t2Cell([para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER })], 1863, 2),
-                                t2Cell([para(unc, { fontSize: 10, alignment: AlignmentType.CENTER })], 1712, 1),
-                                t2Cell(ri > 0 ? [] : [para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER })], 1918, 1, { verticalMerge: refMerge }),
-                                t2Cell(ri > 0 ? [] : [para(tol, { fontSize: 10, alignment: AlignmentType.CENTER })], 1207, 2, { verticalMerge: tolMerge }),
-                                t2Cell(ri > 0 ? [] : [para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER })], 1261, 2, { verticalMerge: confMerge }),
+                                t2Cell(ri > 0 ? [] : formatParamParagraphs(paramName, AlignmentType.LEFT, pageBreakBefore, keepNext), 2785, 1, { verticalMerge: paramMerge }),
+                                t2Cell([para(calPt, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 972, 1),
+                                t2Cell([para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1463, 2),
+                                t2Cell([para(unc, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1312, 1),
+                                t2Cell(ri > 0 ? [] : [para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1918, 1, { verticalMerge: refMerge }),
+                                t2Cell(ri > 0 ? [] : [para(tol, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1207, 2, { verticalMerge: tolMerge }),
+                                t2Cell(ri > 0 ? [] : [para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, keepNext })], 1261, 2, { verticalMerge: confMerge }),
                             ]
                         }));
                     } else {
@@ -1317,9 +1352,9 @@ async function main(opts) {
                         t2Rows.push(new TableRow({
                             height: exactHeight ? { value: exactHeight, rule: HeightRule.AT_LEAST } : undefined,
                             children: [
-                                t2Cell(formatParamParagraphs(paramName, AlignmentType.LEFT), 2957, 2),
-                                t2Cell(para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER }), 1863, 2),
-                                t2Cell(para(unc, { fontSize: 10, alignment: AlignmentType.CENTER }), 1712, 1),
+                                t2Cell(formatParamParagraphs(paramName, AlignmentType.LEFT, pageBreakBefore, false), 3757, 2),
+                                t2Cell(para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER }), 1463, 2),
+                                t2Cell(para(unc, { fontSize: 10, alignment: AlignmentType.CENTER }), 1312, 1),
                                 t2Cell(para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER }), 1918, 1),
                                 t2Cell(para(tol, { fontSize: 10, alignment: AlignmentType.CENTER }), 1207, 2),
                                 t2Cell(para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER }), 1261, 2),
@@ -1335,10 +1370,18 @@ async function main(opts) {
             new Table({
                 rows: t2Rows,
                 width: { size: 10918, type: WidthType.DXA },
-                columnWidths: [1985, 972, 8, 1855, 1712, 1918, 1199, 8, 1253, 8],
+                columnWidths: [2785, 972, 8, 1455, 1312, 1918, 1199, 8, 1253, 8],
                 indent: { size: -220, type: WidthType.DXA },
                 alignment: AlignmentType.CENTER,
                 borders: TABLE_BORDER_GRID
+            })
+        );
+
+        // Empty small paragraph to prevent Word from merging Table 2 and Table 3
+        children.push(
+            new Paragraph({
+                spacing: { before: 0, after: 0, line: 1 },
+                children: [new TextRun({ text: "", size: 2 })]
             })
         );
 
@@ -1521,17 +1564,35 @@ async function main(opts) {
             ]
         }));
 
-        // Assemble Table 3
-        children.push(
-            new Table({
-                rows: t3Rows,
-                width: { size: 11483, type: WidthType.DXA },
-                columnWidths: [11483],
-                indent: { size: -426, type: WidthType.DXA },
-                alignment: AlignmentType.CENTER,
-                borders: TABLE_BORDER_NONE
-            })
-        );
+        // Assemble Table 3 (nested inside a single-cell parent table to prevent splitting across pages)
+        const notesTable = new Table({
+            rows: t3Rows,
+            width: { size: 11483, type: WidthType.DXA },
+            columnWidths: [11483],
+            borders: TABLE_BORDER_NONE
+        });
+
+        const parentNotesRow = new TableRow({
+            children: [
+                new TableCell({
+                    children: [notesTable],
+                    width: { size: 11483, type: WidthType.DXA },
+                    borders: TABLE_BORDER_NONE,
+                    margins: { top: 0, bottom: 0, left: 0, right: 0 }
+                })
+            ]
+        });
+
+        const parentNotesTable = new Table({
+            rows: [parentNotesRow],
+            width: { size: 11483, type: WidthType.DXA },
+            columnWidths: [11483],
+            indent: { size: -426, type: WidthType.DXA },
+            alignment: AlignmentType.CENTER,
+            borders: TABLE_BORDER_NONE
+        });
+
+        children.push(parentNotesTable);
 
         // ═══════════════════════════════════════════════════════════════
         //  BUILD DOCUMENT
@@ -1551,7 +1612,7 @@ async function main(opts) {
                 properties: {
                     page: {
                         size: { width: 11907, height: 16840 },
-                        margin: { top: 720, bottom: 426, left: 720, right: 720, header: 426, footer: 0 },
+                        margin: { top: 669, bottom: 426, left: 720, right: 720, header: 742, footer: 0 },
                         borders: {
                             pageBorders: { offsetFrom: 'page' },
                             pageBorderTop:    { style: BorderStyle.SINGLE, size: 4, color: 'auto', space: 10 },
