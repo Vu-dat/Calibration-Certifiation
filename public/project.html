@@ -2261,24 +2261,23 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null) {
   // Bước 3: Đảm bảo tất cả thông tin thiết bị đúng (không bị ghi đè từ CERTIFICATES)
   const resolvedName = window._currentWorkingEquipment;
   if (resolvedName && MockDatabaseEquipment[resolvedName]) {
-      // Luôn restore text fields từ template (tránh bị ghi đè từ CERTIFICATES)
       const eq = MockDatabaseEquipment[resolvedName];
-      document.getElementById('f-inst-vi').value = resolvedName;
-      document.getElementById('f-inst-en').value = eq.instEn || resolvedName;
-      document.getElementById('f-mfr').value = eq.manufacturer || '';
-      document.getElementById('f-model').value = eq.model || '';
-      document.getElementById('f-id').value = eq.equipmentId || '';
-      if (eq.serialNumber) document.getElementById('f-sn').value = eq.serialNumber;
-      if (eq.manufacturerId) document.getElementById('f-mfr-id').value = eq.manufacturerId;
-      if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
-      const hasRows = document.getElementById('spec-range-table-body')?.children.length > 0;
-      if (!hasRows || !hasData) {
-          setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
-      }
-      if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
-      
       if (!hasData) {
-          // Không có dữ liệu DB → load toàn bộ bảng kết quả đo từ template
+          // Chỉ điền thông tin mặc định từ template nếu đây là chứng chỉ mới tinh (chưa lưu dữ liệu)
+          document.getElementById('f-inst-vi').value = eq.nameVi || resolvedName;
+          document.getElementById('f-inst-en').value = eq.instEn || resolvedName;
+          document.getElementById('f-mfr').value = eq.manufacturer || '';
+          document.getElementById('f-model').value = eq.model || '';
+          document.getElementById('f-id').value = eq.equipmentId || '';
+          if (eq.serialNumber) document.getElementById('f-sn').value = eq.serialNumber;
+          if (eq.manufacturerId) document.getElementById('f-mfr-id').value = eq.manufacturerId;
+          if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
+          
+          const hasRows = document.getElementById('spec-range-table-body')?.children.length > 0;
+          if (!hasRows) {
+              setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
+          }
+          if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
           selectEquipmentTemplate(resolvedName);
       }
   }

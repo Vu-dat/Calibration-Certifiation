@@ -22,7 +22,7 @@ async function a(query, params) {
 const certNo = process.argv[2];
 const downloadUrl = process.argv[3] || '';
 const equipmentName = process.argv[4] || '';
-const BD = __dirname;
+const BD = process.cwd();
 
 // ── FONTS ────────────────────────────────────────────────────────────
 const fpr = [path.join(BD, 'fonts', 'arial.ttf'), 'C:/Windows/Fonts/arial.ttf'];
