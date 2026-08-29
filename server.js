@@ -955,8 +955,8 @@ app.get('/api/calibration/:certNo', async (req, res) => {
         const [certRows, pointsRows, standardsRows] = await Promise.all([
             sql`SELECT * FROM CERTIFICATES WHERE CERT_NO = ${certNo}`,
             eqName
-                ? sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo} AND EQUIPMENT_NAME = ${eqName}`
-                : sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo}`,
+                ? sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo} AND EQUIPMENT_NAME = ${eqName} ORDER BY ID ASC`
+                : sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo} ORDER BY ID ASC`,
             sql`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${certNo}`
         ]);
 

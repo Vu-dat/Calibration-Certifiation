@@ -899,8 +899,28 @@ function drawResultsTable(doc, pts, pageContext) {
       var isFirst = (ri === 0);
       var rowH = rowHeights[ri];
       
+      var isMartindale = tpl && (tpl.NAME || '').toLowerCase().includes('martindale');
+      var martindaleDrawingH = 0;
+      var is60 = false, is24 = false;
+      if (isMartindale) {
+        if (grp.name.includes('Lissajous') || grp.name.includes('lissajous')) {
+          grp.rows.forEach(function(row) {
+            var refStr = String(row.REFERENCE_VALUE || '');
+            if (refStr.includes('60.5')) is60 = true;
+            if (refStr.includes('24')) is24 = true;
+          });
+        }
+        if (is60) martindaleDrawingH = 340;
+        else if (is24) martindaleDrawingH = 180;
+      }
+      
+      var testRowH = rowH;
+      if (ri === grp.rows.length - 1) {
+        testRowH += martindaleDrawingH;
+      }
+      
       // Page break handling for split rows if a single group exceeds page limit
-      if (y + rowH > 790 && y > T + TH) {
+      if (y + testRowH > 790 && y > T + TH) {
         drawFooter(doc, pageContext.currentPage, pageContext.totalPages);
         doc.addPage();
         pageContext.currentPage++;
@@ -973,6 +993,41 @@ function drawResultsTable(doc, pts, pageContext) {
       if (confTxt) drawCell(doc, confTxt, dcols[6], y, dR[6] - dcols[6], rowH, pyV);
       
       y += rowH;
+
+      if (ri === grp.rows.length - 1 && martindaleDrawingH > 0) {
+        if (is60) {
+          var img1 = null, img2 = null, img3 = null, img4 = null;
+          try {
+            img1 = fs.readFileSync(path.join(BD, 'public', 'img', 'martindale_1.jpeg'));
+            img2 = fs.readFileSync(path.join(BD, 'public', 'img', 'martindale_2.jpeg'));
+            img3 = fs.readFileSync(path.join(BD, 'public', 'img', 'martindale_3.jpeg'));
+            img4 = fs.readFileSync(path.join(BD, 'public', 'img', 'martindale_4.jpeg'));
+          } catch(e) { console.error("Error reading Martindale 60.5 images:", e.message); }
+          
+          if (img1 && img2 && img3 && img4) {
+            var imgW = 160;
+            var imgH = 160;
+            var startX = cols[0] + (cols[6] - cols[0] - imgW * 2 - 10) / 2;
+            doc.image(img1, startX, y + 5, { width: imgW, height: imgH });
+            doc.image(img2, startX + imgW + 10, y + 5, { width: imgW, height: imgH });
+            doc.image(img3, startX, y + 5 + imgH + 5, { width: imgW, height: imgH });
+            doc.image(img4, startX + imgW + 10, y + 5 + imgH + 5, { width: imgW, height: imgH });
+          }
+        } else if (is24) {
+          var img5 = null;
+          try {
+            img5 = fs.readFileSync(path.join(BD, 'public', 'img', 'martindale_5.png'));
+          } catch(e) { console.error("Error reading Martindale 24 image:", e.message); }
+          
+          if (img5) {
+            var imgW = 170;
+            var imgH = 170;
+            var startX = cols[0] + (cols[6] - cols[0] - imgW) / 2;
+            doc.image(img5, startX, y + 5, { width: imgW, height: imgH });
+          }
+        }
+        y += martindaleDrawingH;
+      }
     }
   }
   
@@ -1116,6 +1171,22 @@ function determinePages(doc, pts, tpl, sec17EstH) {
       var groupH = rowHeights.reduce((a, b) => a + b, 0);
       var pageBreakBefore = grp.name.includes('Số đinh trên mỗi thanh') || grp.name.includes('Number of pins on pin bar');
       
+      var isMartindale = tpl && (tpl.NAME || '').toLowerCase().includes('martindale');
+      var martindaleDrawingH = 0;
+      if (isMartindale) {
+        var is60 = false, is24 = false;
+        if (grp.name.includes('Lissajous') || grp.name.includes('lissajous')) {
+          grp.rows.forEach(function(r) {
+            var refStr = String(r.REFERENCE_VALUE || '');
+            if (refStr.includes('60.5')) is60 = true;
+            if (refStr.includes('24')) is24 = true;
+          });
+        }
+        if (is60) martindaleDrawingH = 340;
+        else if (is24) martindaleDrawingH = 180;
+      }
+      groupH += martindaleDrawingH;
+
       // Keep group together if it is small enough (<= 200 pt) and doesn't fit
       var canKeepTogether = (groupH <= 200);
       if (((canKeepTogether && y + groupH > 790) || pageBreakBefore) && y > T + TH) {
@@ -1125,6 +1196,9 @@ function determinePages(doc, pts, tpl, sec17EstH) {
       
       for (var ri = 0; ri < grp.rows.length; ri++) {
         var rowH = rowHeights[ri];
+        if (ri === grp.rows.length - 1) {
+          rowH += martindaleDrawingH;
+        }
         if (y + rowH > 790 && y > T + TH) {
           currentPage++;
           y = T + TH;
@@ -1136,9 +1210,15 @@ function determinePages(doc, pts, tpl, sec17EstH) {
   
   // Section 17 placement check
   var lastPage = currentPage;
-  var sec17Fits = (y + 8 + sec17EstH <= 810);
-  if (!sec17Fits) {
-    lastPage++;
+  
+  var isSnagpod = tpl && (tpl.NAME || '').toLowerCase().includes('snagpod');
+  if (isSnagpod) {
+    lastPage += 2; // Snagpod always adds 2 diagram pages, section 17 will go on the last page (page 5)
+  } else {
+    var sec17Fits = (y + 8 + sec17EstH <= 810);
+    if (!sec17Fits) {
+      lastPage++;
+    }
   }
   
   return lastPage;
@@ -1198,8 +1278,61 @@ async function main(opts) {
       if (require.main === module) { console.error(errMsgEq); process.exit(1); }
       else throw new Error(errMsgEq);
     }
-    var ptsQ = "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC";
-    var pts = toUpperKeys(await a(ptsQ, [cNo, eqName]));
+    var pts = [];
+    if (eqName) {
+      var ptsQ = "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC";
+      pts = toUpperKeys(await a(ptsQ, [cNo, eqName]));
+    }
+    if (pts.length === 0) {
+      pts = toUpperKeys(await a("SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC", [cNo]));
+    }
+
+    // Sort points based on template point sequence if template is loaded
+    if (tpl) {
+      var tplPts = await a("SELECT * FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ? ORDER BY ID ASC", [tpl.NAME]);
+      if (tplPts && tplPts.length) {
+        var tplOrder = {};
+        tplPts.forEach(function(tp, idx) {
+          tplOrder[tp.parameter_name.trim() + '|' + tp.cal_point.trim()] = idx;
+        });
+        pts.sort(function(a, b) {
+          var keyA = (a.PARAMETER_NAME || '').trim() + '|' + (a.CAL_POINT || '').trim();
+          var keyB = (b.PARAMETER_NAME || '').trim() + '|' + (b.CAL_POINT || '').trim();
+          var idxA = tplOrder[keyA] !== undefined ? tplOrder[keyA] : 9999;
+          var idxB = tplOrder[keyB] !== undefined ? tplOrder[keyB] : 9999;
+          return idxA - idxB;
+        });
+      }
+    }
+
+    // Pre-process and expand slash values in calibration points (matching generate_docx.js)
+    var expandedPoints = [];
+    pts.forEach(function(p) {
+      var asFound = String(p.AS_FOUND_VALUE || '');
+      if (asFound.indexOf('/') >= 0) {
+        var valParts = asFound.split('/');
+        var count = valParts.length;
+        var unc = String(p.UNCERTAINTY || '');
+        var uncParts = unc.indexOf('/') >= 0 ? unc.split('/') : Array(count).fill(unc);
+        
+        var subLabels = ['1', '2', '3', '4', '5'];
+        if ((p.PARAMETER_NAME || '').toLowerCase().includes('lực') || (p.PARAMETER_NAME || '').toLowerCase().includes('force')) {
+          subLabels = ['BEGIN', 'MIDDLE', 'END'];
+        }
+        
+        for (var idx = 0; idx < count; idx++) {
+          var pCopy = Object.assign({}, p);
+          pCopy.CAL_POINT = subLabels[idx] || String(idx + 1);
+          pCopy.AS_FOUND_VALUE = (valParts[idx] || '').trim();
+          pCopy.UNCERTAINTY = (uncParts[idx] || '').trim();
+          expandedPoints.push(pCopy);
+        }
+      } else {
+        expandedPoints.push(p);
+      }
+    });
+    pts = expandedPoints;
+
     var stds = toUpperKeys(await a('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]));
 
     // Logo: use project asset (240x84, matches reference logo rect)
@@ -1250,21 +1383,58 @@ async function main(opts) {
     var tableEnd = drawResultsTable(doc, pts, pageContext);
     
     var lastTablePage = pageContext.currentPage;
-    var sec17FitsOnLastPage = (tableEnd + 8 + sec17EstH <= 810);
+    var isSnagpod = tpl && (tpl.NAME || '').toLowerCase().includes('snagpod');
     
-    if (sec17FitsOnLastPage) {
-      var sec17Y = Math.max(tableEnd + 8, 810 - sec17EstH - 10);
-      drawSection17(doc, sec17Y, cNo, pts);
+    if (isSnagpod) {
       drawFooter(doc, lastTablePage, totalPages);
-    } else {
-      drawFooter(doc, lastTablePage, totalPages);
-
-      // ═══ NEXT PAGE ═══
+      
+      // Page 4: Sectional view of test chamber
       doc.addPage();
-      var nextPage = lastTablePage + 1;
       drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
-      drawSection17(doc, 160.3, cNo, pts);
-      drawFooter(doc, nextPage, totalPages);
+      var snagHexagon = null, snagChamber = null;
+      try {
+        snagHexagon = fs.readFileSync(path.join(BD, 'public', 'img', 'snagpod_hexagon.png'));
+        snagChamber = fs.readFileSync(path.join(BD, 'public', 'img', 'snagpod_chamber.png'));
+      } catch(e) { console.error("Error loading snagpod chamber diagrams:", e.message); }
+      if (snagHexagon) {
+        doc.image(snagHexagon, ML + (CW - 320) / 2, 155, { width: 320 });
+      }
+      if (snagChamber) {
+        doc.image(snagChamber, ML + (CW - 340) / 2, 410, { width: 340 });
+      }
+      drawFooter(doc, lastTablePage + 1, totalPages);
+      
+      // Page 5: Isometric view of a pin bar & Detailed view of a pin, then Section 17
+      doc.addPage();
+      drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
+      var snagPin = null;
+      try {
+        snagPin = fs.readFileSync(path.join(BD, 'public', 'img', 'snagpod_pin.png'));
+      } catch(e) { console.error("Error loading snagpod pin diagram:", e.message); }
+      
+      if (snagPin) {
+        doc.image(snagPin, ML + (CW - 460) / 2, 160, { width: 460 });
+      }
+      
+      drawSection17(doc, 440, cNo, pts);
+      drawFooter(doc, lastTablePage + 2, totalPages);
+    } else {
+      var sec17FitsOnLastPage = (tableEnd + 8 + sec17EstH <= 810);
+      
+      if (sec17FitsOnLastPage) {
+        var sec17Y = Math.max(tableEnd + 8, 810 - sec17EstH - 10);
+        drawSection17(doc, sec17Y, cNo, pts);
+        drawFooter(doc, lastTablePage, totalPages);
+      } else {
+        drawFooter(doc, lastTablePage, totalPages);
+  
+        // ═══ NEXT PAGE ═══
+        doc.addPage();
+        var nextPage = lastTablePage + 1;
+        drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
+        drawSection17(doc, 160.3, cNo, pts);
+        drawFooter(doc, nextPage, totalPages);
+      }
     }
 
     return new Promise(function(resolve, reject) {

@@ -3111,6 +3111,207 @@ function buildCertHeaderHtml(certNo, calDate) {
   `;
 }
 
+function estimateSec17HeightBrowser(allRes) {
+  const hasMC = allRes.some(r => /\(([MC])\)/.test(r.param || ''));
+  return hasMC ? 345 : 330;
+}
+
+function estimateGroupRowHeights(grp) {
+  const isMulti = grp.rows.length > 1;
+  const heights = [];
+  
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.font = '10pt Arial, Helvetica, sans-serif';
+  
+  for (let ri = 0; ri < grp.rows.length; ri++) {
+    const r = grp.rows[ri];
+    const isFirst = (ri === 0);
+    let rowH = 16;
+    
+    if (isMulti) {
+      if (ri === grp.rows.length - 1) rowH = 13.7;
+      else rowH = 17.2;
+      
+      if (isFirst) {
+        const textWidthLimit = 168.0 - 34.2;
+        let testTxt = grp.name;
+        if (testTxt && !testTxt.includes('\n')) {
+          testTxt = testTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
+        }
+        const lines = testTxt.split('\n');
+        let calcH = 0;
+        const lineH = 10 * 1.15;
+        
+        lines.forEach((line, idx) => {
+          if (idx === 0) {
+            const m = String(line).match(/\(([MC*])\)\s*$/);
+            const clean = m ? line.substring(0, line.length - m[0].length) : line;
+            const words = clean.split(' ');
+            let cur = '', mlines = 1;
+            for (let wi = 0; wi < words.length; wi++) {
+              const t = cur ? cur + ' ' + words[wi] : words[wi];
+              const w = ctx.measureText(t).width;
+              if (w > textWidthLimit && cur) {
+                mlines++;
+                cur = words[wi];
+              } else {
+                cur = t;
+              }
+            }
+            calcH += mlines * lineH;
+          } else {
+            const w = ctx.measureText(line).width;
+            const mlines = Math.ceil(w / textWidthLimit) || 1;
+            calcH += mlines * lineH;
+          }
+        });
+        calcH += 8;
+        if (calcH > rowH) rowH = calcH;
+      }
+    } else {
+      if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 44.0;
+      else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 38.4;
+      else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 38.2;
+      else rowH = 38.0;
+      
+      const textWidthLimit = 216.6 - 34.2;
+      let testTxt = grp.name;
+      if (testTxt && !testTxt.includes('\n')) {
+        testTxt = testTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
+      }
+      const lines = testTxt.split('\n');
+      let calcH = 0;
+      const lineH = 10 * 1.15;
+      
+      lines.forEach((line, idx) => {
+        if (idx === 0) {
+          const m = String(line).match(/\(([MC*])\)\s*$/);
+          const clean = m ? line.substring(0, line.length - m[0].length) : line;
+          const words = clean.split(' ');
+          let cur = '', mlines = 1;
+          for (let wi = 0; wi < words.length; wi++) {
+            const t = cur ? cur + ' ' + words[wi] : words[wi];
+            const w = ctx.measureText(t).width;
+            if (w > textWidthLimit && cur) {
+              mlines++;
+              cur = words[wi];
+            } else {
+              cur = t;
+            }
+          }
+          calcH += mlines * lineH;
+        } else {
+          const w = ctx.measureText(line).width;
+          const mlines = Math.ceil(w / textWidthLimit) || 1;
+          calcH += mlines * lineH;
+        }
+      });
+      calcH += 8;
+      if (calcH > rowH) rowH = calcH;
+    }
+    heights.push(rowH);
+  }
+  return heights;
+}
+
+function estimatePrintPages(allRes, isSnagpod, isMartindale, sec17EstH) {
+  const T = 160.3, TH = 38.8;
+  let currentPage = 2;
+  let y = T + TH;
+  
+  const groups = [];
+  let cg = null;
+  allRes.forEach(r => {
+    if (!cg || cg.name !== r.param) {
+      cg = { name: r.param, rows: [] };
+      groups.push(cg);
+    }
+    cg.rows.push(r);
+  });
+  
+  if (groups.length === 0) {
+    y += 16;
+  } else {
+    for (let gi = 0; gi < groups.length; gi++) {
+      const grp = groups[gi];
+      const rowHeights = estimateGroupRowHeights(grp);
+      let groupH = rowHeights.reduce((a, b) => a + b, 0);
+      const pageBreakBefore = grp.name.includes('Số đinh trên mỗi thanh') || grp.name.includes('Number of pins on pin bar');
+      
+      let martindaleDrawingH = 0;
+      let is60 = false, is24 = false;
+      if (isMartindale) {
+        if (grp.name.includes('Lissajous') || grp.name.includes('lissajous')) {
+          grp.rows.forEach(row => {
+            const refStr = String(row.refValue || '');
+            if (refStr.includes('60.5')) is60 = true;
+            if (refStr.includes('24')) is24 = true;
+          });
+        }
+        if (is60) martindaleDrawingH = 340;
+        else if (is24) martindaleDrawingH = 180;
+      }
+      groupH += martindaleDrawingH;
+      
+      const canKeepTogether = (groupH <= 200);
+      if (((canKeepTogether && y + groupH > 790) || pageBreakBefore) && y > T + TH) {
+        currentPage++;
+        y = T + TH;
+      }
+      
+      for (let ri = 0; ri < grp.rows.length; ri++) {
+        let rowH = rowHeights[ri];
+        if (ri === grp.rows.length - 1) {
+          rowH += martindaleDrawingH;
+        }
+        if (y + rowH > 790 && y > T + TH) {
+          currentPage++;
+          y = T + TH;
+        }
+        y += rowH;
+      }
+    }
+  }
+  
+  let lastPage = currentPage;
+  if (isSnagpod) {
+    lastPage += 2;
+  } else {
+    if (y + 8 + sec17EstH > 810) {
+      lastPage++;
+    }
+  }
+  return { totalPages: lastPage, groups: groups };
+}
+
+function buildSection17Html(hasMCMark) {
+  return `
+      <div class="cert-notes" style="margin-top:15px; text-align:left;">
+        <p class="cert-note-title" style="margin:0 0 4px 0; font-weight:700; font-size:12px;">Ghi chú/ <i>Note:</i></p>
+        <p style="margin:2px 0; font-size:10px;">*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Đánh giá theo thông số kỹ thuật của nhà sản xuất/ <i>Acceptance limit base on Manufacturer's specifications.</i></p>
+        <p style="margin:2px 0; font-size:10px;">*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Đánh giá theo yêu cầu kỹ thuật của khách hàng/ <i>Acceptance limit base on Customer request.</i></p>
+      </div>
+
+      <div class="sec17" style="margin-top:15px; border-top:1px solid #ccc; padding-top:10px; text-align:left;">
+        <p class="sec17-title" style="margin:0 0 6px 0; font-weight:700; font-size:12px;">17. Thông tin khác/ <i>Other information:</i></p>
+        <p class="sec17-item" style="margin:4px 0; font-size:10px; line-height:1.25;"><b>17.1 Độ không đảm bảo đo</b> <b><i>/ Uncertainty:</i></b><br>
+          Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy/ <i>The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.</i></p>
+        <p class="sec17-item" style="margin:4px 0; font-size:10px; line-height:1.25;"><b>17.2. Công bố về sự phù hợp</b> <b><i>/ Statements of conformity:</i></b><br>
+          <b>+ A:</b> Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép của tiêu chuẩn đánh giá. <i>The measurement reported with expanded uncertainty is within tolerance of standards.</i><br>
+          <b>+ B:</b> Kết quả đo khi tính cả độ không đảm bảo đo hoàn toàn nằm ngoài giới hạn cho phép của tiêu chuẩn đánh giá. <i>The measurement reported with expanded uncertainty is out of tolerance of standards.</i><br>
+          <b>+ C:</b> Kết quả đo khi tính cả độ không đảm bảo đo có thể nằm ngoài giới hạn cho phép của tiêu chuẩn. Không có kết luận trong trường hợp này. <i>The measurement reported with expanded uncertainty may be out of tolerance of standards. There is no conclusion for this measurement.</i><br>
+          <b>+ D:</b> Tiêu chuẩn kỹ thuật không quy định dung sai của thông số đo. <i>There is no tolerance stated in technical standard and there is no conclusion for this measurement.</i></p>
+        <p class="sec17-item" style="margin:4px 0; font-size:10px; line-height:1.25;"><b>17.3 Khác</b> <b><i>/ Other:</i></b><br>
+          Các thông số được đánh dấu (*) là không đạt công nhận ISO/IEC 17025 <i>The characteristics marked with (*) are not accredited to comply with ISO/IEC 17025</i>
+          ${hasMCMark ? '<br>Các thông số đánh dấu (C) là kết quả hiệu chuẩn, các thông số đánh dấu (M) là kết quả đo thử nghiệm <i>The characteristics marked with (C) are results of calibration, (M) are results of measurement</i>' : ''}</p>
+        <p class="sec17-item" style="margin:4px 0; font-size:10px; line-height:1.25;">Giấy chứng nhận này không được sao chép dưới bất kỳ hình thức nào nếu không có sự đồng ý bằng văn bản của LabMaster./ <i>This form shall not be reproduced, without the expressed written consent of LabMaster.</i></p>
+        <p class="sec17-item" style="margin:4px 0; font-size:10px; line-height:1.25;">Phương tiện đo này không được để sử dụng định lượng hàng hóa, dịch vụ trong mua bán, thanh toán, đảm bảo an toàn, bảo vệ sức khỏe cộng đồng, bảo vệ môi trường, trong thanh tra, kiểm tra, giám định tư pháp và trong các hoạt động công vụ khác. Phương tiện đo này không được sử dụng trực tiếp để kiểm định phương tiện đo nhóm 2. <i>This instrument do not used for quantifying goods, service in trading, payment, safety assurance, social healthcare, protecting the environment, inspection law and in other public service activities. This instrument shall not be used directly for the verification of group 2 instruments.</i></p>
+        <p class="sec17-item" style="margin:4px 0; font-size:10px; line-height:1.25;">Chứng chỉ cung cấp khả năng truy xuất nguồn gốc phép đo theo các tiêu chuẩn quốc gia được công nhận hoặc các phòng thí nghiệm tiêu chuẩn quốc gia được công nhận khác./ <i>This certificate provides traceability of measurement to recognised national standards or other national standards laboratories.</i></p>
+      </div>
+  `;
+}
+
 function buildPrintTemplate() {
   const allStd = collectAllStandards();
   const allRes = collectCalibrationResults();
@@ -3133,11 +3334,23 @@ function buildPrintTemplate() {
     }
   }
 
-  document.getElementById('print-content').innerHTML = `
-    <!-- ══════════ TRANG 1: Mục 1-15 + Chữ ký ══════════ -->
+  const instVi = (txt('f-inst-vi') || '').toLowerCase();
+  const instEn = (txt('f-inst-en') || '').toLowerCase();
+  const isSnagpod = instVi.includes('snagpod') || instEn.includes('snagpod');
+  const isMartindale = instVi.includes('martindale') || instEn.includes('martindale');
+
+  // 1. Calculate Section 17 estimated height
+  const sec17EstH = estimateSec17HeightBrowser(allRes);
+  
+  // 2. Run pagination simulation
+  const { totalPages, groups } = estimatePrintPages(allRes, isSnagpod, isMartindale, sec17EstH);
+  
+  let html = '';
+  
+  // ═══ PAGE 1 ═══
+  html += `
     <div class="cert-page cert-page-1">
       ${buildCertHeaderHtml(certNo, calDate)}
-
       <table class="cert-info-grid">
         <tr>
           <td class="lbl">1. Khách hàng:<br><span class="lbl-en">Customer</span></td>
@@ -3160,9 +3373,7 @@ function buildPrintTemplate() {
           <td class="val">${escHtml(txt('f-sn'))}</td>
         </tr>
       </table>
-
       ${buildSpecTableHtml()}
-
       <table class="cert-info-grid">
         <tr>
           <td class="lbl">11. Nơi thực hiện:<br><span class="lbl-en">Place of<br>Performance</span></td>
@@ -3182,7 +3393,6 @@ function buildPrintTemplate() {
           </td>
         </tr>
       </table>
-
       <div class="cert-sec15">
         <div class="cert-sec15-title">15. Chuẩn sử dụng / <i>Standards Used :</i></div>
         <table class="cert-std-table">
@@ -3196,7 +3406,6 @@ function buildPrintTemplate() {
           <tbody>${stdRows.join('')}</tbody>
         </table>
       </div>
-
       <div class="cert-sign">
         <div class="cert-sign-col">
           <div class="cert-sign-title">PHỤ TRÁCH PHÒNG HIỆU CHUẨN</div>
@@ -3209,50 +3418,201 @@ function buildPrintTemplate() {
           <div class="cert-sign-name">${escHtml(txt('f-sign2'))}</div>
         </div>
       </div>
-
       <div class="cert-footer">
         <span>www.labmaster.vn &nbsp;|&nbsp; Textile – Footwear – Leather - Children product Safety Tester</span>
-        <span class="cert-page-num">Trang/<i>Page</i>: 1/2</span>
-      </div>
-    </div>
-
-    <!-- ══════════ TRANG 2: Mục 16 + Ghi chú + Mục 17 ══════════ -->
-    <div class="cert-page cert-page-2">
-      ${buildCertHeaderHtml(certNo, calDate)}
-
-      <div class="cert-sec16-title">16. Kết quả/ <b><i>Results:</i></b></div>
-      ${buildResultsTableHtml(allRes)}
-
-      <div class="cert-notes">
-        <p class="cert-note-title">Ghi chú/ <i>Note:</i></p>
-        <p>*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Đánh giá theo thông số kỹ thuật của nhà sản xuất/ <i>Acceptance limit base on Manufacturer's specifications.</i></p>
-        <p>*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Đánh giá theo yêu cầu kỹ thuật của khách hàng/ <i>Acceptance limit base on Customer request.</i></p>
-      </div>
-
-      <div class="sec17">
-        <p class="sec17-title">17. Thông tin khác/ <i>Other information:</i></p>
-        <p class="sec17-item"><b>17.1 Độ không đảm bảo đo</b> <b><i>/ Uncertainty:</i></b><br>
-          Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy/ <i>The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.</i></p>
-        <p class="sec17-item"><b>17.2. Công bố về sự phù hợp</b> <b><i>/ Statements of conformity:</i></b><br>
-          <b>+ A:</b> Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép của tiêu chuẩn đánh giá. <i>The measurement reported with expanded uncertainty is within tolerance of standards.</i><br>
-          <b>+ B:</b> Kết quả đo khi tính cả độ không đảm bảo đo hoàn toàn nằm ngoài giới hạn cho phép của tiêu chuẩn đánh giá. <i>The measurement reported with expanded uncertainty is out of tolerance of standards.</i><br>
-          <b>+ C:</b> Kết quả đo khi tính cả độ không đảm bảo đo có thể nằm ngoài giới hạn cho phép của tiêu chuẩn. Không có kết luận trong trường hợp này. <i>The measurement reported with expanded uncertainty may be out of tolerance of standards. There is no conclusion for this measurement.</i><br>
-          <b>+ D:</b> Tiêu chuẩn kỹ thuật không quy định dung sai của thông số đo. <i>There is no tolerance stated in technical standard and there is no conclusion for this measurement.</i></p>
-        <p class="sec17-item"><b>17.3 Khác</b> <b><i>/ Other:</i></b><br>
-          Các thông số được đánh dấu (*) là không đạt công nhận ISO/IEC 17025 <i>The characteristics marked with (*) are not accredited to comply with ISO/IEC 17025</i>
-          ${hasMCMark ? '<br>Các thông số đánh dấu (C) là kết quả hiệu chuẩn, các thông số đánh dấu (M) là kết quả đo thử nghiệm <i>The characteristics marked with (C) are results of calibration, (M) are results of measurement</i>' : ''}</p>
-        <p class="sec17-item">Giấy chứng nhận này không được sao chép dưới bất kỳ hình thức nào nếu không có sự đồng ý bằng văn bản của LabMaster./ <i>This form shall not be reproduced, without the expressed written consent of LabMaster.</i></p>
-        <p class="sec17-item">Phương tiện đo này không được để sử dụng định lượng hàng hóa, dịch vụ trong mua bán, thanh toán, đảm bảo an toàn, bảo vệ sức khỏe cộng đồng, bảo vệ môi trường, trong thanh tra, kiểm tra, giám định tư pháp và trong các hoạt động công vụ khác. Phương tiện đo này không được sử dụng trực tiếp để kiểm định phương tiện đo nhóm 2. <i>This instrument do not used for quantifying goods, service in trading, payment, safety assurance, social healthcare, protecting the environment, inspection law and in other public service activities. This instrument shall not be used directly for the verification of group 2 instruments.</i></p>
-        <p class="sec17-item">Chứng chỉ cung cấp khả năng truy xuất nguồn gốc phép đo theo các tiêu chuẩn quốc gia được công nhận hoặc các phòng thí nghiệm tiêu chuẩn quốc gia được công nhận khác./ <i>This certificate provides traceability of measurement to recognised national standards or other national standards laboratories.</i></p>
-      </div>
-
-      <div class="cert-footer">
-        <span>www.labmaster.vn &nbsp;|&nbsp; Textile – Footwear – Leather - Children product Safety Tester</span>
-        <span class="cert-page-num">Trang/<i>Page</i>: 2/2</span>
+        <span class="cert-page-num">Trang/<i>Page</i>: 1/${totalPages}</span>
       </div>
     </div>
   `;
+  
+  // ═══ RESULTS PAGES (Page 2, 3, etc.) ═══
+  const T = 160.3, TH = 38.8;
+  let currentPage = 2;
+  let y = T + TH;
+  
+  function outputResultsPage(tableRowsHtml) {
+    html += `
+      <div class="cert-page cert-page-results cert-page-${currentPage}">
+        ${buildCertHeaderHtml(certNo, calDate)}
+        <div class="cert-sec16-title">16. Kết quả/ <b><i>Results:</i></b></div>
+        <table class="cert-results">
+          <thead><tr>
+            <th style="width:25%;">Thông số<br><span class="lbl-en">Parameter</span></th>
+            <th style="width:7%;">Điểm HC<br><span class="lbl-en">Point</span></th>
+            <th style="width:17%;">Giá trị đo được<br><span class="lbl-en">As found value</span></th>
+            <th style="width:13%;">ĐKĐBĐ<br><span class="lbl-en">Uncertainty</span></th>
+            <th style="width:13%;">Giá trị tham chiếu<br><span class="lbl-en">Reference Value</span></th>
+            <th style="width:15%;">Dung sai<br><span class="lbl-en">Tolerance</span></th>
+            <th style="width:10%;">Sự phù hợp<br><span class="lbl-en">Conformity</span></th>
+          </tr></thead>
+          <tbody>
+            ${tableRowsHtml}
+          </tbody>
+        </table>
+        <div class="cert-footer">
+          <span>www.labmaster.vn &nbsp;|&nbsp; Textile – Footwear – Leather - Children product Safety Tester</span>
+          <span class="cert-page-num">Trang/<i>Page</i>: ${currentPage}/${totalPages}</span>
+        </div>
+      </div>
+    `;
+  }
+  
+  let pageRows = [];
+  
+  for (let gi = 0; gi < groups.length; gi++) {
+    const grp = groups[gi];
+    const rowHeights = estimateGroupRowHeights(grp);
+    let groupH = rowHeights.reduce((a, b) => a + b, 0);
+    const pageBreakBefore = grp.name.includes('Số đinh trên mỗi thanh') || grp.name.includes('Number of pins on pin bar');
+    
+    let martindaleDrawingH = 0;
+    let is60 = false, is24 = false;
+    if (isMartindale) {
+      if (grp.name.includes('Lissajous') || grp.name.includes('lissajous')) {
+        grp.rows.forEach(row => {
+          const refStr = String(row.refValue || '');
+          if (refStr.includes('60.5')) is60 = true;
+          if (refStr.includes('24')) is24 = true;
+        });
+      }
+      if (is60) martindaleDrawingH = 340;
+      else if (is24) martindaleDrawingH = 180;
+    }
+    groupH += martindaleDrawingH;
+    
+    const canKeepTogether = (groupH <= 200);
+    if (((canKeepTogether && y + groupH > 790) || pageBreakBefore) && y > T + TH) {
+      outputResultsPage(pageRows.join(''));
+      pageRows = [];
+      currentPage++;
+      y = T + TH;
+    }
+    
+    for (let ri = 0; ri < grp.rows.length; ri++) {
+      const r = grp.rows[ri];
+      const isFirst = (ri === 0);
+      let rowH = rowHeights[ri];
+      
+      let testRowH = rowH;
+      if (ri === grp.rows.length - 1) {
+        testRowH += martindaleDrawingH;
+      }
+      
+      if (y + testRowH > 790 && y > T + TH) {
+        outputResultsPage(pageRows.join(''));
+        pageRows = [];
+        currentPage++;
+        y = T + TH;
+      }
+      
+      // Build row HTML
+      let rowHtml = '<tr>';
+      if (isFirst) {
+        const parts = grp.name.split('\n');
+        const displayName = parts[0] + (parts[1] ? `<br><span style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:12px;">${parts[1]}</span>` : '');
+        rowHtml += `<td rowspan="${grp.rows.length}" style="text-align:left;font-weight:600;font-size:10pt;">${displayName}</td>`;
+      }
+      const isMulti = grp.rows.length > 1;
+      rowHtml += `
+        <td style="font-weight:600;font-size:10pt;">${escHtml(isMulti ? r.point : '')}</td>
+        <td style="font-size:10pt;">${escHtml(r.found || '')}</td>
+        <td style="font-size:10pt;">${escHtml(r.unc || '--')}</td>
+        <td style="font-size:10pt;">${escHtml(r.refValue || '')}</td>
+        <td style="font-weight:500;font-size:10pt;">${escHtml(r.tol || '')}</td>
+        <td style="font-weight:700;color:var(--accent);font-size:10pt;">${escHtml(r.conf || '--')}</td>
+      </tr>`;
+      pageRows.push(rowHtml);
+      y += rowH;
+      
+      // Draw Martindale inline images if applicable
+      if (ri === grp.rows.length - 1 && martindaleDrawingH > 0) {
+        let drawingHtml = `<tr><td colspan="7" style="text-align:center;padding:10px 0;background:#fff;border-top:none;">`;
+        if (is60) {
+          drawingHtml += `
+            <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; max-width:350px; margin:0 auto;">
+              <img src="img/martindale_1.jpeg" style="width:160px; height:160px; object-fit:contain; border:1px solid #ddd; border-radius:4px;">
+              <img src="img/martindale_2.jpeg" style="width:160px; height:160px; object-fit:contain; border:1px solid #ddd; border-radius:4px;">
+              <img src="img/martindale_3.jpeg" style="width:160px; height:160px; object-fit:contain; border:1px solid #ddd; border-radius:4px;">
+              <img src="img/martindale_4.jpeg" style="width:160px; height:160px; object-fit:contain; border:1px solid #ddd; border-radius:4px;">
+            </div>
+          `;
+        } else if (is24) {
+          drawingHtml += `
+            <div style="text-align:center;">
+              <img src="img/martindale_5.png" style="width:170px; height:170px; object-fit:contain; border:1px solid #ddd; border-radius:4px;">
+            </div>
+          `;
+        }
+        drawingHtml += `</td></tr>`;
+        pageRows.push(drawingHtml);
+        y += martindaleDrawingH;
+      }
+    }
+  }
+  
+  if (pageRows.length > 0) {
+    outputResultsPage(pageRows.join(''));
+  }
+  
+  if (isSnagpod) {
+    // Page 4: Sectional view of test chamber
+    currentPage++;
+    // Page 4: Hexagon & Sectional view of test chamber
+    html += `
+      <div class="cert-page cert-page-diagram cert-page-${currentPage}">
+        ${buildCertHeaderHtml(certNo, calDate)}
+        <div style="text-align:center; margin-top:20px; display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <img src="img/snagpod_hexagon.png" style="width:260px; height:auto; object-fit:contain;">
+          <img src="img/snagpod_chamber.png" style="width:280px; height:auto; object-fit:contain;">
+        </div>
+        <div class="cert-footer">
+          <span>www.labmaster.vn &nbsp;|&nbsp; Textile – Footwear – Leather - Children product Safety Tester</span>
+          <span class="cert-page-num">Trang/<i>Page</i>: ${currentPage}/${totalPages}</span>
+        </div>
+      </div>
+    `;
+    
+    // Page 5: Isometric view of a pin bar & Detailed view of a pin, then Section 17
+    currentPage++;
+    html += `
+      <div class="cert-page cert-page-diagram cert-page-${currentPage}">
+        ${buildCertHeaderHtml(certNo, calDate)}
+        <div style="text-align:center; margin-top:20px; margin-bottom:20px;">
+          <img src="img/snagpod_pin.png" style="width:380px; height:auto; object-fit:contain;">
+        </div>
+        ${buildSection17Html(hasMCMark)}
+        <div class="cert-footer">
+          <span>www.labmaster.vn &nbsp;|&nbsp; Textile – Footwear – Leather - Children product Safety Tester</span>
+          <span class="cert-page-num">Trang/<i>Page</i>: ${currentPage}/${totalPages}</span>
+        </div>
+      </div>
+    `;
+  } else {
+    const sec17Fits = (y + 8 + sec17EstH <= 810);
+    if (sec17Fits) {
+      html = html.replace(`</div>\n        <div class="cert-footer">\n          <span>www.labmaster.vn &nbsp;|&nbsp; Textile – Footwear – Leather - Children product Safety Tester</span>\n          <span class="cert-page-num">Trang/<i>Page</i>: ${totalPages}/${totalPages}</span>`,
+        `${buildSection17Html(hasMCMark)}</div>\n        <div class="cert-footer">\n          <span>www.labmaster.vn &nbsp;|&nbsp; Textile – Footwear – Leather - Children product Safety Tester</span>\n          <span class="cert-page-num">Trang/<i>Page</i>: ${totalPages}/${totalPages}</span>`
+      );
+    } else {
+      currentPage++;
+      html += `
+        <div class="cert-page cert-page-sec17 cert-page-${currentPage}">
+          ${buildCertHeaderHtml(certNo, calDate)}
+          <div style="margin-top:20px;">
+            ${buildSection17Html(hasMCMark)}
+          </div>
+          <div class="cert-footer">
+            <span>www.labmaster.vn &nbsp;|&nbsp; Textile – Footwear – Leather - Children product Safety Tester</span>
+            <span class="cert-page-num">Trang/<i>Page</i>: ${currentPage}/${totalPages}</span>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  document.getElementById('print-content').innerHTML = html;
 }
+
 
 /* ====== SWITCH VIEWS ====== */
 function switchToPreview() {
@@ -3714,6 +4074,25 @@ function fillCalibrationTableRows(points) {
     const tbody = document.getElementById('calibration-table-body');
     if (!tbody) return;
     tbody.innerHTML = '';
+
+    // Sort points based on template order map if available
+    const resolvedName = window._currentWorkingEquipment;
+    const eq = resolvedName ? MockDatabaseEquipment[resolvedName] : null;
+    if (eq && eq.formPoints) {
+        const templateOrderMap = {};
+        eq.formPoints.forEach((pt, index) => {
+            const key = (pt.paramName || '').trim() + '|' + (pt.point || '').trim();
+            templateOrderMap[key] = index;
+        });
+        
+        points.sort((a, b) => {
+            const keyA = (a.PARAMETER_NAME || '').trim() + '|' + (a.CAL_POINT || '').trim();
+            const keyB = (b.PARAMETER_NAME || '').trim() + '|' + (b.CAL_POINT || '').trim();
+            const idxA = templateOrderMap[keyA] !== undefined ? templateOrderMap[keyA] : 9999;
+            const idxB = templateOrderMap[keyB] !== undefined ? templateOrderMap[keyB] : 9999;
+            return idxA - idxB;
+        });
+    }
 
     const groups = [];
     let i = 0;

@@ -5,7 +5,12 @@
       "src": "api/index.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["fonts/**", "_ref_logo.png"]
+        "includeFiles": [
+          "fonts/**",
+          "public/img/logo_240.png",
+          "public/img/snagpod_*.png",
+          "public/img/martindale_*"
+        ]
       }
     },
     {
