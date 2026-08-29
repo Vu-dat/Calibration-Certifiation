@@ -749,7 +749,91 @@ function cleanParamName(name) {
     .trim();
 }
 
-function drawResultsTable(doc, pts) {
+function getGroupRowHeights(doc, grp, tpl) {
+  var isMulti = grp.rows.length > 1;
+  var heights = [];
+  for (var ri = 0; ri < grp.rows.length; ri++) {
+    var r = grp.rows[ri];
+    var isFirst = (ri === 0);
+    var rowH = 16;
+    if (isMulti) {
+      if (ri === grp.rows.length - 1) rowH = 13.7;
+      else rowH = 17.2;
+      
+      if (isFirst) {
+        var mRH_textW = 168.0 - 34.2;
+        var mTestTxt = cleanParamName(grp.name);
+        if (mTestTxt && !mTestTxt.includes('\n')) {
+          mTestTxt = mTestTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
+        }
+        var mTestLines = mTestTxt.split('\n');
+        var mCalcH = 0;
+        var mLH = 10 * 1.15;
+        sf(doc, false); doc.fontSize(10);
+        mTestLines.forEach(function(ml, idx) {
+          if (idx === 0) {
+            var mm = String(ml).match(/\(([MC*])\)\s*$/);
+            var mclean = mm ? ml.substring(0, ml.length - mm[0].length) : ml;
+            var mwords = mclean.split(' ');
+            var mcur = '', mlines = 1;
+            for (var mi = 0; mi < mwords.length; mi++) {
+              var mt = mcur ? mcur + ' ' + mwords[mi] : mwords[mi];
+              if (doc.widthOfString(mt) > mRH_textW && mcur) { mlines++; mcur = mwords[mi]; }
+              else mcur = mt;
+            }
+            mCalcH += mlines * mLH;
+          } else {
+            mCalcH += doc.heightOfString(ml, { width: mRH_textW, lineGap: 0 });
+          }
+        });
+        mCalcH += 8;
+        if (mCalcH > rowH) rowH = mCalcH;
+      }
+    } else {
+      if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 44.0;
+      else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 38.4;
+      else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 38.2;
+      else rowH = 38.0;
+
+      var testTxt = cleanParamName(grp.name);
+      if (testTxt && !testTxt.includes('\n')) {
+        testTxt = testTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
+      }
+      var testLines = testTxt.split('\n');
+      var calcH = 0;
+      sf(doc, false); doc.fontSize(10);
+      testLines.forEach(function(line, idx) {
+        if (idx === 0) {
+          var m = String(line).match(/\(([MC*])\)\s*$/);
+          var clean = m ? line.substring(0, line.length - m[0].length) : line;
+          var mwords = clean.split(' ');
+          var mcur = '', mlines = 1;
+          var textWidth = 216.6 - 34.2;
+          for (var mi = 0; mi < mwords.length; mi++) {
+            var mt = mcur ? mcur + ' ' + mwords[mi] : mwords[mi];
+            if (doc.widthOfString(mt) > textWidth && mcur) { mlines++; mcur = mwords[mi]; }
+            else mcur = mt;
+          }
+          calcH += mlines * (10 * 1.15);
+        } else {
+          calcH += doc.heightOfString(line, { width: 216.6 - 34.2, lineGap: 0 });
+        }
+      });
+      calcH += 8;
+      if (calcH > rowH) rowH = calcH;
+    }
+    heights.push(rowH);
+  }
+  return heights;
+}
+
+function drawResultsTable(doc, pts, pageContext) {
+  var logo = pageContext.logo;
+  var cNo = pageContext.cNo;
+  var calDate = pageContext.calDate;
+  var qr = pageContext.qr;
+  var tpl = pageContext.tpl;
+  
   // Title
   sf(doc, true); doc.fontSize(11).fillColor('#000000');
   doc.text(VN.sec16, 36.0, 146.1, {lineGap: 0});
@@ -757,26 +841,29 @@ function drawResultsTable(doc, pts) {
   doc.text(VN.sec16En, 100.9, 146.1, {lineGap: 0});
  
   var T = 160.3, TH = 38.8;
-  var cols = [28.7, 182.6, 274.1, 358.9, 453.5, 512.1, 574.3]; // 6 header cells
-  // Draw header row: VN at y+6.6, EN at y+19
-  for (var i = 0; i < 6; i++) {
-    var x0 = i === 0 ? cols[0] : cols[i];
-    var x1 = cols[i + 1];
-    doc.rect(x0, T, x1 - x0, TH).fillColor('#FFFFFF').fill();
-    sf(doc, true); doc.fontSize(10).fillColor('#000000');
-    doc.text(VN.resH[i], x0, T + 6.6, {width: x1 - x0, align: 'center', lineGap: 0});
-    if (i === 3) { sf(doc, true); doc.fontSize(10); } else { sf(doc, true, true); doc.fontSize(10); }
-    doc.text(VN.resHE[i], x0, T + 19.0, {width: x1 - x0, align: 'center', lineGap: 0});
+  var cols = [28.7, 216.6, 289.7, 355.3, 451.2, 511.6, 574.3];
+  
+  function drawTableHeader(yT) {
+    for (var i = 0; i < 6; i++) {
+      var x0 = i === 0 ? cols[0] : cols[i];
+      var x1 = cols[i + 1];
+      doc.rect(x0, yT, x1 - x0, TH).fillColor('#FFFFFF').fill();
+      sf(doc, true); doc.fontSize(10).fillColor('#000000');
+      doc.text(VN.resH[i], x0, yT + 6.6, {width: x1 - x0, align: 'center', lineGap: 0});
+      if (i === 3) { sf(doc, true); doc.fontSize(10); } else { sf(doc, true, true); doc.fontSize(10); }
+      doc.text(VN.resHE[i], x0, yT + 19.0, {width: x1 - x0, align: 'center', lineGap: 0});
+    }
+    doc.lineWidth(0.3).strokeColor('#000000');
+    doc.rect(cols[0], yT, cols[6] - cols[0], TH).stroke();
+    for (var g = 0; g < 6; g++) {
+      doc.moveTo(cols[g], yT).lineTo(cols[g], yT + TH).stroke();
+    }
+    doc.moveTo(cols[6], yT).lineTo(cols[6], yT + TH).stroke();
   }
-  // Grid: header borders
-  doc.lineWidth(0.3).strokeColor('#000000');
-  doc.rect(cols[0], T, cols[6] - cols[0], TH).stroke();
-  for (var g = 0; g < 6; g++) {
-    doc.moveTo(cols[g], T).lineTo(cols[g], T + TH).stroke();
-  }
-  doc.moveTo(cols[6], T).lineTo(cols[6], T + TH).stroke();
- 
-  // Data rows: group by PARAMETER_NAME
+
+  // Draw initial header
+  drawTableHeader(T);
+
   var y = T + TH;
   var groups = [], cg = null;
   if (pts && pts.length) {
@@ -787,69 +874,43 @@ function drawResultsTable(doc, pts) {
       cg.rows.push(p);
     }
   }
+
   for (var gi = 0; gi < groups.length; gi++) {
     var grp = groups[gi];
     var isMulti = grp.rows.length > 1;
+    var rowHeights = getGroupRowHeights(doc, grp, tpl);
+    var groupH = rowHeights.reduce((a, b) => a + b, 0);
+    var pageBreakBefore = grp.name.includes('Số đinh trên mỗi thanh') || grp.name.includes('Number of pins on pin bar');
+    
+    // Page break handling for the group
+    if ((y + groupH > 790 || pageBreakBefore) && y > T + TH) {
+      drawFooter(doc, pageContext.currentPage, pageContext.totalPages);
+      doc.addPage();
+      pageContext.currentPage++;
+      drawH(doc, logo, cNo, calDate, qr);
+      drawTableHeader(T);
+      y = T + TH;
+    }
+    
+    // Draw the group rows
     for (var ri = 0; ri < grp.rows.length; ri++) {
       var r = grp.rows[ri];
       var isFirst = (ri === 0);
-      var rowH = 16;
-      if (isMulti) {
-        if (ri === grp.rows.length - 1) rowH = 13.7;
-        else rowH = 17.2;
-        // Dynamic height: simulate word-wrap to count visual lines
-        if (isFirst) {
-          var mRH_textW = 127.9 - 34.2;
-          var mTestTxt = cleanParamName(grp.name);
-          if (mTestTxt && !mTestTxt.includes('\n')) {
-            mTestTxt = mTestTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
-          }
-          var mTestLines = mTestTxt.split('\n');
-          var mCalcH = 0;
-          var mLH = 10 * 1.15;
-          sf(doc, false); doc.fontSize(10);
-          mTestLines.forEach(function(ml) {
-            var mm = String(ml).match(/\(([MC*])\)\s*$/);
-            var mclean = mm ? ml.substring(0, ml.length - mm[0].length) : ml;
-            // Count wrapped lines by word-splitting (same logic as drawParamFirstLine)
-            var mwords = mclean.split(' ');
-            var mcur = '', mlines = 1;
-            for (var mi = 0; mi < mwords.length; mi++) {
-              var mt = mcur ? mcur + ' ' + mwords[mi] : mwords[mi];
-              if (doc.widthOfString(mt) > mRH_textW && mcur) { mlines++; mcur = mwords[mi]; }
-              else mcur = mt;
-            }
-            mCalcH += mlines * mLH;
-          });
-          mCalcH += 8;
-          if (mCalcH > rowH) rowH = mCalcH;
-        }
-      } else {
-        if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 44.0;
-        else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 38.4;
-        else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 38.2;
-        else rowH = 38.0;
-
-        var testTxt = cleanParamName(grp.name);
-        if (testTxt && !testTxt.includes('\n')) {
-          testTxt = testTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
-        }
-        var testLines = testTxt.split('\n');
-        var calcH = 0;
-        sf(doc, false); doc.fontSize(10);
-        testLines.forEach(function(line) {
-          var m = String(line).match(/\(([MC*])\)\s*$/);
-          var clean = m ? line.substring(0, line.length - m[0].length) : line;
-          calcH += doc.heightOfString(clean, { width: 176.9 - 34.2, lineGap: 0 });
-        });
-        calcH += 8; // vertical padding
-        if (calcH > rowH) {
-          rowH = calcH;
-        }
+      var rowH = rowHeights[ri];
+      
+      // Page break handling for split rows if a single group exceeds page limit
+      if (y + rowH > 790 && y > T + TH) {
+        drawFooter(doc, pageContext.currentPage, pageContext.totalPages);
+        doc.addPage();
+        pageContext.currentPage++;
+        drawH(doc, logo, cNo, calDate, qr);
+        drawTableHeader(T);
+        y = T + TH;
       }
-      if (y + rowH > 790) break;
-      var dcols = [28.7, 127.9, 182.6, 274.1, 358.9, 453.5, 512.1];
-      var dR = [127.9, 182.6, 274.1, 358.9, 453.5, 512.1, 574.3];
+      
+      // Draw grid lines
+      var dcols = [28.7, 168.0, 216.6, 289.7, 355.3, 451.2, 511.6];
+      var dR = [168.0, 216.6, 289.7, 355.3, 451.2, 511.6, 574.3];
       doc.lineWidth(0.3).strokeColor('#000000');
       if (isFirst) {
         doc.moveTo(dcols[0], y).lineTo(dR[6], y).stroke();
@@ -864,6 +925,7 @@ function drawResultsTable(doc, pts) {
         doc.moveTo(dcols[g2], y).lineTo(dcols[g2], y + rowH).stroke();
       }
       doc.moveTo(dR[6], y).lineTo(dR[6], y + rowH).stroke();
+      
       // Cell values
       var paramTxt = isFirst ? cleanParamName(grp.name) : '';
       if (paramTxt && !paramTxt.includes('\n')) {
@@ -878,11 +940,12 @@ function drawResultsTable(doc, pts) {
       var refTxt = (r.REFERENCE_VALUE !== null && r.REFERENCE_VALUE !== undefined && r.REFERENCE_VALUE !== '') ? String(r.REFERENCE_VALUE) : '';
       var tolTxt = (r.TOLERANCE !== null && r.TOLERANCE !== undefined && r.TOLERANCE !== '') ? String(r.TOLERANCE) : '';
       var confTxt = (r.CONFORMITY !== null && r.CONFORMITY !== undefined && r.CONFORMITY !== '') ? String(r.CONFORMITY) : '--';
+      
       sf(doc, false); doc.fontSize(10).fillColor('#000000');
       var isThreeLine = paramTxt.includes('\n') && paramTxt.split('\n').length >= 3;
-      var pyV = y + (isMulti ? (ri === grp.rows.length - 1 ? 0.0 : 1.8) : (isThreeLine ? 13.3 : (rowH > 38.0 ? (rowH - 11.5) / 2 : 6.7))); // point+values
+      var pyV = y + (isMulti ? (ri === grp.rows.length - 1 ? 0.0 : 1.8) : (isThreeLine ? 13.3 : (rowH > 38.0 ? (rowH - 11.5) / 2 : 6.7)));
       
-      var rightBoundary = isMulti ? 127.9 : 182.6;
+      var rightBoundary = isMulti ? 168.0 : 216.6;
       var textWidth = rightBoundary - 34.2;
       
       if (paramTxt) {
@@ -900,20 +963,24 @@ function drawResultsTable(doc, pts) {
           drawParamFirstLine(doc, paramTxt, 34.2, y + 1.8, 10, textWidth);
         }
       }
+      
       if (isMulti && pointTxt) drawCell(doc, pointTxt, dcols[1], y, dR[1] - dcols[1], rowH, pyV);
       if (foundTxt) drawCell(doc, foundTxt, dcols[2], y, dR[2] - dcols[2], rowH, pyV);
       if (uncTxt) drawCell(doc, uncTxt, dcols[3], y, dR[3] - dcols[3], rowH, pyV);
       if (refTxt) drawCell(doc, refTxt, dcols[4], y, dR[4] - dcols[4], rowH, pyV);
       if (tolTxt) drawCell(doc, tolTxt, dcols[5], y, dR[5] - dcols[5], rowH, pyV);
       if (confTxt) drawCell(doc, confTxt, dcols[6], y, dR[6] - dcols[6], rowH, pyV);
+      
       y += rowH;
     }
   }
+  
   if (!groups.length) {
     doc.rect(28.7, y, 574.3 - 28.7, 16).stroke();
     sf(doc, false); doc.fontSize(10); doc.text('Chưa có dữ liệu', 28.7, y + 3, {width: 545, align: 'center', lineGap: 0});
     y += 16;
   }
+  
   return y;
 }
 
@@ -1023,10 +1090,12 @@ function estimateSection17Height(doc, pts) {
   return lines * lh;
 }
 
-// Estimate results table end y coordinate (dry-run)
-function estimateResultsTableHeight(doc, pts) {
+// Estimate total pages dynamically based on results table splitting and Section 17 height
+function determinePages(doc, pts, tpl, sec17EstH) {
   var T = 160.3, TH = 38.8;
+  var currentPage = 2;
   var y = T + TH;
+  
   var groups = [], cg = null;
   if (pts && pts.length) {
     for (var pi = 0; pi < pts.length; pi++) {
@@ -1036,65 +1105,41 @@ function estimateResultsTableHeight(doc, pts) {
       cg.rows.push(p);
     }
   }
-  for (var gi = 0; gi < groups.length; gi++) {
-    var grp = groups[gi];
-    var isMulti = grp.rows.length > 1;
-    for (var ri = 0; ri < grp.rows.length; ri++) {
-      var rowH = 16;
-      if (isMulti) {
-        if (ri === grp.rows.length - 1) rowH = 13.7;
-        else rowH = 17.2;
-        if (ri === 0) {
-          var mRH_textW = 127.9 - 34.2;
-          var mTestTxt = cleanParamName(grp.name);
-          if (mTestTxt && !mTestTxt.includes('\n')) {
-            mTestTxt = mTestTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
-          }
-          var mTestLines = mTestTxt.split('\n');
-          var mCalcH = 0;
-          var mLH = 10 * 1.15;
-          sf(doc, false); doc.fontSize(10);
-          mTestLines.forEach(function(ml) {
-            var mm = String(ml).match(/\(([MC*])\)\s*$/);
-            var mclean = mm ? ml.substring(0, ml.length - mm[0].length) : ml;
-            var mwords = mclean.split(' ');
-            var mcur = '', mlines = 1;
-            for (var mi = 0; mi < mwords.length; mi++) {
-              var mt = mcur ? mcur + ' ' + mwords[mi] : mwords[mi];
-              if (doc.widthOfString(mt) > mRH_textW && mcur) { mlines++; mcur = mwords[mi]; }
-              else mcur = mt;
-            }
-            mCalcH += mlines * mLH;
-          });
-          mCalcH += 8;
-          if (mCalcH > rowH) rowH = mCalcH;
-        }
-      } else {
-        if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 44.0;
-        else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 38.4;
-        else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 38.2;
-        else rowH = 38.0;
-
-        var testTxt = cleanParamName(grp.name);
-        if (testTxt && !testTxt.includes('\n')) {
-          testTxt = testTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
-        }
-        var testLines = testTxt.split('\n');
-        var calcH = 0;
-        sf(doc, false); doc.fontSize(10);
-        testLines.forEach(function(line) {
-          var m = String(line).match(/\(([MC*])\)\s*$/);
-          var clean = m ? line.substring(0, line.length - m[0].length) : line;
-          calcH += doc.heightOfString(clean, { width: 176.9 - 34.2, lineGap: 0 });
-        });
-        calcH += 8;
-        if (calcH > rowH) rowH = calcH;
+  
+  if (groups.length === 0) {
+    y += 16;
+  } else {
+    for (var gi = 0; gi < groups.length; gi++) {
+      var grp = groups[gi];
+      var rowHeights = getGroupRowHeights(doc, grp, tpl);
+      var groupH = rowHeights.reduce((a, b) => a + b, 0);
+      var pageBreakBefore = grp.name.includes('Số đinh trên mỗi thanh') || grp.name.includes('Number of pins on pin bar');
+      
+      // Keep group together: if it doesn't fit, push to next page
+      if ((y + groupH > 790 || pageBreakBefore) && y > T + TH) {
+        currentPage++;
+        y = T + TH;
       }
-      if (y + rowH > 790) break;
-      y += rowH;
+      
+      for (var ri = 0; ri < grp.rows.length; ri++) {
+        var rowH = rowHeights[ri];
+        if (y + rowH > 790 && y > T + TH) {
+          currentPage++;
+          y = T + TH;
+        }
+        y += rowH;
+      }
     }
   }
-  return y;
+  
+  // Section 17 placement check
+  var lastPage = currentPage;
+  var sec17Fits = (y + 8 + sec17EstH <= 810);
+  if (!sec17Fits) {
+    lastPage++;
+  }
+  
+  return lastPage;
 }
 
 // Word-wrap a string to fit width (uses current font), returns array of lines
@@ -1178,13 +1223,8 @@ async function main(opts) {
     } catch(e) {}
 
     // Estimate heights to determine total pages dynamically
-    var tableEndEst = estimateResultsTableHeight(doc, pts);
     var sec17EstH = estimateSection17Height(doc, pts);
-    var totalPages = 2;
-    var sec17FitsOnPage2 = (tableEndEst + 8 + sec17EstH <= 810);
-    if (!sec17FitsOnPage2) {
-      totalPages = 3;
-    }
+    var totalPages = determinePages(doc, pts, tpl, sec17EstH);
 
     // ═══ PAGE 1 ═══
     doc.addPage();
@@ -1195,20 +1235,34 @@ async function main(opts) {
     // ═══ PAGE 2 ═══
     doc.addPage();
     drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
-    var tableEnd = drawResultsTable(doc, pts);
     
-    if (sec17FitsOnPage2) {
+    var pageContext = {
+      logo: logo,
+      cNo: cNo,
+      calDate: pd(cert.CAL_DATE),
+      qr: qr,
+      currentPage: 2,
+      totalPages: totalPages,
+      tpl: tpl
+    };
+    var tableEnd = drawResultsTable(doc, pts, pageContext);
+    
+    var lastTablePage = pageContext.currentPage;
+    var sec17FitsOnLastPage = (tableEnd + 8 + sec17EstH <= 810);
+    
+    if (sec17FitsOnLastPage) {
       var sec17Y = Math.max(tableEnd + 8, 810 - sec17EstH - 10);
       drawSection17(doc, sec17Y, cNo, pts);
-      drawFooter(doc, 2, totalPages);
+      drawFooter(doc, lastTablePage, totalPages);
     } else {
-      drawFooter(doc, 2, totalPages);
+      drawFooter(doc, lastTablePage, totalPages);
 
-      // ═══ PAGE 3 ═══
+      // ═══ NEXT PAGE ═══
       doc.addPage();
+      var nextPage = lastTablePage + 1;
       drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
       drawSection17(doc, 160.3, cNo, pts);
-      drawFooter(doc, 3, totalPages);
+      drawFooter(doc, nextPage, totalPages);
     }
 
     return new Promise(function(resolve, reject) {
