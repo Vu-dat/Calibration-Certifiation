@@ -3129,8 +3129,8 @@ function estimateGroupRowHeights(grp) {
     let rowH = 16;
     
     if (isMulti) {
-      if (ri === grp.rows.length - 1) rowH = 13.7;
-      else rowH = 17.2;
+      if (ri === grp.rows.length - 1) rowH = 17.7;
+      else rowH = 21.2;
       
       if (isFirst) {
         const textWidthLimit = 168.0 - 34.2;
@@ -3169,10 +3169,10 @@ function estimateGroupRowHeights(grp) {
         if (calcH > rowH) rowH = calcH;
       }
     } else {
-      if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 44.0;
-      else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 38.4;
-      else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 38.2;
-      else rowH = 38.0;
+      if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 50.0;
+      else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 44.4;
+      else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 44.2;
+      else rowH = 44.0;
       
       const textWidthLimit = 216.6 - 34.2;
       let testTxt = grp.name;

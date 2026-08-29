@@ -103,6 +103,36 @@ function truncateText(text, maxChars) {
     return str.substring(0, maxChars - 3) + '...';
 }
 
+function getImageType(imgPath) {
+    const ext = path.extname(imgPath).toLowerCase();
+    if (ext === '.jpg' || ext === '.jpeg') return 'jpg';
+    if (ext === '.gif') return 'gif';
+    if (ext === '.bmp') return 'bmp';
+    return 'png';
+}
+
+function createImageParagraph(imgPath, widthPx, heightPx, spacingBefore = 200, spacingAfter = 200) {
+    if (!fs.existsSync(imgPath)) {
+        console.error("Image file not found for docx:", imgPath);
+        return new Paragraph({ text: "" });
+    }
+    const imgData = fs.readFileSync(imgPath);
+    return new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: spacingBefore, after: spacingAfter },
+        children: [
+            new ImageRun({
+                data: imgData,
+                type: getImageType(imgPath),
+                transformation: {
+                    width: widthPx,
+                    height: heightPx
+                }
+            })
+        ]
+    });
+}
+
 // ─── CONSTANTS ──────────────────────────────────────────────────────
 const COL_DARK    = '000000';
 const BORDER_NONE = { style: BorderStyle.NONE,   size: 0,  color: 'auto' };
@@ -186,7 +216,7 @@ function t1Cell(children, width, colSpan = 1, opts = {}) {
         columnSpan: colSpan,
         width: { size: width, type: WidthType.DXA },
         verticalAlign: opts.vAlign || 'center',
-        margins: opts.margins || { top: 0, bottom: 0, left: 108, right: 108 },
+        margins: opts.margins || { top: 100, bottom: 100, left: 120, right: 120 },
         shading: opts.shading,
         borders: opts.borders || {
             top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE,
@@ -202,7 +232,7 @@ function t2Cell(children, width, colSpan = 1, opts = {}) {
         width: { size: width, type: WidthType.DXA },
         verticalAlign: opts.vAlign || 'center',
         verticalMerge: opts.verticalMerge,
-        margins: opts.margins || { top: 0, bottom: 0, left: 108, right: 108 },
+        margins: opts.margins || { top: 130, bottom: 130, left: 150, right: 150 },
         borders: opts.borders || {
             top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID
         },
@@ -350,10 +380,10 @@ function formatParamParagraphs(paramName, alignment = AlignmentType.LEFT, pageBr
 // Helper to get exact row heights for calibration parameters
 function getRowHeightForParam(paramName, tplName = '') {
     const name = (paramName || '').toLowerCase();
-    if (name.includes('hành trình') || name.includes('stroke')) return 767;
-    if (name.includes('đường kính') || name.includes('finger')) return 693;
-    if (name.includes('tốc độ') || name.includes('speed')) return 634;
-    if (name.includes('bộ đếm') || name.includes('counter')) return 695;
+    if (name.includes('hành trình') || name.includes('stroke')) return 880;
+    if (name.includes('đường kính') || name.includes('finger')) return 800;
+    if (name.includes('tốc độ') || name.includes('speed')) return 740;
+    if (name.includes('bộ đếm') || name.includes('counter')) return 800;
     return null;
 }
 
@@ -419,7 +449,7 @@ function createHeaderTable1(logoData, qrBuffer = null) {
                         children: qrBuffer ? [
                             new Paragraph({
                                 alignment: AlignmentType.CENTER,
-                                children: [new ImageRun({ data: qrBuffer, type: 'png', transformation: { width: 80, height: 80 } })],
+                                children: [                                    new ImageRun({ data: qrBuffer, type: 'png', transformation: { width: 80, height: 80 } })],
                                 spacing: { before: 0, after: 0 }
                             })
                         ] : [new Paragraph({ children: [] })],
@@ -579,6 +609,10 @@ async function main(opts) {
             points = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]);
         }
         points = toUpperKeys(points);
+
+        // Points are already in insertion order (ORDER BY ID ASC) matching the preview DOM order.
+        // No re-sorting by template — the user's arrangement is preserved.
+
         const standards = toUpperKeys(await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]));
 
         // Generate QR code if download URL provided
@@ -789,7 +823,7 @@ async function main(opts) {
 
         // Vì dữ liệu đã được hard cap (truncate), dùng fixed safe spacerHeight
         // và 10pt font mặc định cho Table 1 — không cần heuristic tính toán không đáng tin
-        let spacerHeight = 800; // fixed safe spacer after signee headers
+        let spacerHeight = 500; // compact spacer after signee headers
         let currentFontSize = 10;
 
         // Also apply the truncation to actual display data used in Table 1 cells
@@ -807,7 +841,7 @@ async function main(opts) {
 
         // Row 1: Customer Name & Address
         t1Rows.push(new TableRow({
-            height: { value: 979, rule: HeightRule.AT_LEAST },
+            height: { value: 750, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('1. Khách hàng:', { fontSize: 10 }),
@@ -822,7 +856,7 @@ async function main(opts) {
 
         // Row 2: Instrument Name
         t1Rows.push(new TableRow({
-            height: { value: 695, rule: HeightRule.AT_LEAST },
+            height: { value: 550, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('2. Tên thiết bị:', { fontSize: 10 }),
@@ -837,7 +871,7 @@ async function main(opts) {
 
         // Row 3: Manufacturer and Model
         t1Rows.push(new TableRow({
-            height: { value: 558, rule: HeightRule.AT_LEAST },
+            height: { value: 450, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('3. Nhà sản xuất:', { fontSize: 10 }),
@@ -858,7 +892,7 @@ async function main(opts) {
 
         // Row 4: ID and Serial Number
         t1Rows.push(new TableRow({
-            height: { value: 650, rule: HeightRule.AT_LEAST },
+            height: { value: 500, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('4. Mã quản lý ID', { fontSize: 10 }),
@@ -878,7 +912,7 @@ async function main(opts) {
 
         // Row 5: Specifications Headers
         t1Rows.push(new TableRow({
-            height: { value: 510, rule: HeightRule.AT_LEAST },
+            height: { value: 420, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('7. Đặc trưng kĩ thuật', { fontSize: 10 }),
@@ -961,7 +995,7 @@ async function main(opts) {
 
         t1Rows.push(new TableRow({
             // AT_LEAST: hàng tự nở để chứa danh sách máy/phép thử được công nhận (tối đa 4)
-            height: { value: 1200, rule: HeightRule.AT_LEAST },
+            height: { value: 900, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 2132, 2), // spacer
                 t1Cell(rangeLabelsParas, 2126, 1, { margins: { top: 0, bottom: 0, left: 108, right: 0 } }),
@@ -974,7 +1008,7 @@ async function main(opts) {
 
         // Row 7: Place of Performance
         t1Rows.push(new TableRow({
-            height: { value: 1033, rule: HeightRule.AT_LEAST },
+            height: { value: 800, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('11. Nơi thực hiện:', { fontSize: 10 }),
@@ -989,7 +1023,7 @@ async function main(opts) {
 
         // Row 8: Calibration Date & Next Calibration Date
         t1Rows.push(new TableRow({
-            height: { value: 848, rule: HeightRule.AT_LEAST },
+            height: { value: 650, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('12. Ngày thực hiện:', { fontSize: 10 }),
@@ -1010,7 +1044,7 @@ async function main(opts) {
 
         // Row 9: Environment Conditions
         t1Rows.push(new TableRow({
-            height: { value: 849, rule: HeightRule.AT_LEAST },
+            height: { value: 650, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('14. Điều kiện môi trường :', { fontSize: 10 }),
@@ -1035,7 +1069,7 @@ async function main(opts) {
 
         // Row 10: Standards Used Header Label
         t1Rows.push(new TableRow({
-            height: { value: 378, rule: HeightRule.AT_LEAST },
+            height: { value: 300, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para([
@@ -1088,9 +1122,9 @@ async function main(opts) {
             }));
         }
 
-        // Spacing spacer between standards used table and signature block (300 dxa = ~15pt)
+        // Spacing spacer between standards used table and signature block
         t1Rows.push(new TableRow({
-            height: { value: 300, rule: HeightRule.AT_LEAST },
+            height: { value: 150, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 11483, 15)
             ]
@@ -1112,9 +1146,9 @@ async function main(opts) {
             ]
         }));
 
-        // Row 19: Signature Spacing (Empty row with at-least height to prevent overflow)
+        // Row 19: Signature Spacing (Compact)
         t1Rows.push(new TableRow({
-            height: { value: 1500, rule: HeightRule.AT_LEAST },
+            height: { value: 900, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 289, 1),
                 t1Cell([
@@ -1361,6 +1395,64 @@ async function main(opts) {
                             ]
                         }));
                     }
+
+                    // At the end of the group rows, check if we need to insert Martindale drawing row
+                    const isMartindale = tpl && (tpl.NAME || '').toLowerCase().includes('martindale');
+                    if (ri === groupSize - 1 && isMartindale && (paramName.includes('Lissajous') || paramName.includes('lissajous'))) {
+                        let is60 = false, is24 = false;
+                        grp.rows.forEach(row => {
+                            const refStr = String(row.REFERENCE_VALUE || '');
+                            if (refStr.includes('60.5')) is60 = true;
+                            if (refStr.includes('24')) is24 = true;
+                        });
+
+                        if (is60) {
+                            const img1 = path.join(BASE_DIR, 'public', 'img', 'martindale_1.jpeg');
+                            const img2 = path.join(BASE_DIR, 'public', 'img', 'martindale_2.jpeg');
+                            const img3 = path.join(BASE_DIR, 'public', 'img', 'martindale_3.jpeg');
+                            const img4 = path.join(BASE_DIR, 'public', 'img', 'martindale_4.jpeg');
+                            
+                            t2Rows.push(new TableRow({
+                                children: [
+                                    t2Cell([
+                                        new Paragraph({
+                                            alignment: AlignmentType.CENTER,
+                                            spacing: { before: 100, after: 100 },
+                                            children: [
+                                                new ImageRun({ data: fs.readFileSync(img1), type: getImageType(img1), transformation: { width: 140, height: 140 } }),
+                                                new TextRun({ text: "      " }),
+                                                new ImageRun({ data: fs.readFileSync(img2), type: getImageType(img2), transformation: { width: 140, height: 140 } })
+                                            ]
+                                        }),
+                                        new Paragraph({
+                                            alignment: AlignmentType.CENTER,
+                                            spacing: { before: 100, after: 100 },
+                                            children: [
+                                                new ImageRun({ data: fs.readFileSync(img3), type: getImageType(img3), transformation: { width: 140, height: 140 } }),
+                                                new TextRun({ text: "      " }),
+                                                new ImageRun({ data: fs.readFileSync(img4), type: getImageType(img4), transformation: { width: 140, height: 140 } })
+                                            ]
+                                        })
+                                    ], 10918, 10)
+                                ]
+                            }));
+                        } else if (is24) {
+                            const img5 = path.join(BASE_DIR, 'public', 'img', 'martindale_5.png');
+                            t2Rows.push(new TableRow({
+                                children: [
+                                    t2Cell([
+                                        new Paragraph({
+                                            alignment: AlignmentType.CENTER,
+                                            spacing: { before: 100, after: 100 },
+                                            children: [
+                                                new ImageRun({ data: fs.readFileSync(img5), type: getImageType(img5), transformation: { width: 160, height: 160 } })
+                                            ]
+                                        })
+                                    ], 10918, 10)
+                                ]
+                            }));
+                        }
+                    }
                 });
             });
         }
@@ -1385,7 +1477,33 @@ async function main(opts) {
             })
         );
 
+        // ═══════════════════════════════════════════════════════════════
+        //  SNAGPOD IMAGE PAGES (matching PDF: pages 4-5 with diagrams)
+        // ═══════════════════════════════════════════════════════════════
+        const isSnagpod = tpl && (tpl.NAME || '').toLowerCase().includes('snagpod');
+        if (isSnagpod) {
+            // Page 4: Sectional view of test chamber (hexagon + chamber)
+            children.push(new Paragraph({ children: [new PageBreak()] }));
+            const snagHexPath = path.join(BASE_DIR, 'public', 'img', 'snagpod_hexagon.png');
+            const snagChamberPath = path.join(BASE_DIR, 'public', 'img', 'snagpod_chamber.png');
+            const snagHexChildren = [];
+            if (fs.existsSync(snagHexPath)) {
+                snagHexChildren.push(createImageParagraph(snagHexPath, 420, 420));
+            }
+            if (fs.existsSync(snagChamberPath)) {
+                snagHexChildren.push(createImageParagraph(snagChamberPath, 440, 440));
+            }
+            if (snagHexChildren.length > 0) {
+                children.push(...snagHexChildren);
+            }
 
+            // Page 5: Isometric view of pin bar
+            children.push(new Paragraph({ children: [new PageBreak()] }));
+            const snagPinPath = path.join(BASE_DIR, 'public', 'img', 'snagpod_pin.png');
+            if (fs.existsSync(snagPinPath)) {
+                children.push(createImageParagraph(snagPinPath, 600, 600));
+            }
+        }
 
         // ─── TABLE 3: Notes, Disclaimers, and Other Information (completely borderless, 8pt) ───
         const t3Rows = [];

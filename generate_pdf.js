@@ -757,8 +757,8 @@ function getGroupRowHeights(doc, grp, tpl) {
     var isFirst = (ri === 0);
     var rowH = 16;
     if (isMulti) {
-      if (ri === grp.rows.length - 1) rowH = 13.7;
-      else rowH = 17.2;
+      if (ri === grp.rows.length - 1) rowH = 17.7;
+      else rowH = 21.2;
       
       if (isFirst) {
         var mRH_textW = 168.0 - 34.2;
@@ -790,10 +790,10 @@ function getGroupRowHeights(doc, grp, tpl) {
         if (mCalcH > rowH) rowH = mCalcH;
       }
     } else {
-      if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 44.0;
-      else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 38.4;
-      else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 38.2;
-      else rowH = 38.0;
+      if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 50.0;
+      else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 44.4;
+      else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 44.2;
+      else rowH = 44.0;
 
       var testTxt = cleanParamName(grp.name);
       if (testTxt && !testTxt.includes('\n')) {
@@ -1287,23 +1287,8 @@ async function main(opts) {
       pts = toUpperKeys(await a("SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC", [cNo]));
     }
 
-    // Sort points based on template point sequence if template is loaded
-    if (tpl) {
-      var tplPts = await a("SELECT * FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ? ORDER BY ID ASC", [tpl.NAME]);
-      if (tplPts && tplPts.length) {
-        var tplOrder = {};
-        tplPts.forEach(function(tp, idx) {
-          tplOrder[tp.parameter_name.trim() + '|' + tp.cal_point.trim()] = idx;
-        });
-        pts.sort(function(a, b) {
-          var keyA = (a.PARAMETER_NAME || '').trim() + '|' + (a.CAL_POINT || '').trim();
-          var keyB = (b.PARAMETER_NAME || '').trim() + '|' + (b.CAL_POINT || '').trim();
-          var idxA = tplOrder[keyA] !== undefined ? tplOrder[keyA] : 9999;
-          var idxB = tplOrder[keyB] !== undefined ? tplOrder[keyB] : 9999;
-          return idxA - idxB;
-        });
-      }
-    }
+    // Points are already in insertion order (ORDER BY ID ASC) matching the preview DOM order.
+    // No re-sorting by template — the user's arrangement is preserved.
 
     // Pre-process and expand slash values in calibration points (matching generate_docx.js)
     var expandedPoints = [];
