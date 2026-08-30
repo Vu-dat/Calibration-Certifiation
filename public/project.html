@@ -788,13 +788,13 @@ document.addEventListener("DOMContentLoaded", () => {
           </button>
         </div>
         <div id="card-org-content" style="display: none; margin-top: 20px;">
-          <div class="field"><label>Tên đơn vị (EN)</label><input id="f-co" value="Labmaster Company"></div>
-          <div class="field"><label>Địa chỉ đơn vị</label><input id="f-co-addr" value="17 street 179, Tang Nhon Phu ward, Ho Chi Minh city"></div>
+          <div class="field"><label>Tên đơn vị (EN)</label><input id="f-co" value="Labmaster Company" autocomplete="off"></div>
+          <div class="field"><label>Địa chỉ đơn vị</label><input id="f-co-addr" value="17 street 179, Tang Nhon Phu ward, Ho Chi Minh city" autocomplete="off"></div>
           <div class="field-row">
-            <div class="field"><label>Email</label><input id="f-co-email" value="sale@labmaster.vn"></div>
-            <div class="field"><label>Hotline</label><input id="f-co-phone" value="(+84) 938 088 239"></div>
+            <div class="field"><label>Email</label><input id="f-co-email" value="sale@labmaster.vn" autocomplete="off"></div>
+            <div class="field"><label>Hotline</label><input id="f-co-phone" value="(+84) 938 088 239" autocomplete="off"></div>
           </div>
-          <div class="field"><label>Tiêu chuẩn phòng LAB</label><input id="f-iso" value="ISO/IEC 17025:2017"></div>
+          <div class="field"><label>Tiêu chuẩn phòng LAB</label><input id="f-iso" value="ISO/IEC 17025:2017" autocomplete="off"></div>
         </div>
       </div>
 
@@ -812,32 +812,32 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
 
         <div class="field-row">
-          <div class="field"><label>Tên tiếng Anh (Instrument)</label><input id="f-inst-en" ></div>
-          <div class="field"><label>Nhà sản xuất (Manufacturer)</label><input id="f-mfr" ></div>
+          <div class="field"><label>Tên tiếng Anh (Instrument)</label><input id="f-inst-en" autocomplete="off"></div>
+          <div class="field"><label>Nhà sản xuất (Manufacturer)</label><input id="f-mfr" autocomplete="off"></div>
         </div>
         <div class="field-row">
-          <div class="field"><label>Kiểu mẫu (Model)</label><input id="f-model" ></div>
-          <div class="field"><label>Mã nhận diện (ID)</label><input id="f-id" ></div>
+          <div class="field"><label>Kiểu mẫu (Model)</label><input id="f-model" autocomplete="off"></div>
+          <div class="field"><label>Mã nhận diện (ID)</label><input id="f-id" autocomplete="off"></div>
         </div>
         <div class="field-row">
-          <div class="field"><label>Số Sê-ri (SN)</label><input id="f-sn" ></div>
-          <div class="field"><label>Số chứng nhận (Cert No.)</label><input id="f-certno" ></div>
+          <div class="field"><label>Số Sê-ri (SN)</label><input id="f-sn" autocomplete="off"></div>
+          <div class="field"><label>Số chứng nhận (Cert No.)</label><input id="f-certno" autocomplete="off"></div>
         </div>
         <div class="field-row">
-          <div class="field"><label>Mã nhà sản xuất (Mfr ID)</label><input id="f-mfr-id" placeholder="VD: QV0388113"></div>
-          <div class="field"><label>Số Serial Model (Model SN)</label><input id="f-model-sn" placeholder="VD: TM092026"></div>
+          <div class="field"><label>Mã nhà sản xuất (Mfr ID)</label><input id="f-mfr-id" placeholder="VD: QV0388113" autocomplete="off"></div>
+          <div class="field"><label>Số Serial Model (Model SN)</label><input id="f-model-sn" placeholder="VD: TM092026" autocomplete="off"></div>
         </div>
         <div class="field-row">
-          <div class="field"><label>Ngày hiệu chuẩn</label><input type="date" id="f-caldate" ></div>
-          <div class="field"><label>Ngày hiệu chuẩn kế tiếp</label><input type="date" id="f-recaldate" ></div>
+          <div class="field"><label>Ngày hiệu chuẩn</label><input type="date" id="f-caldate" autocomplete="off"></div>
+          <div class="field"><label>Ngày hiệu chuẩn kế tiếp</label><input type="date" id="f-recaldate" autocomplete="off"></div>
         </div>
       </div>
 
       <!-- CARD 3: KHÁCH HÀNG -->
       <div class="form-card">
         <div class="form-card-title"><span>3</span> Thông tin đối tác / Khách hàng</div>
-        <div class="field"><label>Tên đơn vị khách hàng</label><input id="f-cust" value="CÔNG TY TNHH PAIHONG VIỆT NAM"></div>
-        <div class="field"><label>Địa chỉ hiển thị</label><textarea id="f-cust-addr">Lô C_6A_CN Khu công nghiệp Bàu Bàng mở rộng, Xã Bàu Bàng, Thành phố Hồ Chí Minh, Việt Nam</textarea></div>
+        <div class="field"><label>Tên đơn vị khách hàng</label><input id="f-cust" value="CÔNG TY TNHH PAIHONG VIỆT NAM" autocomplete="off"></div>
+        <div class="field"><label>Địa chỉ hiển thị</label><textarea id="f-cust-addr" autocomplete="off">Lô C_6A_CN Khu công nghiệp Bàu Bàng mở rộng, Xã Bàu Bàng, Thành phố Hồ Chí Minh, Việt Nam</textarea></div>
       </div>
 
       <!-- CARD 4: ĐẶC TRƯNG KĨ THUẬT & QUY TRÌNH -->
@@ -898,10 +898,10 @@ document.addEventListener("DOMContentLoaded", () => {
       <!-- CARD 6: MÔI TRƯỜNG -->
       <div class="form-card">
         <div class="form-card-title"><span>6</span> Nơi thực hiện & Môi trường</div>
-        <div class="field"><label>Nơi thực hiện hiệu chuẩn</label><textarea id="f-place">CÔNG TY TNHH PAIHONG VIỆT NAM – Lô C_6A_CN Khu công nghiệp Bàu Bàng mở rộng, Xã Bàu Bàng, Thành phố Hồ Chí Minh, Việt Nam</textarea></div>
+        <div class="field"><label>Nơi thực hiện hiệu chuẩn</label><textarea id="f-place" autocomplete="off">CÔNG TY TNHH PAIHONG VIỆT NAM – Lô C_6A_CN Khu công nghiệp Bàu Bàng mở rộng, Xã Bàu Bàng, Thành phố Hồ Chí Minh, Việt Nam</textarea></div>
         <div class="env-box">
-          <div class="env-item"><label>Nhiệt độ phòng</label><input id="f-temp" value="[25 ± 2] °C"></div>
-          <div class="env-item"><label>Độ ẩm tương đối</label><input id="f-humi" value="[63 ± 5] %RH"></div>
+          <div class="env-item"><label>Nhiệt độ phòng</label><input id="f-temp" value="[25 ± 2] °C" autocomplete="off"></div>
+          <div class="env-item"><label>Độ ẩm tương đối</label><input id="f-humi" value="[63 ± 5] %RH" autocomplete="off"></div>
         </div>
       </div>
 
@@ -948,8 +948,8 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="form-card">
         <div class="form-card-title"><span>8</span> Nhân sự phê duyệt</div>
         <div class="field-row">
-          <div class="field"><label>Người soát xét (Reviewed by)</label><input id="f-sign1" value="Lê Cảnh Nhật Quang"></div>
-          <div class="field"><label>Giám đốc kiểm định (Director)</label><input id="f-sign2" value="Lưu Ngọc Thống"></div>
+          <div class="field"><label>Người soát xét (Reviewed by)</label><input id="f-sign1" value="Lê Cảnh Nhật Quang" autocomplete="off"></div>
+          <div class="field"><label>Giám đốc kiểm định (Director)</label><input id="f-sign2" value="Lưu Ngọc Thống" autocomplete="off"></div>
         </div>
       </div>
 
@@ -1879,7 +1879,12 @@ function handleDeviceSearch(input) {
             div.onclick = () => {
                 input.value = key;
                 box.style.display = 'none';
-                input.closest('tr').dataset.equipmentName = key;
+                const tr = input.closest('tr');
+                if (tr) {
+                    tr.dataset.equipmentName = key;
+                } else {
+                    selectEquipmentTemplate(key);
+                }
             };
             box.appendChild(div);
         });
@@ -2365,11 +2370,11 @@ function addSpecRangeRow(param = '', value = '', resolution = '', procedure = ''
   if (!tbody) return;
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td><input type="text" class="lab-input-cell spec-param-input" value="${escHtml(param)}" placeholder="VD: Lực tỳ/Downward force"></td>
-    <td><input type="text" class="lab-input-cell spec-value-input" value="${escHtml(value)}" placeholder="VD: 9 N"></td>
-    <td><input type="text" class="lab-input-cell spec-res-input" value="${escHtml(resolution)}" placeholder="VD: 0.1 mg"></td>
-    <td><input type="text" class="lab-input-cell spec-proc-input" value="${escHtml(procedure)}" placeholder="VD: FORCE-02:2026"></td>
-    <td><input type="text" class="lab-input-cell spec-ref-input" value="${escHtml(reference)}" placeholder="VD: ISO 6330"></td>
+    <td><input type="text" class="lab-input-cell spec-param-input" value="${escHtml(param)}" placeholder="VD: Lực tỳ/Downward force" autocomplete="off"></td>
+    <td><input type="text" class="lab-input-cell spec-value-input" value="${escHtml(value)}" placeholder="VD: 9 N" autocomplete="off"></td>
+    <td><input type="text" class="lab-input-cell spec-res-input" value="${escHtml(resolution)}" placeholder="VD: 0.1 mg" autocomplete="off"></td>
+    <td><input type="text" class="lab-input-cell spec-proc-input" value="${escHtml(procedure)}" placeholder="VD: FORCE-02:2026" autocomplete="off"></td>
+    <td><input type="text" class="lab-input-cell spec-ref-input" value="${escHtml(reference)}" placeholder="VD: ISO 6330" autocomplete="off"></td>
     <td style="text-align:center;"><button type="button" class="btn-rm" onclick="this.closest('tr').remove()">×</button></td>
   `;
   tbody.appendChild(tr);
@@ -2755,7 +2760,6 @@ function addCalResultRow() {
   });
 
   renderTableFromData(existing);
-  showToast('Đã thêm thông số mới. Nhập tên thông số vào ô đầu nhóm.', 'info');
 }
 
 // Add a calibration point under the last parameter (kế thừa tên thông số)
@@ -2775,7 +2779,6 @@ function addCalPointRow() {
     refEq: ''
   });
   renderTableFromData(data);
-  showToast('Đã thêm điểm đo mới dưới thông số hiện tại.', 'success');
 }
 
 // Delete a calibration row (data-driven, re-renders with proper grouping)
