@@ -982,7 +982,7 @@ async function main(opts) {
 
         const refLines = (displayRefStandard || '').indexOf('\n') >= 0 
             ? (displayRefStandard || '').split('\n')
-            : (displayRefStandard || '–').split(/[,;]+/);
+            : (displayRefStandard || '–').split(/[;]+/);
         const refParas = refLines.map(line => para(line.trim() || '–', { fontSize: 10 }));
 
         const resLines = (specs.resolution || '').indexOf('\n') >= 0 

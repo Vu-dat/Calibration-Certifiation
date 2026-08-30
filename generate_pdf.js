@@ -135,7 +135,7 @@ function drawTextWithDegree(doc, text, x, y, options) {
   }
 }
 
-function drawCell(doc, text, x, y, colWidth, rowH, pyV) {
+function drawCell(doc, text, x, y, colWidth, rowH) {
   if (!text) return;
   const normalized = normalizeDegree(text);
   const originalSize = doc._fontSize || 10;
@@ -150,14 +150,10 @@ function drawCell(doc, text, x, y, colWidth, rowH, pyV) {
     size -= 0.5;
   }
   
-  let drawY = pyV;
-  if (size < originalSize) {
-    doc.fontSize(size);
-    const textHeight = doc.heightOfString(normalized, { width: colWidth });
-    drawY = y + (rowH - textHeight) / 2;
-  }
-  
   doc.fontSize(size);
+  const textHeight = doc.heightOfString(normalized, { width: colWidth, lineGap: 0 });
+  const drawY = y + (rowH - textHeight) / 2;
+  
   drawTextWithDegree(doc, normalized, x, drawY, { width: colWidth, align: 'center', lineGap: 0 });
   doc.fontSize(originalSize);
 }
@@ -507,6 +503,12 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     return str.split(/[,;]+/).map(function(s){return s.trim();}).filter(Boolean);
   };
 
+  var splitRef = function(str) {
+    if (!str) return [];
+    if (str.indexOf('\n') >= 0) return str.split('\n');
+    return str.split(/[;]+/).map(function(s){return s.trim();}).filter(Boolean);
+  };
+
   // Data rows: range column = 'VN/EN: value' mixed style; proc/ref lines
   var rangeLines = [];
   var procLines = [], procSize = 10;
@@ -549,7 +551,7 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     procLines = splitMulti(proc);
     resLines = splitMulti(cert && cert.SPEC_RESOLUTION || tpl && tpl.SPEC_RESOLUTION);
   }
-  var refLines = splitMulti(refStd);
+  var refLines = splitRef(refStd);
   var rows = Math.max(rangeLines.length, procLines.length, refLines.length, resLines.length);
   if (accM && accM.length && rows > 7) rows = 7; // cùng giới hạn an toàn cho mọi cột khi có accM
   var y = Y1.specRow1;
@@ -749,79 +751,112 @@ function cleanParamName(name) {
     .trim();
 }
 
+function getParamNameHeight(doc, paramTxt, textWidth) {
+  if (!paramTxt) return 0;
+  var lines = paramTxt.split('\n');
+  
+  var getLineH = function(line) {
+    var m = String(line).match(/\(([MC*])\)\s*$/);
+    var clean = m ? line.substring(0, line.length - m[0].length) : line;
+    var words = clean.split(' ');
+    var currentLine = '', wrappedCount = 0;
+    for (var i = 0; i < words.length; i++) {
+      var word = words[i];
+      var testLine = currentLine ? currentLine + ' ' + word : word;
+      if (doc.widthOfString(testLine) > textWidth) {
+        if (currentLine) wrappedCount++;
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine) wrappedCount++;
+    return Math.max(1, wrappedCount) * (10 * 1.15);
+  };
+  
+  var totalH = 0;
+  if (lines.length >= 3) {
+    totalH += getLineH(lines[0]);
+    totalH += doc.heightOfString(lines[1], { width: textWidth, lineGap: 0 });
+    totalH += doc.heightOfString(lines[2], { width: textWidth, lineGap: 0 });
+  } else if (lines.length === 2) {
+    totalH += getLineH(lines[0]);
+    totalH += doc.heightOfString(lines[1], { width: textWidth, lineGap: 0 });
+  } else {
+    totalH += getLineH(paramTxt);
+  }
+  return totalH;
+}
+
 function getGroupRowHeights(doc, grp, tpl) {
   var isMulti = grp.rows.length > 1;
   var heights = [];
-  for (var ri = 0; ri < grp.rows.length; ri++) {
-    var r = grp.rows[ri];
-    var isFirst = (ri === 0);
-    var rowH = 16;
-    if (isMulti) {
-      if (ri === grp.rows.length - 1) rowH = 17.7;
-      else rowH = 21.2;
-      
-      if (isFirst) {
-        var mRH_textW = 168.0 - 34.2;
-        var mTestTxt = cleanParamName(grp.name);
-        if (mTestTxt && !mTestTxt.includes('\n')) {
-          mTestTxt = mTestTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
-        }
-        var mTestLines = mTestTxt.split('\n');
-        var mCalcH = 0;
-        var mLH = 10 * 1.15;
-        sf(doc, false); doc.fontSize(10);
-        mTestLines.forEach(function(ml, idx) {
-          if (idx === 0) {
-            var mm = String(ml).match(/\(([MC*])\)\s*$/);
-            var mclean = mm ? ml.substring(0, ml.length - mm[0].length) : ml;
-            var mwords = mclean.split(' ');
-            var mcur = '', mlines = 1;
-            for (var mi = 0; mi < mwords.length; mi++) {
-              var mt = mcur ? mcur + ' ' + mwords[mi] : mwords[mi];
-              if (doc.widthOfString(mt) > mRH_textW && mcur) { mlines++; mcur = mwords[mi]; }
-              else mcur = mt;
-            }
-            mCalcH += mlines * mLH;
-          } else {
-            mCalcH += doc.heightOfString(ml, { width: mRH_textW, lineGap: 0 });
-          }
-        });
-        mCalcH += 8;
-        if (mCalcH > rowH) rowH = mCalcH;
-      }
-    } else {
-      if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 50.0;
-      else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 44.4;
-      else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 44.2;
-      else rowH = 44.0;
-
-      var testTxt = cleanParamName(grp.name);
-      if (testTxt && !testTxt.includes('\n')) {
-        testTxt = testTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
-      }
-      var testLines = testTxt.split('\n');
-      var calcH = 0;
-      sf(doc, false); doc.fontSize(10);
-      testLines.forEach(function(line, idx) {
-        if (idx === 0) {
-          var m = String(line).match(/\(([MC*])\)\s*$/);
-          var clean = m ? line.substring(0, line.length - m[0].length) : line;
-          var mwords = clean.split(' ');
-          var mcur = '', mlines = 1;
-          var textWidth = 216.6 - 34.2;
-          for (var mi = 0; mi < mwords.length; mi++) {
-            var mt = mcur ? mcur + ' ' + mwords[mi] : mwords[mi];
-            if (doc.widthOfString(mt) > textWidth && mcur) { mlines++; mcur = mwords[mi]; }
-            else mcur = mt;
-          }
-          calcH += mlines * (10 * 1.15);
-        } else {
-          calcH += doc.heightOfString(line, { width: 216.6 - 34.2, lineGap: 0 });
-        }
-      });
-      calcH += 8;
-      if (calcH > rowH) rowH = calcH;
+  
+  if (isMulti) {
+    var mRH_textW = 168.0 - 34.2;
+    var mTestTxt = cleanParamName(grp.name);
+    if (mTestTxt && !mTestTxt.includes('\n')) {
+      mTestTxt = mTestTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
     }
+    var mTestLines = mTestTxt.split('\n');
+    var mCalcH = 0;
+    var mLH = 10 * 1.15;
+    sf(doc, false); doc.fontSize(10);
+    mTestLines.forEach(function(ml, idx) {
+      if (idx === 0) {
+        var mm = String(ml).match(/\(([MC*])\)\s*$/);
+        var mclean = mm ? ml.substring(0, ml.length - mm[0].length) : ml;
+        var mwords = mclean.split(' ');
+        var mcur = '', mlines = 1;
+        for (var mi = 0; mi < mwords.length; mi++) {
+          var mt = mcur ? mcur + ' ' + mwords[mi] : mwords[mi];
+          if (doc.widthOfString(mt) > mRH_textW && mcur) { mlines++; mcur = mwords[mi]; }
+          else mcur = mt;
+        }
+        mCalcH += mlines * mLH;
+      } else {
+        mCalcH += doc.heightOfString(ml, { width: mRH_textW, lineGap: 0 });
+      }
+    });
+    mCalcH += 8;
+    
+    var eachRowH = Math.max(20.0, Math.ceil(mCalcH / grp.rows.length));
+    for (var ri = 0; ri < grp.rows.length; ri++) {
+      heights.push(eachRowH);
+    }
+  } else {
+    var rowH = 16;
+    if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 50.0;
+    else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 44.4;
+    else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 44.2;
+    else rowH = 44.0;
+
+    var testTxt = cleanParamName(grp.name);
+    if (testTxt && !testTxt.includes('\n')) {
+      testTxt = testTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
+    }
+    var testLines = testTxt.split('\n');
+    var calcH = 0;
+    sf(doc, false); doc.fontSize(10);
+    testLines.forEach(function(line, idx) {
+      if (idx === 0) {
+        var m = String(line).match(/\(([MC*])\)\s*$/);
+        var clean = m ? line.substring(0, line.length - m[0].length) : line;
+        var mwords = clean.split(' ');
+        var mcur = '', mlines = 1;
+        var textWidth = 216.6 - 34.2;
+        for (var mi = 0; mi < mwords.length; mi++) {
+          var mt = mcur ? mcur + ' ' + mwords[mi] : mwords[mi];
+          if (doc.widthOfString(mt) > textWidth && mcur) { mlines++; mcur = mwords[mi]; }
+          else mcur = mt;
+        }
+        calcH += mlines * (10 * 1.15);
+      } else {
+        calcH += doc.heightOfString(line, { width: 216.6 - 34.2, lineGap: 0 });
+      }
+    });
+    calcH += 8;
+    if (calcH > rowH) rowH = calcH;
     heights.push(rowH);
   }
   return heights;
@@ -963,34 +998,36 @@ function drawResultsTable(doc, pts, pageContext) {
       var confTxt = (r.CONFORMITY !== null && r.CONFORMITY !== undefined && r.CONFORMITY !== '') ? String(r.CONFORMITY) : '--';
       
       sf(doc, false); doc.fontSize(10).fillColor('#000000');
-      var isThreeLine = paramTxt.includes('\n') && paramTxt.split('\n').length >= 3;
-      var pyV = y + (isMulti ? (ri === grp.rows.length - 1 ? 0.0 : 1.8) : (isThreeLine ? 13.3 : (rowH > 38.0 ? (rowH - 11.5) / 2 : 6.7)));
       
       var rightBoundary = isMulti ? 168.0 : 216.6;
       var textWidth = rightBoundary - 34.2;
       
       if (paramTxt) {
+        var cellH = isMulti ? groupH : rowH;
+        var paramH = getParamNameHeight(doc, paramTxt, textWidth);
+        var startY = y + (cellH - paramH) / 2;
+        
         var lines = paramTxt.split('\n');
         if (lines.length >= 3) {
-          var viH3 = drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, textWidth);
-          var l1y3 = y + 1.8 + viH3;
+          var viH3 = drawParamFirstLine(doc, lines[0], 34.2, startY, 10, textWidth);
+          var l1y3 = startY + viH3;
           doc.text(lines[1], 34.2, l1y3, { width: textWidth, lineGap: 0 });
           var l1h3 = doc.heightOfString(lines[1], { width: textWidth, lineGap: 0 });
           doc.text(lines[2], 34.2, l1y3 + l1h3, { width: textWidth, lineGap: 0 });
         } else if (lines.length === 2) {
-          var viH2 = drawParamFirstLine(doc, lines[0], 34.2, y + 1.8, 10, textWidth);
-          doc.text(lines[1], 34.2, y + 1.8 + viH2, { width: textWidth, lineGap: 0 });
+          var viH2 = drawParamFirstLine(doc, lines[0], 34.2, startY, 10, textWidth);
+          doc.text(lines[1], 34.2, startY + viH2, { width: textWidth, lineGap: 0 });
         } else {
-          drawParamFirstLine(doc, paramTxt, 34.2, y + 1.8, 10, textWidth);
+          drawParamFirstLine(doc, paramTxt, 34.2, startY, 10, textWidth);
         }
       }
       
-      if (isMulti && pointTxt) drawCell(doc, pointTxt, dcols[1], y, dR[1] - dcols[1], rowH, pyV);
-      if (foundTxt) drawCell(doc, foundTxt, dcols[2], y, dR[2] - dcols[2], rowH, pyV);
-      if (uncTxt) drawCell(doc, uncTxt, dcols[3], y, dR[3] - dcols[3], rowH, pyV);
-      if (refTxt) drawCell(doc, refTxt, dcols[4], y, dR[4] - dcols[4], rowH, pyV);
-      if (tolTxt) drawCell(doc, tolTxt, dcols[5], y, dR[5] - dcols[5], rowH, pyV);
-      if (confTxt) drawCell(doc, confTxt, dcols[6], y, dR[6] - dcols[6], rowH, pyV);
+      if (isMulti && pointTxt) drawCell(doc, pointTxt, dcols[1], y, dR[1] - dcols[1], rowH);
+      if (foundTxt) drawCell(doc, foundTxt, dcols[2], y, dR[2] - dcols[2], rowH);
+      if (uncTxt) drawCell(doc, uncTxt, dcols[3], y, dR[3] - dcols[3], rowH);
+      if (refTxt) drawCell(doc, refTxt, dcols[4], y, dR[4] - dcols[4], rowH);
+      if (tolTxt) drawCell(doc, tolTxt, dcols[5], y, dR[5] - dcols[5], rowH);
+      if (confTxt) drawCell(doc, confTxt, dcols[6], y, dR[6] - dcols[6], rowH);
       
       y += rowH;
 

@@ -964,8 +964,14 @@ document.addEventListener("DOMContentLoaded", () => {
   <!-- PREVIEW VIEW -->
   <div id="preview-view" style="display:none;">
     <div class="preview-panel">
-      <div class="preview-toolbar" id="preview-header-actions">
-        <button class="btn btn-secondary btn-sm" onclick="switchToEditor()">← Sửa dữ liệu</button>
+      <div class="preview-toolbar" id="preview-header-actions" style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <button class="btn btn-secondary btn-sm" onclick="switchToEditor()">← Sửa dữ liệu</button>
+          <div style="display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--bg);">
+            <button class="btn btn-sm" id="btn-preview-pdf" onclick="showPreviewTab('pdf')" style="border: none; border-radius: 0; background: var(--accent); color: white; font-weight: 500; padding: 6px 12px; cursor: pointer; transition: all 0.2s;">📄 Xem trước PDF (In chuẩn)</button>
+            <button class="btn btn-sm" id="btn-preview-html" onclick="showPreviewTab('html')" style="border: none; border-radius: 0; background: transparent; color: var(--text-muted); font-weight: 500; padding: 6px 12px; cursor: pointer; transition: all 0.2s;">🌐 Xem trước HTML</button>
+          </div>
+        </div>
         <div class="dropdown" style="position:relative;display:inline-block;">
           <button class="btn btn-primary btn-sm" onclick="toggleExportMenu()" id="export-dropdown-btn">
             📥 Xuất file ▾
@@ -1399,9 +1405,27 @@ function resolveEquipmentName(idOrName) {
   if (!idOrName) return null;
   // Nếu lookup trực tiếp bằng NAME thành công
   if (MockDatabaseEquipment[idOrName]) return idOrName;
+  
+  // Tìm kiếm không phân biệt chữ hoa thường và bỏ số thứ tự ở đầu
+  const cleanStr = (s) => String(s).replace(/^\d+(\.\d+)*[\s\.\-:_]*/, '').trim().toLowerCase();
+  const cleanedIdOrName = cleanStr(idOrName);
+  const keys = Object.keys(MockDatabaseEquipment);
+  for (const k of keys) {
+    if (k.toLowerCase() === idOrName.toLowerCase() || cleanStr(k) === cleanedIdOrName) {
+      return k;
+    }
+  }
+
   // Nếu là ID → tra ngược để lấy NAME
   if (window._equipmentById && window._equipmentById[idOrName]) {
     return window._equipmentById[idOrName];
+  }
+
+  // Fallback tìm gần đúng
+  for (const k of keys) {
+    if (cleanStr(k).includes(cleanedIdOrName) || cleanedIdOrName.includes(cleanStr(k))) {
+      return k;
+    }
   }
   return null;
 }
@@ -1463,11 +1487,20 @@ function showDbSyncBadge() {
 /* ====== TINH TOAN DO PHU HOP TU DONG ====== */
 function calculateConformity(row) {
   try {
-    var v1 = parseFloat((row.querySelector('.as-found-1')||{}).value || '');
-    var v2 = parseFloat((row.querySelector('.as-found-2')||{}).value || '');
-    var v3 = parseFloat((row.querySelector('.as-found-3')||{}).value || '');
-    var refVal = parseFloat((row.querySelector('.ref-value')||{}).value || '');
-    var uncert = parseFloat((row.querySelector('.uncertainty')||{}).value || '');
+    var rawV1 = (row.querySelector('.as-found-1')||{}).value || '';
+    var rawV2 = (row.querySelector('.as-found-2')||{}).value || '';
+    var rawV3 = (row.querySelector('.as-found-3')||{}).value || '';
+    
+    var parseVal = (str) => {
+      if (!str) return NaN;
+      return parseFloat(String(str).trim().replace(',', '.'));
+    };
+    
+    var v1 = parseVal(rawV1);
+    var v2 = parseVal(rawV2);
+    var v3 = parseVal(rawV3);
+    var refVal = parseVal((row.querySelector('.ref-value')||{}).value || '');
+    var uncert = parseVal((row.querySelector('.uncertainty')||{}).value || '');
     var tolVal = (row.querySelector('.tolerance')||{}).value || '';
 
     var vals = [];
@@ -1482,7 +1515,7 @@ function calculateConformity(row) {
         var parts = combined.split('/');
         var nums = [];
         for (var pi = 0; pi < parts.length; pi++) {
-          var n = parseFloat(parts[pi].trim());
+          var n = parseVal(parts[pi]);
           if (!isNaN(n)) nums.push(n);
         }
         if (nums.length > 0) {
@@ -1498,7 +1531,7 @@ function calculateConformity(row) {
     var trimmed = tolVal.trim();
     if (trimmed && trimmed !== 'N/A' && trimmed !== '--' && trimmed !== '-') {
       var tolClean = tolVal.replace(/[\u00b1+\/\-\s]/g, '').trim();
-      var tolNum = parseFloat(tolClean);
+      var tolNum = parseVal(tolClean);
       if (!isNaN(tolNum)) T = Math.abs(tolNum);
     }
 
@@ -1525,12 +1558,34 @@ function calculateConformity(row) {
     // Cập nhật ô giá trị trung bình (chỉ cập nhật khi người dùng đã nhập giá trị mới)
     var avgEl = row.querySelector('.avg-value');
     if (avgEl) {
-      var rawV1 = (row.querySelector('.as-found-1')||{}).value || '';
-      var rawV2 = (row.querySelector('.as-found-2')||{}).value || '';
-      var rawV3 = (row.querySelector('.as-found-3')||{}).value || '';
       var hasUserInput = rawV1.trim() !== '' || rawV2.trim() !== '' || rawV3.trim() !== '';
-      if (hasUserInput && vals.length > 0) {
-        avgEl.value = Math.round(avg * 100) / 100;
+      if (hasUserInput) {
+        var maxDec = 0;
+        var getDecPlaces = function(str) {
+          var s = String(str).trim().replace(',', '.');
+          var match = s.match(/\.(\d+)/);
+          return match ? match[1].length : 0;
+        };
+        
+        if (vals.length > 0) {
+          var dec1 = getDecPlaces(rawV1);
+          var dec2 = getDecPlaces(rawV2);
+          var dec3 = getDecPlaces(rawV3);
+          maxDec = Math.max(dec1, dec2, dec3);
+        } else {
+          var combined = (row.querySelector('.as-found-1')||{}).value || '';
+          if (combined) {
+            var parts = combined.split('/');
+            parts.forEach(function(part) {
+              var dec = getDecPlaces(part);
+              if (dec > maxDec) maxDec = dec;
+            });
+          }
+        }
+        
+        if (!isNaN(avg)) {
+          avgEl.value = avg.toFixed(maxDec);
+        }
       }
       // Nếu chưa nhập gì → giữ nguyên giá trị trung bình mẫu từ template
     }
@@ -2440,7 +2495,7 @@ function setSpecTableFromData(specRange, specResolution, procedure, refStandard)
   if (!tbody) return;
   tbody.innerHTML = '';
   
-  const rangeLines = (specRange || '').split('\n');
+  let rangeLines = (specRange || '').split('\n').map(s => s.trim()).filter(Boolean);
   const resLines = (specResolution || '').split('\n');
   
   const splitMulti = (str) => {
@@ -2449,8 +2504,35 @@ function setSpecTableFromData(specRange, specResolution, procedure, refStandard)
     return str.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
   };
   
+  const splitRef = (str) => {
+    if (!str) return [];
+    if (str.includes('\n')) return str.split('\n');
+    return str.split(/[;]+/).map(s => s.trim()).filter(Boolean);
+  };
+  
   const procLines = splitMulti(procedure);
-  const refLines = splitMulti(refStandard);
+  const refLines = splitRef(refStandard);
+  
+  // Smart fallback logic for old certificates or missing parameter names
+  const resolvedName = window._currentWorkingEquipment;
+  const eqTemplate = resolvedName ? MockDatabaseEquipment[resolvedName] : null;
+  const tplRangeLines = eqTemplate ? (eqTemplate.specRange || '').split('\n').map(s => s.trim()).filter(Boolean) : [];
+
+  // If loaded data is just a single line without colons, but template has multiple lines:
+  if (rangeLines.length === 1 && !rangeLines[0].includes(':') && tplRangeLines.length > 1) {
+    const rawVal = rangeLines[0];
+    const regex = /(\(?\d+(?:\~\d+)?\)?\s*(?:N|mm|g|rpm|cpm|Psi|min|°|mm\/s))/gi;
+    const matches = rawVal.match(regex);
+    if (matches && matches.length > 0) {
+      rangeLines = matches.map(m => m.trim());
+    } else {
+      // Fallback split by multiple spaces
+      const spaceSplit = rawVal.split(/\s{2,}/).map(s => s.trim()).filter(Boolean);
+      if (spaceSplit.length > 1) {
+        rangeLines = spaceSplit;
+      }
+    }
+  }
   
   const totalRows = Math.max(rangeLines.length, resLines.length, procLines.length, refLines.length);
   
@@ -2462,7 +2544,16 @@ function setSpecTableFromData(specRange, specResolution, procedure, refStandard)
       param = rangeLine.substring(0, idx).trim();
       val = rangeLine.substring(idx + 1).trim();
     } else {
-      param = rangeLine;
+      // Smart matching: if this line has no colon, check if the template has a parameter for this row
+      const tplLine = (tplRangeLines[r] || '').trim();
+      if (tplLine && tplLine.includes(':')) {
+        const idx = tplLine.indexOf(':');
+        param = tplLine.substring(0, idx).trim();
+        val = rangeLine;
+      } else {
+        param = rangeLine;
+        val = '';
+      }
     }
     
     const resolution = (resLines[r] || '').trim();
@@ -2902,8 +2993,21 @@ function collectCalibrationResults() {
     const domAvg = avgEl ? (avgEl.value || '') : '';
     const foundStr = [v1,v2,v3].filter(Boolean).join(' / ') || v1;
     // Tính giá trị trung bình của 3 lần đo (hoặc dùng giá trị từ cột avg)
-    const nums = [parseFloat(v1), parseFloat(v2), parseFloat(v3)].filter(function(n){return !isNaN(n);});
-    const foundAvg = nums.length > 0 ? (Math.round(nums.reduce(function(a,b){return a+b;},0) / nums.length * 100) / 100).toString() : domAvg;
+    let foundAvg = domAvg;
+    const nums = [parseFloat(v1.replace(',', '.')), parseFloat(v2.replace(',', '.')), parseFloat(v3.replace(',', '.'))].filter(function(n){return !isNaN(n);});
+    if (!foundAvg && nums.length > 0) {
+      const getDecPlaces = function(str) {
+        var s = String(str).trim().replace(',', '.');
+        var match = s.match(/\.(\d+)/);
+        return match ? match[1].length : 0;
+      };
+      const dec1 = getDecPlaces(v1);
+      const dec2 = getDecPlaces(v2);
+      const dec3 = getDecPlaces(v3);
+      const maxDec = Math.max(dec1, dec2, dec3);
+      const avgVal = nums.reduce(function(a,b){return a+b;},0) / nums.length;
+      foundAvg = avgVal.toFixed(maxDec);
+    }
     let refEq = '';
     const refEqEl = row.querySelector('.ref-eq-val');
     if (refEqEl) {
@@ -2981,20 +3085,22 @@ function buildSpecTableHtml() {
   const tbody = document.getElementById('spec-range-table-body');
   const rows = tbody ? tbody.querySelectorAll('tr') : [];
   
-  let rangeLines = [], resLines = [], procLines = [], refLines = [];
+  let paramNames = [], rangeValues = [], resLines = [], procLines = [], refLines = [];
   rows.forEach(tr => {
     const param = (tr.querySelector('.spec-param-input')?.value || '').trim();
     const val = (tr.querySelector('.spec-value-input')?.value || '').trim();
     if (param) {
-      rangeLines.push(val ? (param + ': ' + val) : param);
+      paramNames.push(param);
+      rangeValues.push(val);
       resLines.push((tr.querySelector('.spec-res-input')?.value || '').trim());
       procLines.push((tr.querySelector('.spec-proc-input')?.value || '').trim());
       refLines.push((tr.querySelector('.spec-ref-input')?.value || '').trim());
     }
   });
 
-  if (!rangeLines.length) {
-    rangeLines = ['--'];
+  if (!paramNames.length) {
+    paramNames = ['--'];
+    rangeValues = ['--'];
     resLines = [''];
     procLines = ['--'];
     refLines = ['--'];
@@ -3034,9 +3140,9 @@ function buildSpecTableHtml() {
   }
   h += '</tr></thead><tbody>';
 
-  for (let r = 0; r < rangeLines.length; r++) {
-    h += '<tr><td></td>'
-      + '<td>' + specRangeHtml(rangeLines[r] || '') + '</td>';
+  for (let r = 0; r < paramNames.length; r++) {
+    h += '<tr><td>' + specRangeHtml(paramNames[r] || '') + '</td>'
+      + '<td>' + escHtml(rangeValues[r] || '') + '</td>';
     
     if (is5Col) {
       h += '<td>' + escHtml(resLines[r] || '') + '</td>';
@@ -3138,92 +3244,86 @@ function estimateGroupRowHeights(grp) {
   const ctx = canvas.getContext('2d');
   ctx.font = '10pt Arial, Helvetica, sans-serif';
   
-  for (let ri = 0; ri < grp.rows.length; ri++) {
-    const r = grp.rows[ri];
-    const isFirst = (ri === 0);
-    let rowH = 16;
-    
-    if (isMulti) {
-      if (ri === grp.rows.length - 1) rowH = 17.7;
-      else rowH = 21.2;
-      
-      if (isFirst) {
-        const textWidthLimit = 168.0 - 34.2;
-        let testTxt = grp.name;
-        if (testTxt && !testTxt.includes('\n')) {
-          testTxt = testTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
-        }
-        const lines = testTxt.split('\n');
-        let calcH = 0;
-        const lineH = 10 * 1.15;
-        
-        lines.forEach((line, idx) => {
-          if (idx === 0) {
-            const m = String(line).match(/\(([MC*])\)\s*$/);
-            const clean = m ? line.substring(0, line.length - m[0].length) : line;
-            const words = clean.split(' ');
-            let cur = '', mlines = 1;
-            for (let wi = 0; wi < words.length; wi++) {
-              const t = cur ? cur + ' ' + words[wi] : words[wi];
-              const w = ctx.measureText(t).width;
-              if (w > textWidthLimit && cur) {
-                mlines++;
-                cur = words[wi];
-              } else {
-                cur = t;
-              }
-            }
-            calcH += mlines * lineH;
-          } else {
-            const w = ctx.measureText(line).width;
-            const mlines = Math.ceil(w / textWidthLimit) || 1;
-            calcH += mlines * lineH;
-          }
-        });
-        calcH += 8;
-        if (calcH > rowH) rowH = calcH;
-      }
-    } else {
-      if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 50.0;
-      else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 44.4;
-      else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 44.2;
-      else rowH = 44.0;
-      
-      const textWidthLimit = 216.6 - 34.2;
-      let testTxt = grp.name;
-      if (testTxt && !testTxt.includes('\n')) {
-        testTxt = testTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
-      }
-      const lines = testTxt.split('\n');
-      let calcH = 0;
-      const lineH = 10 * 1.15;
-      
-      lines.forEach((line, idx) => {
-        if (idx === 0) {
-          const m = String(line).match(/\(([MC*])\)\s*$/);
-          const clean = m ? line.substring(0, line.length - m[0].length) : line;
-          const words = clean.split(' ');
-          let cur = '', mlines = 1;
-          for (let wi = 0; wi < words.length; wi++) {
-            const t = cur ? cur + ' ' + words[wi] : words[wi];
-            const w = ctx.measureText(t).width;
-            if (w > textWidthLimit && cur) {
-              mlines++;
-              cur = words[wi];
-            } else {
-              cur = t;
-            }
-          }
-          calcH += mlines * lineH;
-        } else {
-          const w = ctx.measureText(line).width;
-          const mlines = Math.ceil(w / textWidthLimit) || 1;
-          calcH += mlines * lineH;
-        }
-      });
-      calcH += 8;
-      if (calcH > rowH) rowH = calcH;
+  if (isMulti) {
+    const textWidthLimit = 168.0 - 34.2;
+    let testTxt = grp.name;
+    if (testTxt && !testTxt.includes('\n')) {
+      testTxt = testTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
     }
+    const lines = testTxt.split('\n');
+    let calcH = 0;
+    const lineH = 10 * 1.15;
+    
+    lines.forEach((line, idx) => {
+      if (idx === 0) {
+        const m = String(line).match(/\(([MC*])\)\s*$/);
+        const clean = m ? line.substring(0, line.length - m[0].length) : line;
+        const words = clean.split(' ');
+        let cur = '', mlines = 1;
+        for (let wi = 0; wi < words.length; wi++) {
+          const t = cur ? cur + ' ' + words[wi] : words[wi];
+          const w = ctx.measureText(t).width;
+          if (w > textWidthLimit && cur) {
+            mlines++;
+            cur = words[wi];
+          } else {
+            cur = t;
+          }
+        }
+        calcH += mlines * lineH;
+      } else {
+        const w = ctx.measureText(line).width;
+        const mlines = Math.ceil(w / textWidthLimit) || 1;
+        calcH += mlines * lineH;
+      }
+    });
+    calcH += 8;
+    
+    const eachRowH = Math.max(20.0, Math.ceil(calcH / grp.rows.length));
+    for (let ri = 0; ri < grp.rows.length; ri++) {
+      heights.push(eachRowH);
+    }
+  } else {
+    let rowH = 16;
+    if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 50.0;
+    else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 44.4;
+    else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 44.2;
+    else rowH = 44.0;
+    
+    const textWidthLimit = 216.6 - 34.2;
+    let testTxt = grp.name;
+    if (testTxt && !testTxt.includes('\n')) {
+      testTxt = testTxt.replace(/(\([MC*]\))\s+/g, '$1\n');
+    }
+    const lines = testTxt.split('\n');
+    let calcH = 0;
+    const lineH = 10 * 1.15;
+    
+    lines.forEach((line, idx) => {
+      if (idx === 0) {
+        const m = String(line).match(/\(([MC*])\)\s*$/);
+        const clean = m ? line.substring(0, line.length - m[0].length) : line;
+        const words = clean.split(' ');
+        let cur = '', mlines = 1;
+        for (let wi = 0; wi < words.length; wi++) {
+          const t = cur ? cur + ' ' + words[wi] : words[wi];
+          const w = ctx.measureText(t).width;
+          if (w > textWidthLimit && cur) {
+            mlines++;
+            cur = words[wi];
+          } else {
+            cur = t;
+          }
+        }
+        calcH += mlines * lineH;
+      } else {
+        const w = ctx.measureText(line).width;
+        const mlines = Math.ceil(w / textWidthLimit) || 1;
+        calcH += mlines * lineH;
+      }
+    });
+    calcH += 8;
+    if (calcH > rowH) rowH = calcH;
     heights.push(rowH);
   }
   return heights;
@@ -3326,7 +3426,7 @@ function buildSection17Html(hasMCMark) {
   `;
 }
 
-function buildPrintTemplate() {
+function buildPrintTemplateHtml() {
   const allStd = collectAllStandards();
   const allRes = collectCalibrationResults();
   const certNo = txt('f-certno');
@@ -3630,11 +3730,22 @@ function buildPrintTemplate() {
 
 /* ====== SWITCH VIEWS ====== */
 function switchToPreview() {
+  currentPreviewTab = 'pdf';
+  const btnPdf = document.getElementById('btn-preview-pdf');
+  const btnHtml = document.getElementById('btn-preview-html');
+  if (btnPdf) {
+    btnPdf.style.background = 'var(--accent)';
+    btnPdf.style.color = 'white';
+  }
+  if (btnHtml) {
+    btnHtml.style.background = 'transparent';
+    btnHtml.style.color = 'var(--text-muted)';
+  }
+  
   buildPrintTemplate();
   document.getElementById('editor-view').style.display='none';
   document.getElementById('preview-view').style.display='block';
   window.scrollTo(0,0);
-  adjustPreviewZoom();
 }
 function switchToEditor() {
   document.getElementById('preview-view').style.display='none';
@@ -4721,6 +4832,149 @@ function checkCopiedData() {
             }
         } catch (e) {}
     }
+}
+
+let currentPreviewTab = 'pdf';
+let currentPdfBlobUrl = null;
+
+function showPreviewTab(tab) {
+  currentPreviewTab = tab;
+  
+  const btnPdf = document.getElementById('btn-preview-pdf');
+  const btnHtml = document.getElementById('btn-preview-html');
+  
+  if (tab === 'pdf') {
+    if (btnPdf) {
+      btnPdf.style.background = 'var(--accent)';
+      btnPdf.style.color = 'white';
+    }
+    if (btnHtml) {
+      btnHtml.style.background = 'transparent';
+      btnHtml.style.color = 'var(--text-muted)';
+    }
+    loadPdfPreview();
+  } else {
+    if (btnPdf) {
+      btnPdf.style.background = 'transparent';
+      btnPdf.style.color = 'var(--text-muted)';
+    }
+    if (btnHtml) {
+      btnHtml.style.background = 'var(--accent)';
+      btnHtml.style.color = 'white';
+    }
+    buildPrintTemplateHtml();
+  }
+}
+
+async function loadPdfPreview() {
+  const container = document.getElementById('print-content');
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 100px 40px; color:var(--text-muted);">
+      <div style="border: 4px solid rgba(13,148,136,0.1); border-left-color: var(--accent); border-radius:50%; width:40px; height:40px; animation: spin 1s linear infinite; margin-bottom:15px;"></div>
+      <div style="font-weight: 500; font-size: 14px;">Đang tải bản xem trước PDF (Giống 100% khi in)...</div>
+    </div>
+  `;
+  
+  const certNo = (document.getElementById('f-certno')?.value || '').trim()
+              || (typeof currentActiveCertNo !== 'undefined' && currentActiveCertNo)
+              || '';
+
+  if (!certNo || certNo === '-') {
+    container.innerHTML = '<div style="padding:40px; color:var(--danger); text-align:center; font-weight:500;">Vui lòng nhập Số chứng nhận (Cert No.) để tải bản xem trước PDF.</div>';
+    return;
+  }
+
+  // Tối thiểu 1 máy/phép thử được công nhận trong phần Quy trình & Tiêu chuẩn áp dụng
+  if (calibrateMethods.length === 0 && !getSpecProcedureTableData()) {
+    container.innerHTML = '<div style="padding:40px; color:var(--warning); text-align:center; font-weight:500;">Vui lòng chọn ít nhất 1 máy/phép thử hoặc quy trình để tạo PDF.</div>';
+    return;
+  }
+
+  const pointRecords = collectCalibrationResults().map(r => ({
+    parameterName: r.param,
+    calPoint:      r.point,
+    asFoundValue:  r.found,
+    uncertainty:   r.unc,
+    referenceValue: r.refValue,
+    tolerance:     r.tol,
+    conformity:    r.conf
+  }));
+
+  const standardRecords = collectAllStandards().map(s => ({
+    name:    s.name,
+    id:      s.id,
+    certNo:  s.certNo || '',
+    trace:   s.trace,
+    due:     s.due
+  }));
+
+  const payload = {
+    cert_no:        certNo,
+    equipmentName:  window._currentWorkingEquipment || '',
+    instrumentName:    txt('f-inst-vi'),
+    instrumentNameEn:  txt('f-inst-en'),
+    manufacturer:      txt('f-mfr'),
+    manufacturerId:    txt('f-mfr-id'),
+    model:             txt('f-model'),
+    modelSerial:       txt('f-model-sn'),
+    equipmentId:       txt('f-id'),
+    serialNumber:      txt('f-sn'),
+    customerName:      txt('f-cust'),
+    customerAddress: txt('f-cust-addr'),
+    calDate:        txt('f-caldate'),
+    reCalDate:      txt('f-recaldate'),
+    procedure:      getSpecProcedureTableData(),
+    refStandard:    getSpecRefTableData(),
+    tempEnv:        txt('f-temp'),
+    humiEnv:        txt('f-humi'),
+    headOfLab:      txt('f-sign1'),
+    director:       txt('f-sign2'),
+    specRange:      getSpecRangeTableData(),
+    specResolution: getSpecResolutionTableData(),
+    points:         pointRecords.map((p, idx) => ({ ...p, refEq: collectCalibrationResults()[idx].refEq })),
+    standards:      standardRecords,
+    accreditedMethods: []
+  };
+
+  try {
+    const response = await fetch(`${API_URL}/calibration/export-pdf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+    if (result.success && result.base64) {
+      const binaryString = window.atob(result.base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      if (currentPdfBlobUrl) {
+        URL.revokeObjectURL(currentPdfBlobUrl);
+      }
+      currentPdfBlobUrl = URL.createObjectURL(blob);
+      container.innerHTML = `
+        <iframe src="${currentPdfBlobUrl}#toolbar=1" style="width:100%; height:840px; border:1px solid var(--border); border-radius:8px; box-shadow: var(--shadow-sm);" allow="print"></iframe>
+      `;
+    } else {
+      container.innerHTML = `<div style="padding:40px; color:var(--danger); text-align:center; font-weight:500;">Lỗi tạo PDF: ${result.error || result.message}</div>`;
+    }
+  } catch (error) {
+    console.error("Lỗi khi tải bản xem trước PDF:", error);
+    container.innerHTML = `<div style="padding:40px; color:var(--danger); text-align:center; font-weight:500;">Lỗi kết nối máy chủ khi tạo bản xem trước PDF.</div>`;
+  }
+}
+
+function buildPrintTemplate() {
+  if (currentPreviewTab === 'pdf') {
+    loadPdfPreview();
+  } else {
+    buildPrintTemplateHtml();
+  }
 }
 
 function clearEditorData() {
