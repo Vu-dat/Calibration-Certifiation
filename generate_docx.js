@@ -216,7 +216,7 @@ function t1Cell(children, width, colSpan = 1, opts = {}) {
         columnSpan: colSpan,
         width: { size: width, type: WidthType.DXA },
         verticalAlign: opts.vAlign || 'center',
-        margins: opts.margins || { top: 100, bottom: 100, left: 120, right: 120 },
+        margins: opts.margins || { top: 0, bottom: 0, left: 120, right: 120 },
         shading: opts.shading,
         borders: opts.borders || {
             top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE,
@@ -227,7 +227,7 @@ function t1Cell(children, width, colSpan = 1, opts = {}) {
 function t2Cell(children, width, colSpan = 1, opts = {}) {
     const finalChildren = Array.isArray(children) ? children : (children ? [children] : []);
     return new TableCell({
-        children: finalChildren.length > 0 ? finalChildren : [new Paragraph({})],
+        children: finalChildren.length > 0 ? finalChildren : [new Paragraph({ keepNext: opts.keepNext || false })],
         columnSpan: colSpan,
         width: { size: width, type: WidthType.DXA },
         verticalAlign: opts.vAlign || 'center',
@@ -789,7 +789,7 @@ async function main(opts) {
                 const children = [];
 
         // Determine instDisplay early for dynamic line estimation
-        let instVi = (tpl && tpl.NAME_VI) ? tpl.NAME_VI : (cert.INSTRUMENT_NAME || '–');
+        let instVi = cert.INSTRUMENT_NAME || (tpl && tpl.NAME_VI) || '–';
         let instEn = cert.INSTRUMENT_NAME_EN || '';
         if (!instEn && tpl && tpl.NAME) {
             // Strip leading number prefix (e.g. "1.1 Auto Crocking Meter" → "Auto Crocking Meter")
@@ -841,7 +841,7 @@ async function main(opts) {
 
         // Row 1: Customer Name & Address
         t1Rows.push(new TableRow({
-            height: { value: 750, rule: HeightRule.AT_LEAST },
+            height: { value: 979, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('1. Khách hàng:', { fontSize: 10 }),
@@ -856,7 +856,7 @@ async function main(opts) {
 
         // Row 2: Instrument Name
         t1Rows.push(new TableRow({
-            height: { value: 550, rule: HeightRule.AT_LEAST },
+            height: { value: 695, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('2. Tên thiết bị:', { fontSize: 10 }),
@@ -871,7 +871,7 @@ async function main(opts) {
 
         // Row 3: Manufacturer and Model
         t1Rows.push(new TableRow({
-            height: { value: 450, rule: HeightRule.AT_LEAST },
+            height: { value: 558, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('3. Nhà sản xuất:', { fontSize: 10 }),
@@ -892,7 +892,7 @@ async function main(opts) {
 
         // Row 4: ID and Serial Number
         t1Rows.push(new TableRow({
-            height: { value: 500, rule: HeightRule.AT_LEAST },
+            height: { value: 650, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('4. Mã quản lý ID', { fontSize: 10 }),
@@ -912,7 +912,7 @@ async function main(opts) {
 
         // Row 5: Specifications Headers
         t1Rows.push(new TableRow({
-            height: { value: 420, rule: HeightRule.AT_LEAST },
+            height: { value: 510, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('7. Đặc trưng kĩ thuật', { fontSize: 10 }),
@@ -995,7 +995,7 @@ async function main(opts) {
 
         t1Rows.push(new TableRow({
             // AT_LEAST: hàng tự nở để chứa danh sách máy/phép thử được công nhận (tối đa 4)
-            height: { value: 900, rule: HeightRule.AT_LEAST },
+            height: { value: 1448, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 2132, 2), // spacer
                 t1Cell(rangeLabelsParas, 2126, 1, { margins: { top: 0, bottom: 0, left: 108, right: 0 } }),
@@ -1008,7 +1008,7 @@ async function main(opts) {
 
         // Row 7: Place of Performance
         t1Rows.push(new TableRow({
-            height: { value: 800, rule: HeightRule.AT_LEAST },
+            height: { value: 1033, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('11. Nơi thực hiện:', { fontSize: 10 }),
@@ -1023,7 +1023,7 @@ async function main(opts) {
 
         // Row 8: Calibration Date & Next Calibration Date
         t1Rows.push(new TableRow({
-            height: { value: 650, rule: HeightRule.AT_LEAST },
+            height: { value: 848, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('12. Ngày thực hiện:', { fontSize: 10 }),
@@ -1044,7 +1044,7 @@ async function main(opts) {
 
         // Row 9: Environment Conditions
         t1Rows.push(new TableRow({
-            height: { value: 650, rule: HeightRule.AT_LEAST },
+            height: { value: 849, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('14. Điều kiện môi trường :', { fontSize: 10 }),
@@ -1069,7 +1069,7 @@ async function main(opts) {
 
         // Row 10: Standards Used Header Label
         t1Rows.push(new TableRow({
-            height: { value: 300, rule: HeightRule.AT_LEAST },
+            height: { value: 378, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para([
@@ -1124,7 +1124,7 @@ async function main(opts) {
 
         // Spacing spacer between standards used table and signature block
         t1Rows.push(new TableRow({
-            height: { value: 150, rule: HeightRule.AT_LEAST },
+            height: { value: 101, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 11483, 15)
             ]
@@ -1148,7 +1148,7 @@ async function main(opts) {
 
         // Row 19: Signature Spacing (Compact)
         t1Rows.push(new TableRow({
-            height: { value: 900, rule: HeightRule.AT_LEAST },
+            height: { value: 1500, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 289, 1),
                 t1Cell([
@@ -1353,7 +1353,7 @@ async function main(opts) {
                     const tol = String(p.TOLERANCE || '–');
                     const conformity = String(p.CONFORMITY || '–');
                     const exactHeight = getRowHeightForParam(paramName, tpl && tpl.NAME);
-                    const pageBreakBefore = (ri === 0) && (paramName.includes('Số đinh trên mỗi thanh') || paramName.includes('Number of pins on pin bar'));
+                    const pageBreakBefore = false;
                     const keepNext = isMulti && (ri < groupSize - 1);
                     
                     let paramMerge = undefined;
@@ -1372,13 +1372,13 @@ async function main(opts) {
                         t2Rows.push(new TableRow({
                             height: { value: exactHeight || 312, rule: HeightRule.AT_LEAST },
                             children: [
-                                t2Cell(ri > 0 ? [] : formatParamParagraphs(paramName, AlignmentType.LEFT, pageBreakBefore, keepNext), 2785, 1, { verticalMerge: paramMerge }),
-                                t2Cell([para(calPt, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 972, 1),
-                                t2Cell([para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1463, 2),
-                                t2Cell([para(unc, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1312, 1),
-                                t2Cell(ri > 0 ? [] : [para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1918, 1, { verticalMerge: refMerge }),
-                                t2Cell(ri > 0 ? [] : [para(tol, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1207, 2, { verticalMerge: tolMerge }),
-                                t2Cell(ri > 0 ? [] : [para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, keepNext })], 1261, 2, { verticalMerge: confMerge }),
+                                t2Cell(ri > 0 ? [] : formatParamParagraphs(paramName, AlignmentType.LEFT, pageBreakBefore, keepNext), 2557, 1, { verticalMerge: paramMerge, keepNext }),
+                                t2Cell([para(calPt, { fontSize: 9, alignment: AlignmentType.CENTER, keepNext })], 1200, 1, { keepNext, margins: { top: 130, bottom: 130, left: 60, right: 60 } }),
+                                t2Cell([para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1463, 2, { keepNext }),
+                                t2Cell([para(unc, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1312, 1, { keepNext }),
+                                t2Cell(ri > 0 ? [] : [para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1918, 1, { verticalMerge: refMerge, keepNext }),
+                                t2Cell(ri > 0 ? [] : [para(tol, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1207, 2, { verticalMerge: tolMerge, keepNext }),
+                                t2Cell(ri > 0 ? [] : [para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, keepNext })], 1261, 2, { verticalMerge: confMerge, keepNext }),
                             ]
                         }));
                     } else {
@@ -1462,8 +1462,8 @@ async function main(opts) {
             new Table({
                 rows: t2Rows,
                 width: { size: 10918, type: WidthType.DXA },
-                columnWidths: [2785, 972, 8, 1455, 1312, 1918, 1199, 8, 1253, 8],
-                indent: { size: -220, type: WidthType.DXA },
+                columnWidths: [2557, 1200, 8, 1455, 1312, 1918, 1199, 8, 1253, 8],
+                indent: { size: -147, type: WidthType.DXA },
                 alignment: AlignmentType.CENTER,
                 borders: TABLE_BORDER_GRID
             })
@@ -1480,28 +1480,66 @@ async function main(opts) {
         // ═══════════════════════════════════════════════════════════════
         //  SNAGPOD IMAGE PAGES (matching PDF: pages 4-5 with diagrams)
         // ═══════════════════════════════════════════════════════════════
-        const isSnagpod = tpl && (tpl.NAME || '').toLowerCase().includes('snagpod');
+        const isSnagpod = tpl && (
+            (tpl.NAME || '').toLowerCase().includes('snagpod') || 
+            (tpl.NAME || '').toLowerCase().includes('snagging') || 
+            (tpl.EQUIPMENT_ID || '') === 'EQ-000015'
+        );
         if (isSnagpod) {
-            // Page 4: Sectional view of test chamber (hexagon + chamber)
+            // Page 4: Snagpod diagrams page
             children.push(new Paragraph({ children: [new PageBreak()] }));
             const snagHexPath = path.join(BASE_DIR, 'public', 'img', 'snagpod_hexagon.png');
             const snagChamberPath = path.join(BASE_DIR, 'public', 'img', 'snagpod_chamber.png');
-            const snagHexChildren = [];
+            const snagPinPath = path.join(BASE_DIR, 'public', 'img', 'snagpod_pin.png');
+            
+            // Side-by-side table for Hexagon and Chamber
+            const hexCellChildren = [];
+            const chamberCellChildren = [];
             if (fs.existsSync(snagHexPath)) {
-                snagHexChildren.push(createImageParagraph(snagHexPath, 420, 420));
+                hexCellChildren.push(createImageParagraph(snagHexPath, 220, 220, 0, 0));
             }
             if (fs.existsSync(snagChamberPath)) {
-                snagHexChildren.push(createImageParagraph(snagChamberPath, 440, 440));
+                chamberCellChildren.push(createImageParagraph(snagChamberPath, 220, 220, 0, 0));
             }
-            if (snagHexChildren.length > 0) {
-                children.push(...snagHexChildren);
-            }
-
-            // Page 5: Isometric view of pin bar
-            children.push(new Paragraph({ children: [new PageBreak()] }));
-            const snagPinPath = path.join(BASE_DIR, 'public', 'img', 'snagpod_pin.png');
+            
+            const imgTableRows = [
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: hexCellChildren.length > 0 ? hexCellChildren : [new Paragraph({})],
+                            width: { size: 5741, type: WidthType.DXA },
+                            borders: TABLE_BORDER_NONE,
+                            margins: { top: 0, bottom: 0, left: 120, right: 120 },
+                            verticalAlign: 'center'
+                        }),
+                        new TableCell({
+                            children: chamberCellChildren.length > 0 ? chamberCellChildren : [new Paragraph({})],
+                            width: { size: 5742, type: WidthType.DXA },
+                            borders: TABLE_BORDER_NONE,
+                            margins: { top: 0, bottom: 0, left: 120, right: 120 },
+                            verticalAlign: 'center'
+                        })
+                    ]
+                })
+            ];
+            
+            const imgTable = new Table({
+                rows: imgTableRows,
+                width: { size: 11483, type: WidthType.DXA },
+                columnWidths: [5741, 5742],
+                indent: { size: -426, type: WidthType.DXA },
+                alignment: AlignmentType.CENTER,
+                borders: TABLE_BORDER_NONE
+            });
+            
+            children.push(imgTable);
+            
+            // Add a small paragraph spacing
+            children.push(new Paragraph({ spacing: { before: 200, after: 200 } }));
+            
+            // Centered Pin bar image below
             if (fs.existsSync(snagPinPath)) {
-                children.push(createImageParagraph(snagPinPath, 600, 600));
+                children.push(createImageParagraph(snagPinPath, 460, 110, 0, 0));
             }
         }
 

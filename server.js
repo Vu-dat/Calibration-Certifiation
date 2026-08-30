@@ -1354,14 +1354,13 @@ async function saveCalibrationDataToDBHelper(data, cert_no) {
 
     const points = data.points || [];
     if (points.length > 0) {
-        const pointInsertPromises = points.map(p => {
+        for (const p of points) {
             const standardVal = p.refEq || p.standardEquipment || p.standard_equipment || '';
-            return sql`
+            await sql`
                 INSERT INTO CALIBRATION_POINTS (CERT_NO, EQUIPMENT_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, REFERENCE_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT)
                 VALUES (${cert_no}, ${eqName}, ${p.parameterName || p.param || ''}, ${p.calPoint || p.point || ''}, ${p.asFoundValue || p.found || ''}, ${p.referenceValue || p.refValue || p.reference_value || ''}, ${p.uncertainty || p.unc || ''}, ${p.tolerance || p.tol || ''}, ${p.conformity || p.conf || ''}, ${standardVal}, ${standardVal})
             `;
-        });
-        await Promise.all(pointInsertPromises);
+        }
     }
 
     const stds = data.standards || [];

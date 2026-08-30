@@ -1351,7 +1351,19 @@ function applyEquipmentCache(templates) {
     freshDB[t.NAME] = {
       manufacturer: t.MANUFACTURER || '',
       model: t.MODEL || '',
-      instEn: t.NAME.replace(/^\d+\.\d*\s*/, '').trim(),
+      instEn: (function() {
+        const name = t.NAME.replace(/^\d+\.\d*\s*/, '').trim();
+        if (name === 'Manual Crocking Meter' || name === 'Auto Crocking Meter' || name === 'JIS Rubbing Tester') return 'Crocking meter';
+        if (name === 'Rotary Crocking Meter') return 'Rotary crocking meter';
+        if (name === 'Veslic Rubbing Tester') return 'Veslic Rub Fastness Tester';
+        if (name === 'Random Tumble Pilling Tester - 2' || name === 'Random Tumble Pilling Tester - 4') return 'Random Tumble Pilling Tester';
+        if (name === 'ICI Pilling and Snagging Tester') return 'Pilling and Snagging Tester';
+        if (name === 'Snagging box') return 'Pilling Box';
+        if (name === 'BS 8479 Snagging Test Box') return 'BS 8479 Snagging Test Box';
+        if (name === 'Tensile Strength Tester') return 'Tensile Strength Tester';
+        if (name.startsWith('Martindale')) return 'Martindale';
+        return name;
+      })(),
       nameVi: t.NAME_VI || '',
       equipmentId: t.EQUIPMENT_ID || '',
       serialNumber: t.SERIAL_NUMBER || '',
@@ -3236,7 +3248,7 @@ function estimatePrintPages(allRes, isSnagpod, isMartindale, sec17EstH) {
       const grp = groups[gi];
       const rowHeights = estimateGroupRowHeights(grp);
       let groupH = rowHeights.reduce((a, b) => a + b, 0);
-      const pageBreakBefore = grp.name.includes('Số đinh trên mỗi thanh') || grp.name.includes('Number of pins on pin bar');
+      const pageBreakBefore = false;
       
       let martindaleDrawingH = 0;
       let is60 = false, is24 = false;
@@ -3335,7 +3347,7 @@ function buildPrintTemplate() {
 
   const instVi = (txt('f-inst-vi') || '').toLowerCase();
   const instEn = (txt('f-inst-en') || '').toLowerCase();
-  const isSnagpod = instVi.includes('snagpod') || instEn.includes('snagpod');
+  const isSnagpod = instVi.includes('snagpod') || instEn.includes('snagpod') || instVi.includes('snagging') || instEn.includes('snagging') || (txt('f-id') || '').toUpperCase() === 'EQ-000015';
   const isMartindale = instVi.includes('martindale') || instEn.includes('martindale');
 
   // 1. Calculate Section 17 estimated height
@@ -3462,7 +3474,7 @@ function buildPrintTemplate() {
     const grp = groups[gi];
     const rowHeights = estimateGroupRowHeights(grp);
     let groupH = rowHeights.reduce((a, b) => a + b, 0);
-    const pageBreakBefore = grp.name.includes('Số đinh trên mỗi thanh') || grp.name.includes('Number of pins on pin bar');
+    const pageBreakBefore = false;
     
     let martindaleDrawingH = 0;
     let is60 = false, is24 = false;

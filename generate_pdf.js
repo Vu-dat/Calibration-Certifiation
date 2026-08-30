@@ -143,8 +143,8 @@ function drawCell(doc, text, x, y, colWidth, rowH, pyV) {
   let size = originalSize;
   while (size >= 5) {
     doc.fontSize(size);
-    const h = doc.heightOfString(normalized, { width: colWidth });
-    if (h <= rowH + 0.1) {
+    const w = doc.widthOfString(normalized);
+    if (w <= colWidth) {
       break;
     }
     size -= 0.5;
@@ -360,7 +360,7 @@ function wrapText(doc, text, x, y, width, size, bold, ital, gap) {
 function drawPage1Body(doc, cert, pts, stds, accM, tpl) {
   var name = (cert.CUSTOMER_NAME && cert.CUSTOMER_NAME !== 'null') ? cert.CUSTOMER_NAME : '';
   var addr = (cert.CUSTOMER_ADDRESS && cert.CUSTOMER_ADDRESS !== 'null') ? cert.CUSTOMER_ADDRESS : '';
-  var inst = (tpl && tpl.NAME_VI) ? tpl.NAME_VI : ((cert.INSTRUMENT_NAME && cert.INSTRUMENT_NAME !== 'null') ? cert.INSTRUMENT_NAME : '');
+  var inst = (cert.INSTRUMENT_NAME && cert.INSTRUMENT_NAME !== 'null') ? cert.INSTRUMENT_NAME : ((tpl && tpl.NAME_VI) ? tpl.NAME_VI : '');
   var instEn = (cert.INSTRUMENT_NAME_EN && cert.INSTRUMENT_NAME_EN !== 'null') ? cert.INSTRUMENT_NAME_EN : '';
   if (!instEn && tpl && tpl.NAME) {
     // Strip leading number prefix (e.g. "1.1 Auto Crocking Meter" → "Auto Crocking Meter")
@@ -880,10 +880,10 @@ function drawResultsTable(doc, pts, pageContext) {
     var isMulti = grp.rows.length > 1;
     var rowHeights = getGroupRowHeights(doc, grp, tpl);
     var groupH = rowHeights.reduce((a, b) => a + b, 0);
-    var pageBreakBefore = grp.name.includes('Số đinh trên mỗi thanh') || grp.name.includes('Number of pins on pin bar');
+    var pageBreakBefore = false;
     
     // Page break handling for the group
-    var canKeepTogether = (groupH <= 200);
+    var canKeepTogether = (groupH <= 500);
     if (((canKeepTogether && y + groupH > 790) || pageBreakBefore) && y > T + TH) {
       drawFooter(doc, pageContext.currentPage, pageContext.totalPages);
       doc.addPage();
@@ -1043,7 +1043,7 @@ function drawResultsTable(doc, pts, pageContext) {
 // Section 17 + legal text. Reference: all 8pt, x=20.0, EXACT line spacing 10.55pt
 // Reference line positions: startY=483.4, each line at startY + n*10.55
 function drawSection17(doc, startY, cNo, pts) {
-  var x = 20.0, w = 564.4;
+  var x = 28.7, w = 545.6;
   var lh = 10.5;
   var fs = 8;
   var curY = startY;
@@ -1111,7 +1111,7 @@ function drawSection17(doc, startY, cNo, pts) {
 
 // Estimate Section 17 total height (dry-run)
 function estimateSection17Height(doc, pts) {
-  var w = 564.4, lh = 10.5, fs = 8, lines = 0;
+  var w = 545.6, lh = 10.5, fs = 8, lines = 0;
   function countLines(textArr) { lines += textArr.length; }
   sf(doc, false); doc.fontSize(fs);
   countLines(['n1']); // note
@@ -1169,7 +1169,7 @@ function determinePages(doc, pts, tpl, sec17EstH) {
       var grp = groups[gi];
       var rowHeights = getGroupRowHeights(doc, grp, tpl);
       var groupH = rowHeights.reduce((a, b) => a + b, 0);
-      var pageBreakBefore = grp.name.includes('Số đinh trên mỗi thanh') || grp.name.includes('Number of pins on pin bar');
+      var pageBreakBefore = false;
       
       var isMartindale = tpl && (tpl.NAME || '').toLowerCase().includes('martindale');
       var martindaleDrawingH = 0;
@@ -1211,9 +1211,13 @@ function determinePages(doc, pts, tpl, sec17EstH) {
   // Section 17 placement check
   var lastPage = currentPage;
   
-  var isSnagpod = tpl && (tpl.NAME || '').toLowerCase().includes('snagpod');
+  var isSnagpod = tpl && (
+    (tpl.NAME || '').toLowerCase().includes('snagpod') || 
+    (tpl.NAME || '').toLowerCase().includes('snagging') || 
+    (tpl.EQUIPMENT_ID || '') === 'EQ-000015'
+  );
   if (isSnagpod) {
-    lastPage += 2; // Snagpod always adds 2 diagram pages, section 17 will go on the last page (page 5)
+    lastPage += 2; // Snagpod always adds 2 pages: Page 3 for diagrams, Page 4 for Notes
   } else {
     var sec17Fits = (y + 8 + sec17EstH <= 810);
     if (!sec17Fits) {
@@ -1368,40 +1372,40 @@ async function main(opts) {
     var tableEnd = drawResultsTable(doc, pts, pageContext);
     
     var lastTablePage = pageContext.currentPage;
-    var isSnagpod = tpl && (tpl.NAME || '').toLowerCase().includes('snagpod');
+    var isSnagpod = tpl && (
+      (tpl.NAME || '').toLowerCase().includes('snagpod') || 
+      (tpl.NAME || '').toLowerCase().includes('snagging') || 
+      (tpl.EQUIPMENT_ID || '') === 'EQ-000015'
+    );
     
     if (isSnagpod) {
       drawFooter(doc, lastTablePage, totalPages);
       
-      // Page 4: Sectional view of test chamber
+      // Page 3: Snagpod diagrams
       doc.addPage();
       drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
-      var snagHexagon = null, snagChamber = null;
+      var snagHexagon = null, snagChamber = null, snagPin = null;
       try {
         snagHexagon = fs.readFileSync(path.join(BD, 'public', 'img', 'snagpod_hexagon.png'));
         snagChamber = fs.readFileSync(path.join(BD, 'public', 'img', 'snagpod_chamber.png'));
-      } catch(e) { console.error("Error loading snagpod chamber diagrams:", e.message); }
+        snagPin = fs.readFileSync(path.join(BD, 'public', 'img', 'snagpod_pin.png'));
+      } catch(e) { console.error("Error loading snagpod diagrams:", e.message); }
+      
       if (snagHexagon) {
-        doc.image(snagHexagon, ML + (CW - 320) / 2, 155, { width: 320 });
+        doc.image(snagHexagon, 45, 160, { width: 240 });
       }
       if (snagChamber) {
-        doc.image(snagChamber, ML + (CW - 340) / 2, 410, { width: 340 });
+        doc.image(snagChamber, 310, 160, { width: 240 });
+      }
+      if (snagPin) {
+        doc.image(snagPin, ML + (CW - 420) / 2, 430, { width: 420 });
       }
       drawFooter(doc, lastTablePage + 1, totalPages);
       
-      // Page 5: Isometric view of a pin bar & Detailed view of a pin, then Section 17
+      // Page 4: Section 17 (Notes) by itself
       doc.addPage();
       drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
-      var snagPin = null;
-      try {
-        snagPin = fs.readFileSync(path.join(BD, 'public', 'img', 'snagpod_pin.png'));
-      } catch(e) { console.error("Error loading snagpod pin diagram:", e.message); }
-      
-      if (snagPin) {
-        doc.image(snagPin, ML + (CW - 460) / 2, 160, { width: 460 });
-      }
-      
-      drawSection17(doc, 440, cNo, pts);
+      drawSection17(doc, 160.3, cNo, pts);
       drawFooter(doc, lastTablePage + 2, totalPages);
     } else {
       var sec17FitsOnLastPage = (tableEnd + 8 + sec17EstH <= 810);
