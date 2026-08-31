@@ -539,8 +539,8 @@ function createHeaderTable2(cNo, calDate) {
 // ─── MAIN ──────────────────────────────────────────────────────────
 async function main(opts) {
     try {
-        const cNo = (opts && opts.certNo) || certNo;
-        if (!cNo) {
+        const compositeCNo = (opts && opts.certNo) || certNo;
+        if (!compositeCNo) {
             if (require.main === module) { console.error('Lỗi: node generate_docx.js <CERT_NO> [download_url]'); process.exit(1); }
             else throw new Error('Lỗi: node generate_docx.js <CERT_NO> [download_url]');
         }
@@ -548,11 +548,17 @@ async function main(opts) {
         const dUrl = (opts && opts.downloadUrl) || downloadUrl || '';
         const eqName = (opts && opts.equipmentName) || equipmentName || '';
         const accMethods = (opts && opts.accreditedMethods) || []; // danh sách máy/phép thử được công nhận (STT + tên + mã QT)
+        
+        let cNo = compositeCNo;
+        if (eqName && cNo.endsWith('_' + eqName)) {
+            cNo = cNo.substring(0, cNo.length - eqName.length - 1);
+        }
+        
         let finalDUrl = dUrl;
         if (!finalDUrl) {
             const baseUrl = getPublicBaseUrl();
             if (baseUrl) {
-                const safeName = cNo.replace(/[^a-zA-Z0-9]/g, '_');
+                const safeName = compositeCNo.replace(/[^a-zA-Z0-9]/g, '_');
                 finalDUrl = baseUrl + (process.env.VERCEL ? '/api/static/' : '/static/') + 'GCN_' + safeName + '.docx';
             } else {
                 const errMsg = 'Thiếu downloadUrl và PUBLIC_URL — không thể tạo QR download hợp lệ. Vui lòng set biến môi trường PUBLIC_URL hoặc truyền downloadUrl.';
@@ -563,12 +569,12 @@ async function main(opts) {
         
         const STATIC_DIR = process.env.VERCEL ? require('os').tmpdir() : path.join(BASE_DIR, 'static');
         if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
-        const SAFE_NAME   = cNo.replace(/[^a-zA-Z0-9]/g, '_');
+        const SAFE_NAME   = compositeCNo.replace(/[^a-zA-Z0-9]/g, '_');
         const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.docx`);
         
-        let cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [cNo]);
+        let cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [compositeCNo]);
         if (!cert) {
-            const errMsg = 'Lỗi: Không tìm thấy dữ liệu cho mã [' + cNo + '].';
+            const errMsg = 'Lỗi: Không tìm thấy dữ liệu cho mã [' + compositeCNo + '].';
             if (require.main === module) { console.error(errMsg); process.exit(1); }
             else throw new Error(errMsg);
         }
@@ -579,8 +585,8 @@ async function main(opts) {
             tpl = await dbGet(`SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ?`, [eqName]);
         }
         if (!tpl) {
-            let cleanName = (cert.INSTRUMENT_NAME || '').replace(/[\s_]+/g, ' ').replace(/ thử/gi, '').trim();
-            tpl = await dbGet(`SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ? OR NAME = ? OR REPLACE(NAME_VI, ' thử', '') = ?`, [cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME_EN, cleanName]);
+            let cleanName = (cert.INSTRUMENT_NAME || '').replace(/[\s_]+/g, ' ').replace(/ thử/gi, '').replace(/mater/gi, 'meter').trim();
+            tpl = await dbGet(`SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ? OR NAME = ? OR REPLACE(NAME_VI, ' thử', '') = ? OR REPLACE(NAME, 'mater', 'meter') = ?`, [cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME_EN, cleanName, cleanName]);
         }
         if (tpl) tpl = toUpperKeys(tpl);
 
@@ -604,16 +610,16 @@ async function main(opts) {
 
         let points;
         if (eqName) {
-            points = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC`, [cNo, eqName]);
+            points = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC`, [compositeCNo, eqName]);
         } else {
-            points = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]);
+            points = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [compositeCNo]);
         }
         points = toUpperKeys(points);
 
         // Points are already in insertion order (ORDER BY ID ASC) matching the preview DOM order.
         // No re-sorting by template — the user's arrangement is preserved.
 
-        const standards = toUpperKeys(await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [cNo]));
+        const standards = toUpperKeys(await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [compositeCNo]));
 
         // Generate QR code if download URL provided
         let qrBuffer = null;

@@ -747,6 +747,9 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
 
       <div class="proj-actions-bar">
+        <button class="btn btn-teal ripple-btn" onclick="saveProjectDetails()">
+          <i class="fas fa-save"></i> Lưu dự án
+        </button>
         <button class="btn btn-success ripple-btn" onclick="markProjectAsFinished()">
           <i class="fas fa-check-circle"></i> Đánh dấu hoàn thành
         </button>
@@ -771,7 +774,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <div class="workspace-header-actions" id="editor-header-actions">
           <button class="btn btn-secondary btn-sm" onclick="backToProjectDetail()">← Quay lại dự án</button>
-          <button class="btn btn-teal" onclick="saveCalibrationData()">💾 Lưu vào SQL DB</button>
+          <button class="btn btn-teal" onclick="saveCalibrationData()">💾 Save</button>
           <button class="btn btn-primary" onclick="switchToPreview()">👁 Xem trước & In</button>
         </div>
       </div>
@@ -955,7 +958,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       <div style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:40px;">
         <button class="btn btn-secondary" onclick="backToProjectDetail()">← Quay lại dự án</button>
-        <button class="btn btn-danger" onclick="clearEditorData()">↺ Làm mới dữ liệu</button>
         <button class="btn btn-primary" onclick="switchToPreview()">👁 Xem trước & In A4</button>
       </div>
     </div>
@@ -1359,7 +1361,8 @@ function applyEquipmentCache(templates) {
       model: t.MODEL || '',
       instEn: (function() {
         const name = t.NAME.replace(/^\d+\.\d*\s*/, '').trim();
-        if (name === 'Manual Crocking Meter' || name === 'Auto Crocking Meter' || name === 'JIS Rubbing Tester') return 'Crocking meter';
+        if (name === 'Manual Crocking Meter' || name === 'JIS Rubbing Tester') return 'Crocking meter';
+        if (name === 'Auto Crocking Meter') return 'Auto Crocking Meter';
         if (name === 'Rotary Crocking Meter') return 'Rotary crocking meter';
         if (name === 'Veslic Rubbing Tester') return 'Veslic Rub Fastness Tester';
         if (name === 'Random Tumble Pilling Tester - 2' || name === 'Random Tumble Pilling Tester - 4') return 'Random Tumble Pilling Tester';
@@ -1407,7 +1410,7 @@ function resolveEquipmentName(idOrName) {
   if (MockDatabaseEquipment[idOrName]) return idOrName;
   
   // Tìm kiếm không phân biệt chữ hoa thường và bỏ số thứ tự ở đầu
-  const cleanStr = (s) => String(s).replace(/^\d+(\.\d+)*[\s\.\-:_]*/, '').trim().toLowerCase();
+  const cleanStr = (s) => String(s).replace(/^\d+(\.\d+)*[\s\.\-:_]*/, '').replace(/mater/gi, 'meter').trim().toLowerCase();
   const cleanedIdOrName = cleanStr(idOrName);
   const keys = Object.keys(MockDatabaseEquipment);
   for (const k of keys) {
@@ -1708,10 +1711,24 @@ async function viewProjectDetail(id) {
   currentEquipmentName = proj.TITLE; 
 
   // Kiểm tra từ khóa ánh xạ sang tên thiết bị chuẩn trong DB
+  let matched = false;
   for (const [kw, tpl] of Object.entries(templateMapping)) {
     if (titleLower.includes(kw) && MockDatabaseEquipment[tpl]) {
       currentEquipmentName = tpl; // Gán bằng tên thiết bị lấy từ databasequipment
+      matched = true;
       break;
+    }
+  }
+
+  if (!matched) {
+    const normalizedTitle = titleLower.replace(/[\s\-_]+/g, ' ').replace('mater', 'meter').trim();
+    const allNames = Object.keys(MockDatabaseEquipment);
+    for (const eqName of allNames) {
+      const cleanName = eqName.toLowerCase().replace(/[\s\-_]+/g, ' ').trim();
+      if (normalizedTitle.includes(cleanName) || cleanName.includes(normalizedTitle)) {
+        currentEquipmentName = eqName;
+        break;
+      }
     }
   }
   // --------------------------------------------------------------------------------
@@ -1770,40 +1787,22 @@ async function viewProjectDetail(id) {
     }
   }
 
-  // Khởi tạo danh sách máy — Đưa ra tất cả tên máy từ databasequipment (EQUIPMENT_TEMPLATES)
+  // Khởi tạo danh sách máy — Lấy dữ liệu các máy đã lưu cho dự án này từ SQL
   resetMachineList();
   
-  const allEquipmentNames = Object.keys(MockDatabaseEquipment);
-  if (allEquipmentNames.length > 0) {
-    // Sắp xếp theo tên
-    allEquipmentNames.sort((a, b) => a.localeCompare(b));
-    // Tìm thiết bị phù hợp với dự án (ưu tiên đưa lên đầu)
-    const titleLower = proj.TITLE.toLowerCase();
-    let matchedFirst = null;
-    for (const [kw, tpl] of Object.entries(templateMapping)) {
-      if (titleLower.includes(kw) && allEquipmentNames.includes(tpl)) {
-        matchedFirst = tpl;
-        break;
+  fetch(`${API_BASE_URL}/api/projects/${proj.ID}/machines`)
+    .then(res => res.json())
+    .then(resData => {
+      if (resData.success && resData.machines && resData.machines.length > 0) {
+        resData.machines.sort((a, b) => a.localeCompare(b));
+        resData.machines.forEach((eqName, idx) => {
+          addMachineToProjectList(proj, eqName, idx + 1);
+        });
       }
-    }
-    
-    // Nếu có thiết bị khớp, đưa lên đầu danh sách
-    const sortedNames = [...allEquipmentNames];
-    if (matchedFirst) {
-      const idx = sortedNames.indexOf(matchedFirst);
-      if (idx > 0) {
-        sortedNames.splice(idx, 1);
-        sortedNames.unshift(matchedFirst);
-      }
-    }
-    
-    sortedNames.forEach((eqName, idx) => {
-      addMachineToProjectList(proj, eqName, idx + 1);
+    })
+    .catch(err => {
+      console.error("Lỗi khi tải danh sách thiết bị của dự án:", err);
     });
-  } else {
-    // Fallback: thêm 1 dòng trống nếu chưa có dữ liệu
-    addMachineToProjectList(proj);
-  }
 }
 
 function resetMachineList() {
@@ -1839,7 +1838,8 @@ function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum
           <td>
               <div style="display:flex; gap:6px; justify-content:center;">
                   <button class="btn btn-teal btn-sm" onclick="openCalibrationForRow(this)" title="Bắt đầu hiệu chuẩn">Calibration</button>
-                  <button class="btn btn-secondary btn-sm" onclick="openCalibrationWorkspace('${equipmentName.replace(/'/g, "\\'")}').then(switchToPreview);" title="Xem bản in">Print</button>
+                  <button class="btn btn-secondary btn-sm" onclick="openPrintForRow(this)" title="Xem bản in">Print</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteMachineFromRow(this)" title="Xóa thiết bị khỏi dự án">Delete</button>
               </div>
           </td>
       `;
@@ -1859,7 +1859,8 @@ function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum
           <td>
               <div style="display:flex; gap:6px; justify-content:center;">
                   <button class="btn btn-teal btn-sm" onclick="openCalibrationForRow(this)" title="Bắt đầu hiệu chuẩn">Calibration</button>
-                  <button class="btn btn-secondary btn-sm" onclick="openCalibrationWorkspace().then(switchToPreview);" title="Xem bản in">Print</button>
+                  <button class="btn btn-secondary btn-sm" onclick="openPrintForRow(this)" title="Xem bản in">Print</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteMachineFromRow(this)" title="Xóa thiết bị khỏi dự án">Delete</button>
               </div>
           </td>
       `;
@@ -1869,32 +1870,61 @@ function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum
 }
 
 /* ====== SMART SEARCH: TÊN THIẾT BỊ (f-inst-vi) ====== */
+/* ====== SMART SEARCH: TÊN THIẾT BỊ (f-inst-vi) ====== */
 function handleEquipmentSearch(keyword) {
     const box = document.getElementById('equipment-suggestions');
     if (!box) return;
     box.innerHTML = '';
     if (!keyword || keyword.trim().length < 1) { box.style.display = 'none'; return; }
 
-    const keyLower = keyword.toLowerCase();
-    const keys = Object.keys(MockDatabaseEquipment).filter(k => k.toLowerCase().includes(keyLower));
-    keys.sort((a, b) => {
-        const aLower = a.toLowerCase();
-        const bLower = b.toLowerCase();
-        const aStarts = aLower.startsWith(keyLower);
-        const bStarts = bLower.startsWith(keyLower);
-        if (aStarts && !bStarts) return -1;
-        if (!aStarts && bStarts) return 1;
-        return aLower.localeCompare(bLower);
+    const keyLower = keyword.trim().toLowerCase();
+    const allKeys = Object.keys(MockDatabaseEquipment);
+    const matched = [];
+
+    allKeys.forEach(key => {
+        const eq = MockDatabaseEquipment[key] || {};
+        const nameLower = key.toLowerCase();
+        const idLower = (eq.equipmentId || '').toLowerCase();
+        const manuLower = (eq.manufacturer || '').toLowerCase();
+        const modelLower = (eq.model || '').toLowerCase();
+        const viLower = (eq.nameVi || '').toLowerCase();
+
+        if (nameLower.includes(keyLower) || 
+            idLower.includes(keyLower) || 
+            manuLower.includes(keyLower) || 
+            modelLower.includes(keyLower) || 
+            viLower.includes(keyLower)) {
+            matched.push({ key, eq });
+        }
     });
 
-    if (keys.length === 0) {
-        box.innerHTML = '<div class="suggestion-item" style="color:var(--text-muted);cursor:default;">❌ Không tìm thấy thiết bị trong Database</div>';
+    matched.sort((a, b) => {
+        const aName = a.key.toLowerCase();
+        const bName = b.key.toLowerCase();
+        const aStarts = aName.startsWith(keyLower);
+        const bStarts = bName.startsWith(keyLower);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return aName.localeCompare(bName);
+    });
+
+    if (matched.length === 0) {
+        box.innerHTML = '<div class="suggestion-item" style="color:var(--text-muted);cursor:default;padding:8px 12px;">❌ Không tìm thấy thiết bị trong Database</div>';
     } else {
-        keys.slice(0, 8).forEach(key => {
-            const eq = MockDatabaseEquipment[key] || {};
+        matched.slice(0, 8).forEach(item => {
+            const key = item.key;
+            const eq = item.eq;
             const div = document.createElement('div');
             div.className = 'suggestion-item';
-            div.innerHTML = `🔍 <strong>${key}</strong>${eq.manufacturer ? ` <span style="color:var(--text-muted);font-size:11px;">– ${eq.manufacturer}</span>` : ''}`;
+            div.style.cssText = 'padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 2px; text-align: left;';
+            div.innerHTML = `
+                <div style="font-weight: 600; color: var(--text);">🔧 ${key}</div>
+                <div style="font-size: 11px; color: var(--text-muted);">
+                    ${eq.manufacturer ? `Mfr: ${eq.manufacturer}` : ''} 
+                    ${eq.model ? ` | Model: ${eq.model}` : ''} 
+                    ${eq.equipmentId ? ` | ID: <span style="color: var(--teal); font-weight: 500;">${eq.equipmentId}</span>` : ''}
+                </div>
+            `;
             div.onclick = () => {
                 selectEquipmentTemplate(key);
                 box.style.display = 'none';
@@ -1912,31 +1942,70 @@ function handleDeviceSearch(input) {
     box.innerHTML = '';
     if (!keyword) { box.style.display = 'none'; return; }
 
-    // Thuật toán tìm kiếm thông minh: lọc và sắp xếp ưu tiên khớp từ đầu chữ
-    const keys = Object.keys(MockDatabaseEquipment).filter(k => k.toLowerCase().includes(keyword));
-    keys.sort((a, b) => {
-        const aLower = a.toLowerCase();
-        const bLower = b.toLowerCase();
-        const aStarts = aLower.startsWith(keyword);
-        const bStarts = bLower.startsWith(keyword);
-        if (aStarts && !bStarts) return -1;
-        if (!aStarts && bStarts) return 1;
-        return aLower.localeCompare(bLower);
+    const allKeys = Object.keys(MockDatabaseEquipment);
+    const matched = [];
+
+    allKeys.forEach(key => {
+        const eq = MockDatabaseEquipment[key] || {};
+        const nameLower = key.toLowerCase();
+        const idLower = (eq.equipmentId || '').toLowerCase();
+        const manuLower = (eq.manufacturer || '').toLowerCase();
+        const modelLower = (eq.model || '').toLowerCase();
+        const viLower = (eq.nameVi || '').toLowerCase();
+
+        if (nameLower.includes(keyword) || 
+            idLower.includes(keyword) || 
+            manuLower.includes(keyword) || 
+            modelLower.includes(keyword) || 
+            viLower.includes(keyword)) {
+            matched.push({ key, eq });
+        }
     });
 
-    if (keys.length === 0) {
-        box.innerHTML = `<div class="suggestion-item" style="color:var(--text-muted);cursor:default;">❌ Không tìm thấy mẫu thiết bị</div>`;
+    matched.sort((a, b) => {
+        const aName = a.key.toLowerCase();
+        const bName = b.key.toLowerCase();
+        const aStarts = aName.startsWith(keyword);
+        const bStarts = bName.startsWith(keyword);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return aName.localeCompare(bName);
+    });
+
+    if (matched.length === 0) {
+        box.innerHTML = `<div class="suggestion-item" style="color:var(--text-muted);cursor:default;padding:8px 12px;">❌ Không tìm thấy mẫu thiết bị</div>`;
     } else {
-        keys.slice(0, 8).forEach(key => {
+        matched.slice(0, 8).forEach(item => {
+            const key = item.key;
+            const eq = item.eq;
             const div = document.createElement('div');
             div.className = 'suggestion-item';
-            div.innerHTML = `🔍 <strong>${key}</strong>`;
+            div.style.cssText = 'padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 2px; text-align: left;';
+            div.innerHTML = `
+                <div style="font-weight: 600; color: var(--text);">🔧 ${key}</div>
+                <div style="font-size: 11px; color: var(--text-muted);">
+                    ${eq.manufacturer ? `Mfr: ${eq.manufacturer}` : ''} 
+                    ${eq.model ? ` | Model: ${eq.model}` : ''} 
+                    ${eq.equipmentId ? ` | ID: <span style="color: var(--teal); font-weight: 500;">${eq.equipmentId}</span>` : ''}
+                </div>
+            `;
             div.onclick = () => {
                 input.value = key;
                 box.style.display = 'none';
                 const tr = input.closest('tr');
                 if (tr) {
                     tr.dataset.equipmentName = key;
+                    tr.dataset.equipmentId = eq.equipmentId || key;
+                    
+                    const tdName = input.closest('td');
+                    if (tdName) {
+                        tdName.innerHTML = `
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-weight:600;">🔧 ${key}${eq.manufacturer ? `<br><span style="font-size:12px;color:var(--text-muted);font-weight:400;">${eq.manufacturer}</span>` : ''}</span>
+                                <button class="btn btn-ghost btn-xs" onclick="resetSearchRow(this)" style="color:var(--text-muted); padding:2px 6px; font-size:10px;">Thay đổi</button>
+                            </div>
+                        `;
+                    }
                 } else {
                     selectEquipmentTemplate(key);
                 }
@@ -1945,6 +2014,24 @@ function handleDeviceSearch(input) {
         });
     }
     box.style.display = 'block';
+}
+
+function resetSearchRow(btn) {
+    const tr = btn.closest('tr');
+    if (!tr) return;
+    delete tr.dataset.equipmentName;
+    delete tr.dataset.equipmentId;
+    const tdName = btn.closest('td');
+    if (tdName) {
+        tdName.innerHTML = `
+            <div class="autocomplete-wrapper">
+                <input type="text" class="lab-input-cell device-search-input" placeholder="Tìm tên thiết bị (YouTube style)..." oninput="handleDeviceSearch(this)" autocomplete="off" style="font-weight:600; min-width:220px;">
+                <div class="autocomplete-suggestions"></div>
+            </div>
+        `;
+        const input = tdName.querySelector('input');
+        if (input) input.focus();
+    }
 }
 
 /* ====== CALIBRATE METHOD SEARCH (CARD 4: QUY TRÌNH & TIÊU CHUẨN) ====== */
@@ -2280,6 +2367,60 @@ function openCalibrationForRow(btn) {
         return;
     }
     openCalibrationWorkspace(equipmentName);
+}
+
+function openPrintForRow(btn) {
+    const tr = btn.closest('tr');
+    const equipmentName = tr?.dataset?.equipmentName || tr?.dataset?.equipmentId || tr?.querySelector('.device-search-input')?.value || '';
+    if (!equipmentName) {
+        showToast('Vui lòng chọn thiết bị trước khi xem bản in!', 'warning');
+        return;
+    }
+    openCalibrationWorkspace(equipmentName).then(switchToPreview);
+}
+
+async function deleteMachineFromRow(btn) {
+    const tr = btn.closest('tr');
+    if (!tr) return;
+    const equipmentName = tr.dataset.equipmentName || tr.querySelector('.device-search-input')?.value || '';
+    
+    if (!equipmentName) {
+        tr.remove();
+        showToast('Đã xóa dòng trống!');
+        return;
+    }
+    
+    if (!confirm(`Xác nhận xóa thiết bị "${equipmentName}" khỏi dự án? Hành động này sẽ xóa vĩnh viễn dữ liệu hiệu chuẩn đã lưu của máy này.`)) {
+        return;
+    }
+    
+    const certNo = currentProjectId.replace('PRJ-', '');
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/calibration/${certNo}?equipment_name=${encodeURIComponent(equipmentName)}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.status === 404) {
+            showToast('⚠️ Vui lòng TẮT và KHỞI ĐỘNG LẠI Server Node (chạy lại node server.js hoặc npm run dev) để cập nhật API Xóa mới!', 'danger', 10000);
+            return;
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            const result = await response.json();
+            if (result.success) {
+                tr.remove();
+                showToast('✅ Đã xóa thiết bị khỏi dự án thành công!', 'success');
+            } else {
+                showToast('Lỗi khi xóa thiết bị: ' + result.error, 'danger');
+            }
+        } else {
+            showToast('⚠️ Lỗi phản hồi từ Server. Vui lòng tắt và khởi động lại Server Node!', 'danger');
+        }
+    } catch (e) {
+        console.error("Lỗi khi xóa thiết bị:", e);
+        showToast('Lỗi kết nối khi xóa thiết bị!', 'danger');
+    }
 }
 
 function backToProjectDetail() {
@@ -3919,6 +4060,45 @@ async function fetchProjects(page = 1) {
   renderProjectPagination(result.total, page, projectLimit);
 }
 
+async function saveProjectDetails() {
+  if (!currentProjectId) return;
+  const proj = projectsList.find(p => p.ID === currentProjectId);
+  if (!proj) return;
+
+  const techInput = document.querySelector('#project-items-body input.lab-input-cell');
+  const techValue = techInput ? techInput.value.trim() : proj.TECH;
+
+  const payload = {
+    id: proj.ID,
+    title: proj.TITLE,
+    tech: techValue,
+    status: proj.STATUS
+  };
+
+  try {
+    const res = await fetch(`${API_URL}/projects`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (result.success) {
+      proj.TECH = techValue;
+      const allTechInputs = document.querySelectorAll('#project-items-body input.lab-input-cell');
+      allTechInputs.forEach(input => {
+        input.value = techValue;
+      });
+      showToast("✅ Đã cập nhật và lưu thông tin dự án thành công!");
+      fetchProjects();
+    } else {
+      showToast("Lỗi khi lưu dự án: " + result.error, "danger");
+    }
+  } catch (err) {
+    console.error("Lỗi khi lưu dự án:", err);
+    showToast("Lỗi kết nối khi lưu dự án!", "danger");
+  }
+}
+
 /**
  * Đánh dấu dự án là Hoàn thành và cập nhật lên Server
  */
@@ -4107,7 +4287,7 @@ async function saveCalibrationData() {
         body: JSON.stringify(payload)
     });
     const result = await res.json();
-    if(result.success) showToast("Đã lưu dữ liệu hiệu chuẩn vào SQL Database!");
+    if(result.success) showToast("Đã lưu dữ liệu hiệu chuẩn thành công!");
     else showToast("Lỗi khi lưu dữ liệu: " + result.error, "error");
 }
 
@@ -4751,54 +4931,15 @@ async function copyProjectData(projectId) {
         showToast('✅ Đã tạo bản sao: ' + newId, 'success');
 
         const certNo = projectId.replace('PRJ-', '');
+        const newCertNo = newId.replace('PRJ-', '');
         try {
-            const calResponse = await fetch(API_BASE_URL + '/api/calibration/' + certNo);
+            const calResponse = await fetch(`${API_BASE_URL}/api/calibration/clone/${certNo}/${newCertNo}`, {
+                method: 'POST'
+            });
             if (calResponse.ok) {
-                const calibrationData = await calResponse.json();
-                if (calibrationData && calibrationData.cert) {
-                    const c = calibrationData;
-                    const p = {
-                        certNo: newId.replace('PRJ-', ''),
-                        instrumentName: c.cert?.INSTRUMENT_NAME || proj.TITLE || '',
-                        manufacturer: c.cert?.MANUFACTURER || '',
-                        model: c.cert?.MODEL || '',
-                        equipmentId: c.cert?.EQUIPMENT_ID || '',
-                        serialNumber: c.cert?.SERIAL_NUMBER || '',
-                        customerName: c.cert?.CUSTOMER_NAME || '',
-                        calDate: '',
-                        reCalDate: '',
-                        procedure: c.cert?.PROCEDURE || '',
-                        refStandard: c.cert?.REF_STANDARD || '',
-                        tempEnv: c.cert?.TEMP_ENV || '',
-                        humiEnv: c.cert?.HUMI_ENV || '',
-                        headOfLab: c.cert?.HEAD_OF_LAB || '',
-                        director: c.cert?.DIRECTOR || '',
-                        points: (c.points || []).map(function(pt) { return {
-                            parameterName: pt.PARAMETER_NAME || '',
-                            calPoint: pt.CAL_POINT || '',
-                            asFoundValue: pt.AS_FOUND_VALUE || '',
-                            referenceValue: pt.REFERENCE_VALUE || '',
-                            uncertainty: pt.UNCERTAINTY || '',
-                            tolerance: pt.TOLERANCE || '',
-                            conformity: pt.CONFORMITY || '',
-                            refEq: pt.REF_EQUIPMENT || pt.STANDARD_EQUIPMENT || ''
-                        };}),
-                        standards: (c.standards || []).map(function(s) { return {
-                            name: s.EQ_NAME || '',
-                            id: s.EQ_CODE || '',
-                            certNo: s.CERT_NO || s.certNo || '',
-                            trace: s.LINK || '',
-                            due: s.VALIDITY || ''
-                        };}),
-                        currentUser: (JSON.parse(localStorage.getItem('labmaster_user') || '{}'))?.fullName || 'KTV'
-                    };
-                    var r = await fetch(API_URL + '/calibration/save', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(p)
-                    });
-                    var j = await r.json();
-                    if (j.success) showToast('✅ Đã duplicate dữ liệu hiệu chuẩn sang dự án mới!');
+                const cloneResult = await calResponse.json();
+                if (cloneResult.success) {
+                    showToast('✅ Đã duplicate dữ liệu hiệu chuẩn sang dự án mới!');
                 }
             }
         } catch (e) {
@@ -4977,19 +5118,7 @@ function buildPrintTemplate() {
   }
 }
 
-function clearEditorData() {
-    const isConfirm = confirm("Bạn có chắc chắn muốn làm mới? Toàn bộ số liệu đang nhập sẽ bị xóa và thay thế bằng dữ liệu gốc từ Database Equipment!");
-    
-    if (isConfirm) {
-        if (window._currentWorkingEquipment && MockDatabaseEquipment[window._currentWorkingEquipment]) {
-            // Gọi lại hàm đổ dữ liệu từ Mẫu gốc
-            selectEquipmentTemplate(window._currentWorkingEquipment);
-            showToast("Đã tải lại cấu hình gốc từ Database Equipment thành công!", "success");
-        } else {
-            showToast("Không tìm thấy mẫu thiết bị. Hãy thử F5 tải lại trang.", "warning");
-        }
-    }
-}
+
 </script>
 </body>
 </html>

@@ -80,26 +80,31 @@ function toUpperKeys(obj) {
 async function main(opts) {
     try {
         // Accept params from both CLI (process.argv) and direct call (opts object)
-        const cNo = (opts && opts.certNo) || certNo;
+        const compositeCNo = (opts && opts.certNo) || certNo;
+        const eqName = (opts && opts.equipmentName) || equipmentName || '';
+        let cNo = compositeCNo;
+        if (eqName && cNo.endsWith('_' + eqName)) {
+            cNo = cNo.substring(0, cNo.length - eqName.length - 1);
+        }
         const accMethods = (opts && opts.accreditedMethods) || []; // danh sách máy/phép thử được công nhận (STT + tên + mã QT)
-        if (!cNo) {
+        if (!compositeCNo) {
             if (require.main === module) { console.error('Lỗi: Vui lòng cung cấp mã số chứng nhận.'); process.exit(1); }
             else throw new Error('Lỗi: Vui lòng cung cấp mã số chứng nhận.');
         }
-        // Compute output paths inside main() (cNo is guaranteed valid here)
+        // Compute output paths inside main() (compositeCNo is guaranteed valid here)
         const STATIC_DIR = process.env.VERCEL ? require('os').tmpdir() : path.join(BASE_DIR, 'static');
         if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
-        const SAFE_NAME   = cNo.replace(/[^a-zA-Z0-9]/g, '_');
+        const SAFE_NAME   = compositeCNo.replace(/[^a-zA-Z0-9]/g, '_');
         const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.xlsx`);
-        const cert = toUpperKeys(await dbGet('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]));
+        const cert = toUpperKeys(await dbGet('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [compositeCNo]));
         if (!cert) {
-            var errMsg = 'Loi: Khong tim thay du lieu cho ma [' + cNo + '] trong bang CERTIFICATES.';
+            var errMsg = 'Loi: Khong tim thay du lieu cho ma [' + compositeCNo + '] trong bang CERTIFICATES.';
             if (require.main === module) { console.error(errMsg); process.exit(1); }
             else throw new Error(errMsg);
         }
 
-        const points = toUpperKeys(await dbAll('SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]));
-        const standards = toUpperKeys(await dbAll('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]));
+        const points = toUpperKeys(await dbAll('SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC', [compositeCNo]));
+        const standards = toUpperKeys(await dbAll('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [compositeCNo]));
 
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'LabMaster Enterprise';
@@ -125,7 +130,7 @@ async function main(opts) {
         ws.getRow(2).height = 22;
 
         ws.mergeCells('A3:G3');
-        var infoLineText = 'Số / No.: ' + (cert.CERT_NO || cNo) + '    ·    Ngày HC / Cal. Date: ' + parseDate(cert.CAL_DATE || '') + '    ·    HC kế tiếp / Re-cal: ' + parseDate(cert.RE_CAL_DATE || '');
+        var infoLineText = 'Số / No.: ' + cNo + '    ·    Ngày HC / Cal. Date: ' + parseDate(cert.CAL_DATE || '') + '    ·    HC kế tiếp / Re-cal: ' + parseDate(cert.RE_CAL_DATE || '');
         ws.getCell('A3').value = infoLineText;
         ws.getCell('A3').font = { name: 'Arial', size: 9, color: { argb: '6b6860' } };
         ws.getCell('A3').alignment = { horizontal: 'center', vertical: 'middle' };

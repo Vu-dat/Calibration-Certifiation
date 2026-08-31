@@ -1301,8 +1301,8 @@ async function main(opts) {
       tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ?", [eqName]);
     }
     if (!tpl) {
-      var cleanName = (cert.INSTRUMENT_NAME || '').replace(/[\s_]+/g, ' ').replace(/ thử/gi, '').trim();
-      tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ? OR NAME = ? OR REPLACE(NAME_VI, ' thử', '') = ?", [cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME_EN, cleanName]);
+      var cleanName = (cert.INSTRUMENT_NAME || '').replace(/[\s_]+/g, ' ').replace(/ thử/gi, '').replace(/mater/gi, 'meter').trim();
+      tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ? OR NAME = ? OR REPLACE(NAME_VI, ' thử', '') = ? OR REPLACE(NAME, 'mater', 'meter') = ?", [cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME_EN, cleanName, cleanName]);
     }
     if (tpl) tpl = toUpperKeys(tpl);
     const SD = process.env.VERCEL ? require('os').tmpdir() : path.join(BD, 'static');

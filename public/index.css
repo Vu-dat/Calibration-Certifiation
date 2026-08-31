@@ -603,14 +603,16 @@ img { max-width: 100%; height: auto; display: block; }
 
 .autocomplete-suggestions {
   position: absolute;
-  top: calc(100% + 2px);
+  top: calc(100% + 4px);
   left: 0;
   width: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
+  border-radius: 8px;
   max-height: 240px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 9999 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   display: none;
 }
 
@@ -858,7 +860,7 @@ textarea {
    CALIBRATION TABLE
    ═══════════════════════════════════════════════ */
 .cal-table-wrapper {
-  overflow-x: auto;
+  overflow: visible !important;
   border: 1px solid var(--border);
   margin-bottom: 0;
 }
