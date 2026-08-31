@@ -32,6 +32,24 @@ const SALT_ROUNDS = 10;
 // Database connection (centralized) - Gọi file db.js mới của bạn
 const sql = require('./db');
 
+// Server-side memory cache for read-heavy APIs to eliminate latency bottlenecks
+let serverCache = {
+    init: null,
+    equipmentTemplates: {}, // cache by search query q or 'all'
+    projects: {}, // cache by page_limit
+    statsSummary: null,
+    clock: null
+};
+
+function invalidateServerCache() {
+    serverCache.init = null;
+    serverCache.equipmentTemplates = {};
+    serverCache.projects = {};
+    serverCache.statsSummary = null;
+    serverCache.clock = null;
+}
+
+
 // Dò tìm IP LAN (ưu tiên không phải 127.0.0.1)
 function getLANIP() {
     const interfaces = os.networkInterfaces();
@@ -509,6 +527,9 @@ app.get('/api/static/:filename', (req, res) => {
 // Combined /api/init endpoint — trả về tất cả dữ liệu cần thiết cho frontend trong 1 request
 app.get('/api/init', async (req, res) => {
     try {
+        if (serverCache.init) {
+            return res.json(serverCache.init);
+        }
         const [projectsResult, certCountResult, templatesResult, clockResult, allPointsResult] = await Promise.all([
             sql`SELECT COUNT(*) as total,
                        COUNT(*) FILTER (WHERE status = 'In Progress') as progress,
@@ -580,7 +601,7 @@ app.get('/api/init', async (req, res) => {
             CREATED_AT: r.created_at
         }));
 
-        res.json({
+        serverCache.init = {
             projects: {
                 total: parseInt(projectsResult[0].total),
                 progress: parseInt(projectsResult[0].progress),
@@ -589,7 +610,8 @@ app.get('/api/init', async (req, res) => {
             certCount: parseInt(certCountResult[0].cert_count) || 0,
             templates: templates,
             standards: clockData
-        });
+        };
+        res.json(serverCache.init);
     } catch (err) {
         console.error('❌ /api/init error:', err.message);
         res.status(500).json({ success: false, error: err.message });
@@ -621,6 +643,9 @@ app.get('/api/debug/health', async (req, res) => {
 
 app.get('/api/clock', async (req, res) => {
     try {
+        if (serverCache.clock) {
+            return res.json(serverCache.clock);
+        }
         const rowsDb = await sql`SELECT * FROM CLOCK ORDER BY ID ASC`;
         const rows = rowsDb.map(r => ({
             ID: r.id,
@@ -637,7 +662,8 @@ app.get('/api/clock', async (req, res) => {
             NOTES: r.notes,
             CREATED_AT: r.created_at
         }));
-        res.json(rows);
+        serverCache.clock = rows;
+        res.json(serverCache.clock);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -706,6 +732,7 @@ app.get('/api/clock/search', async (req, res) => {
 });
 
 app.post('/api/clock/add', async (req, res) => {
+    invalidateServerCache();
     const b = req.body || {};
     const id = (b.EQUIPMENT_ID || b.id || b.ID || '').toString().trim();
     const name = (b.NAME || b.name || '').toString().trim();
@@ -736,6 +763,7 @@ app.post('/api/clock/add', async (req, res) => {
 });
 
 app.post('/api/clock', async (req, res) => {
+    invalidateServerCache();
     const b = req.body || {};
     const id = b.id || b.ID || b.EQUIPMENT_ID;
     const name = b.name || b.NAME;
@@ -766,6 +794,7 @@ app.post('/api/clock', async (req, res) => {
 });
 
 app.post('/api/clock/bulk', async (req, res) => {
+    invalidateServerCache();
     const items = req.body;
     if (!Array.isArray(items)) {
         return res.status(400).json({ success: false, message: "Dữ liệu gửi lên không phải là mảng!" });
@@ -792,6 +821,7 @@ app.post('/api/clock/bulk', async (req, res) => {
 });
 
 app.delete('/api/clock/:id', async (req, res) => {
+    invalidateServerCache();
     const id = req.params.id;
     try {
         await sql`DELETE FROM CLOCK WHERE ID = ${id}`;
@@ -867,6 +897,10 @@ app.get('/api/projects', async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
+        const cacheKey = `${page}_${limit}`;
+        if (serverCache.projects[cacheKey]) {
+            return res.json(serverCache.projects[cacheKey]);
+        }
 
         const rowsDb = await sql`SELECT * FROM PROJECTS ORDER BY CREATED_AT DESC LIMIT ${limit} OFFSET ${offset}`;
         
@@ -885,20 +919,22 @@ app.get('/api/projects', async (req, res) => {
             STATUS: r.status,
             CREATED_AT: r.created_at
         }));
-        res.json({ 
+        serverCache.projects[cacheKey] = { 
             data: rows, 
             total: parseInt(statsResult[0].total),
             progress: parseInt(statsResult[0].progress),
             finished: parseInt(statsResult[0].finished),
             page: page, 
             limit: limit 
-        });
+        };
+        res.json(serverCache.projects[cacheKey]);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
 app.post('/api/projects', async (req, res) => {
+    invalidateServerCache();
     let { id, title, tech, status } = req.body;
 
     try {
@@ -933,6 +969,7 @@ app.post('/api/projects', async (req, res) => {
 });
 
 app.delete('/api/projects/:id', async (req, res) => {
+    invalidateServerCache();
     const id = req.params.id;
     try {
         const row = await sql`SELECT TITLE FROM PROJECTS WHERE ID = ${id}`;
@@ -949,6 +986,7 @@ app.delete('/api/projects/:id', async (req, res) => {
 // ================= API HIỆU CHUẨN & WORKSPACE =================
 
 app.delete('/api/calibration/:certNo', async (req, res) => {
+    invalidateServerCache();
     const certNo = req.params.certNo;
     const eqName = req.query.equipment_name || '';
     const compositeCertNo = eqName ? `${certNo}_${eqName}` : certNo;
@@ -966,6 +1004,7 @@ app.delete('/api/calibration/:certNo', async (req, res) => {
 });
 
 app.post('/api/calibration/clone/:srcCertNo/:destCertNo', async (req, res) => {
+    invalidateServerCache();
     const { srcCertNo, destCertNo } = req.params;
     try {
         const certs = await sql`
@@ -1043,6 +1082,7 @@ app.get('/api/calibration/:certNo', async (req, res) => {
 });
 
 app.post('/api/calibration/save', async (req, res) => {
+    invalidateServerCache();
     const data = req.body;
     const currentWorker = req.body.currentUser || "Hệ thống / KTV";
 
@@ -1098,6 +1138,10 @@ app.post('/api/calibration/save', async (req, res) => {
 async function getEquipmentTemplatesHelper(req, res) {
     try {
         const searchTerm = req.query.q ? `%${req.query.q.toLowerCase()}%` : null;
+        const cacheKey = searchTerm || 'all';
+        if (serverCache.equipmentTemplates[cacheKey]) {
+            return res.json(serverCache.equipmentTemplates[cacheKey]);
+        }
 
         const whereClause = searchTerm 
             ? sql`WHERE LOWER(name) LIKE ${searchTerm} OR LOWER(equipment_id) LIKE ${searchTerm} OR LOWER(manufacturer) LIKE ${searchTerm}`
@@ -1157,6 +1201,7 @@ async function getEquipmentTemplatesHelper(req, res) {
             template.STANDARDS_USED = template.standards_used;
             template.formPoints = formPoints;
         }
+        serverCache.equipmentTemplates[cacheKey] = templates;
         res.json(templates);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -1172,6 +1217,7 @@ app.get('/api/equipment', async (req, res) => {
 });
 
 app.post('/api/equipment', async (req, res) => {
+    invalidateServerCache();
     try {
         const { equipment_id, standard_name, manufacturer, due_date, procedure, ref_standard, points, model, serial_number, model_serial, manufacturer_id, spec_range, spec_resolution, standards_used, name_vi } = req.body;
 
@@ -1217,6 +1263,7 @@ app.post('/api/equipment', async (req, res) => {
 });
 
 app.delete('/api/equipment-templates/:name', async (req, res) => {
+    invalidateServerCache();
     const name = req.params.name;
     try {
         await sql`DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ${name}`;
@@ -1276,6 +1323,7 @@ app.get('/api/customers', async (req, res) => {
 });
 
 app.post('/api/customers', async (req, res) => {
+    invalidateServerCache();
     let { id, name, company, phone, tax, email, address, billing_address, contact, note } = req.body;
 
     if (!name || !company || !phone) {
@@ -1312,6 +1360,7 @@ app.post('/api/customers', async (req, res) => {
 });
 
 app.delete('/api/customers/:id', async (req, res) => {
+    invalidateServerCache();
     const id = req.params.id;
     try {
         const row = await sql`SELECT NAME, COMPANY FROM CUSTOMERS WHERE ID = ${id}`;
@@ -1384,8 +1433,12 @@ app.get('/api/audit-logs', async (req, res) => {
 
 app.get('/api/stats/summary', async (req, res) => {
     try {
+        if (serverCache.statsSummary) {
+            return res.json(serverCache.statsSummary);
+        }
         const row = await sql`SELECT COUNT(*) as cert_count FROM CERTIFICATES`;
-        res.json({ certCount: parseInt(row[0].cert_count) || 0 });
+        serverCache.statsSummary = { certCount: parseInt(row[0].cert_count) || 0 };
+        res.json(serverCache.statsSummary);
     } catch (err) {
         res.status(500).json({ success: false });
     }

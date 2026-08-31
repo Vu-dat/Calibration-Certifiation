@@ -4050,12 +4050,21 @@ async function fetchProjects(page = 1) {
   document.getElementById('stat-progress').textContent = result.progress;
   document.getElementById('stat-finished').textContent = result.finished;
   document.getElementById('project-count-badge').textContent = result.total;
-  // Fetch cert count separately
-  (async () => {
-      const res = await fetch(`${API_URL}/stats/summary`);
-      const summary = await res.json();
-      document.getElementById('stat-certs').textContent = summary.certCount || 0;
-  })();
+  // Fetch cert count (reuse initial load count if available to save a roundtrip request)
+  if (window._initCertCount !== undefined && window._initCertCount !== null) {
+      document.getElementById('stat-certs').textContent = window._initCertCount;
+      window._initCertCount = null; // Reset so subsequent updates fetch from API
+  } else {
+      (async () => {
+          try {
+              const res = await fetch(`${API_URL}/stats/summary`);
+              const summary = await res.json();
+              document.getElementById('stat-certs').textContent = summary.certCount || 0;
+          } catch (e) {
+              console.error('Error fetching cert count:', e);
+          }
+      })();
+  }
 
   renderProjectPagination(result.total, page, projectLimit);
 }
