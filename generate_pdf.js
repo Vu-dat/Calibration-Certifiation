@@ -36,6 +36,10 @@ function ff(ps) { for (var i = 0; i < ps.length; i++) { try { if (fs.existsSync(
 var FR = ff(fpr), FB = ff(fpb), FI = ff(fpi), FBI = ff(fpbi), TR = ff(ftr), TI = ff(fti);
 var FNR = 'AR', FNB = 'AB', FNI = 'AI', FNBI = 'ABI', FTR = 'TR', FTI = 'TI';
 
+// Cache TTF Font Buffers directly in RAM so PDFKit does zero disk I/O on font registration!
+function rfb(p) { try { return p ? fs.readFileSync(p) : null; } catch(e) { return null; } }
+var FR_BUF = rfb(FR), FB_BUF = rfb(FB), FI_BUF = rfb(FI), FBI_BUF = rfb(FBI), TR_BUF = rfb(TR), TI_BUF = rfb(TI);
+
 function sf(doc, b, ital, font) {
   if (b === undefined) b = false;
   if (ital === undefined) ital = false;
@@ -1280,52 +1284,216 @@ function wrapLines(doc, text, width) {
   return lines;
 }
 
+const templateCache = new Map();
+let cachedLogo = null;
+const qrCache = new Map();
+
+let warmPromise = null;
+async function warmTemplateCache() {
+  if (!warmPromise) {
+    warmPromise = (async () => {
+      try {
+        const rows = await a('SELECT * FROM EQUIPMENT_TEMPLATES');
+        if (rows && rows.length) {
+          for (const r of rows) {
+            const u = toUpperKeys(r);
+            if (u.NAME) {
+              templateCache.set(u.NAME, u);
+              templateCache.set(u.NAME.toLowerCase(), u);
+            }
+            if (u.NAME_VI) {
+              templateCache.set(u.NAME_VI, u);
+              templateCache.set(u.NAME_VI.toLowerCase(), u);
+            }
+          }
+        }
+      } catch(e) {}
+    })();
+  }
+  return warmPromise;
+}
+warmTemplateCache();
+
+function getCachedLogo(baseDir) {
+  if (cachedLogo === null) {
+    const lp = path.join(baseDir, 'public', 'img', 'logo_240.png');
+    try {
+      if (fs.existsSync(lp)) cachedLogo = fs.readFileSync(lp);
+      else cachedLogo = false;
+    } catch(e) { cachedLogo = false; }
+  }
+  return cachedLogo || null;
+}
+
+async function getCachedQR(dUrl) {
+  if (!dUrl) return null;
+  if (qrCache.has(dUrl)) return qrCache.get(dUrl);
+  try {
+    const qr = await QRCode.toBuffer(dUrl, { width: 120, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
+    qrCache.set(dUrl, qr);
+    return qr;
+  } catch(e) { return null; }
+}
+
+async function getCachedTemplate(eqName, cert) {
+  const key = eqName || (cert && (cert.INSTRUMENT_NAME || cert.INSTRUMENT_NAME_EN)) || '';
+  if (!key) return null;
+  if (templateCache.has(key)) return templateCache.get(key);
+  if (templateCache.has(key.toLowerCase())) return templateCache.get(key.toLowerCase());
+
+  if (templateCache.size === 0 && warmPromise) {
+    await warmPromise;
+    if (templateCache.has(key)) return templateCache.get(key);
+    if (templateCache.has(key.toLowerCase())) return templateCache.get(key.toLowerCase());
+  }
+
+  let tpl = null;
+  if (eqName) {
+    tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ?", [eqName, eqName]);
+  }
+  if (!tpl && cert) {
+    var cleanName = (cert.INSTRUMENT_NAME || '').replace(/[\s_]+/g, ' ').replace(/ thử/gi, '').replace(/mater/gi, 'meter').trim();
+    tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ? OR NAME = ? OR REPLACE(NAME_VI, ' thử', '') = ? OR REPLACE(NAME, 'mater', 'meter') = ?", [cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME_EN, cleanName, cleanName]);
+  }
+  if (tpl) tpl = toUpperKeys(tpl);
+  templateCache.set(key, tpl);
+  return tpl;
+}
+
+function mapDataToCert(data, cNo) {
+  return {
+    CERT_NO: cNo,
+    CUSTOMER_NAME: data.customerName || data.customer_name || '',
+    CUSTOMER_ADDRESS: data.customerAddress || data.customer_address || '',
+    INSTRUMENT_NAME: data.instrumentName || data.instrument_name || '',
+    INSTRUMENT_NAME_EN: data.instrumentNameEn || data.instrument_name_en || '',
+    MANUFACTURER: data.manufacturer || '',
+    MANUFACTURER_ID: data.manufacturerId || data.manufacturer_id || '',
+    MODEL: data.model || '',
+    MODEL_SERIAL: data.modelSerial || data.model_serial || '',
+    EQUIPMENT_ID: data.equipmentId || data.equipment_id || '',
+    SERIAL_NUMBER: data.serialNumber || data.serial_number || '',
+    CAL_DATE: data.calDate || data.cal_date || '',
+    RE_CAL_DATE: data.reCalDate || data.re_cal_date || '',
+    TEMP_ENV: data.tempEnv || data.temp_env || '',
+    HUMI_ENV: data.humiEnv || data.humi_env || '',
+    PROCEDURE: data.procedure || '',
+    REF_STANDARD: data.refStandard || data.ref_standard || '',
+    SPEC_RANGE: data.specRange || data.spec_range || '',
+    SPEC_RESOLUTION: data.specResolution || data.spec_resolution || '',
+    HEAD_OF_LAB: data.headOfLab || data.head_of_lab || '',
+    DIRECTOR: data.director || ''
+  };
+}
+
+function mapDataToPoints(points) {
+  if (!points || !Array.isArray(points)) return [];
+  return points.map(p => ({
+    PARAMETER_NAME: p.parameterName || p.param || '',
+    CAL_POINT: p.calPoint || p.point || '',
+    AS_FOUND_VALUE: p.asFoundValue || p.found || '',
+    REFERENCE_VALUE: p.referenceValue || p.refValue || p.reference_value || '',
+    UNCERTAINTY: p.uncertainty || p.unc || '',
+    TOLERANCE: p.tolerance || p.tol || '',
+    CONFORMITY: p.conformity || p.conf || '',
+    REF_EQUIPMENT: p.refEq || p.standardEquipment || p.standard_equipment || '',
+    STANDARD_EQUIPMENT: p.refEq || p.standardEquipment || p.standard_equipment || ''
+  }));
+}
+
+function mapDataToStandards(standards) {
+  if (!standards || !Array.isArray(standards)) return [];
+  return standards.map(s => ({
+    EQ_CODE: s.id || s.code || '',
+    EQ_NAME: s.name || '',
+    STD_CERT_NO: s.certNo || '',
+    LINK: s.trace || s.link || '',
+    VALIDITY: s.due || s.validity || ''
+  }));
+}
+
 async function main(opts) {
   try {
-    var cNo = (opts && opts.certNo) || certNo;
+    var compositeCNo = (opts && opts.certNo) || certNo;
     var dUrl = (opts && opts.downloadUrl) || downloadUrl;
-    var eqName = (opts && opts.equipmentName) || equipmentName;
+    var eqName = (opts && opts.equipmentName) || equipmentName || '';
     var accM = (opts && opts.accreditedMethods) || []; // danh sách máy/phép thử được công nhận (STT + tên + mã QT)
-    if (!cNo) {
-      var errMsg = 'Loi: Vui long cung cap ma so.';
+    if (!compositeCNo) {
+      var errMsg = 'Lỗi: Vui lòng cung cấp mã số chứng nhận.';
       if (require.main === module) { console.error(errMsg); process.exit(1); }
       else throw new Error(errMsg);
     }
-    var qr = null;
-    if (dUrl) { try { qr = await QRCode.toBuffer(dUrl, {width: 120, margin: 1, color: {dark: '#000000', light: '#ffffff'}}); } catch(e) {} }
-    var cert = await g('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]);
-    cert = toUpperKeys(cert);
 
-    var tpl = null;
-    if (eqName) {
-      tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ?", [eqName]);
+    let cNo = compositeCNo;
+    if (eqName && cNo.endsWith('_' + eqName)) {
+      cNo = cNo.substring(0, cNo.length - eqName.length - 1);
     }
-    if (!tpl) {
-      var cleanName = (cert.INSTRUMENT_NAME || '').replace(/[\s_]+/g, ' ').replace(/ thử/gi, '').replace(/mater/gi, 'meter').trim();
-      tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ? OR NAME = ? OR REPLACE(NAME_VI, ' thử', '') = ? OR REPLACE(NAME, 'mater', 'meter') = ?", [cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME_EN, cleanName, cleanName]);
+
+    let cert = null;
+    let pts = [];
+    let stds = [];
+
+    if (opts && opts.data) {
+      cert = mapDataToCert(opts.data, cNo);
+      pts = mapDataToPoints(opts.data.points);
+      stds = mapDataToStandards(opts.data.standards);
+    } else {
+      cert = toUpperKeys(await g('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [compositeCNo]));
+      if (!cert && compositeCNo !== cNo) {
+        cert = toUpperKeys(await g('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [cNo]));
+      }
+      if (!cert && eqName) {
+        cert = toUpperKeys(await g('SELECT * FROM CERTIFICATES WHERE CERT_NO = ?', [`${cNo}_${eqName}`]));
+      }
+      if (!cert) {
+        cert = toUpperKeys(await g('SELECT * FROM CERTIFICATES WHERE CERT_NO LIKE ? ORDER BY CERT_NO ASC LIMIT 1', [`${cNo}%`]));
+      }
+      if (!cert) {
+        var errMsg2 = 'Lỗi: Không tìm thấy dữ liệu cho mã [' + compositeCNo + '].';
+        if (require.main === module) { console.error(errMsg2); process.exit(1); }
+        else throw new Error(errMsg2);
+      }
     }
-    if (tpl) tpl = toUpperKeys(tpl);
+
+    if (!eqName && cert) {
+      if (cert.CERT_NO && cert.CERT_NO.includes('_')) {
+        eqName = cert.CERT_NO.substring(cert.CERT_NO.indexOf('_') + 1);
+      } else if (cert.INSTRUMENT_NAME) {
+        eqName = cert.INSTRUMENT_NAME;
+      }
+    }
+
+    if (eqName && cNo.endsWith('_' + eqName)) {
+      cNo = cNo.substring(0, cNo.length - eqName.length - 1);
+    }
+
+    var qr = dUrl ? await getCachedQR(dUrl) : null;
+    var tpl = await getCachedTemplate(eqName, cert);
+
     const SD = process.env.VERCEL ? require('os').tmpdir() : path.join(BD, 'static');
     if (!fs.existsSync(SD)) fs.mkdirSync(SD, { recursive: true });
-    const SN = cNo.replace(/[^a-zA-Z0-9]/g, '_');
+    const SN = (compositeCNo || cNo).replace(/[^a-zA-Z0-9]/g, '_');
     const OF = path.join(SD, 'GCN_' + SN + '.pdf');
-    if (!cert) {
-      var errMsg2 = 'Not found: ' + cNo;
-      if (require.main === module) { console.error(errMsg2); process.exit(1); }
-      else throw new Error(errMsg2);
-    }
-    if (!eqName) {
-      var errMsgEq = 'Thieu equipmentName cho GCN ' + cNo + ' — khong the xac dinh diem hieu chuan dung.';
-      if (require.main === module) { console.error(errMsgEq); process.exit(1); }
-      else throw new Error(errMsgEq);
-    }
-    var pts = [];
-    if (eqName) {
-      var ptsQ = "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC";
-      pts = toUpperKeys(await a(ptsQ, [cNo, eqName]));
-    }
-    if (pts.length === 0) {
-      pts = toUpperKeys(await a("SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC", [cNo]));
+
+    if (!opts || !opts.data) {
+      if (eqName) {
+        var ptsQ = "SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC";
+        pts = toUpperKeys(await a(ptsQ, [compositeCNo, eqName]));
+        if (pts.length === 0 && compositeCNo !== cNo) {
+          pts = toUpperKeys(await a(ptsQ, [cNo, eqName]));
+        }
+      }
+      if (pts.length === 0) {
+        pts = toUpperKeys(await a("SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC", [compositeCNo]));
+      }
+      if (pts.length === 0 && compositeCNo !== cNo) {
+        pts = toUpperKeys(await a("SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC", [cNo]));
+      }
+
+      stds = toUpperKeys(await a('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [compositeCNo]));
+      if (stds.length === 0 && compositeCNo !== cNo) {
+        stds = toUpperKeys(await a('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]));
+      }
     }
 
     // Points are already in insertion order (ORDER BY ID ASC) matching the preview DOM order.
@@ -1359,12 +1527,8 @@ async function main(opts) {
     });
     pts = expandedPoints;
 
-    var stds = toUpperKeys(await a('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]));
-
-    // Logo: use project asset (240x84, matches reference logo rect)
-    var lp = path.join(BD, 'public', 'img', 'logo_240.png');
-    var logo = null;
-    try { if (fs.existsSync(lp)) logo = fs.readFileSync(lp); } catch(e) {}
+    // Logo: use project asset (240x84, matches reference logo rect, cached in memory)
+    var logo = getCachedLogo(BD);
 
     var doc = new PDFDocument({size: 'A4', margin: 0, autoFirstPage: false, autoPageBreak: false});
     var buffers = [];
@@ -1372,15 +1536,23 @@ async function main(opts) {
       write(chunk, encoding, callback) { buffers.push(chunk); callback(); }
     });
     doc.pipe(collector);
-    var ws = fs.createWriteStream(OF);
-    doc.pipe(ws);
+    var ws = null;
+    if (!opts || opts.saveToFile !== false) {
+      try {
+        ws = fs.createWriteStream(OF);
+        ws.on('error', function(err) {
+          console.warn('⚠️ Cảnh báo lỗi ghi file PDF địa phương:', err.message);
+        });
+        doc.pipe(ws);
+      } catch(e) {}
+    }
     try {
-      if (FR) doc.registerFont(FNR, FR);
-      if (FB) doc.registerFont(FNB, FB);
-      if (FI) doc.registerFont(FNI, FI);
-      if (FBI) doc.registerFont(FNBI, FBI);
-      if (TR) doc.registerFont(FTR, TR);
-      if (TI) doc.registerFont(FTI, TI);
+      if (FR_BUF) doc.registerFont(FNR, FR_BUF); else if (FR) doc.registerFont(FNR, FR);
+      if (FB_BUF) doc.registerFont(FNB, FB_BUF); else if (FB) doc.registerFont(FNB, FB);
+      if (FI_BUF) doc.registerFont(FNI, FI_BUF); else if (FI) doc.registerFont(FNI, FI);
+      if (FBI_BUF) doc.registerFont(FNBI, FBI_BUF); else if (FBI) doc.registerFont(FNBI, FBI);
+      if (TR_BUF) doc.registerFont(FTR, TR_BUF); else if (TR) doc.registerFont(FTR, TR);
+      if (TI_BUF) doc.registerFont(FTI, TI_BUF); else if (TI) doc.registerFont(FTI, TI);
     } catch(e) {}
 
     // Estimate heights to determine total pages dynamically
@@ -1464,15 +1636,21 @@ async function main(opts) {
     }
 
     return new Promise(function(resolve, reject) {
-      var fileDone = false, memDone = false;
-      function checkDone() { if (fileDone && memDone) resolve(Buffer.concat(buffers)); }
-      ws.on('finish', function() {
-        console.log('[SUCCESS] Da xuat: GCN_' + SN + '.pdf');
-        fileDone = true; checkDone();
+      collector.on('finish', function() {
+        resolve(Buffer.concat(buffers));
       });
-      ws.on('error', function(err) { console.error('LOI stream file:', err); reject(err); });
-      collector.on('finish', function() { memDone = true; checkDone(); });
-      collector.on('error', function(err) { console.error('LOI stream memory:', err); reject(err); });
+      collector.on('error', function(err) {
+        console.error('LOI stream memory:', err);
+        reject(err);
+      });
+      if (ws) {
+        ws.on('finish', function() {
+          console.log('[SUCCESS] Da xuat: GCN_' + SN + '.pdf');
+        });
+        ws.on('error', function(err) {
+          console.warn('⚠️ Cảnh báo lỗi ghi file PDF địa phương:', err.message);
+        });
+      }
       doc.end();
     });
   } catch(err) {

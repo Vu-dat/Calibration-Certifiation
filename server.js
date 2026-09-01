@@ -1056,13 +1056,21 @@ app.post('/api/calibration/clone/:srcCertNo/:destCertNo', async (req, res) => {
 app.get('/api/calibration/:certNo', async (req, res) => {
     const certNo = req.params.certNo;
     const eqName = req.query.equipment_name || '';
+    const compositeCertNo = eqName ? `${certNo}_${eqName}` : certNo;
     try {
-        const [certRows, pointsRows, standardsRows] = await Promise.all([
-            sql`SELECT * FROM CERTIFICATES WHERE CERT_NO = ${certNo}`,
+        let certRows = await sql`SELECT * FROM CERTIFICATES WHERE CERT_NO = ${compositeCertNo}`;
+        if (certRows.length === 0 && compositeCertNo !== certNo) {
+            certRows = await sql`SELECT * FROM CERTIFICATES WHERE CERT_NO = ${certNo}`;
+        }
+        if (certRows.length === 0) {
+            certRows = await sql`SELECT * FROM CERTIFICATES WHERE CERT_NO LIKE ${certNo + '_%'} LIMIT 1`;
+        }
+
+        const [pointsRows, standardsRows] = await Promise.all([
             eqName
-                ? sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo} AND EQUIPMENT_NAME = ${eqName} ORDER BY ID ASC`
-                : sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo} ORDER BY ID ASC`,
-            sql`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${certNo}`
+                ? sql`SELECT * FROM CALIBRATION_POINTS WHERE (CERT_NO = ${compositeCertNo} OR CERT_NO = ${certNo}) AND EQUIPMENT_NAME = ${eqName} ORDER BY ID ASC`
+                : sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${compositeCertNo} OR CERT_NO = ${certNo} ORDER BY ID ASC`,
+            sql`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${compositeCertNo} OR CERT_NO = ${certNo} ORDER BY ID ASC`
         ]);
 
         if (certRows.length === 0) {
@@ -1103,28 +1111,25 @@ app.post('/api/calibration/save', async (req, res) => {
         await sql`DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${compositeCertNo}`;
         
         const stds = data.standards || [];
-        if (stds.length > 0) {
-            for (const s of stds) {
-                await sql`
-                    INSERT INTO CERTIFICATE_STANDARDS (CERT_NO, EQ_CODE, EQ_NAME, STD_CERT_NO, LINK, VALIDITY)
-                    VALUES (${compositeCertNo}, ${s.id || s.code || ''}, ${s.name || ''}, ${s.certNo || ''}, ${s.trace || s.link || ''}, ${s.due || s.validity || ''})
-                `;
-            }
-        }
+        const stdTasks = stds.map(s => sql`
+            INSERT INTO CERTIFICATE_STANDARDS (CERT_NO, EQ_CODE, EQ_NAME, STD_CERT_NO, LINK, VALIDITY)
+            VALUES (${compositeCertNo}, ${s.id || s.code || ''}, ${s.name || ''}, ${s.certNo || ''}, ${s.trace || s.link || ''}, ${s.due || s.validity || ''})
+        `);
         
         await sql`DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ${compositeCertNo}`;
 
-        if (data.points && data.points.length > 0) {
-            for (const p of data.points) {
-                const refEqValue = p.refEq || p.standardEquipment || p.refEquipment || '';
-                const refValValue = p.referenceValue || p.refValue || p.reference_value || '';
-                await sql`
-                    INSERT INTO CALIBRATION_POINTS 
-                    (CERT_NO, EQUIPMENT_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, REFERENCE_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT) 
-                    VALUES (${compositeCertNo}, ${eqName}, ${p.parameterName}, ${p.calPoint}, ${p.asFoundValue}, ${refValValue}, ${p.uncertainty}, ${p.tolerance}, ${p.conformity}, ${refEqValue}, ${refEqValue})
-                `;
-            }
-        }
+        const points = data.points || [];
+        const pointTasks = points.map(p => {
+            const refEqValue = p.refEq || p.standardEquipment || p.refEquipment || '';
+            const refValValue = p.referenceValue || p.refValue || p.reference_value || '';
+            return sql`
+                INSERT INTO CALIBRATION_POINTS 
+                (CERT_NO, EQUIPMENT_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, REFERENCE_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT) 
+                VALUES (${compositeCertNo}, ${eqName}, ${p.parameterName}, ${p.calPoint}, ${p.asFoundValue}, ${refValValue}, ${p.uncertainty}, ${p.tolerance}, ${p.conformity}, ${refEqValue}, ${refEqValue})
+            `;
+        });
+
+        await Promise.all([...stdTasks, ...pointTasks]);
 
         logActivity(currentWorker, "UPDATE", "CERTIFICATES", data.certNo, `Cập nhật số liệu kết quả đo cho thiết bị ${data.instrumentName} (Mã chuẩn: ${data.equipmentId})`);
         res.json({ success: true, message: "Dữ liệu hiệu chuẩn đã được ghi nhận vào SQL ổn định!" });
@@ -1457,37 +1462,44 @@ async function saveCalibrationDataToDBHelper(data, cert_no) {
     const eqName = data.equipmentName || data.equipment_name || '';
     const compositeCertNo = eqName ? `${cert_no}_${eqName}` : cert_no;
 
-    await sql`
+    const certPromise = sql`
         INSERT INTO CERTIFICATES 
         (CERT_NO, INSTRUMENT_NAME, INSTRUMENT_NAME_EN, MANUFACTURER, MANUFACTURER_ID, MODEL, MODEL_SERIAL, EQUIPMENT_ID, SERIAL_NUMBER, CUSTOMER_NAME, CUSTOMER_ADDRESS, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV, HEAD_OF_LAB, DIRECTOR, SPEC_RANGE, SPEC_RESOLUTION)
         VALUES (${compositeCertNo}, ${data.instrumentName || data.instrument_name || ''}, ${data.instrumentNameEn || data.instrument_name_en || ''}, ${data.manufacturer || ''}, ${data.manufacturerId || data.manufacturer_id || ''}, ${data.model || ''}, ${data.modelSerial || data.model_serial || ''}, ${data.equipmentId || data.equipment_id || ''}, ${data.serialNumber || data.serial_number || ''}, ${data.customerName || data.customer_name || ''}, ${data.customerAddress || data.customer_address || ''}, ${data.calDate || data.cal_date || ''}, ${data.reCalDate || data.re_cal_date || ''}, ${data.procedure || ''}, ${data.refStandard || data.ref_standard || ''}, ${data.tempEnv || data.temp_env || ''}, ${data.humiEnv || data.humi_env || ''}, ${data.headOfLab || data.head_of_lab || ''}, ${data.director || ''}, ${data.specRange || ''}, ${data.specResolution || ''})
         ON CONFLICT (CERT_NO) DO UPDATE SET INSTRUMENT_NAME = EXCLUDED.INSTRUMENT_NAME, INSTRUMENT_NAME_EN = EXCLUDED.INSTRUMENT_NAME_EN, MANUFACTURER = EXCLUDED.MANUFACTURER, MANUFACTURER_ID = EXCLUDED.MANUFACTURER_ID, MODEL = EXCLUDED.MODEL, MODEL_SERIAL = EXCLUDED.MODEL_SERIAL, EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID, SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER, CUSTOMER_NAME = EXCLUDED.CUSTOMER_NAME, CUSTOMER_ADDRESS = EXCLUDED.CUSTOMER_ADDRESS, CAL_DATE = EXCLUDED.CAL_DATE, RE_CAL_DATE = EXCLUDED.RE_CAL_DATE, PROCEDURE = EXCLUDED.PROCEDURE, REF_STANDARD = EXCLUDED.REF_STANDARD, TEMP_ENV = EXCLUDED.TEMP_ENV, HUMI_ENV = EXCLUDED.HUMI_ENV, HEAD_OF_LAB = EXCLUDED.HEAD_OF_LAB, DIRECTOR = EXCLUDED.DIRECTOR, SPEC_RANGE = EXCLUDED.SPEC_RANGE, SPEC_RESOLUTION = EXCLUDED.SPEC_RESOLUTION
     `;
 
-    await sql`DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ${compositeCertNo}`;
-    await sql`DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${compositeCertNo}`;
+    const delPointsPromise = sql`DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ${compositeCertNo}`;
+    const delStdsPromise = sql`DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${compositeCertNo}`;
+
+    await Promise.all([certPromise, delPointsPromise, delStdsPromise]);
 
     const points = data.points || [];
+    const stds = data.standards || [];
+    const insertTasks = [];
+
     if (points.length > 0) {
         for (const p of points) {
             const standardVal = p.refEq || p.standardEquipment || p.standard_equipment || '';
             const refValValue = p.referenceValue || p.refValue || p.reference_value || '';
-            await sql`
+            insertTasks.push(sql`
                 INSERT INTO CALIBRATION_POINTS (CERT_NO, EQUIPMENT_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, REFERENCE_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT)
                 VALUES (${compositeCertNo}, ${eqName}, ${p.parameterName || p.param || ''}, ${p.calPoint || p.point || ''}, ${p.asFoundValue || p.found || ''}, ${refValValue}, ${p.uncertainty || p.unc || ''}, ${p.tolerance || p.tol || ''}, ${p.conformity || p.conf || ''}, ${standardVal}, ${standardVal})
-            `;
+            `);
         }
     }
 
-    const stds = data.standards || [];
     if (stds.length > 0) {
-        const stdInsertPromises = stds.map(s => {
-            return sql`
+        for (const s of stds) {
+            insertTasks.push(sql`
                 INSERT INTO CERTIFICATE_STANDARDS (CERT_NO, EQ_CODE, EQ_NAME, STD_CERT_NO, LINK, VALIDITY)
                 VALUES (${compositeCertNo}, ${s.id || s.code || ''}, ${s.name || ''}, ${s.certNo || ''}, ${s.trace || s.link || ''}, ${s.due || s.validity || ''})
-            `;
-        });
-        await Promise.all(stdInsertPromises);
+            `);
+        }
+    }
+
+    if (insertTasks.length > 0) {
+        await Promise.all(insertTasks);
     }
 }
 
@@ -1496,23 +1508,44 @@ async function saveCalibrationDataToDBHelper(data, cert_no) {
 app.post('/api/calibration/export-pdf', async (req, res) => {
     const data = req.body;
     const cert_no = data.cert_no || data.certNo;
+    const isPreview = req.query.preview === '1' || req.query.preview === 'true' || req.headers['x-preview'] === '1';
 
     if (!cert_no) return res.status(400).json({ success: false, message: "Thiếu số chứng nhận cert_no!" });
 
     try {
-        await saveCalibrationDataToDBHelper(data, cert_no);
-        const fileName = `GCN_${cert_no.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+        const eqName = data.equipmentName || data.equipment_name || '';
+        const compositeCertNo = eqName ? `${cert_no}_${eqName}` : cert_no;
+        const fileName = `GCN_${compositeCertNo.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
         
         // Ưu tiên Supabase Storage URL cho QR code (nếu đã cấu hình)
-        // Vì QR in trên giấy, khách hàng quét từ bất kỳ đâu (khác mạng, ngoài LAN)
-        // Supabase Storage URL có dạng: https://jvlkfunovqujjwfpmnau.supabase.co/storage/v1/object/public/certificates/GCN_xxx.pdf?download=1
         const supabaseUrl = getPublicUrl(fileName);
         const publicBaseUrl = getBaseUrl();
         const localUrl = `${publicBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}${fileName}`;
         const downloadUrl = supabaseUrl || localUrl;
-        const eqName = data.equipmentName || data.equipment_name || '';
 
-        const pdfBuffer = await generatePDF({ certNo: cert_no, downloadUrl, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [] });
+        // Nếu là xuất file chính thức thì mới lưu DB & upload Supabase, xem trước thì không cần block DB
+        if (!isPreview) {
+            saveCalibrationDataToDBHelper(data, cert_no).catch(err => {
+                console.error('⚠️ Lỗi lưu dữ liệu trong background khi xuất PDF:', err.message);
+            });
+        }
+
+        const pdfBuffer = await generatePDF({ 
+            certNo: compositeCertNo, 
+            downloadUrl, 
+            equipmentName: eqName, 
+            accreditedMethods: data.accreditedMethods || [],
+            data: data,
+            saveToFile: !isPreview
+        });
+
+        // Hỗ trợ trả về nhị phân trực tiếp (Blob Stream) cho browser - cực nhanh, không qua Base64
+        if (req.headers.accept === 'application/pdf' || req.query.format === 'blob') {
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+            return res.send(pdfBuffer);
+        }
+
         const base64 = pdfBuffer.toString('base64');
         
         // Lấy public URL của Supabase trước (tính toán offline nhanh chóng)
@@ -1543,7 +1576,7 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
             fileUrl = `${requestBaseUrl}${fileUrlPath}`;
         }
 
-        logActivity("Hệ thống / KTV", "EXPORT_PDF", "CERTIFICATES", cert_no, `Xuất PDF: ${fileName}`);
+        logActivity("Hệ thống / KTV", "EXPORT_PDF", "CERTIFICATES", compositeCertNo, `Xuất PDF: ${fileName}`);
         res.json({ 
             success: true, 
             message: `Đã xuất thành công ${fileName}`, 
@@ -1558,6 +1591,40 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
     }
 });
 
+app.get('/api/calibration/export-pdf/:certNo', async (req, res) => {
+    const cert_no = req.params.certNo;
+    const eqName = req.query.equipment_name || '';
+    const compositeCertNo = eqName ? `${cert_no}_${eqName}` : cert_no;
+    const fileName = `GCN_${compositeCertNo.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+
+    try {
+        const supabaseUrl = getPublicUrl(fileName);
+        const publicBaseUrl = getBaseUrl();
+        const localUrl = `${publicBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}${fileName}`;
+        const downloadUrl = supabaseUrl || localUrl;
+
+        const pdfBuffer = await generatePDF({ certNo: compositeCertNo, downloadUrl, equipmentName: eqName });
+        const base64 = pdfBuffer.toString('base64');
+        let fileUrl = isConfigured() ? getPublicUrl(fileName) : null;
+        if (!fileUrl) {
+            const requestBaseUrl = req.protocol + '://' + req.get('host');
+            const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
+            fileUrl = `${requestBaseUrl}${fileUrlPath}`;
+        }
+        res.json({
+            success: true,
+            pdf_url: process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`,
+            file_url: fileUrl,
+            base64: base64,
+            filename: fileName,
+            mimeType: 'application/pdf'
+        });
+    } catch (err) {
+        console.error('GET EXPORT-PDF ERROR:', err.stack);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 app.post('/api/calibration/export-excel', async (req, res) => {
     const data = req.body;
     const cert_no = data.cert_no || data.certNo;
@@ -1565,13 +1632,15 @@ app.post('/api/calibration/export-excel', async (req, res) => {
     if (!cert_no) return res.status(400).json({ success: false, message: "Thiếu số chứng nhận cert_no!" });
 
     try {
-        await saveCalibrationDataToDBHelper(data, cert_no);
-        
         const eqName = data.equipmentName || data.equipment_name || '';
         const compositeCertNo = eqName ? `${cert_no}_${eqName}` : cert_no;
-        
-        await generateExcel({ certNo: compositeCertNo, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [] });
         const fileName = `GCN_${compositeCertNo.replace(/[^a-zA-Z0-9]/g, "_")}.xlsx`;
+
+        saveCalibrationDataToDBHelper(data, cert_no).catch(err => {
+            console.error('⚠️ Lỗi lưu dữ liệu trong background khi xuất Excel:', err.message);
+        });
+
+        await generateExcel({ certNo: compositeCertNo, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [], data: data });
 
         const outputDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, 'static');
         const filePath = path.join(outputDir, fileName);
@@ -1627,11 +1696,8 @@ app.post('/api/calibration/export-docx', async (req, res) => {
     if (!cert_no) return res.status(400).json({ success: false, message: "Thiếu số chứng nhận cert_no!" });
 
     try {
-        await saveCalibrationDataToDBHelper(data, cert_no);
-        
         const eqName = data.equipmentName || data.equipment_name || '';
         const compositeCertNo = eqName ? `${cert_no}_${eqName}` : cert_no;
-        
         const fileName = `GCN_${compositeCertNo.replace(/[^a-zA-Z0-9]/g, "_")}.docx`;
 
         // Ưu tiên Supabase Storage URL cho QR code (nếu đã cấu hình)
@@ -1641,7 +1707,11 @@ app.post('/api/calibration/export-docx', async (req, res) => {
         const localUrl = `${publicBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}${fileName}`;
         const downloadUrl = supabaseUrl || localUrl;
 
-        const docxBuffer = await generateDocx({ certNo: compositeCertNo, downloadUrl, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [] });
+        saveCalibrationDataToDBHelper(data, cert_no).catch(err => {
+            console.error('⚠️ Lỗi lưu dữ liệu trong background khi xuất Word:', err.message);
+        });
+
+        const docxBuffer = await generateDocx({ certNo: compositeCertNo, downloadUrl, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [], data: data });
         const base64 = docxBuffer.toString('base64');
         
         // Lấy public URL của Supabase trước (tính toán offline nhanh chóng)

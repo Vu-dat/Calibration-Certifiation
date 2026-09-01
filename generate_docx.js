@@ -572,13 +572,87 @@ async function main(opts) {
         const SAFE_NAME   = compositeCNo.replace(/[^a-zA-Z0-9]/g, '_');
         const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.docx`);
         
-        let cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [compositeCNo]);
-        if (!cert) {
-            const errMsg = 'Lỗi: Không tìm thấy dữ liệu cho mã [' + compositeCNo + '].';
-            if (require.main === module) { console.error(errMsg); process.exit(1); }
-            else throw new Error(errMsg);
+        function mapDataToCert(data, cNo) {
+            return {
+                CERT_NO: cNo,
+                CUSTOMER_NAME: data.customerName || data.customer_name || '',
+                CUSTOMER_ADDRESS: data.customerAddress || data.customer_address || '',
+                INSTRUMENT_NAME: data.instrumentName || data.instrument_name || '',
+                INSTRUMENT_NAME_EN: data.instrumentNameEn || data.instrument_name_en || '',
+                MANUFACTURER: data.manufacturer || '',
+                MANUFACTURER_ID: data.manufacturerId || data.manufacturer_id || '',
+                MODEL: data.model || '',
+                MODEL_SERIAL: data.modelSerial || data.model_serial || '',
+                EQUIPMENT_ID: data.equipmentId || data.equipment_id || '',
+                SERIAL_NUMBER: data.serialNumber || data.serial_number || '',
+                CAL_DATE: data.calDate || data.cal_date || '',
+                RE_CAL_DATE: data.reCalDate || data.re_cal_date || '',
+                TEMP_ENV: data.tempEnv || data.temp_env || '',
+                HUMI_ENV: data.humiEnv || data.humi_env || '',
+                PROCEDURE: data.procedure || '',
+                REF_STANDARD: data.refStandard || data.ref_standard || '',
+                SPEC_RANGE: data.specRange || data.spec_range || '',
+                SPEC_RESOLUTION: data.specResolution || data.spec_resolution || '',
+                HEAD_OF_LAB: data.headOfLab || data.head_of_lab || '',
+                DIRECTOR: data.director || ''
+            };
         }
-        cert = toUpperKeys(cert);
+
+        function mapDataToPoints(points) {
+            if (!points || !Array.isArray(points)) return [];
+            return points.map(p => ({
+                PARAMETER_NAME: p.parameterName || p.param || '',
+                CAL_POINT: p.calPoint || p.point || '',
+                AS_FOUND_VALUE: p.asFoundValue || p.found || '',
+                REFERENCE_VALUE: p.referenceValue || p.refValue || p.reference_value || '',
+                UNCERTAINTY: p.uncertainty || p.unc || '',
+                TOLERANCE: p.tolerance || p.tol || '',
+                CONFORMITY: p.conformity || p.conf || '',
+                REF_EQUIPMENT: p.refEq || p.standardEquipment || p.standard_equipment || '',
+                STANDARD_EQUIPMENT: p.refEq || p.standardEquipment || p.standard_equipment || ''
+            }));
+        }
+
+        function mapDataToStandards(standards) {
+            if (!standards || !Array.isArray(standards)) return [];
+            return standards.map(s => ({
+                EQ_CODE: s.id || s.code || '',
+                EQ_NAME: s.name || '',
+                STD_CERT_NO: s.certNo || '',
+                LINK: s.trace || s.link || '',
+                VALIDITY: s.due || s.validity || ''
+            }));
+        }
+
+        let cert = null;
+        let points = [];
+        let standards = [];
+
+        if (opts && opts.data) {
+            cert = mapDataToCert(opts.data, cNo);
+            points = mapDataToPoints(opts.data.points);
+            standards = mapDataToStandards(opts.data.standards);
+        } else {
+            cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [compositeCNo]);
+            if (!cert && compositeCNo !== cNo) {
+                cert = await dbGet(`SELECT * FROM CERTIFICATES WHERE CERT_NO = ?`, [cNo]);
+            }
+            if (!cert) {
+                const errMsg = 'Lỗi: Không tìm thấy dữ liệu cho mã [' + compositeCNo + '].';
+                if (require.main === module) { console.error(errMsg); process.exit(1); }
+                else throw new Error(errMsg);
+            }
+            cert = toUpperKeys(cert);
+
+            if (eqName) {
+                points = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC`, [compositeCNo, eqName]);
+            } else {
+                points = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [compositeCNo]);
+            }
+            points = toUpperKeys(points);
+
+            standards = toUpperKeys(await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [compositeCNo]));
+        }
 
         let tpl = null;
         if (eqName) {
@@ -607,19 +681,6 @@ async function main(opts) {
             range: specRange,
             resolution: specResolution
         };
-
-        let points;
-        if (eqName) {
-            points = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? AND EQUIPMENT_NAME = ? ORDER BY ID ASC`, [compositeCNo, eqName]);
-        } else {
-            points = await dbAll(`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ? ORDER BY ID ASC`, [compositeCNo]);
-        }
-        points = toUpperKeys(points);
-
-        // Points are already in insertion order (ORDER BY ID ASC) matching the preview DOM order.
-        // No re-sorting by template — the user's arrangement is preserved.
-
-        const standards = toUpperKeys(await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [compositeCNo]));
 
         // Generate QR code if download URL provided
         let qrBuffer = null;

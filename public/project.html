@@ -973,6 +973,9 @@ document.addEventListener("DOMContentLoaded", () => {
             <button class="btn btn-sm" id="btn-preview-pdf" onclick="showPreviewTab('pdf')" style="border: none; border-radius: 0; background: var(--accent); color: white; font-weight: 500; padding: 6px 12px; cursor: pointer; transition: all 0.2s;">📄 Xem trước PDF (In chuẩn)</button>
             <button class="btn btn-sm" id="btn-preview-html" onclick="showPreviewTab('html')" style="border: none; border-radius: 0; background: transparent; color: var(--text-muted); font-weight: 500; padding: 6px 12px; cursor: pointer; transition: all 0.2s;">🌐 Xem trước HTML</button>
           </div>
+          <span id="pdf-preview-sync-badge" style="display:none; font-size:12px; color:var(--accent); font-weight:600; align-items:center; gap:5px; margin-left:8px;">
+            <span style="display:inline-block; animation: spin 1s linear infinite;">⚡</span> Đang đồng bộ bản in...
+          </span>
         </div>
         <div class="dropdown" style="position:relative;display:inline-block;">
           <button class="btn btn-primary btn-sm" onclick="toggleExportMenu()" id="export-dropdown-btn">
@@ -1660,7 +1663,11 @@ function transitionPage(fromView, toView) {
   });
 }
 
-function showProjectList() {
+function showProjectList(fromPopState = false) {
+  if (!fromPopState && history.state && history.state.view === 'detail') {
+    history.back();
+    return;
+  }
   const listView = document.getElementById('project-list-view');
   const detailView = document.getElementById('project-detail-view');
   const editorView = document.getElementById('calibration-editor-view');
@@ -1681,9 +1688,13 @@ function showProjectList() {
     listView.style.display = 'block';
     fetchProjects();
   }
+
+  if (!fromPopState) {
+    history.replaceState({ view: 'list' }, '', window.location.pathname + window.location.search);
+  }
 }
 
-async function viewProjectDetail(id) {
+async function viewProjectDetail(id, fromPopState = false) {
   currentProjectId = id;
   const proj = projectsList.find(p => p.ID === id);
   if(!proj) return;
@@ -1741,6 +1752,10 @@ async function viewProjectDetail(id) {
   // Animate transition
   transitionPage(listView, detailView);
   if(editorView) editorView.style.display = 'none';
+
+  if (!fromPopState) {
+    history.pushState({ view: 'detail', projectId: id }, '', `#project-${id}`);
+  }
 
   // --- Đổ dữ liệu vào các thẻ hiển thị chi tiết ---
   if(document.getElementById('pd-id')) document.getElementById('pd-id').textContent = proj.ID;
@@ -2423,18 +2438,34 @@ async function deleteMachineFromRow(btn) {
     }
 }
 
-function backToProjectDetail() {
+function backToProjectDetail(fromPopState = false) {
+  if (!fromPopState && history.state && (history.state.view === 'workspace' || history.state.view === 'preview')) {
+    history.back();
+    return;
+  }
   const editorView = document.getElementById('calibration-editor-view');
   const detailView = document.getElementById('project-detail-view');
   transitionPage(editorView, detailView);
+  if (!fromPopState) {
+    history.replaceState({ view: 'detail', projectId: currentProjectId }, '', `#project-${currentProjectId || ''}`);
+  }
 }
 
-async function openCalibrationWorkspace(equipmentNameFromRow = null) {
+async function openCalibrationWorkspace(equipmentNameFromRow = null, fromPopState = false) {
   document.getElementById('project-detail-view').style.display='none';
   document.getElementById('calibration-editor-view').style.display='block';
   document.getElementById('editor-view').style.display='block';
   document.getElementById('preview-view').style.display='none';
   document.getElementById('ws-title-crumb').textContent=currentProjectId;
+
+  // Cập nhật browser history để khi bấm Back "<-" trên Chrome sẽ quay lại project detail
+  if (!fromPopState) {
+    history.pushState({ 
+      view: 'workspace', 
+      projectId: currentProjectId, 
+      equipmentName: window._currentWorkingEquipment || equipmentNameFromRow 
+    }, '', '#workspace');
+  }
 
   const certNo = currentProjectId.replace('PRJ-', '');
   document.getElementById('f-certno').value = certNo;
@@ -2503,6 +2534,7 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null) {
   renderStandardsForm();
   renderResultsForm();
   updateRowCount();
+  setTimeout(prewarmPdfPreview, 300);
   window.scrollTo(0,0);
 }
 
@@ -3870,7 +3902,7 @@ function buildPrintTemplateHtml() {
 
 
 /* ====== SWITCH VIEWS ====== */
-function switchToPreview() {
+function switchToPreview(fromPopState = false) {
   currentPreviewTab = 'pdf';
   const btnPdf = document.getElementById('btn-preview-pdf');
   const btnHtml = document.getElementById('btn-preview-html');
@@ -3887,10 +3919,31 @@ function switchToPreview() {
   document.getElementById('editor-view').style.display='none';
   document.getElementById('preview-view').style.display='block';
   window.scrollTo(0,0);
+
+  // Đẩy state 'preview' vào browser history để khi người dùng bấm Back "<-" trên Chrome sẽ quay lại workspace
+  if (!fromPopState) {
+    history.pushState({ 
+      view: 'preview', 
+      projectId: currentProjectId, 
+      equipmentName: window._currentWorkingEquipment 
+    }, '', '#preview');
+  }
 }
-function switchToEditor() {
+
+function switchToEditor(fromPopState = false) {
+  if (!fromPopState && history.state && history.state.view === 'preview') {
+    history.back();
+    return;
+  }
   document.getElementById('preview-view').style.display='none';
   document.getElementById('editor-view').style.display='block';
+  if (!fromPopState) {
+    history.replaceState({ 
+      view: 'workspace', 
+      projectId: currentProjectId, 
+      equipmentName: window._currentWorkingEquipment 
+    }, '', '#workspace');
+  }
 }
 
 function adjustPreviewZoom() {
@@ -4194,9 +4247,11 @@ async function exportFile(format) {
     due:     s.due
   }));
 
+  const currentWorkingEq = window._currentWorkingEquipment || currentEquipmentName || (document.getElementById('f-inst-vi')?.value || '').trim();
+  const currentResults = collectCalibrationResults();
   const payload = {
     cert_no:        certNo,
-    equipmentName:  window._currentWorkingEquipment || '',
+    equipmentName:  currentWorkingEq,
     instrumentName:    txt('f-inst-vi'),
     instrumentNameEn:  txt('f-inst-en'),
     manufacturer:      txt('f-mfr'),
@@ -4217,9 +4272,9 @@ async function exportFile(format) {
     director:       txt('f-sign2'),
     specRange:      getSpecRangeTableData(),
     specResolution: getSpecResolutionTableData(),
-    points:         pointRecords.map((p, idx) => ({ ...p, refEq: collectCalibrationResults()[idx].refEq })),
+    points:         pointRecords.map((p, idx) => ({ ...p, refEq: (currentResults[idx] && currentResults[idx].refEq) || '' })),
     standards:      standardRecords,
-    accreditedMethods: []
+    accreditedMethods: (typeof calibrateMethods !== 'undefined' && Array.isArray(calibrateMethods)) ? calibrateMethods : []
   };
 
   const apiEndpoints = {
@@ -4986,6 +5041,136 @@ function checkCopiedData() {
 
 let currentPreviewTab = 'pdf';
 let currentPdfBlobUrl = null;
+let lastPdfPreviewPayloadKey = '';
+let prewarmedBlobUrl = null;
+let prewarmedPayloadKey = '';
+let isGeneratingPdf = false;
+let pdfPrewarmTimer = null;
+
+function schedulePdfPrewarm() {
+  clearTimeout(pdfPrewarmTimer);
+  pdfPrewarmTimer = setTimeout(() => {
+    prewarmPdfPreview();
+  }, 1000);
+}
+
+function showPreviewLoadingBadge(show) {
+  const badge = document.getElementById('pdf-preview-sync-badge');
+  if (badge) badge.style.display = show ? 'inline-flex' : 'none';
+}
+
+function getCalibrationPayload() {
+  const certNo = (document.getElementById('f-certno')?.value || '').trim()
+              || (typeof currentActiveCertNo !== 'undefined' && currentActiveCertNo)
+              || '';
+
+  const currentWorkingEq = window._currentWorkingEquipment || currentEquipmentName || (document.getElementById('f-inst-vi')?.value || '').trim();
+  const currentResults = collectCalibrationResults();
+  const pointRecords = currentResults.map(r => ({
+    parameterName: r.param,
+    calPoint:      r.point,
+    asFoundValue:  r.found,
+    uncertainty:   r.unc,
+    referenceValue: r.refValue,
+    tolerance:     r.tol,
+    conformity:    r.conf
+  }));
+
+  const standardRecords = collectAllStandards().map(s => ({
+    name:    s.name,
+    id:      s.id,
+    certNo:  s.certNo || '',
+    trace:   s.trace,
+    due:     s.due
+  }));
+
+  return {
+    cert_no:        certNo,
+    equipmentName:  currentWorkingEq,
+    instrumentName:    txt('f-inst-vi'),
+    instrumentNameEn:  txt('f-inst-en'),
+    manufacturer:      txt('f-mfr'),
+    manufacturerId:    txt('f-mfr-id'),
+    model:             txt('f-model'),
+    modelSerial:       txt('f-model-sn'),
+    equipmentId:       txt('f-id'),
+    serialNumber:      txt('f-sn'),
+    customerName:      txt('f-cust'),
+    customerAddress:   txt('f-cust-addr'),
+    calDate:           txt('f-caldate'),
+    reCalDate:         txt('f-recaldate'),
+    procedure:         getSpecProcedureTableData(),
+    refStandard:       getSpecRefTableData(),
+    tempEnv:           txt('f-temp'),
+    humiEnv:           txt('f-humi'),
+    headOfLab:         txt('f-sign1'),
+    director:          txt('f-sign2'),
+    specRange:         getSpecRangeTableData(),
+    specResolution:    getSpecResolutionTableData(),
+    points:            pointRecords.map((p, idx) => ({ ...p, refEq: (currentResults[idx] && currentResults[idx].refEq) || '' })),
+    standards:         standardRecords,
+    accreditedMethods: (typeof calibrateMethods !== 'undefined' && Array.isArray(calibrateMethods)) ? calibrateMethods : []
+  };
+}
+
+async function prewarmPdfPreview() {
+  const payload = getCalibrationPayload();
+  if (!payload.cert_no || payload.cert_no === '-') return;
+  if (calibrateMethods.length === 0 && !getSpecProcedureTableData()) return;
+
+  const payloadKey = JSON.stringify(payload);
+  if (prewarmedPayloadKey === payloadKey && prewarmedBlobUrl) return;
+  if (isGeneratingPdf) return;
+
+  isGeneratingPdf = true;
+  try {
+    const response = await fetch(`${API_URL}/calibration/export-pdf?preview=1`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/pdf' },
+      body: payloadKey
+    });
+
+    if (response.ok) {
+      const blob = await response.blob();
+      const newBlobUrl = URL.createObjectURL(blob);
+      if (prewarmedBlobUrl && prewarmedBlobUrl !== currentPdfBlobUrl) {
+        URL.revokeObjectURL(prewarmedBlobUrl);
+      }
+      prewarmedBlobUrl = newBlobUrl;
+      prewarmedPayloadKey = payloadKey;
+
+      const previewView = document.getElementById('preview-view');
+      if (previewView && previewView.style.display !== 'none' && currentPreviewTab === 'pdf') {
+        if (currentPdfBlobUrl && currentPdfBlobUrl !== prewarmedBlobUrl) {
+          URL.revokeObjectURL(currentPdfBlobUrl);
+        }
+        currentPdfBlobUrl = prewarmedBlobUrl;
+        lastPdfPreviewPayloadKey = payloadKey;
+        renderPdfIframe(currentPdfBlobUrl);
+      }
+    }
+  } catch (e) {
+  } finally {
+    isGeneratingPdf = false;
+  }
+}
+
+function renderPdfIframe(blobUrl) {
+  const container = document.getElementById('print-content');
+  if (!container) return;
+  const targetSrc = `${blobUrl}#toolbar=1`;
+  const existingIframe = container.querySelector('iframe');
+  if (existingIframe) {
+    if (existingIframe.getAttribute('data-src') !== targetSrc) {
+      existingIframe.setAttribute('data-src', targetSrc);
+      existingIframe.src = targetSrc;
+    }
+  } else {
+    container.innerHTML = `
+      <iframe src="${targetSrc}" data-src="${targetSrc}" style="width:100%; height:860px; border:1px solid var(--border); border-radius:8px; box-shadow: var(--shadow-sm); display:block; background:#525659;" allow="print"></iframe>
+    `;
+  }
+}
 
 function showPreviewTab(tab) {
   currentPreviewTab = tab;
@@ -5019,105 +5204,144 @@ function showPreviewTab(tab) {
 async function loadPdfPreview() {
   const container = document.getElementById('print-content');
   if (!container) return;
-  
-  container.innerHTML = `
-    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 100px 40px; color:var(--text-muted);">
-      <div style="border: 4px solid rgba(13,148,136,0.1); border-left-color: var(--accent); border-radius:50%; width:40px; height:40px; animation: spin 1s linear infinite; margin-bottom:15px;"></div>
-      <div style="font-weight: 500; font-size: 14px;">Đang tải bản xem trước PDF (Giống 100% khi in)...</div>
-    </div>
-  `;
-  
-  const certNo = (document.getElementById('f-certno')?.value || '').trim()
-              || (typeof currentActiveCertNo !== 'undefined' && currentActiveCertNo)
-              || '';
 
-  if (!certNo || certNo === '-') {
+  const payload = getCalibrationPayload();
+  if (!payload.cert_no || payload.cert_no === '-') {
     container.innerHTML = '<div style="padding:40px; color:var(--danger); text-align:center; font-weight:500;">Vui lòng nhập Số chứng nhận (Cert No.) để tải bản xem trước PDF.</div>';
     return;
   }
 
-  // Tối thiểu 1 máy/phép thử được công nhận trong phần Quy trình & Tiêu chuẩn áp dụng
   if (calibrateMethods.length === 0 && !getSpecProcedureTableData()) {
     container.innerHTML = '<div style="padding:40px; color:var(--warning); text-align:center; font-weight:500;">Vui lòng chọn ít nhất 1 máy/phép thử hoặc quy trình để tạo PDF.</div>';
     return;
   }
 
-  const pointRecords = collectCalibrationResults().map(r => ({
-    parameterName: r.param,
-    calPoint:      r.point,
-    asFoundValue:  r.found,
-    uncertainty:   r.unc,
-    referenceValue: r.refValue,
-    tolerance:     r.tol,
-    conformity:    r.conf
-  }));
+  const payloadKey = JSON.stringify(payload);
 
-  const standardRecords = collectAllStandards().map(s => ({
-    name:    s.name,
-    id:      s.id,
-    certNo:  s.certNo || '',
-    trace:   s.trace,
-    due:     s.due
-  }));
+  // 1. SIÊU TỐC (0ms): Dữ liệu khớp với bản đã pre-warm trong background
+  if (prewarmedBlobUrl && prewarmedPayloadKey === payloadKey) {
+    if (currentPdfBlobUrl !== prewarmedBlobUrl) {
+      if (currentPdfBlobUrl) URL.revokeObjectURL(currentPdfBlobUrl);
+      currentPdfBlobUrl = prewarmedBlobUrl;
+    }
+    lastPdfPreviewPayloadKey = payloadKey;
+    renderPdfIframe(currentPdfBlobUrl);
+    return;
+  }
 
-  const payload = {
-    cert_no:        certNo,
-    equipmentName:  window._currentWorkingEquipment || '',
-    instrumentName:    txt('f-inst-vi'),
-    instrumentNameEn:  txt('f-inst-en'),
-    manufacturer:      txt('f-mfr'),
-    manufacturerId:    txt('f-mfr-id'),
-    model:             txt('f-model'),
-    modelSerial:       txt('f-model-sn'),
-    equipmentId:       txt('f-id'),
-    serialNumber:      txt('f-sn'),
-    customerName:      txt('f-cust'),
-    customerAddress: txt('f-cust-addr'),
-    calDate:        txt('f-caldate'),
-    reCalDate:      txt('f-recaldate'),
-    procedure:      getSpecProcedureTableData(),
-    refStandard:    getSpecRefTableData(),
-    tempEnv:        txt('f-temp'),
-    humiEnv:        txt('f-humi'),
-    headOfLab:      txt('f-sign1'),
-    director:       txt('f-sign2'),
-    specRange:      getSpecRangeTableData(),
-    specResolution: getSpecResolutionTableData(),
-    points:         pointRecords.map((p, idx) => ({ ...p, refEq: collectCalibrationResults()[idx].refEq })),
-    standards:      standardRecords,
-    accreditedMethods: []
-  };
+  // 2. Đã có blob URL cũ khớp đúng payload
+  if (currentPdfBlobUrl && lastPdfPreviewPayloadKey === payloadKey) {
+    renderPdfIframe(currentPdfBlobUrl);
+    return;
+  }
+
+  // 3. Nếu đã có iframe trước đó, GIỮ NGUYÊN không xóa trắng màn hình để tránh chớp màn hình!
+  const hasExistingIframe = !!container.querySelector('iframe');
+  if (!hasExistingIframe) {
+    container.innerHTML = `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 100px 40px; color:var(--text-muted);">
+        <div style="border: 4px solid rgba(13,148,136,0.1); border-left-color: var(--accent); border-radius:50%; width:40px; height:40px; animation: spin 1s linear infinite; margin-bottom:15px;"></div>
+        <div style="font-weight: 500; font-size: 14px;">Đang tải bản xem trước PDF (Giống 100% khi in)...</div>
+      </div>
+    `;
+  } else {
+    showPreviewLoadingBadge(true);
+  }
 
   try {
-    const response = await fetch(`${API_URL}/calibration/export-pdf`, {
+    const response = await fetch(`${API_URL}/calibration/export-pdf?preview=1`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/pdf' },
+      body: payloadKey
     });
 
-    const result = await response.json();
-    if (result.success && result.base64) {
-      const binaryString = window.atob(result.base64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      if (currentPdfBlobUrl) {
-        URL.revokeObjectURL(currentPdfBlobUrl);
-      }
-      currentPdfBlobUrl = URL.createObjectURL(blob);
-      container.innerHTML = `
-        <iframe src="${currentPdfBlobUrl}#toolbar=1" style="width:100%; height:840px; border:1px solid var(--border); border-radius:8px; box-shadow: var(--shadow-sm);" allow="print"></iframe>
-      `;
-    } else {
-      container.innerHTML = `<div style="padding:40px; color:var(--danger); text-align:center; font-weight:500;">Lỗi tạo PDF: ${result.error || result.message}</div>`;
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const blob = await response.blob();
+    if (currentPdfBlobUrl && currentPdfBlobUrl !== prewarmedBlobUrl) {
+      URL.revokeObjectURL(currentPdfBlobUrl);
     }
+    currentPdfBlobUrl = URL.createObjectURL(blob);
+    prewarmedBlobUrl = currentPdfBlobUrl;
+    prewarmedPayloadKey = payloadKey;
+    lastPdfPreviewPayloadKey = payloadKey;
+
+    renderPdfIframe(currentPdfBlobUrl);
   } catch (error) {
     console.error("Lỗi khi tải bản xem trước PDF:", error);
-    container.innerHTML = `<div style="padding:40px; color:var(--danger); text-align:center; font-weight:500;">Lỗi kết nối máy chủ khi tạo bản xem trước PDF.</div>`;
+    if (!container.querySelector('iframe')) {
+      container.innerHTML = `<div style="padding:40px; color:var(--danger); text-align:center; font-weight:500;">Lỗi kết nối máy chủ khi tạo bản xem trước PDF: ${error.message}</div>`;
+    }
+  } finally {
+    showPreviewLoadingBadge(false);
   }
 }
+
+// Tự động kích hoạt tiền tạo trước PDF ngầm khi người dùng thay đổi dữ liệu trong form
+document.addEventListener('DOMContentLoaded', () => {
+  const editorView = document.getElementById('editor-view');
+  if (editorView) {
+    editorView.addEventListener('input', schedulePdfPrewarm);
+    editorView.addEventListener('change', schedulePdfPrewarm);
+  }
+});
+
+// ====== BROWSER HISTORY & BACK BUTTON ("<-") HANDLING ======
+if (!history.state) {
+  history.replaceState({ view: 'list' }, '', window.location.pathname + window.location.search);
+}
+
+window.addEventListener('popstate', (event) => {
+  const state = event.state;
+  const listView = document.getElementById('project-list-view');
+  const detailView = document.getElementById('project-detail-view');
+  const calibEditorView = document.getElementById('calibration-editor-view');
+  const editorView = document.getElementById('editor-view');
+  const previewView = document.getElementById('preview-view');
+
+  // 1. Khi đang ở 'preview' và bấm Back "<-" trên trình duyệt Chrome:
+  // Browser pop state sẽ trả về state 'workspace'
+  if (state && state.view === 'workspace') {
+    if (previewView) previewView.style.display = 'none';
+    if (editorView) editorView.style.display = 'block';
+    if (calibEditorView) calibEditorView.style.display = 'block';
+    if (detailView) detailView.style.display = 'none';
+    if (listView) listView.style.display = 'none';
+    window.scrollTo(0, 0);
+    return;
+  }
+
+  // 2. Khi đang ở 'workspace' và bấm Back "<-" trên trình duyệt Chrome:
+  // Browser pop state sẽ trả về state 'detail'
+  if (state && state.view === 'detail') {
+    if (calibEditorView) calibEditorView.style.display = 'none';
+    if (listView) listView.style.display = 'none';
+    if (detailView) detailView.style.display = 'block';
+    if (state.projectId && state.projectId !== currentProjectId) {
+      viewProjectDetail(state.projectId, true);
+    }
+    window.scrollTo(0, 0);
+    return;
+  }
+
+  // 3. Khi bấm Forward "->" vào lại 'preview':
+  if (state && state.view === 'preview') {
+    if (calibEditorView) calibEditorView.style.display = 'block';
+    if (editorView) editorView.style.display = 'none';
+    if (previewView) previewView.style.display = 'block';
+    switchToPreview(true);
+    return;
+  }
+
+  // 4. Khi state là 'list' hoặc rỗng:
+  if (!state || state.view === 'list') {
+    if (calibEditorView) calibEditorView.style.display = 'none';
+    if (detailView) detailView.style.display = 'none';
+    if (listView) listView.style.display = 'block';
+    window.scrollTo(0, 0);
+    return;
+  }
+});
 
 function buildPrintTemplate() {
   if (currentPreviewTab === 'pdf') {
