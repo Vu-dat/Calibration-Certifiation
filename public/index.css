@@ -1153,8 +1153,26 @@ textarea {
 .cert-results th { border: 1px solid #000; padding: 4.5mm 2.5mm; font-size: 10pt; font-weight: 700; text-align: center; vertical-align: middle; line-height: 1.35; }
 .cert-results th i { font-weight: 700; }
 .cert-results td { border: 1px solid #000; padding: 4.5mm 2.5mm; font-size: 10pt; text-align: center; vertical-align: middle; line-height: 1.35; }
-.cert-results td.tdl { text-align: left; font-weight: 600; }
-.cert-sup { font-size: 65%; vertical-align: super; }
+.cert-sup {
+  font-size: 70%;
+  vertical-align: baseline;
+  position: relative;
+  top: -0.45em;
+  line-height: 0;
+  font-weight: 700;
+  display: inline-block;
+  margin-left: 1px;
+}
+
+.param-display {
+  word-break: break-word;
+}
+.param-display:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  font-weight: 400;
+  font-style: italic;
+}
 
 /* ─── Ghi chú & Mục 17 ─── */
 .cert-notes { font-size: 8pt; margin: 2mm 0; page-break-inside: avoid; }

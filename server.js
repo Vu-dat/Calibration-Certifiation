@@ -641,11 +641,11 @@ app.get('/api/debug/health', async (req, res) => {
 
 // ================= API CRUD CHO BẢNG CLOCK =================
 
-app.get('/api/clock', async (req, res) => {
+async function getOrLoadClockCache() {
+    if (serverCache.clock && Array.isArray(serverCache.clock) && serverCache.clock.length > 0) {
+        return serverCache.clock;
+    }
     try {
-        if (serverCache.clock) {
-            return res.json(serverCache.clock);
-        }
         const rowsDb = await sql`SELECT * FROM CLOCK ORDER BY ID ASC`;
         const rows = rowsDb.map(r => ({
             ID: r.id,
@@ -663,7 +663,17 @@ app.get('/api/clock', async (req, res) => {
             CREATED_AT: r.created_at
         }));
         serverCache.clock = rows;
-        res.json(serverCache.clock);
+        return serverCache.clock;
+    } catch (err) {
+        console.error('Lỗi load clock cache từ DB:', err);
+        return serverCache.clock || [];
+    }
+}
+
+app.get('/api/clock', async (req, res) => {
+    try {
+        const rows = await getOrLoadClockCache();
+        res.json(rows);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -672,60 +682,42 @@ app.get('/api/clock', async (req, res) => {
 app.get('/api/clock/search', async (req, res) => {
     const q = (req.query.q || '').toString().trim();
     try {
+        const allClocks = await getOrLoadClockCache();
         if (!q) {
-            const rowsDb = await sql`SELECT * FROM CLOCK ORDER BY NAME ASC LIMIT 10`;
-            const rows = rowsDb.map(r => ({
-                ID: r.id,
-                KEY_FIELD: r.key_field,
-                NAME: r.name,
-                MANUFACTURER: r.manufacturer,
-                MODEL: r.model,
-                SERIAL_NUMBER: r.serial_number,
-                GCN: r.gcn,
-                LINK: r.link,
-                CAL_DATE: r.cal_date,
-                VALIDITY: r.validity,
-                TYPE: r.type,
-                NOTES: r.notes,
-                CREATED_AT: r.created_at
-            }));
-            return res.json(rows);
+            return res.json(allClocks.slice(0, 15));
         }
 
-        const queryStr = `%${q}%`;
-        const rowsDb = await sql`
-            SELECT *,
-                CASE
-                    WHEN UPPER(ID) = UPPER(${q}) OR UPPER(NAME) = UPPER(${q}) THEN 0
-                    WHEN UPPER(ID) LIKE UPPER(${queryStr}) OR UPPER(NAME) LIKE UPPER(${queryStr}) THEN 1
-                    ELSE 2
-                END AS RELEVANCE
-            FROM CLOCK
-            WHERE UPPER(ID) LIKE UPPER(${queryStr})
-               OR UPPER(NAME) LIKE UPPER(${queryStr})
-               OR UPPER(MANUFACTURER) LIKE UPPER(${queryStr})
-               OR UPPER(MODEL) LIKE UPPER(${queryStr})
-               OR UPPER(SERIAL_NUMBER) LIKE UPPER(${queryStr})
-               OR UPPER(KEY_FIELD) LIKE UPPER(${queryStr})
-            ORDER BY RELEVANCE ASC, NAME ASC
-            LIMIT 15
-        `;
-        const rows = rowsDb.map(r => ({
-            ID: r.id,
-            KEY_FIELD: r.key_field,
-            NAME: r.name,
-            MANUFACTURER: r.manufacturer,
-            MODEL: r.model,
-            SERIAL_NUMBER: r.serial_number,
-            GCN: r.gcn,
-            LINK: r.link,
-            CAL_DATE: r.cal_date,
-            VALIDITY: r.validity,
-            TYPE: r.type,
-            NOTES: r.notes,
-            CREATED_AT: r.created_at
-        }));
-        res.json(rows);
+        const normalize = (str) => (str || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim();
+        const qNorm = normalize(q);
+        const qL = q.toLowerCase();
+
+        const results = allClocks
+            .map(r => {
+                const idNorm = normalize(r.ID);
+                const nameNorm = normalize(r.NAME);
+                const manuNorm = normalize(r.MANUFACTURER);
+                const modelNorm = normalize(r.MODEL);
+                const snNorm = normalize(r.SERIAL_NUMBER);
+                const keyNorm = normalize(r.KEY_FIELD);
+
+                const idL = (r.ID || '').toLowerCase();
+                const nameL = (r.NAME || '').toLowerCase();
+
+                let relevance = 999;
+                if (idL === qL || nameL === qL || idNorm === qNorm || nameNorm === qNorm) relevance = 0;
+                else if (idL.startsWith(qL) || idNorm.startsWith(qNorm)) relevance = 1;
+                else if (nameL.startsWith(qL) || nameNorm.startsWith(qNorm)) relevance = 2;
+                else if (idNorm.includes(qNorm) || nameNorm.includes(qNorm)) relevance = 3;
+                else if (manuNorm.includes(qNorm) || modelNorm.includes(qNorm) || snNorm.includes(qNorm) || keyNorm.includes(qNorm)) relevance = 4;
+
+                return { item: r, relevance };
+            })
+            .filter(x => x.relevance < 999)
+            .sort((a, b) => a.relevance - b.relevance || (a.item.NAME || '').localeCompare(b.item.NAME || ''))
+            .map(x => x.item)
+            .slice(0, 20);
+
+        res.json(results);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -2028,6 +2020,11 @@ async function startServer() {
             const supabaseUrl = process.env.SUPABASE_URL;
             console.log('✅ Supabase Storage đã sẵn sàng. File export sẽ được upload lên bucket "' + BUCKET_NAME + '" tại ' + supabaseUrl + '.');
         }
+
+        // Tải trước cache thiết bị chuẩn (CLOCK) vào RAM để tìm kiếm tức thì 0ms
+        getOrLoadClockCache().then(items => {
+            console.log(`⚡ [Cache Warmup] Đã nạp sẵn ${items.length} thiết bị chuẩn vào RAM server.`);
+        }).catch(err => console.warn('Cache warmup clock failed:', err.message));
     } catch (err) {
         console.error('❌ Database init at startup failed:', err.message);
         // Không throw - để middleware fallback xử lý

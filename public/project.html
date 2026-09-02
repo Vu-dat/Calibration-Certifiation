@@ -557,6 +557,25 @@
       color: #1e293b !important;
       transform: translateY(-1px) !important;
     }
+    .cert-sup {
+      font-size: 70%;
+      vertical-align: baseline;
+      position: relative;
+      top: -0.45em;
+      line-height: 0;
+      font-weight: 700;
+      display: inline-block;
+      margin-left: 1px;
+    }
+    .param-display {
+      word-break: break-word;
+    }
+    .param-display:empty::before {
+      content: attr(data-placeholder);
+      color: var(--text-muted);
+      font-weight: 400;
+      font-style: italic;
+    }
     </style>
 </head>
 <body>
@@ -875,13 +894,19 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="form-card">
         <div class="form-card-title"><span>5</span> Thiết bị chuẩn sử dụng</div>
         <div class="field">
-          <label>Tìm kiếm thiết bị chuẩn để thêm vào chứng nhận</label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <label style="margin:0;">Tìm kiếm thiết bị chuẩn để thêm vào chứng nhận</label>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addStandardRow()" style="display:inline-flex; align-items:center; gap:6px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              + Thêm thiết bị chuẩn
+            </button>
+          </div>
           <div class="autocomplete-wrapper">
-            <input type="text" id="input-standard-search" oninput="handleStandardSearch(this.value)" placeholder="Gõ mã hoặc tên thiết bị chuẩn..." autocomplete="off">
+            <input type="text" id="input-standard-search" oninput="handleStandardSearch(this.value)" onfocus="if(this.value.trim()) handleStandardSearch(this.value)" placeholder="Gõ mã hoặc tên thiết bị chuẩn..." autocomplete="off">
             <div id="standard-suggestions" class="autocomplete-suggestions"></div>
           </div>
         </div>
-        <div id="selected-standards-wrapper" style="display:none; margin-top:16px;">
+        <div id="selected-standards-wrapper" style="margin-top:16px;">
           <table class="data-table" style="font-size:12.5px;">
             <thead>
               <tr>
@@ -895,6 +920,10 @@ document.addEventListener("DOMContentLoaded", () => {
             </thead>
             <tbody id="std-form-body"></tbody>
           </table>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addStandardRow()" style="margin-top:8px; display:inline-flex; align-items:center; gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-plus"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            + Thêm thiết bị chuẩn
+          </button>
         </div>
       </div>
 
@@ -1157,44 +1186,68 @@ function swrFetch(key, fetcher, ttlMs) {
 
 /* ====== LIVE DATABASE STANDARDS ====== */
 let liveStandardsDB = [];
+try {
+  const cachedStd = (typeof cacheGet === 'function') ? cacheGet('lm_clock_standards') : null;
+  if (cachedStd && Array.isArray(cachedStd) && cachedStd.length > 0) {
+    liveStandardsDB = cachedStd;
+  }
+} catch (e) {}
 
 // Dữ liệu thiết bị chuẩn tĩnh (Trống - Đã chuyển hoàn toàn sang SQL CLOCK)
 const staticEquipmentData = {};
 
 async function fetchLiveStandards(force) {
   if (force) {
-    // Force refresh: b? qua cache, fetch m?i ? ch?
     try {
       const response = await fetch(`${API_BASE_URL}/api/clock`);
       if (response.ok) {
         liveStandardsDB = await response.json();
-        cacheSet('lm_clock_standards', liveStandardsDB, 30000);
+        if (typeof cacheSet === 'function') cacheSet('lm_clock_standards', liveStandardsDB, 60000);
       }
     } catch (error) {
-      console.error("L?i khi t?i thi?t b? chu?n t? Database:", error);
+      console.error("Lỗi khi tải thiết bị chuẩn từ Database:", error);
     }
     return;
   }
-  // SWR: dùng cached data ngay (k? c? stale), refresh background n?u c?n
-  const data = await swrFetch('lm_clock_standards', async () => {
-    const response = await fetch(`${API_BASE_URL}/api/clock`);
-    if (!response.ok) throw new Error('API clock failed');
-    const json = await response.json();
-    liveStandardsDB = json; // update global variable
-    return json;
-  }, 30000);
-  if (data) liveStandardsDB = data;
+  // SWR: dùng cached data ngay lập tức (0ms), refresh ngầm nếu quá hạn
+  if (typeof swrFetch === 'function') {
+    const data = await swrFetch('lm_clock_standards', async () => {
+      const response = await fetch(`${API_BASE_URL}/api/clock`);
+      if (!response.ok) throw new Error('API clock failed');
+      const json = await response.json();
+      liveStandardsDB = json;
+      return json;
+    }, 60000);
+    if (data && Array.isArray(data)) liveStandardsDB = data;
+  } else {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/clock`);
+      if (response.ok) {
+        liveStandardsDB = await response.json();
+      }
+    } catch (e) {}
+  }
 }
+
+// Gọi tải trước dữ liệu thiết bị chuẩn ngay khi mở trang
+fetchLiveStandards();
 
 /* Lấy dữ liệu thiết bị chuẩn trực tiếp từ Database SQL (Bảng CLOCK) */
 function getCombinedStandardsDB() {
+  if ((!liveStandardsDB || liveStandardsDB.length === 0) && typeof cacheGet === 'function') {
+    const cached = cacheGet('lm_clock_standards');
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      liveStandardsDB = cached;
+    }
+  }
   const liveList = (liveStandardsDB || []).map(eq => ({
-    EQUIPMENT_ID: eq.ID || '',
-    NAME: eq.NAME || '',
-    MANUFACTURER: eq.MANUFACTURER || '',
-    NEXT_DUE: eq.VALIDITY || '',
-    GCN: eq.GCN || '',
-    LINK: eq.LINK || '',
+    EQUIPMENT_ID: eq.ID || eq.id || eq.EQUIPMENT_ID || '',
+    NAME: eq.NAME || eq.name || '',
+    MANUFACTURER: eq.MANUFACTURER || eq.manufacturer || eq.LINK || eq.link || '',
+    MODEL: eq.MODEL || eq.model || '',
+    NEXT_DUE: eq.VALIDITY || eq.validity || eq.NEXT_DUE || eq.next_due || '',
+    GCN: eq.GCN || eq.gcn || eq.STD_CERT_NO || eq.certNo || '',
+    LINK: eq.LINK || eq.link || '',
     isStatic: false
   }));
   return liveList;
@@ -2221,9 +2274,7 @@ function fillCalibrationTableFromCalibrateMethod(rec) {
 
       let html = '';
       // Cột 1: Tên thông số đo con (có thể sửa)
-      html += '<td class="group-header" style="vertical-align:middle;">' +
-        '<textarea class="lab-input-cell group-param-name" style="font-weight:700;font-size:12.5px;width:100%;min-height:36px;resize:vertical;padding:4px;border:1px solid transparent;background:transparent;" onfocus="this.style.borderColor=\'var(--border)\';" onblur="this.style.borderColor=\'transparent\';" oninput="syncGroupParamName(this.closest(\'tr\'), this.value)">' + escHtml(paramName) + '</textarea>' +
-      '</td>';
+      html += renderGroupHeaderCell(paramName, 1);
 
       html += '<td><input type="text" class="lab-input-cell cal-point" value="" style="font-weight:700;"></td>' +
         '<td><input type="text" class="lab-input-cell measured-active as-found-1" placeholder="Lần 1" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
@@ -2252,9 +2303,7 @@ function fillCalibrationTableFromCalibrateMethod(rec) {
       
       let html = '';
       if (i === 0) {
-        html += '<td rowspan="' + n + '" class="group-header" style="vertical-align:middle;">' +
-          '<textarea class="lab-input-cell group-param-name" style="font-weight:700;font-size:12.5px;width:100%;min-height:48px;resize:vertical;padding:4px;border:1px solid transparent;background:transparent;" onfocus="this.style.borderColor=\'var(--border)\';" onblur="this.style.borderColor=\'transparent\';" oninput="syncGroupParamName(this.closest(\'tr\'), this.value)">' + escHtml(methodParamName) + '</textarea>' +
-        '</td>';
+        html += renderGroupHeaderCell(methodParamName, n);
       }
       html += '<td><input type="text" class="lab-input-cell cal-point" value="' + escHtml(rangeLines[i] || '') + '" style="font-weight:700;"></td>' +
         '<td><input type="text" class="lab-input-cell measured-active as-found-1" placeholder="Lần 1" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
@@ -2538,60 +2587,99 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null, fromPopStat
   window.scrollTo(0,0);
 }
 
-/* ====== EQUIPMENT SEARCH ====== */
+/* ====== EQUIPMENT SEARCH (INSTANT LOCAL 0ms + BACKGROUND FALLBACK) ====== */
 async function handleStandardSearch(query) {
     const suggestionsBox = document.getElementById('standard-suggestions');
-    const loader = document.getElementById('standard-loader');
+    if (!suggestionsBox) return;
 
-    // Nếu ô nhập trống, ẩn khung gợi ý và dừng xử lý
-    if (!query.trim()) {
+    const trimmed = (query || '').trim();
+    if (!trimmed) {
         suggestionsBox.style.display = 'none';
         return;
     }
 
-    if (loader) loader.style.display = 'block';
+    // 1. TÌM KIẾM TỨC THÌ TỪ LOCAL CACHE (0ms - Siêu mượt và nhanh)
+    const combined = getCombinedStandardsDB();
+    const keyNorm = normalizeVietnameseKeyword(trimmed);
+    const keyL = trimmed.toLowerCase();
 
-    try {
-        // Gửi trực tiếp từ khóa 'query' người dùng gõ lên API
-        const response = await fetch(`${API_BASE_URL}/api/clock/search?q=${encodeURIComponent(query)}`);
-        const data = await response.json();
+    let matches = combined
+        .map(eq => {
+            const codeNorm = normalizeVietnameseKeyword(eq.EQUIPMENT_ID || '');
+            const nameNorm = normalizeVietnameseKeyword(eq.NAME || '');
+            const manuNorm = normalizeVietnameseKeyword(eq.MANUFACTURER || '');
+            const code = (eq.EQUIPMENT_ID || '').toLowerCase();
+            const name = (eq.NAME || '').toLowerCase();
+            const manu = (eq.MANUFACTURER || '').toLowerCase();
 
-        if (!suggestionsBox) return;
-        suggestionsBox.innerHTML = '';
+            let score = 100;
+            if (code === keyL || name === keyL || codeNorm === keyNorm || nameNorm === keyNorm) score = 0;
+            else if (code.startsWith(keyL) || codeNorm.startsWith(keyNorm)) score = 5;
+            else if (name.startsWith(keyL) || nameNorm.startsWith(keyNorm)) score = 10;
+            else if (name.split(/[\s\-\/]+/).some(w => w.startsWith(keyL) || normalizeVietnameseKeyword(w).startsWith(keyNorm))) score = 12;
+            else if (name.includes(keyL) || nameNorm.includes(keyNorm)) score = 15;
+            else if (code.includes(keyL) || codeNorm.includes(keyNorm)) score = 18;
+            else if (manu.includes(keyL) || manuNorm.includes(keyNorm)) score = 25;
 
-        if (data && data.length > 0) {
-            data.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'suggestion-item';
-                div.innerHTML = `
-                    <div>
-                        <div class="item-main" style="font-weight: 600; color: #2b6cb0;">${item.ID} - ${item.NAME}</div>
-                        <div class="item-sub" style="font-size: 12px; color: #718096;">
-                            Hãng: ${item.MANUFACTURER || 'N/A'} | Model: ${item.MODEL || 'N/A'} | Hạn: ${item.VALIDITY || 'N/A'}
-                        </div>
-                    </div>
-                    <span style="font-size: 11px; color: #4a5568; background: #edf2f7; padding: 2px 6px; border-radius: 4px;">Chọn</span>
-                `;
-                
-                div.onclick = function() {
-                    if (typeof addStandardTag === 'function') {
-                        addStandardTag(item);
-                    }
-                    suggestionsBox.style.display = 'none';
-                    document.getElementById('input-standard-search').value = '';
-                };
-                suggestionsBox.appendChild(div);
-            });
-            suggestionsBox.style.display = 'block';
-        } else {
-            suggestionsBox.innerHTML = '<div style="padding: 10px; color: #a0aec0; text-align: center;">Không thấy thiết bị phù hợp</div>';
-            suggestionsBox.style.display = 'block';
+            return { item: eq, score };
+        })
+        .filter(x => x.score < 100)
+        .sort((a, b) => a.score - b.score)
+        .map(x => x.item);
+
+    renderTopStandardSuggestions(matches, suggestionsBox);
+
+    // 2. Gọi ngầm API backend nếu cache chưa có kết quả để đảm bảo không sót
+    if (matches.length === 0) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/clock/search?q=${encodeURIComponent(trimmed)}`);
+            if (response.ok) {
+                const apiData = await response.json();
+                if (apiData && apiData.length > 0) {
+                    renderTopStandardSuggestions(apiData, suggestionsBox);
+                }
+            }
+        } catch (e) {
+            console.warn('API clock search fallback error:', e);
         }
-    } catch (error) {
-        console.error("Lỗi khi kết nối API tìm kiếm thiết bị:", error);
-    } finally {
-        if (loader) loader.style.display = 'none';
     }
+}
+
+function renderTopStandardSuggestions(items, suggestionsBox) {
+    suggestionsBox.innerHTML = '';
+    if (!items || items.length === 0) {
+        suggestionsBox.innerHTML = '<div style="padding: 10px; color: #a0aec0; text-align: center;">Không thấy thiết bị phù hợp</div>';
+        suggestionsBox.style.display = 'block';
+        return;
+    }
+
+    items.slice(0, 15).forEach(item => {
+        const id = item.ID || item.id || item.EQUIPMENT_ID || '';
+        const name = item.NAME || item.name || '';
+        const manu = item.MANUFACTURER || item.manufacturer || 'N/A';
+        const model = item.MODEL || item.model || 'N/A';
+        const due = formatStdDueDate(item.VALIDITY || item.validity || item.NEXT_DUE || item.next_due || 'N/A');
+
+        const div = document.createElement('div');
+        div.className = 'suggestion-item';
+        div.innerHTML = `
+            <div>
+                <div class="item-main" style="font-weight: 600; color: #2b6cb0;">${id} - ${name}</div>
+                <div class="item-sub" style="font-size: 12px; color: #718096;">
+                    Hãng: ${manu} | Model: ${model} | Hạn: ${due}
+                </div>
+            </div>
+            <span style="font-size: 11px; color: #4a5568; background: #edf2f7; padding: 2px 6px; border-radius: 4px;">Chọn</span>
+        `;
+        div.onclick = function() {
+            addStandardTag(item);
+            suggestionsBox.style.display = 'none';
+            const input = document.getElementById('input-standard-search');
+            if (input) input.value = '';
+        };
+        suggestionsBox.appendChild(div);
+    });
+    suggestionsBox.style.display = 'block';
 }
 function addSpecRangeRow(param = '', value = '', resolution = '', procedure = '', reference = '') {
   const tbody = document.getElementById('spec-range-table-body');
@@ -2801,9 +2889,7 @@ function selectEquipmentTemplate(key) {
     row.dataset.parameterName = pt.paramName.replace('\n', ' ');
     let html = '';
     if (pt.rowspan > 0) {
-      html += `<td rowspan="${pt.rowspan}" class="group-header" style="vertical-align:middle;">
-        <textarea class="lab-input-cell group-param-name" style="font-weight:700;font-size:12.5px;width:100%;min-height:48px;resize:vertical;padding:4px;border:1px solid transparent;background:transparent;" onfocus="this.style.borderColor='var(--border)';" onblur="this.style.borderColor='transparent';" oninput="syncGroupParamName(this.closest('tr'), this.value)">${escHtml(pt.paramName)}</textarea>
-      </td>`;
+      html += renderGroupHeaderCell(pt.paramName, pt.rowspan);
     }
     // Tính giá trị trung bình mẫu từ dữ liệu template (v1/v2/v3)
     var templateVals = [pt.v1, pt.v2, pt.v3].filter(function(v) { return v && v.trim() !== ''; });
@@ -2824,7 +2910,7 @@ function selectEquipmentTemplate(key) {
       html += `<td rowspan="${pt.rowspan}" class="ref-eq-col">${renderRefEqControl(pt.paramName, pt.standardEquipment)}</td>`;
     }
     html += `
-      <td style="text-align:center;"><button onclick="this.closest('tr').remove();updateRowCount();" class="btn-rm">×</button></td>
+      <td style="text-align:center;"><button onclick="deleteCalRow(this);" class="btn-rm">×</button></td>
     `;
     row.innerHTML = html;
     tbody.appendChild(row);
@@ -2907,6 +2993,66 @@ function cleanParamName(name) {
     .trim();
 }
 
+// Format parameter name for calibration tables & certificate preview
+// Replaces accreditation markers (M), (C), (*) with superscript small text
+function formatParamNameHtml(rawName) {
+  if (!rawName) return '';
+  let str = String(rawName).trim();
+  str = str.replace(/\([xX]\)/g, '').trim();
+
+  // If single line without newline, split after marker (M)/(C)/(*) before English text or slash
+  if (!str.includes('\n')) {
+    str = str.replace(/(\([MC*]\))\s*[\/]?\s*([A-Za-z])/g, '$1\n$2');
+  }
+
+  const lines = str.split('\n');
+  const formatMarker = (text) => {
+    return escHtml(text).replace(/\s*(\([mc*]\))/gi, function(match, p1) {
+      return '<sup class="cert-sup">' + p1.toUpperCase() + '</sup>';
+    });
+  };
+
+  const firstLine = formatMarker(lines[0] || '');
+  if (lines.length > 1) {
+    const restLines = lines.slice(1).map(l => formatMarker(l.trim())).filter(Boolean).join('<br>');
+    return firstLine + (restLines ? `<br><span class="param-sub-en" style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:11.5px;">${restLines}</span>` : '');
+  }
+  return firstLine;
+}
+
+// Render cell TD for group-header in Card 7 calibration table
+function renderGroupHeaderCell(paramName, rowspan) {
+  const rsAttr = (rowspan && rowspan > 1) ? ` rowspan="${rowspan}"` : '';
+  const formatted = formatParamNameHtml(paramName);
+  return `<td${rsAttr} class="group-header" style="vertical-align:middle;">` +
+    `<div class="param-display" contenteditable="true"` +
+    ` style="font-weight:700;font-size:12.5px;line-height:1.4;outline:none;padding:4px 6px;border-radius:6px;border:1px solid transparent;cursor:text;min-height:36px;white-space:pre-wrap;word-break:break-word;"` +
+    ` data-placeholder="Nhập tên thông số..."` +
+    ` onfocus="this.style.borderColor='var(--accent)';this.style.background='#fff';"` +
+    ` oninput="handleParamDisplayInput(this)"` +
+    ` onblur="handleParamDisplayBlur(this)">${formatted}</div>` +
+    `<input type="hidden" class="group-param-name" value="${escHtml(paramName || '')}">` +
+  `</td>`;
+}
+
+function handleParamDisplayInput(div) {
+  const row = div.closest('tr');
+  const text = (div.innerText || div.textContent || '').trim();
+  const hidden = row ? row.querySelector('.group-param-name') : null;
+  if (hidden) hidden.value = text;
+  if (row) syncGroupParamName(row, text);
+}
+
+function handleParamDisplayBlur(div) {
+  div.style.borderColor = 'transparent';
+  div.style.background = 'transparent';
+  const row = div.closest('tr');
+  const hidden = row ? row.querySelector('.group-param-name') : null;
+  const currentVal = hidden ? hidden.value : (div.innerText || div.textContent || '').trim();
+  if (row) syncGroupParamName(row, currentVal);
+  div.innerHTML = formatParamNameHtml(currentVal);
+}
+
 // Re-render entire tbody with proper rowspan grouping
 function renderTableFromData(data) {
   var tbody = document.getElementById('calibration-table-body');
@@ -2939,9 +3085,7 @@ function renderTableFromData(data) {
 
       var html = '';
       if (k === i) {
-        html += '<td rowspan="' + groupSize + '" class="group-header" style="vertical-align:middle;">' +
-          '<textarea class="lab-input-cell group-param-name" style="font-weight:700;font-size:12.5px;width:100%;min-height:48px;resize:vertical;padding:4px;border:1px solid transparent;background:transparent;" onfocus="this.style.borderColor=\'var(--border)\';" onblur="this.style.borderColor=\'transparent\';" oninput="syncGroupParamName(this.closest(\'tr\'), this.value)">' + escHtml(paramName) + '</textarea>' +
-        '</td>';
+        html += renderGroupHeaderCell(paramName, groupSize);
       }
 
       html += '<td><input type="text" class="lab-input-cell cal-point" value="' + escHtml(r.calPoint) + '" style="font-weight:700;"></td>' +
@@ -2987,7 +3131,7 @@ function syncGroupParamName(firstRow, newName) {
   var groupEnd = startIdx + 1;
   while (groupEnd < allRows.length) {
     var nextCell = allRows[groupEnd].querySelector('td:first-child');
-    if (nextCell && nextCell.hasAttribute('rowspan')) break;
+    if (nextCell && (nextCell.hasAttribute('rowspan') || nextCell.classList.contains('group-header'))) break;
     groupEnd++;
   }
 
@@ -3063,20 +3207,219 @@ function updateRowCount() {
   document.getElementById('result-row-count').textContent = n;
 }
 
+/* ====== FLOATING DROPDOWN CHO ROW THIẾT BỊ CHUẨN ====== */
+let standardRowDropdown = null;
+function getStandardRowDropdown() {
+  if (!standardRowDropdown) {
+    standardRowDropdown = document.createElement('div');
+    standardRowDropdown.id = 'standard-row-floating-dropdown';
+    standardRowDropdown.className = 'autocomplete-suggestions';
+    standardRowDropdown.style.cssText = 'position:fixed;z-index:9999;display:none;';
+    document.body.appendChild(standardRowDropdown);
+  }
+  return standardRowDropdown;
+}
+
+let standardRowSearchTimeout = null;
+
+function formatStdDueDate(val) {
+  if (!val) return '';
+  let s = String(val).trim();
+  if (s.includes('T')) s = s.split('T')[0];
+  return s;
+}
+
+/* Xử lý tìm kiếm thông minh khi sửa tên hoặc mã thiết bị chuẩn ngay trên bảng */
+async function handleStandardRowSearch(input, index, field = 'name') {
+  const box = getStandardRowDropdown();
+  if (!box) return;
+
+  const keyword = (input.value || '').trim();
+  if (standards[index]) {
+    if (field === 'id') standards[index].id = input.value;
+    else standards[index].name = input.value;
+  }
+
+  // 1. Tìm kiếm tức thì từ Database cache nội bộ kết hợp thuật toán điểm số (0ms)
+  const combinedDB = (typeof getCombinedStandardsDB === 'function') ? getCombinedStandardsDB() : [];
+  
+  let matches = [];
+  if (!keyword) {
+    // Trải nghiệm tối ưu: Khi ô nhập trống (mới thêm dòng hoặc click focus), hiển thị ngay danh sách thiết bị chuẩn có sẵn
+    matches = combinedDB.slice(0, 15);
+  } else {
+    const keyNorm = (typeof normalizeVietnameseKeyword === 'function') ? normalizeVietnameseKeyword(keyword) : keyword.toLowerCase();
+    const keyL = keyword.toLowerCase();
+
+    matches = combinedDB
+      .map(eq => {
+        const codeNorm = (typeof normalizeVietnameseKeyword === 'function') ? normalizeVietnameseKeyword(eq.EQUIPMENT_ID || '') : (eq.EQUIPMENT_ID || '').toLowerCase();
+        const nameNorm = (typeof normalizeVietnameseKeyword === 'function') ? normalizeVietnameseKeyword(eq.NAME || '') : (eq.NAME || '').toLowerCase();
+        const manuNorm = (typeof normalizeVietnameseKeyword === 'function') ? normalizeVietnameseKeyword(eq.MANUFACTURER || '') : (eq.MANUFACTURER || '').toLowerCase();
+        const code = (eq.EQUIPMENT_ID || '').toLowerCase();
+        const name = (eq.NAME || '').toLowerCase();
+        const manu = (eq.MANUFACTURER || '').toLowerCase();
+
+        let score = 100;
+        if (code === keyL || name === keyL || codeNorm === keyNorm || nameNorm === keyNorm) score = 0;
+        else if (code.startsWith(keyL) || codeNorm.startsWith(keyNorm)) score = 5;
+        else if (name.startsWith(keyL) || nameNorm.startsWith(keyNorm)) score = 10;
+        else if (name.split(/[\s\-\/]+/).some(w => w.startsWith(keyL) || ((typeof normalizeVietnameseKeyword === 'function') && normalizeVietnameseKeyword(w).startsWith(keyNorm)))) score = 12;
+        else if (name.includes(keyL) || nameNorm.includes(keyNorm)) score = 15;
+        else if (code.includes(keyL) || codeNorm.includes(keyNorm)) score = 18;
+        else if (manu.includes(keyL) || manuNorm.includes(keyNorm)) score = 25;
+
+        return { item: eq, score };
+      })
+      .filter(x => x.score < 100)
+      .sort((a, b) => a.score - b.score)
+      .map(x => x.item);
+  }
+
+  renderStandardRowSuggestions(matches, input, index, box, !keyword);
+
+  // 2. Gọi API CLOCK search song song ngầm nếu đang tìm kiếm từ khóa
+  if (keyword) {
+    clearTimeout(standardRowSearchTimeout);
+    standardRowSearchTimeout = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/clock/search?q=${encodeURIComponent(keyword)}`);
+        if (res.ok) {
+          const apiData = await res.json();
+          if (apiData && apiData.length > 0) {
+            const apiItems = apiData.map(r => ({
+              EQUIPMENT_ID: r.ID || r.id || '',
+              NAME: r.NAME || r.name || '',
+              MANUFACTURER: r.MANUFACTURER || r.manufacturer || r.LINK || r.link || '',
+              NEXT_DUE: r.VALIDITY || r.validity || '',
+              GCN: r.GCN || r.gcn || '',
+              MODEL: r.MODEL || r.model || ''
+            }));
+
+            const seen = new Set();
+            const merged = [];
+            [...matches, ...apiItems].forEach(item => {
+              const k = (item.EQUIPMENT_ID || '') + '|' + (item.NAME || '');
+              if (!seen.has(k)) {
+                seen.add(k);
+                merged.push(item);
+              }
+            });
+            renderStandardRowSuggestions(merged, input, index, box, false);
+          }
+        }
+      } catch (err) {
+        console.warn("Lỗi tìm kiếm thiết bị chuẩn:", err);
+      }
+    }, 200);
+  }
+}
+
+function renderStandardRowSuggestions(items, input, index, box, isPromptList = false) {
+  box.innerHTML = '';
+  if (!items || items.length === 0) {
+    box.innerHTML = '<div class="suggestion-item" style="color:var(--text-muted);cursor:default;padding:10px;text-align:center;">❌ Không tìm thấy thiết bị chuẩn phù hợp</div>';
+    if (typeof positionRefEqSuggestions === 'function') positionRefEqSuggestions(input, box);
+    box.style.display = 'block';
+    return;
+  }
+
+  // Tiêu đề nhỏ giúp người dùng nhận biết danh sách đang hiển thị
+  const headerDiv = document.createElement('div');
+  headerDiv.style.cssText = 'padding:6px 12px;font-size:11px;font-weight:700;color:var(--text-muted);background:#f8fafc;border-bottom:1px solid #e2e8f0;text-transform:uppercase;letter-spacing:0.5px;';
+  headerDiv.textContent = isPromptList ? '📋 Thiết bị chuẩn có sẵn (Click chọn hoặc gõ để lọc):' : '🔍 Kết quả tìm kiếm thiết bị chuẩn:';
+  box.appendChild(headerDiv);
+
+  const maxResults = Math.min(items.length, 12);
+  for (let j = 0; j < maxResults; j++) {
+    const eq = items[j];
+    const code = eq.EQUIPMENT_ID || eq.ID || eq.id || '';
+    const name = eq.NAME || eq.name || '';
+    const manu = eq.MANUFACTURER || eq.manufacturer || eq.LINK || eq.link || '';
+    const due = formatStdDueDate(eq.NEXT_DUE || eq.next_due || eq.VALIDITY || eq.validity || '');
+    const certNo = eq.GCN || eq.gcn || eq.STD_CERT_NO || eq.certNo || '';
+    const label = code ? `${code} - ${name}` : name;
+
+    let statusBadge = '';
+    if (due && due !== 'N/A') {
+      const dueDate = new Date(due);
+      if (!isNaN(dueDate.getTime())) {
+        const today = new Date();
+        const daysLeft = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+        if (daysLeft < 0) {
+          statusBadge = '<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:#fef2f2;color:#dc2626;font-weight:600;">❌ Hết hạn</span>';
+        } else if (daysLeft <= 30) {
+          statusBadge = '<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:#fffbeb;color:#d97706;font-weight:600;">⚠ Sắp hết hạn</span>';
+        } else {
+          const dueStr = dueDate.toLocaleDateString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric'});
+          statusBadge = '<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:#f0fdf4;color:#16a34a;font-weight:600;">✅ ' + dueStr + '</span>';
+        }
+      }
+    }
+
+    const div = document.createElement('div');
+    div.className = 'suggestion-item';
+    div.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background 0.15s;';
+    div.onmouseover = () => div.style.background = '#f8fafc';
+    div.onmouseout = () => div.style.background = '#ffffff';
+
+    div.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+        <span style="font-weight:600;color:var(--primary);font-size:12.5px;">${escHtml(label)}</span>
+        ${statusBadge}
+      </div>
+      <div style="font-size:11.5px;color:var(--text-muted);display:flex;gap:12px;flex-wrap:wrap;">
+        ${manu ? '<span>Hãng: ' + escHtml(manu) + '</span>' : ''}
+        ${certNo ? '<span>GCN: ' + escHtml(certNo) + '</span>' : ''}
+        ${due ? '<span>Hạn: ' + escHtml(due) + '</span>' : ''}
+      </div>
+    `;
+
+    div.onmousedown = function(e) {
+      e.preventDefault(); // Ngăn input mất focus trước khi click
+    };
+
+    div.onclick = function() {
+      // Ghi đè toàn bộ dữ liệu thiết bị cũ tại dòng này bằng thiết bị mới được chọn
+      standards[index] = {
+        name: name,
+        id: code,
+        certNo: certNo,
+        trace: manu,
+        due: due
+      };
+      box.style.display = 'none';
+      renderStandardsForm();
+      if (typeof showToast === 'function') {
+        showToast(`Đã chọn thiết bị chuẩn: ${name}`, 'success');
+      }
+    };
+
+    box.appendChild(div);
+  }
+
+  if (typeof positionRefEqSuggestions === 'function') {
+    positionRefEqSuggestions(input, box);
+  }
+  box.style.display = 'block';
+}
+
 /* ====== STANDARD SEARCH ====== */
 function addStandardTag(eq) {
   const standardEntry = {
-    name: eq.NAME || '',
-    id: eq.EQUIPMENT_ID || '',
-    certNo: eq.GCN || '',
-    trace: eq.MANUFACTURER || '',
-    due: eq.NEXT_DUE || ''
+    name: eq.NAME || eq.name || '',
+    id: eq.ID || eq.id || eq.EQUIPMENT_ID || '',
+    certNo: eq.GCN || eq.gcn || eq.STD_CERT_NO || eq.certNo || '',
+    trace: eq.MANUFACTURER || eq.manufacturer || eq.LINK || eq.link || '',
+    due: formatStdDueDate(eq.VALIDITY || eq.validity || eq.NEXT_DUE || eq.next_due || '')
   };
 
   standards.push(standardEntry);
   renderStandardsForm();
-  document.getElementById('input-standard-search').value = '';
-  document.getElementById('standard-suggestions').style.display = 'none';
+  const searchInput = document.getElementById('input-standard-search');
+  if (searchInput) searchInput.value = '';
+  const searchBox = document.getElementById('standard-suggestions');
+  if (searchBox) searchBox.style.display = 'none';
 }
 
 /* ====== SIMPLE MODE TABLES ====== */
@@ -3088,30 +3431,62 @@ function renderStandardsForm() {
     return;
   }
 
-  // Hiển thị wrapper nếu có ít nhất một thiết bị chuẩn được chọn
+  // Hiển thị wrapper rõ ràng
   const wrapper = document.getElementById('selected-standards-wrapper');
   if (wrapper) {
-    if (standards.length > 0) {
-      wrapper.style.display = 'block';
-    } else {
-      wrapper.style.display = 'none';
-    }
+    wrapper.style.display = 'block';
   }
 
   c.innerHTML = standards.map((s, i) => `
-    <tr>
-      <td><input class="lab-input-cell" value="${s.name || ''}" oninput="standards[${i}].name=this.value"></td>
-      <td><input class="lab-input-cell" value="${s.id || ''}" oninput="standards[${i}].id=this.value"></td>
-      <td><input class="lab-input-cell" value="${s.certNo || ''}" oninput="standards[${i}].certNo=this.value"></td>
-      <td><input class="lab-input-cell" value="${s.trace || ''}" oninput="standards[${i}].trace=this.value"></td>
-      <td><input class="lab-input-cell" value="${s.due || ''}" oninput="standards[${i}].due=this.value"></td>
+    <tr data-standard-index="${i}">
+      <td>
+        <div class="autocomplete-wrapper" style="position:relative;width:100%;">
+          <input class="lab-input-cell standard-name-input"
+                 value="${escHtml(s.name || '')}"
+                 placeholder="Gõ tên hoặc mã thiết bị chuẩn..."
+                 autocomplete="off"
+                 oninput="handleStandardRowSearch(this, ${i}, 'name')"
+                 onfocus="handleStandardRowSearch(this, ${i}, 'name')">
+        </div>
+      </td>
+      <td>
+        <div class="autocomplete-wrapper" style="position:relative;width:100%;">
+          <input class="lab-input-cell standard-id-input"
+                 value="${escHtml(s.id || '')}"
+                 placeholder="Mã số (ID)..."
+                 autocomplete="off"
+                 oninput="handleStandardRowSearch(this, ${i}, 'id')"
+                 onfocus="handleStandardRowSearch(this, ${i}, 'id')">
+        </div>
+      </td>
+      <td><input class="lab-input-cell" value="${escHtml(s.certNo || '')}" oninput="standards[${i}].certNo=this.value"></td>
+      <td><input class="lab-input-cell" value="${escHtml(s.trace || '')}" oninput="standards[${i}].trace=this.value"></td>
+      <td><input class="lab-input-cell" value="${escHtml(s.due || '')}" oninput="standards[${i}].due=this.value"></td>
       <td style="text-align:center;"><button class="btn-rm" onclick="standards.splice(${i},1);renderStandardsForm()">×</button></td>
     </tr>
   `).join('');
-  if (standards.length === 0) c.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px;">Chưa có thiết bị chuẩn nào được chọn.</td></tr>';
+  if (standards.length === 0) {
+    c.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px;">Chưa có thiết bị chuẩn nào được chọn — nhấn nút <b>"+ Thêm thiết bị chuẩn"</b> để thêm.</td></tr>';
+  }
 }
 
-function addStandardRow() { standards.push({name:'',id:'',certNo:'',trace:'',due:''}); renderStandardsForm(); }
+function addStandardRow() {
+  standards.push({name:'', id:'', certNo:'', trace:'', due:''});
+  renderStandardsForm();
+
+  // Trải nghiệm tối ưu: Tự động focus vào ô Tên thiết bị chuẩn và mở ngay popup gợi ý tìm kiếm
+  setTimeout(() => {
+    const tbody = document.getElementById('std-form-body');
+    if (!tbody) return;
+    const lastRow = tbody.querySelector('tr:last-child');
+    if (!lastRow) return;
+    const nameInput = lastRow.querySelector('.standard-name-input');
+    if (nameInput) {
+      nameInput.focus();
+      handleStandardRowSearch(nameInput, standards.length - 1, 'name');
+    }
+  }, 50);
+}
 
 function renderResultsForm() {
   const c = document.getElementById('res-form-body');
@@ -3230,13 +3605,9 @@ function accreditedMethodsListHtml() {
 
 function fmtDateSlash(d) { if (!d) return ''; const p = d.split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : d; }
 
-// Param name cho bảng kết quả: xuống dòng theo \n, marker (M)/(C)/(*) cuối dòng 1 -> superscript nhỏ (giống PDF)
+// Param name cho bảng kết quả: xuống dòng theo \n, marker (M)/(C)/(*) -> superscript nhỏ (giống PDF)
 function paramCellHtml(name) {
-  const lines = String(name || '').split('\n');
-  let first = escHtml(lines[0] || '');
-  first = first.replace(/(\([MC*]\))\s*$/, '<sup class="cert-sup">$1</sup>');
-  const rest = lines.slice(1).map(function(l) { return escHtml(l); }).join('<br>');
-  return first + (rest ? '<br>' + rest : '');
+  return formatParamNameHtml(name);
 }
 
 // 'Lực tỳ/Downward force: 9 N' -> VN + /EN nghiêng + : value (mirror drawSpecTable trong generate_pdf.js)
@@ -3795,8 +4166,7 @@ function buildPrintTemplateHtml() {
       // Build row HTML
       let rowHtml = '<tr>';
       if (isFirst) {
-        const parts = grp.name.split('\n');
-        const displayName = parts[0] + (parts[1] ? `<br><span style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:12px;">${parts[1]}</span>` : '');
+        const displayName = formatParamNameHtml(grp.name);
         rowHtml += `<td rowspan="${grp.rows.length}" style="text-align:left;font-weight:600;font-size:10pt;">${displayName}</td>`;
       }
       const isMulti = grp.rows.length > 1;
@@ -4480,12 +4850,7 @@ function fillCalibrationTableRows(points) {
             let html = '';
 
             if (idx === 0) {
-                const parts = group.name.split('\n');
-                const displayName = parts[0] + (parts[1] ? `<br><span style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:12px;">${parts[1]}</span>` : '');
-                html += `<td rowspan="${group.rows.length}" class="group-header">
-                    <div class="param-display">${displayName}</div>
-                    <input type="hidden" class="group-param-name" value="${group.name}">
-                </td>`;
+                html += renderGroupHeaderCell(group.name, group.rows.length);
             }
 
             const foundParts = (pt.AS_FOUND_VALUE || '').split(' / ');
@@ -4515,7 +4880,7 @@ function fillCalibrationTableRows(points) {
             }
 
             html += `
-              <td style="text-align:center;"><button onclick="this.closest('tr').remove();updateRowCount();" class="btn-rm">×</button></td>
+              <td style="text-align:center;"><button onclick="deleteCalRow(this);" class="btn-rm">×</button></td>
             `;
             row.innerHTML = html;
             tbody.appendChild(row);
@@ -4733,13 +5098,19 @@ function checkParamForRefEq(input) {
   refCol.innerHTML = renderRefEqControl(input.value, selectedValue);
 }
 
-/* ====== CLOSE DROPDOWNS ON OUTSIDE CLICK ====== */
+/* ====== CLOSE DROPDOWNS ON OUTSIDE CLICK & SCROLL ====== */
 document.addEventListener('click', function(e) {
   // Hide suggestions but keep floating dropdown open if clicking inside it
-  if (!e.target.closest('.autocomplete-wrapper') && !e.target.closest('#ref-eq-floating-dropdown')) {
+  if (!e.target.closest('.autocomplete-wrapper') && !e.target.closest('#ref-eq-floating-dropdown') && !e.target.closest('#standard-row-floating-dropdown')) {
     document.querySelectorAll('.autocomplete-suggestions').forEach(b=>b.style.display='none');
   }
 });
+
+window.addEventListener('scroll', function() {
+  if (standardRowDropdown && standardRowDropdown.style.display !== 'none') {
+    standardRowDropdown.style.display = 'none';
+  }
+}, true);
 
 /* ====== EVENT DELEGATION: Ref. Equipment Search ====== */
 document.addEventListener('input', function(e) {

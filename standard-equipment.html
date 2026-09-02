@@ -557,6 +557,19 @@
         text-align: left;
         padding: 10px !important;
     }
+    .cert-sup {
+        font-size: 70%;
+        vertical-align: baseline;
+        position: relative;
+        top: -0.45em;
+        line-height: 0;
+        font-weight: 700;
+        display: inline-block;
+        margin-left: 1px;
+    }
+    .param-display {
+        word-break: break-word;
+    }
     .btn-add-row {
         width: 100%;
         background-color: #f8fafc;
@@ -1150,6 +1163,10 @@
             </thead>
             <tbody id="std-form-body"></tbody>
           </table>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addStandardRow()" style="margin-top:8px; display:inline-flex; align-items:center; gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-plus"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Thêm thiết bị chuẩn
+          </button>
         </div>
       </div>
 
@@ -1270,8 +1287,9 @@
         window.location.href = 'login.html'; // Hoặc đường dẫn '/'
     }
 
-    // Tải danh sách khách hàng từ Database
+    // Tải danh sách khách hàng và thiết bị chuẩn từ Database
     fetchLiveCustomers();
+    fetchLiveStandards();
 });
   // Tự động nhận diện nếu chạy ở máy local thì gọi localhost, nếu chạy trên mạng thì dùng đường dẫn tương đối
   const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
@@ -1303,10 +1321,12 @@ async function fetchLiveStandards() {
 /* Lấy dữ liệu thiết bị chuẩn trực tiếp từ Database SQL (Bảng CLOCK) */
 function getCombinedStandardsDB() {
   const liveList = (liveStandardsDB || []).map(eq => ({
-    EQUIPMENT_ID: eq.ID || '',
-    NAME: eq.NAME || '',
-    MANUFACTURER: eq.MANUFACTURER || '',
-    NEXT_DUE: eq.VALIDITY || '',
+    EQUIPMENT_ID: eq.ID || eq.id || eq.EQUIPMENT_ID || '',
+    NAME: eq.NAME || eq.name || '',
+    MANUFACTURER: eq.MANUFACTURER || eq.manufacturer || eq.LINK || eq.link || '',
+    NEXT_DUE: eq.VALIDITY || eq.validity || eq.NEXT_DUE || eq.next_due || '',
+    GCN: eq.GCN || eq.gcn || '',
+    LINK: eq.LINK || eq.link || '',
     isStatic: false
   }));
   return liveList;
@@ -1843,60 +1863,34 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null) {
   window.scrollTo(0,0);
 }
 
-/* ====== EQUIPMENT SEARCH ====== */
-async function handleStandardSearch(query) {
-    const suggestionsBox = document.getElementById('standard-suggestions');
-    const loader = document.getElementById('standard-loader');
 
-    // Nếu ô nhập trống, ẩn khung gợi ý và dừng xử lý
-    if (!query.trim()) {
-        suggestionsBox.style.display = 'none';
-        return;
-    }
 
-    if (loader) loader.style.display = 'block';
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
 
-    try {
-        // Gửi trực tiếp từ khóa 'query' người dùng gõ lên API
-        const response = await fetch(`http://localhost:18080/api/clock/search?q=${encodeURIComponent(query)}`);
-        const data = await response.json();
+function formatParamNameHtml(rawName) {
+  if (!rawName) return '';
+  let str = String(rawName).trim();
+  str = str.replace(/\([xX]\)/g, '').trim();
 
-        if (!suggestionsBox) return;
-        suggestionsBox.innerHTML = '';
+  if (!str.includes('\n')) {
+    str = str.replace(/(\([MC*]\))\s*[\/]?\s*([A-Za-z])/g, '$1\n$2');
+  }
 
-        if (data && data.length > 0) {
-            data.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'suggestion-item';
-                div.innerHTML = `
-                    <div>
-                        <div class="item-main" style="font-weight: 600; color: #2b6cb0;">${item.ID} - ${item.NAME}</div>
-                        <div class="item-sub" style="font-size: 12px; color: #718096;">
-                            Hãng: ${item.MANUFACTURER || 'N/A'} | Model: ${item.MODEL || 'N/A'} | Hạn: ${item.VALIDITY || 'N/A'}
-                        </div>
-                    </div>
-                    <span style="font-size: 11px; color: #4a5568; background: #edf2f7; padding: 2px 6px; border-radius: 4px;">Chọn</span>
-                `;
-                
-                div.onclick = function() {
-                    if (typeof addStandardToTable === 'function') {
-                        addStandardToTable(item);
-                    }
-                    suggestionsBox.style.display = 'none';
-                    document.getElementById('input-standard-search').value = '';
-                };
-                suggestionsBox.appendChild(div);
-            });
-            suggestionsBox.style.display = 'block';
-        } else {
-            suggestionsBox.innerHTML = '<div style="padding: 10px; color: #a0aec0; text-align: center;">Không thấy thiết bị phù hợp</div>';
-            suggestionsBox.style.display = 'block';
-        }
-    } catch (error) {
-        console.error("Lỗi khi kết nối API tìm kiếm thiết bị:", error);
-    } finally {
-        if (loader) loader.style.display = 'none';
-    }
+  const lines = str.split('\n');
+  const formatMarker = (text) => {
+    return escHtml(text).replace(/\s*(\([mc*]\))/gi, function(match, p1) {
+      return '<sup class="cert-sup">' + p1.toUpperCase() + '</sup>';
+    });
+  };
+
+  const firstLine = formatMarker(lines[0] || '');
+  if (lines.length > 1) {
+    const restLines = lines.slice(1).map(l => formatMarker(l.trim())).filter(Boolean).join('<br>');
+    return firstLine + (restLines ? `<br><span class="param-sub-en" style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:11.5px;">${restLines}</span>` : '');
+  }
+  return firstLine;
 }
 
 function selectEquipmentTemplate(key) {
@@ -1926,9 +1920,9 @@ function selectEquipmentTemplate(key) {
     row.dataset.parameterName = pt.paramName.replace('\n', ' ');
     let html = '';
     if (pt.rowspan > 0) {
-      const parts = pt.paramName.split('\n');
-      html += `<td rowspan="${pt.rowspan}" class="group-header">${parts[0]}${parts[1]?`<br><span style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:12px;">${parts[1]}</span>`:''}
-        <input type="hidden" class="group-param-name" value="${pt.paramName}">
+      html += `<td rowspan="${pt.rowspan}" class="group-header" style="vertical-align:middle;">
+        <div class="param-display">${formatParamNameHtml(pt.paramName)}</div>
+        <input type="hidden" class="group-param-name" value="${escHtml(pt.paramName)}">
       </td>`;
     }
     html += `
@@ -2025,18 +2019,224 @@ function handleStandardSearch(keyword) {
   box.style.display = 'block';
 }
 
+/* ====== FLOATING DROPDOWN CHO ROW THIẾT BỊ CHUẨN ====== */
+let standardRowDropdown = null;
+function getStandardRowDropdown() {
+  if (!standardRowDropdown) {
+    standardRowDropdown = document.createElement('div');
+    standardRowDropdown.id = 'standard-row-floating-dropdown';
+    standardRowDropdown.className = 'autocomplete-suggestions';
+    standardRowDropdown.style.cssText = 'position:fixed;z-index:9999;display:none;';
+    document.body.appendChild(standardRowDropdown);
+  }
+  return standardRowDropdown;
+}
+
+function formatStdDueDate(val) {
+  if (!val) return '';
+  let s = String(val).trim();
+  if (s.includes('T')) s = s.split('T')[0];
+  return s;
+}
+
+function positionStandardSuggestions(input, box) {
+  const rect = input.getBoundingClientRect();
+  const viewportPadding = 12;
+  const minWidth = Math.max(rect.width, 280);
+  const maxWidth = window.innerWidth - viewportPadding * 2;
+  const width = Math.min(minWidth, maxWidth);
+  let left = rect.left;
+
+  if (left + width > window.innerWidth - viewportPadding) {
+    left = window.innerWidth - viewportPadding - width;
+  }
+  if (left < viewportPadding) left = viewportPadding;
+
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const estHeight = 240;
+
+  box.style.position = "fixed";
+  box.style.width = width + "px";
+  box.style.left = left + "px";
+  box.style.right = "auto";
+  box.style.maxHeight = "320px";
+
+  if (spaceBelow >= estHeight + 8 || spaceBelow > spaceAbove) {
+    box.style.top = (rect.bottom + 4) + "px";
+    box.style.bottom = "auto";
+  } else {
+    box.style.top = "auto";
+    box.style.bottom = (window.innerHeight - rect.top + 4) + "px";
+  }
+}
+
+function normalizeVietnameseKeyword(value = '') {
+  return value
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim();
+}
+
+let standardRowSearchTimeout = null;
+async function handleStandardRowSearch(input, index, field = 'name') {
+  const box = getStandardRowDropdown();
+  if (!box) return;
+
+  const keyword = (input.value || '').trim();
+  if (standards[index]) {
+    if (field === 'id') standards[index].id = input.value;
+    else standards[index].name = input.value;
+  }
+
+  const combinedDB = (typeof getCombinedStandardsDB === 'function') ? getCombinedStandardsDB() : [];
+  
+  let matches = [];
+  if (!keyword) {
+    matches = combinedDB.slice(0, 15);
+  } else {
+    const keyNorm = normalizeVietnameseKeyword(keyword);
+    const keyL = keyword.toLowerCase();
+
+    matches = combinedDB
+      .map(eq => {
+        const codeNorm = normalizeVietnameseKeyword(eq.EQUIPMENT_ID || '');
+        const nameNorm = normalizeVietnameseKeyword(eq.NAME || '');
+        const manuNorm = normalizeVietnameseKeyword(eq.MANUFACTURER || '');
+        const code = (eq.EQUIPMENT_ID || '').toLowerCase();
+        const name = (eq.NAME || '').toLowerCase();
+        const manu = (eq.MANUFACTURER || '').toLowerCase();
+
+        let score = 100;
+        if (code === keyL || name === keyL || codeNorm === keyNorm || nameNorm === keyNorm) score = 0;
+        else if (code.startsWith(keyL) || codeNorm.startsWith(keyNorm)) score = 5;
+        else if (name.startsWith(keyL) || nameNorm.startsWith(keyNorm)) score = 10;
+        else if (name.split(/[\s\-\/]+/).some(w => w.startsWith(keyL) || normalizeVietnameseKeyword(w).startsWith(keyNorm))) score = 12;
+        else if (name.includes(keyL) || nameNorm.includes(keyNorm)) score = 15;
+        else if (code.includes(keyL) || codeNorm.includes(keyNorm)) score = 18;
+        else if (manu.includes(keyL) || manuNorm.includes(keyNorm)) score = 25;
+
+        return { item: eq, score };
+      })
+      .filter(x => x.score < 100)
+      .sort((a, b) => a.score - b.score)
+      .map(x => x.item);
+  }
+
+  renderStandardRowSuggestions(matches, input, index, box, !keyword);
+
+  if (keyword) {
+    clearTimeout(standardRowSearchTimeout);
+    standardRowSearchTimeout = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/clock/search?q=${encodeURIComponent(keyword)}`);
+        if (res.ok) {
+          const apiData = await res.json();
+          if (apiData && apiData.length > 0) {
+            const apiItems = apiData.map(r => ({
+              EQUIPMENT_ID: r.ID || r.id || '',
+              NAME: r.NAME || r.name || '',
+              MANUFACTURER: r.MANUFACTURER || r.manufacturer || r.LINK || r.link || '',
+              NEXT_DUE: r.VALIDITY || r.validity || '',
+              GCN: r.GCN || r.gcn || ''
+            }));
+
+            const seen = new Set();
+            const merged = [];
+            [...matches, ...apiItems].forEach(item => {
+              const k = (item.EQUIPMENT_ID || '') + '|' + (item.NAME || '');
+              if (!seen.has(k)) {
+                seen.add(k);
+                merged.push(item);
+              }
+            });
+            renderStandardRowSuggestions(merged, input, index, box, false);
+          }
+        }
+      } catch (err) {
+        console.warn("Lỗi tìm kiếm thiết bị chuẩn:", err);
+      }
+    }, 200);
+  }
+}
+
+function renderStandardRowSuggestions(items, input, index, box, isPromptList = false) {
+  box.innerHTML = '';
+  if (!items || items.length === 0) {
+    box.innerHTML = '<div class="suggestion-item" style="color:var(--text-muted);cursor:default;padding:10px;text-align:center;">❌ Không tìm thấy thiết bị chuẩn phù hợp</div>';
+    positionStandardSuggestions(input, box);
+    box.style.display = 'block';
+    return;
+  }
+
+  const headerDiv = document.createElement('div');
+  headerDiv.style.cssText = 'padding:6px 12px;font-size:11px;font-weight:700;color:var(--text-muted);background:#f8fafc;border-bottom:1px solid #e2e8f0;text-transform:uppercase;';
+  headerDiv.textContent = isPromptList ? '📋 Thiết bị chuẩn có sẵn (Click chọn hoặc gõ để lọc):' : '🔍 Kết quả tìm kiếm thiết bị chuẩn:';
+  box.appendChild(headerDiv);
+
+  const maxResults = Math.min(items.length, 12);
+  for (let j = 0; j < maxResults; j++) {
+    const eq = items[j];
+    const code = eq.EQUIPMENT_ID || eq.ID || eq.id || '';
+    const name = eq.NAME || eq.name || '';
+    const manu = eq.MANUFACTURER || eq.manufacturer || eq.LINK || eq.link || '';
+    const due = formatStdDueDate(eq.NEXT_DUE || eq.next_due || eq.VALIDITY || eq.validity || '');
+    const label = code ? `${code} - ${name}` : name;
+
+    const div = document.createElement('div');
+    div.className = 'suggestion-item';
+    div.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background 0.15s;';
+    div.onmouseover = () => div.style.background = '#f8fafc';
+    div.onmouseout = () => div.style.background = '#ffffff';
+
+    div.innerHTML = `
+      <div style="font-weight:600;color:var(--primary);font-size:12.5px;margin-bottom:2px;">${escHtml(label)}</div>
+      <div style="font-size:11.5px;color:var(--text-muted);display:flex;gap:12px;flex-wrap:wrap;">
+        ${manu ? '<span>Hãng: ' + escHtml(manu) + '</span>' : ''}
+        ${due ? '<span>Hạn: ' + escHtml(due) + '</span>' : ''}
+      </div>
+    `;
+
+    div.onmousedown = function(e) {
+      e.preventDefault();
+    };
+
+    div.onclick = function() {
+      standards[index] = {
+        name: name,
+        id: code,
+        trace: manu,
+        due: due
+      };
+      box.style.display = 'none';
+      renderStandardsForm();
+    };
+
+    box.appendChild(div);
+  }
+
+  positionStandardSuggestions(input, box);
+  box.style.display = 'block';
+}
+
 function addStandardTag(eq) {
   const standardEntry = {
-    name: eq.NAME || '',
-    id: eq.EQUIPMENT_ID || '',
-    trace: eq.MANUFACTURER || '---',
-    due: eq.NEXT_DUE || '---'
+    name: eq.NAME || eq.name || '',
+    id: eq.ID || eq.id || eq.EQUIPMENT_ID || '',
+    trace: eq.MANUFACTURER || eq.manufacturer || eq.LINK || eq.link || '---',
+    due: formatStdDueDate(eq.VALIDITY || eq.validity || eq.NEXT_DUE || eq.next_due || '---')
   };
 
   standards.push(standardEntry);
   renderStandardsForm();
-  document.getElementById('input-standard-search').value = '';
-  document.getElementById('standard-suggestions').style.display = 'none';
+  const searchInput = document.getElementById('input-standard-search');
+  if (searchInput) searchInput.value = '';
+  const searchBox = document.getElementById('standard-suggestions');
+  if (searchBox) searchBox.style.display = 'none';
 }
 
 /* ====== SIMPLE MODE TABLES ====== */
@@ -2048,29 +2248,57 @@ function renderStandardsForm() {
     return;
   }
 
-  // Hiển thị wrapper nếu có ít nhất một thiết bị chuẩn được chọn
   const wrapper = document.getElementById('selected-standards-wrapper');
   if (wrapper) {
-    if (standards.length > 0) {
-      wrapper.style.display = 'block';
-    } else {
-      wrapper.style.display = 'none';
-    }
+    wrapper.style.display = 'block';
   }
 
   c.innerHTML = standards.map((s, i) => `
-    <tr>
-      <td><input class="lab-input-cell" value="${s.name || ''}" oninput="standards[${i}].name=this.value"></td>
-      <td><input class="lab-input-cell" value="${s.id || ''}" oninput="standards[${i}].id=this.value"></td>
-      <td><input class="lab-input-cell" value="${s.trace || ''}" oninput="standards[${i}].trace=this.value"></td>
-      <td><input class="lab-input-cell" value="${s.due || ''}" oninput="standards[${i}].due=this.value"></td>
+    <tr data-standard-index="${i}">
+      <td>
+        <div class="autocomplete-wrapper" style="position:relative;width:100%;">
+          <input class="lab-input-cell standard-name-input"
+                 value="${escHtml(s.name || '')}"
+                 placeholder="Gõ tên hoặc mã thiết bị chuẩn..."
+                 autocomplete="off"
+                 oninput="handleStandardRowSearch(this, ${i}, 'name')"
+                 onfocus="handleStandardRowSearch(this, ${i}, 'name')">
+        </div>
+      </td>
+      <td>
+        <div class="autocomplete-wrapper" style="position:relative;width:100%;">
+          <input class="lab-input-cell standard-id-input"
+                 value="${escHtml(s.id || '')}"
+                 placeholder="Mã số (ID)..."
+                 autocomplete="off"
+                 oninput="handleStandardRowSearch(this, ${i}, 'id')"
+                 onfocus="handleStandardRowSearch(this, ${i}, 'id')">
+        </div>
+      </td>
+      <td><input class="lab-input-cell" value="${escHtml(s.trace || '')}" oninput="standards[${i}].trace=this.value"></td>
+      <td><input class="lab-input-cell" value="${escHtml(s.due || '')}" oninput="standards[${i}].due=this.value"></td>
       <td style="text-align:center;"><button class="btn-rm" onclick="standards.splice(${i},1);renderStandardsForm()">×</button></td>
     </tr>
   `).join('');
-  if (standards.length === 0) c.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;">Chưa có thiết bị chuẩn nào được chọn.</td></tr>';
+  if (standards.length === 0) c.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;">Chưa có thiết bị chuẩn nào được chọn — nhấn nút <b>"+ Thêm thiết bị chuẩn"</b> để thêm.</td></tr>';
 }
 
-function addStandardRow() { standards.push({name:'',id:'',trace:'',due:''}); renderStandardsForm(); }
+function addStandardRow() {
+  standards.push({name:'', id:'', trace:'', due:''});
+  renderStandardsForm();
+
+  setTimeout(() => {
+    const tbody = document.getElementById('std-form-body');
+    if (!tbody) return;
+    const lastRow = tbody.querySelector('tr:last-child');
+    if (!lastRow) return;
+    const nameInput = lastRow.querySelector('.standard-name-input');
+    if (nameInput) {
+      nameInput.focus();
+      handleStandardRowSearch(nameInput, standards.length - 1, 'name');
+    }
+  }, 50);
+}
 
 function renderResultsForm() {
   const c = document.getElementById('res-form-body');
@@ -2164,7 +2392,7 @@ function buildPrintTemplate() {
   const allStd = collectAllStandards();
   const allRes = collectCalibrationResults();
   const stdRows = allStd.map(s=>`<tr><td>${s.name}</td><td style="text-align:center">${s.id}</td><td style="text-align:center">${s.trace}</td><td style="text-align:center">${s.due}</td></tr>`).join('');
-  const resRows = allRes.map(r=>`<tr><td class="tdl">${r.param}</td><td>${r.point}</td><td>${r.found}</td><td>${r.unc}</td><td>${r.tol}</td><td>${r.conf}</td><td style="font-size:9pt;">${r.refEq || ''}</td></tr>`).join('');
+  const resRows = allRes.map(r=>`<tr><td class="tdl">${formatParamNameHtml(r.param)}</td><td>${r.point}</td><td>${r.found}</td><td>${r.unc}</td><td>${r.tol}</td><td>${r.conf}</td><td style="font-size:9pt;">${r.refEq || ''}</td></tr>`).join('');
 
   document.getElementById('print-content').innerHTML = `
     <div class="cert-header">
@@ -2614,11 +2842,9 @@ function fillCalibrationTableRows(points) {
             let html = '';
 
             if (idx === 0) {
-                const parts = group.name.split('\n');
-                const displayName = parts[0] + (parts[1] ? `<br><span style="font-weight:400;font-style:italic;color:var(--text-muted);font-size:12px;">${parts[1]}</span>` : '');
-                html += `<td rowspan="${group.rows.length}" class="group-header">
-                    <div class="param-display">${displayName}</div>
-                    <input type="hidden" class="group-param-name" value="${group.name}">
+                html += `<td rowspan="${group.rows.length}" class="group-header" style="vertical-align:middle;">
+                    <div class="param-display">${formatParamNameHtml(group.name)}</div>
+                    <input type="hidden" class="group-param-name" value="${escHtml(group.name)}">
                 </td>`;
             }
 
@@ -2719,12 +2945,18 @@ function checkParamForRefEq(input) {
   refCol.innerHTML = renderRefEqCell(selectedValue);
 }
 
-/* ====== CLOSE DROPDOWNS ON OUTSIDE CLICK ====== */
+/* ====== CLOSE DROPDOWNS ON OUTSIDE CLICK & SCROLL ====== */
 document.addEventListener('click', function(e) {
-  if (!e.target.closest('.autocomplete-wrapper')) {
+  if (!e.target.closest('.autocomplete-wrapper') && !e.target.closest('#standard-row-floating-dropdown')) {
     document.querySelectorAll('.autocomplete-suggestions').forEach(b=>b.style.display='none');
   }
 });
+
+window.addEventListener('scroll', function() {
+  if (standardRowDropdown && standardRowDropdown.style.display !== 'none') {
+    standardRowDropdown.style.display = 'none';
+  }
+}, true);
 
 /* ====== INIT ====== */
 fetchProjects();
