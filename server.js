@@ -1095,25 +1095,17 @@ app.get('/api/calibration/:certNo', async (req, res) => {
     }
 
     try {
-        const [certRows, pointsRows, standardsRows] = await Promise.all([
-            sql`
-                SELECT * FROM CERTIFICATES 
-                WHERE CERT_NO = ${compositeCertNo} 
-                   OR CERT_NO = ${certNo} 
-                   OR CERT_NO LIKE ${certNo + '_%'} 
-                ORDER BY 
-                    CASE 
-                        WHEN CERT_NO = ${compositeCertNo} THEN 1 
-                        WHEN CERT_NO = ${certNo} THEN 2 
-                        ELSE 3 
-                    END ASC 
-                LIMIT 1
-            `,
-            eqName
-                ? sql`SELECT * FROM CALIBRATION_POINTS WHERE (CERT_NO = ${compositeCertNo} OR CERT_NO = ${certNo} OR CERT_NO LIKE ${certNo + '_%'}) AND EQUIPMENT_NAME = ${eqName} ORDER BY ID ASC`
-                : sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${compositeCertNo} OR CERT_NO = ${certNo} OR CERT_NO LIKE ${certNo + '_%'} ORDER BY ID ASC`,
-            sql`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${compositeCertNo} OR CERT_NO = ${certNo} OR CERT_NO LIKE ${certNo + '_%'} ORDER BY ID ASC`
-        ]);
+        const certRows = await sql`
+            SELECT * FROM CERTIFICATES 
+            WHERE CERT_NO = ${compositeCertNo} 
+               OR CERT_NO = ${certNo} 
+            ORDER BY 
+                CASE 
+                    WHEN CERT_NO = ${compositeCertNo} THEN 1 
+                    ELSE 2 
+                END ASC 
+            LIMIT 1
+        `;
 
         if (certRows.length === 0) {
             const resp = { success: true, dataExists: false, cert: null, points: [], standards: [] };
@@ -1121,9 +1113,18 @@ app.get('/api/calibration/:certNo', async (req, res) => {
             return res.json(resp);
         }
 
+        const targetCertNo = certRows[0].cert_no;
+
+        const [pointsRows, standardsRows] = await Promise.all([
+            sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${targetCertNo} ORDER BY ID ASC`,
+            sql`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${targetCertNo} ORDER BY ID ASC`
+        ]);
+
         const toUpperKeys = (obj) => obj ? Object.fromEntries(Object.entries(obj).map(([k, v]) => [k.toUpperCase(), v])) : null;
 
         const resp = { 
+            success: true,
+            dataExists: true,
             cert: toUpperKeys(certRows[0]), 
             points: pointsRows.map(toUpperKeys), 
             standards: standardsRows.map(toUpperKeys) 
@@ -1136,13 +1137,76 @@ app.get('/api/calibration/:certNo', async (req, res) => {
 });
 
 app.post('/api/calibration/save', async (req, res) => {
-    invalidateServerCache();
     const data = req.body;
     const currentWorker = req.body.currentUser || "Hệ thống / KTV";
 
     if (!data.certNo) {
         return res.status(400).json({ success: false, error: "Thiếu số chứng nhận (certNo)!" });
     }
+
+    const certNo = data.certNo;
+    const eqName = data.equipmentName || data.equipment_name || '';
+    const compositeCertNo = eqName ? `${certNo}_${eqName}` : certNo;
+    const cacheKey = `${certNo}_${eqName}`;
+
+    // Cập nhật ngay RAM cache cho server với dữ liệu vừa nhận (bao gồm cả mảng standards rỗng hoặc cập nhật)
+    const certObj = {
+        CERT_NO: compositeCertNo,
+        INSTRUMENT_NAME: data.instrumentName || data.instrument_name || '',
+        INSTRUMENT_NAME_EN: data.instrumentNameEn || data.instrument_name_en || '',
+        MANUFACTURER: data.manufacturer || '',
+        MANUFACTURER_ID: data.manufacturerId || data.manufacturer_id || '',
+        MODEL: data.model || '',
+        MODEL_SERIAL: data.modelSerial || data.model_serial || '',
+        EQUIPMENT_ID: data.equipmentId || data.equipment_id || '',
+        SERIAL_NUMBER: data.serialNumber || data.serial_number || '',
+        CUSTOMER_NAME: data.customerName || data.customer_name || '',
+        CUSTOMER_ADDRESS: data.customerAddress || data.customer_address || '',
+        CAL_DATE: data.calDate || data.cal_date || '',
+        RE_CAL_DATE: data.reCalDate || data.re_cal_date || '',
+        PROCEDURE: data.procedure || '',
+        REF_STANDARD: data.refStandard || data.ref_standard || '',
+        TEMP_ENV: data.tempEnv || data.temp_env || '',
+        HUMI_ENV: data.humiEnv || data.humi_env || '',
+        HEAD_OF_LAB: data.headOfLab || data.head_of_lab || '',
+        DIRECTOR: data.director || '',
+        SPEC_RANGE: data.specRange || '',
+        SPEC_RESOLUTION: data.specResolution || ''
+    };
+
+    const pointsArr = (data.points || []).map(p => ({
+        CERT_NO: compositeCertNo,
+        EQUIPMENT_NAME: eqName,
+        PARAMETER_NAME: p.parameterName || p.param || '',
+        CAL_POINT: p.calPoint || p.point || '',
+        AS_FOUND_VALUE: p.asFoundValue || p.found || '',
+        REFERENCE_VALUE: p.referenceValue || p.refValue || p.reference_value || '',
+        UNCERTAINTY: p.uncertainty || p.unc || '',
+        TOLERANCE: p.tolerance || p.tol || '',
+        CONFORMITY: p.conformity || p.conf || '',
+        REF_EQUIPMENT: p.refEq || p.standardEquipment || p.standard_equipment || '',
+        STANDARD_EQUIPMENT: p.refEq || p.standardEquipment || p.standard_equipment || ''
+    }));
+
+    const standardsArr = (data.standards || []).map(s => ({
+        CERT_NO: compositeCertNo,
+        EQ_CODE: s.id || s.code || s.EQ_CODE || '',
+        EQ_NAME: s.name || s.EQ_NAME || '',
+        STD_CERT_NO: s.certNo || s.STD_CERT_NO || '',
+        LINK: s.trace || s.link || s.LINK || '',
+        VALIDITY: s.due || s.validity || s.VALIDITY || ''
+    }));
+
+    serverCache.calibrations[cacheKey] = {
+        success: true,
+        dataExists: true,
+        cert: certObj,
+        points: pointsArr,
+        standards: standardsArr
+    };
+
+    serverCache.projects = {};
+    serverCache.statsSummary = null;
 
     // Phản hồi siêu tốc tức thì cho Client (0ms latency)
     res.json({ success: true, message: "Dữ liệu hiệu chuẩn đã được ghi nhận vào SQL ổn định!" });

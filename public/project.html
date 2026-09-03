@@ -5045,10 +5045,62 @@ function saveCalibrationData() {
     }
     showToast("Đã lưu dữ liệu thành công!", "success");
 
-    // 2. LƯU LOCALSTORAGE AN TOÀN TRONG 0.0001 ms
+    // 2. LƯU BỘ NHỚ LOCALSTORAGE TỨC THÌ (0.0001 ms) CHO CẢ HAI KHÓA CACHE
+    const currentEqName = currentEq || '';
+    const compositeCertNumber = currentEqName ? `${certNoVal}_${currentEqName}` : certNoVal;
+    const savedCalData = {
+        hasSavedData: true,
+        dataExists: true,
+        cert: {
+            CERT_NO: compositeCertNumber,
+            INSTRUMENT_NAME: payload.instrumentName,
+            INSTRUMENT_NAME_EN: payload.instrumentNameEn,
+            MANUFACTURER: payload.manufacturer,
+            MANUFACTURER_ID: payload.manufacturerId,
+            MODEL: payload.model,
+            MODEL_SERIAL: payload.modelSerial,
+            EQUIPMENT_ID: payload.equipmentId,
+            SERIAL_NUMBER: payload.serialNumber,
+            CUSTOMER_NAME: payload.customerName,
+            CUSTOMER_ADDRESS: payload.customerAddress,
+            CAL_DATE: payload.calDate,
+            RE_CAL_DATE: payload.reCalDate,
+            PROCEDURE: payload.procedure,
+            REF_STANDARD: payload.refStandard,
+            TEMP_ENV: payload.tempEnv,
+            HUMI_ENV: payload.humiEnv,
+            HEAD_OF_LAB: payload.headOfLab,
+            DIRECTOR: payload.director,
+            SPEC_RANGE: payload.specRange,
+            SPEC_RESOLUTION: payload.specResolution
+        },
+        points: payload.points.map(p => ({
+            PARAMETER_NAME: p.parameterName,
+            CAL_POINT: p.calPoint,
+            AS_FOUND_VALUE: p.asFoundValue,
+            REFERENCE_VALUE: p.referenceValue,
+            UNCERTAINTY: p.uncertainty,
+            TOLERANCE: p.tolerance,
+            CONFORMITY: p.conformity,
+            REF_EQUIPMENT: p.refEq,
+            STANDARD_EQUIPMENT: p.refEq
+        })),
+        standards: payload.standards.map(s => ({
+            EQ_NAME: s.name,
+            EQ_CODE: s.id,
+            STD_CERT_NO: s.certNo,
+            LINK: s.trace,
+            VALIDITY: s.due
+        }))
+    };
+
+    const calCacheKey = `lm_cal_${certNoVal}_${currentEqName}`;
+    if (typeof cacheSet === 'function') {
+        cacheSet(calCacheKey, savedCalData, 300000);
+    }
     try {
-        const cacheKey = `labmaster_cache_${certNoVal}_${currentEq}`;
-        localStorage.setItem(cacheKey, JSON.stringify({ payload, updatedAt: Date.now() }));
+        const legacyCacheKey = `labmaster_cache_${certNoVal}_${currentEqName}`;
+        localStorage.setItem(legacyCacheKey, JSON.stringify({ payload, updatedAt: Date.now() }));
     } catch(e) {}
 
     // 3. ĐỒNG BỘ BACKGROUND ASYNC LÊN MÁY CHỦ (KEEPALIVE)
@@ -5086,7 +5138,7 @@ function deleteProject(id) {
 }
 
 function populateCalibrationForm(result) {
-    if (!result || !result.cert || !result.points || result.points.length === 0) return false;
+    if (!result || !result.cert) return false;
     const c = result.cert;
     const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
     setVal('f-inst-vi',   c.INSTRUMENT_NAME);
@@ -5117,16 +5169,25 @@ function populateCalibrationForm(result) {
     setVal('f-sign1',     c.HEAD_OF_LAB);
     setVal('f-sign2',     c.DIRECTOR);
 
-    fillCalibrationTableRows(result.points);
+    if (result.points && result.points.length > 0) {
+        fillCalibrationTableRows(result.points);
+    } else {
+        const tbody = document.getElementById('calibration-table-body');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="cal-empty-state"><i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i> Nhập tên thiết bị ở mục 2 để tải tự động, hoặc sử dụng các nút bên dưới để thêm điểm đo</td></tr>';
+        updateRowCount();
+    }
 
-    if (result.standards && result.standards.length > 0) {
+    if (result.standards && Array.isArray(result.standards)) {
         standards = result.standards.slice(0, 5).map(s => ({
-            name:    s.EQ_NAME   || '',
-            id:      s.EQ_CODE   || '',
-            certNo:  s.CERT_NO  || s.certNo || '',
-            trace:   s.LINK      || '',
-            due:     s.VALIDITY  || ''
+            name:    s.EQ_NAME   || s.name || '',
+            id:      s.EQ_CODE   || s.id || '',
+            certNo:  s.STD_CERT_NO || s.std_cert_no || s.CERT_NO || s.certNo || '',
+            trace:   s.LINK      || s.link || s.trace || '',
+            due:     s.VALIDITY  || s.validity || s.due || ''
         }));
+        renderStandardsForm();
+    } else {
+        standards = [];
         renderStandardsForm();
     }
     return true;
@@ -5157,7 +5218,7 @@ async function loadExistingCalibration(projectId, equipmentName) {
         if (!response.ok) throw new Error("Lỗi kết nối API lấy dữ liệu hiệu chuẩn");
 
         const result = await response.json();
-        const hasSavedData = result && result.cert && result.points && result.points.length > 0;
+        const hasSavedData = Boolean(result && result.cert && result.cert.CERT_NO);
 
         if (hasSavedData) {
             result.hasSavedData = true;
