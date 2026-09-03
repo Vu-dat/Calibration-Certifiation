@@ -1485,6 +1485,14 @@ function applyEquipmentCache(templates) {
   window._equipmentById = freshIdMap;
 }
 
+// Khởi tạo tức thì (0ms) từ bộ nhớ LocalStorage nếu có sẵn
+try {
+  const cachedTpl = (typeof cacheGet === 'function') ? cacheGet('lm_equipment_templates') : null;
+  if (cachedTpl && Array.isArray(cachedTpl) && cachedTpl.length > 0) {
+    applyEquipmentCache(cachedTpl);
+  }
+} catch (e) {}
+
 // Re-sync t? SQL khi tab ???c focus l?i (SWR: ch? background refresh n?u stale)
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'visible') {
@@ -1917,10 +1925,21 @@ async function viewProjectDetail(id, fromPopState = false) {
   // Khởi tạo danh sách máy — Lấy dữ liệu các máy đã lưu cho dự án này từ SQL
   resetMachineList();
   
+  // TỨC THÌ (0ms): Dùng cache danh sách máy nếu có sẵn
+  const cachedMachinesKey = `lm_machines_${proj.ID}`;
+  const cachedMachines = (typeof cacheGet === 'function') ? cacheGet(cachedMachinesKey) : null;
+  if (cachedMachines && Array.isArray(cachedMachines) && cachedMachines.length > 0) {
+    cachedMachines.forEach((eqName, idx) => {
+      addMachineToProjectList(proj, eqName, idx + 1);
+    });
+  }
+
   fetch(`${API_BASE_URL}/api/projects/${proj.ID}/machines`)
     .then(res => res.json())
     .then(resData => {
       if (resData.success && resData.machines && resData.machines.length > 0) {
+        if (typeof cacheSet === 'function') cacheSet(cachedMachinesKey, resData.machines, 300000);
+        resetMachineList();
         resData.machines.sort((a, b) => a.localeCompare(b));
         resData.machines.forEach((eqName, idx) => {
           addMachineToProjectList(proj, eqName, idx + 1);
@@ -4569,20 +4588,11 @@ function renderProjectSkeleton(count) {
   }
 }
 
-async function fetchProjects(page = 1) {
-  projectCurrentPage = page;
-  renderProjectSkeleton(5);
-  const url = new URL(`${API_URL}/projects`);
-  url.searchParams.append('page', page);
-  url.searchParams.append('limit', projectLimit);
-
-  const res = await fetch(url.toString(), { cache: 'no-cache' });
-  const result = await res.json();
-  projectsList = result.data;
-
+function renderProjectsTableRows(list) {
   const tbody = document.getElementById('project-table-body');
+  if (!tbody) return;
   tbody.innerHTML = '';
-  projectsList.forEach(proj => {
+  list.forEach(proj => {
       const row = document.createElement('tr');
       row.onclick = () => viewProjectDetail(proj.ID);
       const createdDate = proj.CREATED_AT ? new Date(proj.CREATED_AT).toLocaleDateString('vi-VN') : '---';
@@ -4599,29 +4609,59 @@ async function fetchProjects(page = 1) {
       `;
       tbody.appendChild(row);
   });
+}
 
-  // Update stats with data from the paginated response
-  document.getElementById('stat-total').textContent = result.total;
-  document.getElementById('stat-progress').textContent = result.progress;
-  document.getElementById('stat-finished').textContent = result.finished;
-  document.getElementById('project-count-badge').textContent = result.total;
-  // Fetch cert count (reuse initial load count if available to save a roundtrip request)
-  if (window._initCertCount !== undefined && window._initCertCount !== null) {
-      document.getElementById('stat-certs').textContent = window._initCertCount;
-      window._initCertCount = null; // Reset so subsequent updates fetch from API
+function renderProjectStatsData(stats) {
+  if (!stats) return;
+  if (document.getElementById('stat-total')) document.getElementById('stat-total').textContent = stats.total || 0;
+  if (document.getElementById('stat-progress')) document.getElementById('stat-progress').textContent = stats.progress || 0;
+  if (document.getElementById('stat-finished')) document.getElementById('stat-finished').textContent = stats.finished || 0;
+  if (document.getElementById('project-count-badge')) document.getElementById('project-count-badge').textContent = stats.total || 0;
+}
+
+async function fetchProjects(page = 1) {
+  projectCurrentPage = page;
+  
+  // TỨC THÌ (0ms): Dùng cache trang nếu có sẵn
+  const cacheKey = `lm_projects_page_${page}`;
+  const cached = (typeof cacheGet === 'function') ? cacheGet(cacheKey) : null;
+  if (cached && cached.data && cached.data.length > 0) {
+    projectsList = cached.data;
+    renderProjectsTableRows(projectsList);
+    renderProjectStatsData(cached);
+    renderProjectPagination(cached.total, page, projectLimit);
   } else {
-      (async () => {
-          try {
-              const res = await fetch(`${API_URL}/stats/summary`);
-              const summary = await res.json();
-              document.getElementById('stat-certs').textContent = summary.certCount || 0;
-          } catch (e) {
-              console.error('Error fetching cert count:', e);
-          }
-      })();
+    renderProjectSkeleton(5);
   }
 
-  renderProjectPagination(result.total, page, projectLimit);
+  const url = new URL(`${API_URL}/projects`);
+  url.searchParams.append('page', page);
+  url.searchParams.append('limit', projectLimit);
+
+  try {
+    const res = await fetch(url.toString(), { cache: 'no-cache' });
+    const result = await res.json();
+    projectsList = result.data;
+    if (typeof cacheSet === 'function') {
+      cacheSet(cacheKey, result, 120000);
+    }
+    renderProjectsTableRows(projectsList);
+    renderProjectStatsData(result);
+    renderProjectPagination(result.total, page, projectLimit);
+
+    if (window._initCertCount !== undefined && window._initCertCount !== null) {
+        document.getElementById('stat-certs').textContent = window._initCertCount;
+        window._initCertCount = null;
+    } else {
+        fetch(`${API_URL}/stats/summary`).then(r => r.json()).then(summary => {
+            if (document.getElementById('stat-certs')) {
+                document.getElementById('stat-certs').textContent = summary.certCount || 0;
+            }
+        }).catch(() => {});
+    }
+  } catch (err) {
+    console.error("Lỗi khi tải dự án:", err);
+  }
 }
 
 async function saveProjectDetails() {
@@ -4933,17 +4973,73 @@ function deleteProject(id) {
   });
 }
 
+function populateCalibrationForm(result) {
+    if (!result || !result.cert || !result.points || result.points.length === 0) return false;
+    const c = result.cert;
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+    setVal('f-inst-vi',   c.INSTRUMENT_NAME);
+    setVal('f-inst-en',   c.INSTRUMENT_NAME_EN || c.INSTRUMENT_NAME);
+    setVal('f-mfr',       c.MANUFACTURER);
+    setVal('f-model',     c.MODEL);
+    setVal('f-id',        c.EQUIPMENT_ID);
+    setVal('f-sn',        c.SERIAL_NUMBER);
+    setVal('f-mfr-id',    c.MANUFACTURER_ID || '');
+    setVal('f-model-sn',  c.MODEL_SERIAL || '');
+    setVal('f-cust',      c.CUSTOMER_NAME);
+    setVal('f-cust-addr', c.CUSTOMER_ADDRESS || '');
+    setVal('f-caldate',   c.CAL_DATE);
+    setVal('f-recaldate', c.RE_CAL_DATE);
+    let specRange = c.SPEC_RANGE || '';
+    let specResolution = c.SPEC_RESOLUTION || '';
+    if (!specRange.trim()) {
+        const resolvedName = window._currentWorkingEquipment;
+        const eq = resolvedName ? MockDatabaseEquipment[resolvedName] : null;
+        if (eq) {
+            specRange = eq.specRange || '';
+            specResolution = eq.specResolution || '';
+        }
+    }
+    setSpecTableFromData(specRange, specResolution, c.PROCEDURE || '', c.REF_STANDARD || '');
+    setVal('f-temp',      c.TEMP_ENV);
+    setVal('f-humi',      c.HUMI_ENV);
+    setVal('f-sign1',     c.HEAD_OF_LAB);
+    setVal('f-sign2',     c.DIRECTOR);
+
+    fillCalibrationTableRows(result.points);
+
+    if (result.standards && result.standards.length > 0) {
+        standards = result.standards.slice(0, 5).map(s => ({
+            name:    s.EQ_NAME   || '',
+            id:      s.EQ_CODE   || '',
+            certNo:  s.CERT_NO  || s.certNo || '',
+            trace:   s.LINK      || '',
+            due:     s.VALIDITY  || ''
+        }));
+        renderStandardsForm();
+    }
+    return true;
+}
+
 async function loadExistingCalibration(projectId, equipmentName) {
     currentActiveCertNo = projectId;
     currentProjectId = projectId;
+
+    // TỨC THÌ (0ms): Khôi phục ngay từ bộ nhớ LocalStorage nếu có
+    const calCacheKey = `lm_cal_${projectId}_${equipmentName || ''}`;
+    const cachedCal = (typeof cacheGet === 'function') ? cacheGet(calCacheKey) : null;
+    let populatedFromCache = false;
+    if (cachedCal && cachedCal.hasSavedData) {
+        populateCalibrationForm(cachedCal);
+        populatedFromCache = true;
+    }
 
     try {
         const eqParam = equipmentName ? `?equipment_name=${encodeURIComponent(equipmentName)}` : '';
         const response = await fetch(`${API_BASE_URL}/api/calibration/${projectId}${eqParam}`);
 
         if (response.status === 404) {
-            console.log("Dự án mới, chưa có dữ liệu hiệu chuẩn cũ.");
-            return false; 
+            if (!populatedFromCache) resetWorkspaceForm();
+            return populatedFromCache; 
         }
 
         if (!response.ok) throw new Error("Lỗi kết nối API lấy dữ liệu hiệu chuẩn");
@@ -4952,59 +5048,20 @@ async function loadExistingCalibration(projectId, equipmentName) {
         const hasSavedData = result && result.cert && result.points && result.points.length > 0;
 
         if (hasSavedData) {
-            const c = result.cert;
-            const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-            // These might overwrite template data, which is why the logic in openCalibrationWorkspace is needed to restore them.
-            setVal('f-inst-vi',   c.INSTRUMENT_NAME);
-            setVal('f-inst-en',   c.INSTRUMENT_NAME_EN || c.INSTRUMENT_NAME);
-            setVal('f-mfr',       c.MANUFACTURER);
-            setVal('f-model',     c.MODEL);
-            setVal('f-id',        c.EQUIPMENT_ID);
-            setVal('f-sn',        c.SERIAL_NUMBER);
-            setVal('f-mfr-id',    c.MANUFACTURER_ID || '');
-            setVal('f-model-sn',  c.MODEL_SERIAL || '');
-            setVal('f-cust',      c.CUSTOMER_NAME);
-            setVal('f-cust-addr', c.CUSTOMER_ADDRESS || '');
-            setVal('f-caldate',   c.CAL_DATE);
-            setVal('f-recaldate', c.RE_CAL_DATE);
-            let specRange = c.SPEC_RANGE || '';
-            let specResolution = c.SPEC_RESOLUTION || '';
-            if (!specRange.trim()) {
-                const resolvedName = window._currentWorkingEquipment;
-                const eq = resolvedName ? MockDatabaseEquipment[resolvedName] : null;
-                if (eq) {
-                    specRange = eq.specRange || '';
-                    specResolution = eq.specResolution || '';
-                }
-            }
-            setSpecTableFromData(specRange, specResolution, c.PROCEDURE || '', c.REF_STANDARD || '');
-            setVal('f-temp',      c.TEMP_ENV);
-            setVal('f-humi',      c.HUMI_ENV);
-            setVal('f-sign1',     c.HEAD_OF_LAB);
-            setVal('f-sign2',     c.DIRECTOR);
-
-            fillCalibrationTableRows(result.points);
-
-            if (result.standards && result.standards.length > 0) {
-                standards = result.standards.slice(0, 5).map(s => ({
-                    name:    s.EQ_NAME   || '',
-                    id:      s.EQ_CODE   || '',
-                    certNo:  s.CERT_NO  || s.certNo || '',
-                    trace:   s.LINK      || '',
-                    due:     s.VALIDITY  || ''
-                }));
-                renderStandardsForm();
-            }
-
+            result.hasSavedData = true;
+            if (typeof cacheSet === 'function') cacheSet(calCacheKey, result, 300000);
+            populateCalibrationForm(result);
             return true; 
         }
 
-        resetWorkspaceForm();
-        return false;
+        if (!populatedFromCache) {
+            resetWorkspaceForm();
+        }
+        return populatedFromCache;
 
     } catch (error) {
         console.error("Lỗi kiểm tra lịch sử hiệu chuẩn:", error);
-        return false;
+        return populatedFromCache;
     }
 }
 

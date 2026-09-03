@@ -37,6 +37,8 @@ let serverCache = {
     init: null,
     equipmentTemplates: {}, // cache by search query q or 'all'
     projects: {}, // cache by page_limit
+    machines: {}, // cache by projectId
+    calibrations: {}, // cache by compositeCertNo
     statsSummary: null,
     clock: null
 };
@@ -45,6 +47,8 @@ function invalidateServerCache() {
     serverCache.init = null;
     serverCache.equipmentTemplates = {};
     serverCache.projects = {};
+    serverCache.machines = {};
+    serverCache.calibrations = {};
     serverCache.statsSummary = null;
     serverCache.clock = null;
 }
@@ -894,15 +898,16 @@ app.get('/api/projects', async (req, res) => {
             return res.json(serverCache.projects[cacheKey]);
         }
 
-        const rowsDb = await sql`SELECT * FROM PROJECTS ORDER BY CREATED_AT DESC LIMIT ${limit} OFFSET ${offset}`;
-        
-        const statsResult = await sql`
-            SELECT 
-                COUNT(*) as total,
-                COUNT(*) FILTER (WHERE status = 'In Progress') as progress,
-                COUNT(*) FILTER (WHERE status = 'Finished') as finished
-            FROM PROJECTS
-        `;
+        const [rowsDb, statsResult] = await Promise.all([
+            sql`SELECT * FROM PROJECTS ORDER BY CREATED_AT DESC LIMIT ${limit} OFFSET ${offset}`,
+            sql`
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE status = 'In Progress') as progress,
+                    COUNT(*) FILTER (WHERE status = 'Finished') as finished
+                FROM PROJECTS
+            `
+        ]);
 
         const rows = rowsDb.map(r => ({
             ID: r.id,
@@ -1083,33 +1088,48 @@ app.get('/api/calibration/:certNo', async (req, res) => {
     const certNo = req.params.certNo;
     const eqName = req.query.equipment_name || '';
     const compositeCertNo = eqName ? `${certNo}_${eqName}` : certNo;
-    try {
-        let certRows = await sql`SELECT * FROM CERTIFICATES WHERE CERT_NO = ${compositeCertNo}`;
-        if (certRows.length === 0 && compositeCertNo !== certNo) {
-            certRows = await sql`SELECT * FROM CERTIFICATES WHERE CERT_NO = ${certNo}`;
-        }
-        if (certRows.length === 0) {
-            certRows = await sql`SELECT * FROM CERTIFICATES WHERE CERT_NO LIKE ${certNo + '_%'} LIMIT 1`;
-        }
 
-        const [pointsRows, standardsRows] = await Promise.all([
+    const cacheKey = `${certNo}_${eqName}`;
+    if (serverCache.calibrations[cacheKey]) {
+        return res.json(serverCache.calibrations[cacheKey]);
+    }
+
+    try {
+        const [certRows, pointsRows, standardsRows] = await Promise.all([
+            sql`
+                SELECT * FROM CERTIFICATES 
+                WHERE CERT_NO = ${compositeCertNo} 
+                   OR CERT_NO = ${certNo} 
+                   OR CERT_NO LIKE ${certNo + '_%'} 
+                ORDER BY 
+                    CASE 
+                        WHEN CERT_NO = ${compositeCertNo} THEN 1 
+                        WHEN CERT_NO = ${certNo} THEN 2 
+                        ELSE 3 
+                    END ASC 
+                LIMIT 1
+            `,
             eqName
-                ? sql`SELECT * FROM CALIBRATION_POINTS WHERE (CERT_NO = ${compositeCertNo} OR CERT_NO = ${certNo}) AND EQUIPMENT_NAME = ${eqName} ORDER BY ID ASC`
-                : sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${compositeCertNo} OR CERT_NO = ${certNo} ORDER BY ID ASC`,
-            sql`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${compositeCertNo} OR CERT_NO = ${certNo} ORDER BY ID ASC`
+                ? sql`SELECT * FROM CALIBRATION_POINTS WHERE (CERT_NO = ${compositeCertNo} OR CERT_NO = ${certNo} OR CERT_NO LIKE ${certNo + '_%'}) AND EQUIPMENT_NAME = ${eqName} ORDER BY ID ASC`
+                : sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${compositeCertNo} OR CERT_NO = ${certNo} OR CERT_NO LIKE ${certNo + '_%'} ORDER BY ID ASC`,
+            sql`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${compositeCertNo} OR CERT_NO = ${certNo} OR CERT_NO LIKE ${certNo + '_%'} ORDER BY ID ASC`
         ]);
 
         if (certRows.length === 0) {
-            return res.json({ success: true, dataExists: false, cert: null, points: [], standards: [] });
+            const resp = { success: true, dataExists: false, cert: null, points: [], standards: [] };
+            serverCache.calibrations[cacheKey] = resp;
+            return res.json(resp);
         }
 
         const toUpperKeys = (obj) => obj ? Object.fromEntries(Object.entries(obj).map(([k, v]) => [k.toUpperCase(), v])) : null;
 
-        res.json({ 
+        const resp = { 
             cert: toUpperKeys(certRows[0]), 
             points: pointsRows.map(toUpperKeys), 
             standards: standardsRows.map(toUpperKeys) 
-        });
+        };
+        serverCache.calibrations[cacheKey] = resp;
+        res.json(resp);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -2012,6 +2032,9 @@ app.get('/api/projects/:id', async (req, res) => {
 
 app.get('/api/projects/:id/machines', async (req, res) => {
     const projectId = req.params.id;
+    if (serverCache.machines[projectId]) {
+        return res.json(serverCache.machines[projectId]);
+    }
     const certNo = projectId.replace('PRJ-', '');
     try {
         const [certRows, pointRows] = await Promise.all([
@@ -2032,11 +2055,136 @@ app.get('/api/projects/:id/machines', async (req, res) => {
         });
         
         const machineNames = Array.from(namesSet);
-        res.json({ success: true, machines: machineNames });
+        serverCache.machines[projectId] = { success: true, machines: machineNames };
+        res.json(serverCache.machines[projectId]);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
+async function prewarmServerCache() {
+    console.log('⚡ [Cache Prewarm] Bắt đầu làm nóng toàn bộ bộ nhớ đệm máy chủ...');
+    const t0 = Date.now();
+    try {
+        const [clockRows, templatesResult, allPointsResult, rowsDb15, statsResult, certCountResult] = await Promise.all([
+            sql`SELECT * FROM CLOCK ORDER BY ID ASC`,
+            sql`SELECT * FROM EQUIPMENT_TEMPLATES ORDER BY equipment_id ASC`,
+            sql`SELECT * FROM TEMPLATE_POINTS ORDER BY ID ASC`,
+            sql`SELECT * FROM PROJECTS ORDER BY CREATED_AT DESC LIMIT 15 OFFSET 0`,
+            sql`
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE status = 'In Progress') as progress,
+                    COUNT(*) FILTER (WHERE status = 'Finished') as finished
+                FROM PROJECTS
+            `,
+            sql`SELECT COUNT(*) as cert_count FROM CERTIFICATES`
+        ]);
+
+        // 1. Group points for templates
+        const pointsByTemplate = {};
+        for (const p of allPointsResult) {
+            const tName = p.template_name;
+            if (!pointsByTemplate[tName]) pointsByTemplate[tName] = [];
+            pointsByTemplate[tName].push({
+                ID: p.id,
+                TEMPLATE_NAME: p.template_name,
+                PARAMETER_NAME: p.parameter_name,
+                CAL_POINT: p.cal_point,
+                AS_FOUND_VALUE: p.as_found_value,
+                REFERENCE_VALUE: p.reference_value,
+                UNCERTAINTY: p.uncertainty,
+                TOLERANCE: p.tolerance,
+                CONFORMITY: p.conformity,
+                STANDARD_EQUIPMENT: p.standard_equipment
+            });
+        }
+
+        const templates = templatesResult.map(t => ({
+            NAME: t.name,
+            NAME_VI: t.name_vi,
+            MANUFACTURER: t.manufacturer,
+            NEXT_DUE: t.next_due,
+            EQUIPMENT_ID: t.equipment_id,
+            PROCEDURE: t.procedure,
+            REF_STANDARD: t.ref_standard,
+            MODEL: t.model,
+            SERIAL_NUMBER: t.serial_number,
+            MODEL_SERIAL: t.model_serial,
+            MANUFACTURER_ID: t.manufacturer_id,
+            SPEC_RANGE: t.spec_range,
+            SPEC_RESOLUTION: t.spec_resolution,
+            STANDARDS_USED: t.standards_used,
+            formPoints: pointsByTemplate[t.name] || []
+        }));
+
+        serverCache.equipmentTemplates['all'] = templates;
+
+        // 2. Map clock standards
+        const clockData = clockRows.map(r => ({
+            ID: r.id,
+            KEY_FIELD: r.key_field,
+            NAME: r.name,
+            MANUFACTURER: r.manufacturer,
+            MODEL: r.model,
+            SERIAL_NUMBER: r.serial_number,
+            GCN: r.gcn,
+            LINK: r.link,
+            CAL_DATE: r.cal_date,
+            VALIDITY: r.validity,
+            TYPE: r.type,
+            NOTES: r.notes,
+            CREATED_AT: r.created_at
+        }));
+        serverCache.clock = clockData;
+
+        // 3. Projects page 1
+        const rows15 = rowsDb15.map(r => ({
+            ID: r.id,
+            TITLE: r.title,
+            TECH: r.tech,
+            STATUS: r.status,
+            CREATED_AT: r.created_at
+        }));
+
+        const totalProjects = parseInt(statsResult[0].total) || 0;
+        const progressCount = parseInt(statsResult[0].progress) || 0;
+        const finishedCount = parseInt(statsResult[0].finished) || 0;
+
+        serverCache.projects['1_15'] = {
+            data: rows15,
+            total: totalProjects,
+            progress: progressCount,
+            finished: finishedCount,
+            page: 1,
+            limit: 15
+        };
+        serverCache.projects['1_10'] = {
+            data: rows15.slice(0, 10),
+            total: totalProjects,
+            progress: progressCount,
+            finished: finishedCount,
+            page: 1,
+            limit: 10
+        };
+
+        // 4. Init endpoint
+        serverCache.init = {
+            projects: {
+                total: totalProjects,
+                progress: progressCount,
+                finished: finishedCount
+            },
+            certCount: parseInt(certCountResult[0].cert_count) || 0,
+            templates: templates,
+            standards: clockData
+        };
+
+        console.log(`⚡ [Cache Prewarm] Hoàn tất nạp sẵn toàn bộ RAM trong ${Date.now() - t0} ms! Lần đầu tải trang sẽ phản hồi dưới 2ms.`);
+    } catch (err) {
+        console.warn('⚠️ Lỗi trong quá trình prewarm cache:', err.message);
+    }
+}
 
 // Khởi tạo DB ngay khi server start (thay vì đợi request đầu tiên)
 async function startServer() {
@@ -2056,10 +2204,8 @@ async function startServer() {
             console.log('✅ Supabase Storage đã sẵn sàng. File export sẽ được upload lên bucket "' + BUCKET_NAME + '" tại ' + supabaseUrl + '.');
         }
 
-        // Tải trước cache thiết bị chuẩn (CLOCK) vào RAM để tìm kiếm tức thì 0ms
-        getOrLoadClockCache().then(items => {
-            console.log(`⚡ [Cache Warmup] Đã nạp sẵn ${items.length} thiết bị chuẩn vào RAM server.`);
-        }).catch(err => console.warn('Cache warmup clock failed:', err.message));
+        // Tải trước và làm nóng toàn bộ Cache vào RAM để phản hồi tức thì 0ms cho mọi request đầu tiên
+        prewarmServerCache().catch(err => console.warn('Cache prewarm failed:', err.message));
     } catch (err) {
         console.error('❌ Database init at startup failed:', err.message);
         // Không throw - để middleware fallback xử lý
