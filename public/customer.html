@@ -3,7 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Management – LabMaster Enterprise</title>
+    <title>Quản lý Khách hàng – LabMaster Enterprise</title>
+    <script>
+    (function() {
+      try {
+        var raw = localStorage.getItem('labmaster_user');
+        var u = raw ? JSON.parse(raw) : null;
+        if (!u || !u.username) {
+          window.location.replace('login.html');
+          return;
+        }
+        document.documentElement.classList.add('auth-ok');
+      } catch(e) {
+        window.location.replace('login.html');
+      }
+    })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -37,7 +53,7 @@
         ══════════════════════════════════════════ */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: Arial, sans-serif;
+            font-family: var(--font);
             background: var(--bg);
             color: var(--navy);
             line-height: 1.5;
@@ -586,8 +602,8 @@
 </style>
 
 <header class="header">
-    <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer; display: flex; align-items: center;">
-        <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
+    <div class="logo-wrapper" onclick="location.href='index.html'" title="LabMaster Enterprise">
+        <img src="img/logo_240.png" alt="LabMaster Logo" class="main-logo">
     </div>
     
     <button class="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Menu">
@@ -598,17 +614,21 @@
     
     <div class="nav-container">
         <nav class="navbar">
-            <a href="index.html" id="nav-home">Home</a>
-            <a href="project.html" id="nav-project">Project</a>
-            <a href="customer.html" id="nav-customer" class="active">Customer</a>
-            <a href="equipment.html" id="nav-equipment">Standard Equipment Database</a>
-            <a href="databasequipment.html" id="nav-databasequipment">Database Equipment</a>
-            <a href="users.html" id="nav-users" style="display:none;">👥 Users</a>
+            <a href="index.html" id="nav-home"><i class="fa-solid fa-house"></i> Trang chủ</a>
+            <a href="project.html" id="nav-project"><i class="fa-solid fa-diagram-project"></i> Dự án</a>
+            <a href="customer.html" id="nav-customer" class="active"><i class="fa-solid fa-building-user"></i> Khách hàng</a>
+            <a href="equipment.html" id="nav-equipment"><i class="fa-solid fa-scale-balanced"></i> Thiết bị chuẩn</a>
+            <a href="databasequipment.html" id="nav-databasequipment"><i class="fa-solid fa-boxes-stacked"></i> Mẫu thiết bị</a>
+            <a href="users.html" id="nav-users" style="display:none;"><i class="fa-solid fa-users-gear"></i> Tài khoản</a>
         </nav>
-        <div class="nav-container-right" style="display:flex;align-items:center;gap:8px;">
-            <span id="navbar-username" style="color:#b8d4d4;font-size:13px;display:none;"></span>
-            <button class="btn btn-shiny" id="btn-signin" onclick="location.href='login.html'">Sign In</button>
-            <button class="btn btn-soft" id="btn-logout" style="display:none;" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
+        <div class="nav-container-right">
+            <div id="user-badge-container" class="user-profile-badge" style="display:none;">
+                <span class="user-avatar-circle" id="user-avatar-initial">U</span>
+                <span id="navbar-username">User</span>
+            </div>
+            <button class="btn-header-logout" id="btn-logout" style="display:none;" onclick="handleLogout()" title="Đăng xuất khỏi hệ thống">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất
+            </button>
         </div>
     </div>
 </header>
@@ -617,16 +637,17 @@
 <div class="mobile-backdrop" id="mobile-backdrop" onclick="closeMobileMenu()"></div>
 <div class="mobile-menu" id="mobile-menu">
     <div class="mobile-user" id="mobile-username" style="display:none;"></div>
-    <a href="index.html">🏠 Home</a>
-    <a href="project.html">📋 Project</a>
-    <a href="customer.html" class="active">👥 Customer</a>
-    <a href="equipment.html">🔬 Standard Equipment</a>
-    <a href="databasequipment.html">💾 Database Equipment</a>
-    <a href="users.html" id="mobile-nav-users" style="display:none;">👑 Users</a>
+    <a href="index.html"><i class="fa-solid fa-house"></i> Trang chủ</a>
+    <a href="project.html"><i class="fa-solid fa-diagram-project"></i> Dự án</a>
+    <a href="customer.html" class="active"><i class="fa-solid fa-building-user"></i> Khách hàng</a>
+    <a href="equipment.html"><i class="fa-solid fa-scale-balanced"></i> Thiết bị chuẩn</a>
+    <a href="databasequipment.html"><i class="fa-solid fa-boxes-stacked"></i> Mẫu thiết bị</a>
+    <a href="users.html" id="mobile-nav-users" style="display:none;"><i class="fa-solid fa-users-gear"></i> Tài khoản</a>
     <div style="flex:1;"></div>
     <div id="mobile-auth-section">
-        <button class="mobile-auth-btn" id="mobile-btn-signin" onclick="location.href='login.html'">🔑 Sign In</button>
-        <button class="mobile-auth-btn" id="mobile-btn-logout" style="display:none;" onclick="handleLogout()">🚪 Đăng xuất</button>
+        <button class="mobile-auth-btn" id="mobile-btn-logout" style="display:none;" onclick="handleLogout()">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất
+        </button>
     </div>
 </div>
 
@@ -650,6 +671,7 @@ function closeMobileMenu() {
   document.body.style.overflow = '';
 }
 
+// Sync mobile & desktop user profile
 document.addEventListener("DOMContentLoaded", () => {
   const userData = localStorage.getItem('labmaster_user');
   try {
@@ -657,14 +679,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (user && user.username) {
       const mUser = document.getElementById('mobile-username');
       const mNavUsers = document.getElementById('mobile-nav-users');
-      const mBtnSignin = document.getElementById('mobile-btn-signin');
       const mBtnLogout = document.getElementById('mobile-btn-logout');
+      const dNavUsers = document.getElementById('nav-users');
+      const dBadge = document.getElementById('user-badge-container');
+      const dUsername = document.getElementById('navbar-username');
+      const dAvatar = document.getElementById('user-avatar-initial');
+      const dBtnLogout = document.getElementById('btn-logout');
+
+      const displayName = user.fullName || user.username;
+      const initial = displayName.charAt(0).toUpperCase();
+
+      if (dBadge) dBadge.style.display = 'inline-flex';
+      if (dUsername) dUsername.textContent = displayName;
+      if (dAvatar) dAvatar.textContent = initial;
+      if (dBtnLogout) dBtnLogout.style.display = 'inline-flex';
+
       if (mUser) {
         mUser.style.display = 'flex';
-        mUser.textContent = '👤 ' + (user.fullName || user.username);
+        mUser.innerHTML = `<span class="user-avatar-circle" style="margin-right:8px;">${initial}</span> ${displayName}`;
       }
-      if (user.role === 'admin' && mNavUsers) mNavUsers.style.display = 'flex';
-      if (mBtnSignin) mBtnSignin.style.display = 'none';
+      if (user.role === 'admin') {
+        if (dNavUsers) dNavUsers.style.display = 'inline-flex';
+        if (mNavUsers) mNavUsers.style.display = 'flex';
+      }
       if (mBtnLogout) mBtnLogout.style.display = 'flex';
     }
   } catch(e) {}
@@ -1637,7 +1674,7 @@ async function executeConfirmedDeletion() {
         const result = await res.json();
 
         if (result.success) {
-            showToast(`🗑️ Đã xóa hồ sơ ${idToDelete} khỏi SQL.`, 'success');
+            showToast(`Đã xóa hồ sơ ${idToDelete} thành công.`, 'success');
             clearCustomerCache();
             
             // Cập nhật state cục bộ ngay lập tức để giao diện phản hồi nhanh

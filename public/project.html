@@ -3,6 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+    (function() {
+      try {
+        var raw = localStorage.getItem('labmaster_user');
+        var u = raw ? JSON.parse(raw) : null;
+        if (!u || !u.username) {
+          window.location.replace('login.html');
+          return;
+        }
+        document.documentElement.classList.add('auth-ok');
+      } catch(e) {
+        window.location.replace('login.html');
+      }
+    })();
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -605,8 +620,8 @@
 
 <!-- ====== APP HEADER ====== -->
 <header class="header">
-    <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer; display: flex; align-items: center;">
-        <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
+    <div class="logo-wrapper" onclick="location.href='index.html'" title="LabMaster Enterprise">
+        <img src="img/logo_240.png" alt="LabMaster Logo" class="main-logo">
     </div>
     
     <button class="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Menu">
@@ -617,16 +632,21 @@
     
     <div class="nav-container">
         <nav class="navbar">
-            <a href="index.html" id="nav-home">Home</a>
-            <a href="project.html" id="nav-project" class="active">Project</a> 
-            <a href="customer.html" id="nav-customer">Customer</a> 
-            <a href="equipment.html" id="nav-equipment" >Standard Equipment Database</a>
-            <a href="databasequipment.html" id="nav-databasequipment">Database Equipment</a>
-            <a href="users.html" id="nav-users" style="display:none;">👥 Users</a>
+            <a href="index.html" id="nav-home"><i class="fa-solid fa-house"></i> Trang chủ</a>
+            <a href="project.html" id="nav-project" class="active"><i class="fa-solid fa-diagram-project"></i> Dự án</a> 
+            <a href="customer.html" id="nav-customer"><i class="fa-solid fa-building-user"></i> Khách hàng</a> 
+            <a href="equipment.html" id="nav-equipment"><i class="fa-solid fa-scale-balanced"></i> Thiết bị chuẩn</a>
+            <a href="databasequipment.html" id="nav-databasequipment"><i class="fa-solid fa-boxes-stacked"></i> Mẫu thiết bị</a>
+            <a href="users.html" id="nav-users" style="display:none;"><i class="fa-solid fa-users-gear"></i> Tài khoản</a>
         </nav>
-        <div class="nav-container-right" style="display:flex;align-items:center;gap:8px;">
-            <span id="navbar-username" style="color:#b8d4d4;font-size:13px;display:none;"></span>
-            <button class="btn btn-soft" id="btn-logout" style="display:none;" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
+        <div class="nav-container-right">
+            <div id="user-badge-container" class="user-profile-badge" style="display:none;">
+                <span class="user-avatar-circle" id="user-avatar-initial">U</span>
+                <span id="navbar-username">User</span>
+            </div>
+            <button class="btn-header-logout" id="btn-logout" style="display:none;" onclick="handleLogout()" title="Đăng xuất khỏi hệ thống">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất
+            </button>
         </div>
     </div>
 </header>
@@ -635,16 +655,17 @@
 <div class="mobile-backdrop" id="mobile-backdrop" onclick="closeMobileMenu()"></div>
 <div class="mobile-menu" id="mobile-menu">
     <div class="mobile-user" id="mobile-username" style="display:none;"></div>
-    <a href="index.html">🏠 Home</a>
-    <a href="project.html" class="active">📋 Project</a>
-    <a href="customer.html">👥 Customer</a>
-    <a href="equipment.html">🔬 Standard Equipment</a>
-    <a href="databasequipment.html">💾 Database Equipment</a>
-    <a href="users.html" id="mobile-nav-users" style="display:none;">👑 Users</a>
+    <a href="index.html"><i class="fa-solid fa-house"></i> Trang chủ</a>
+    <a href="project.html" class="active"><i class="fa-solid fa-diagram-project"></i> Dự án</a>
+    <a href="customer.html"><i class="fa-solid fa-building-user"></i> Khách hàng</a>
+    <a href="equipment.html"><i class="fa-solid fa-scale-balanced"></i> Thiết bị chuẩn</a>
+    <a href="databasequipment.html"><i class="fa-solid fa-boxes-stacked"></i> Mẫu thiết bị</a>
+    <a href="users.html" id="mobile-nav-users" style="display:none;"><i class="fa-solid fa-users-gear"></i> Tài khoản</a>
     <div style="flex:1;"></div>
     <div id="mobile-auth-section">
-        <button class="mobile-auth-btn" id="mobile-btn-signin" onclick="location.href='login.html'">🔑 Sign In</button>
-        <button class="mobile-auth-btn" id="mobile-btn-logout" style="display:none;" onclick="handleLogout()">🚪 Đăng xuất</button>
+        <button class="mobile-auth-btn" id="mobile-btn-logout" style="display:none;" onclick="handleLogout()">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất
+        </button>
     </div>
 </div>
 
@@ -668,7 +689,7 @@ function closeMobileMenu() {
   document.body.style.overflow = '';
 }
 
-// Sync mobile menu
+// Sync mobile & desktop user profile
 document.addEventListener("DOMContentLoaded", () => {
   const userData = localStorage.getItem('labmaster_user');
   try {
@@ -676,14 +697,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (user && user.username) {
       const mUser = document.getElementById('mobile-username');
       const mNavUsers = document.getElementById('mobile-nav-users');
-      const mBtnSignin = document.getElementById('mobile-btn-signin');
       const mBtnLogout = document.getElementById('mobile-btn-logout');
+      const dNavUsers = document.getElementById('nav-users');
+      const dBadge = document.getElementById('user-badge-container');
+      const dUsername = document.getElementById('navbar-username');
+      const dAvatar = document.getElementById('user-avatar-initial');
+      const dBtnLogout = document.getElementById('btn-logout');
+
+      const displayName = user.fullName || user.username;
+      const initial = displayName.charAt(0).toUpperCase();
+
+      if (dBadge) dBadge.style.display = 'inline-flex';
+      if (dUsername) dUsername.textContent = displayName;
+      if (dAvatar) dAvatar.textContent = initial;
+      if (dBtnLogout) dBtnLogout.style.display = 'inline-flex';
+
       if (mUser) {
         mUser.style.display = 'flex';
-        mUser.textContent = '👤 ' + (user.fullName || user.username);
+        mUser.innerHTML = `<span class="user-avatar-circle" style="margin-right:8px;">${initial}</span> ${displayName}`;
       }
-      if (user.role === 'admin' && mNavUsers) mNavUsers.style.display = 'flex';
-      if (mBtnSignin) mBtnSignin.style.display = 'none';
+      if (user.role === 'admin') {
+        if (dNavUsers) dNavUsers.style.display = 'inline-flex';
+        if (mNavUsers) mNavUsers.style.display = 'flex';
+      }
       if (mBtnLogout) mBtnLogout.style.display = 'flex';
     }
   } catch(e) {}
@@ -696,10 +732,42 @@ document.addEventListener("DOMContentLoaded", () => {
 <main id="project-list-view" class="anim-page-in">
   <div class="main-container">
     <div class="stats-grid">
-      <div class="stat-card reveal" style="animation-delay:0.1s"><h4>Tổng dự án</h4><p id="stat-total">4</p></div>
-      <div class="stat-card reveal" style="animation-delay:0.2s"><h4>Đang thực hiện</h4><p id="stat-progress">3</p></div>
-      <div class="stat-card reveal" style="animation-delay:0.3s"><h4>Đã hoàn thành</h4><p id="stat-finished">1</p></div>
-      <div class="stat-card reveal" style="animation-delay:0.4s"><h4>Chứng nhận tháng này</h4><p id="stat-certs">7</p></div>
+      <div class="stat-card reveal" style="animation-delay:0.1s">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h4>Tổng dự án</h4>
+          <span style="width:36px; height:36px; border-radius:8px; background:rgba(0, 77, 77, 0.1); color:var(--primary); display:inline-flex; align-items:center; justify-content:center; font-size:16px;">
+            <i class="fa-solid fa-folder-tree"></i>
+          </span>
+        </div>
+        <p id="stat-total">0</p>
+      </div>
+      <div class="stat-card reveal" style="animation-delay:0.2s">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h4>Đang thực hiện</h4>
+          <span style="width:36px; height:36px; border-radius:8px; background:rgba(2, 132, 199, 0.1); color:#0284c7; display:inline-flex; align-items:center; justify-content:center; font-size:16px;">
+            <i class="fa-solid fa-spinner fa-spin-pulse"></i>
+          </span>
+        </div>
+        <p id="stat-progress">0</p>
+      </div>
+      <div class="stat-card reveal" style="animation-delay:0.3s">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h4>Đã hoàn thành</h4>
+          <span style="width:36px; height:36px; border-radius:8px; background:rgba(16, 185, 129, 0.1); color:#10b981; display:inline-flex; align-items:center; justify-content:center; font-size:16px;">
+            <i class="fa-solid fa-circle-check"></i>
+          </span>
+        </div>
+        <p id="stat-finished">0</p>
+      </div>
+      <div class="stat-card reveal" style="animation-delay:0.4s">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h4>Chứng nhận phát hành</h4>
+          <span style="width:36px; height:36px; border-radius:8px; background:rgba(245, 158, 11, 0.1); color:#d97706; display:inline-flex; align-items:center; justify-content:center; font-size:16px;">
+            <i class="fa-solid fa-certificate"></i>
+          </span>
+        </div>
+        <p id="stat-certs">0</p>
+      </div>
     </div>
 
     <div class="panel reveal" style="animation-delay:0.3s">
@@ -737,65 +805,98 @@ document.addEventListener("DOMContentLoaded", () => {
 <main id="project-detail-view" style="display:none;" class="anim-page-in">
   <div class="main-container">
     <div class="panel">
-      <div class="detail-back-bar">
-        <button class="btn btn-ghost btn-sm" onclick="showProjectList()">← Danh sách</button>
-        <div class="breadcrumb">Projects / <span id="pd-title-crumb">Chi tiết</span></div>
+      <!-- BREADCRUMB & BACK -->
+      <div class="detail-back-bar" style="display:flex; align-items:center; justify-content:space-between; padding:16px 24px; border-bottom:1px solid var(--border); background:#f8fafc;">
+        <button class="btn btn-secondary btn-sm" onclick="showProjectList()"><i class="fa-solid fa-arrow-left"></i> Quay lại danh sách</button>
+        <div class="breadcrumb" style="font-size:var(--text-sm); font-weight:500; color:var(--text-muted);">
+          <span style="cursor:pointer;" onclick="showProjectList()">Dự án</span> / <strong id="pd-title-crumb" style="color:var(--primary);">Chi tiết</strong>
+        </div>
       </div>
-      <div class="proj-info-grid">
-        <div class="admin-grid" id="proj-info-grid">
-          <div class="info-group">
-      <label>Nhập tên khách hàng </label>
-      <div class="autocomplete-wrapper">
-          <input type="text" id="cust-search-detail" class="lab-input-cell" placeholder="Gõ tên khách hàng ..." oninput="handleCustomerSearch(this.value)" autocomplete="off">
-          <div id="cust-loader" class="loader-inline"></div>
-          <div id="cust-suggestions" class="autocomplete-suggestions"></div>
+
+      <!-- PROJECT OVERVIEW BANNER -->
+      <div style="padding: 20px 24px; background: linear-gradient(135deg, #f0fdfa 0%, #e6f2f2 100%); border-bottom: 1px solid rgba(0, 128, 128, 0.15); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px;">
+        <div>
+          <div style="font-size: var(--text-xs); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; color: var(--primary);">Hồ sơ dự án hiệu chuẩn</div>
+          <h2 id="pd-name" style="font-size: var(--text-xl); font-weight: 700; color: #0f172a; margin: 4px 0 6px;">---</h2>
+          <div style="display: flex; align-items: center; gap: 18px; font-size: var(--text-sm); color: var(--text-muted); flex-wrap: wrap;">
+            <span><i class="fa-solid fa-hashtag" style="color:var(--primary);"></i> Mã: <strong id="pd-id" style="color:var(--primary);">---</strong></span>
+            <span><i class="fa-solid fa-user-gear" style="color:var(--primary);"></i> KTV: <strong id="pd-tech">---</strong></span>
+            <span><i class="fa-regular fa-calendar" style="color:var(--primary);"></i> Ngày tạo: <span id="pd-created">---</span></span>
+          </div>
+        </div>
+        <div>
+          <span id="pd-status" class="badge badge-progress" style="font-size: var(--text-sm); padding: 6px 16px; border-radius: 20px;">Đang thực hiện</span>
+        </div>
       </div>
-    </div>
-  </div>
+
+      <!-- KHÁCH HÀNG & THÔNG TIN DOANH NGHIỆP -->
+      <div style="padding: 20px 24px 10px;">
+        <h3 style="font-size:var(--text-md); font-weight:600; color:#1e293b; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+          <i class="fa-solid fa-building-user" style="color:var(--primary);"></i> Đơn vị yêu cầu hiệu chuẩn
+        </h3>
+        <div class="proj-info-grid" style="padding:0;">
+          <div class="admin-grid" id="proj-info-grid" style="margin:0;">
+            <div class="info-group">
+              <label>Tìm kiếm khách hàng (Tên, Mã số thuế, SĐT)</label>
+              <div class="autocomplete-wrapper">
+                <input type="text" id="cust-search-detail" class="lab-input-cell" placeholder="Gõ tên khách hàng hoặc mã số thuế để tìm nhanh..." oninput="handleCustomerSearch(this.value)" autocomplete="off">
+                <div id="cust-loader" class="loader-inline"></div>
+                <div id="cust-suggestions" class="autocomplete-suggestions"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="selected-cust-details" class="admin-grid" style="display:none; margin-top: 15px; background: #f0fdfa; border: 1px dashed var(--teal); grid-template-columns: repeat(2, 1fr); padding: 16px; border-radius: 8px;">
+            <div class="info-group"><label>Công ty / Tổ chức</label><div class="display-value" id="det-cust-company">-</div></div>
+            <div class="info-group"><label>Mã số thuế</label><div class="display-value" id="det-cust-tax">-</div></div>
+            <div class="info-group"><label>Số điện thoại</label><div class="display-value" id="det-cust-phone">-</div></div>
+            <div class="info-group"><label>Email</label><div class="display-value" id="det-cust-email">-</div></div>
+            <div class="info-group" style="grid-column: span 2;"><label>Địa chỉ khách hàng</label><div class="display-value" id="det-cust-address">-</div></div>
+            <div class="info-group" style="grid-column: span 2;"><label>Địa chỉ xuất hóa đơn</label><div class="display-value" id="det-cust-addr">-</div></div>
+        </div>
       </div>
-      <div id="selected-cust-details" class="admin-grid" style="display:none; margin-top: 15px; background: #f0fdfa; border: 1px dashed var(--teal); grid-template-columns: repeat(2, 1fr);">
-          <div class="info-group"><label>Công ty / Tổ chức</label><div class="display-value" id="det-cust-company">-</div></div>
-          <div class="info-group"><label>Mã số thuế</label><div class="display-value" id="det-cust-tax">-</div></div>
-          <div class="info-group"><label>Số điện thoại</label><div class="display-value" id="det-cust-phone">-</div></div>
-          <div class="info-group"><label>Email</label><div class="display-value" id="det-cust-email">-</div></div>
-          <div class="info-group" style="grid-column: span 2;"><label>Địa chỉ khách hàng</label><div class="display-value" id="det-cust-address">-</div></div>
-    <div class="info-group" style="grid-column: span 2;"><label>Địa chỉ xuất hóa đơn</label><div class="display-value" id="det-cust-addr">-</div></div>
-      </div>
+
       <div class="section-divider"></div>
       
-      <p style="padding:16px 24px; color:var(--text-muted); font-size:13.5px;">
-        Thực hiện quy trình kiểm tra hiệu chuẩn thiết bị theo tiêu chuẩn phòng Lab ISO/IEC 17025:2017.
-      </p>
+      <!-- DANH SÁCH THIẾT BỊ THỰC HIỆN -->
+      <div style="padding: 16px 24px 8px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h3 style="font-size:var(--text-md); font-weight:600; color:#1e293b; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-boxes-stacked" style="color:var(--primary);"></i> Danh sách thiết bị hiệu chuẩn trong dự án
+          </h3>
+          <p style="color:var(--text-muted); font-size:var(--text-xs); margin:0;">
+            Thực hiện quy trình kiểm tra hiệu chuẩn theo tiêu chuẩn ISO/IEC 17025:2017.
+          </p>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="addMachineToProjectList()"><i class="fa-solid fa-plus"></i> Thêm thiết bị mới</button>
+      </div>
 
-      <!-- BẢNG DANH SÁCH THIẾT BỊ DƯỚI TEXT QUY TRÌNH -->
-      <div class="cal-table-wrapper" style="margin: 0 24px 20px; border: 1px solid var(--border);">
+      <!-- BẢNG DANH SÁCH THIẾT BỊ -->
+      <div class="cal-table-wrapper" style="margin: 8px 24px 20px; border: 1px solid var(--border); border-radius: 6px; overflow:hidden;">
         <table class="data-table">
           <thead>
             <tr>
-              <th style="width:80px">STT</th>
+              <th style="width:70px">STT</th>
               <th>Tên thiết bị</th>
-              <th style="width:130px">Trạng thái</th>
-              <th style="width:180px">Người phụ trách</th>
+              <th style="width:140px">Trạng thái</th>
+              <th style="width:180px">Kỹ thuật viên</th>
               <th style="width:130px">Ngày hiệu chuẩn</th>
-              <th style="width:180px; text-align:center;">Thao tác</th>
+              <th style="width:220px; text-align:center;">Thao tác</th>
             </tr>
           </thead>
           <tbody id="project-items-body">
-            </tbody>
+          </tbody>
         </table>
-      </div>
-      <div style="padding: 0 24px 10px; margin-top: -10px;">
-        <button class="btn btn-secondary btn-sm" onclick="addMachineToProjectList()">+ Thêm máy mới (Add Machine)</button>
       </div>
 
       <div class="proj-actions-bar">
         <button class="btn btn-teal ripple-btn" id="btn-save-project-details" onclick="saveProjectDetails()">
-          <i class="fas fa-save"></i> Lưu dự án
+          <i class="fa-solid fa-floppy-disk"></i> Lưu dự án
         </button>
         <button class="btn btn-success ripple-btn" onclick="markProjectAsFinished()">
-          <i class="fas fa-check-circle"></i> Đánh dấu hoàn thành
+          <i class="fa-solid fa-circle-check"></i> Đánh dấu hoàn thành
         </button>
-        <button class="btn btn-secondary" onclick="showProjectList()"><i class="fas fa-arrow-left"></i> Quay lại</button>
+        <button class="btn btn-secondary" onclick="showProjectList()"><i class="fa-solid fa-arrow-left"></i> Quay lại</button>
       </div>
     </div>
   </div>
@@ -811,13 +912,13 @@ document.addEventListener("DOMContentLoaded", () => {
     <div class="workspace-container">
       <div class="workspace-header">
         <div>
-          <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">Projects / <span id="ws-title-crumb" style="color:var(--text)"></span></div>
-          <h3>Workspace: Nhập liệu & Xuất chứng nhận</h3>
+          <div style="font-size:var(--text-xs); color:var(--text-muted); margin-bottom:4px;">Dự án / <span id="ws-title-crumb" style="color:var(--primary); font-weight:600;"></span></div>
+          <h3 style="font-size:var(--text-lg); font-weight:700; color:var(--primary);"><i class="fa-solid fa-sliders"></i> Bàn làm việc: Nhập kết quả & Xuất chứng nhận</h3>
         </div>
         <div class="workspace-header-actions" id="editor-header-actions">
-          <button class="btn btn-secondary btn-sm" onclick="backToProjectDetail()">← Quay lại dự án</button>
-          <button class="btn btn-teal" id="btn-save-cal" onclick="saveCalibrationData()">💾 Save</button>
-          <button class="btn btn-primary" onclick="switchToPreview()">👁 Xem trước & In</button>
+          <button class="btn btn-secondary btn-sm" onclick="backToProjectDetail()"><i class="fa-solid fa-arrow-left"></i> Quay lại dự án</button>
+          <button class="btn btn-teal" id="btn-save-cal" onclick="saveCalibrationData()"><i class="fa-solid fa-floppy-disk"></i> Lưu kết quả</button>
+          <button class="btn btn-primary" onclick="switchToPreview()"><i class="fa-solid fa-eye"></i> Xem trước & In</button>
         </div>
       </div>
 
@@ -986,7 +1087,7 @@ document.addEventListener("DOMContentLoaded", () => {
               </tr>
             </thead>
             <tbody id="calibration-table-body">
-              <tr><td colspan="11" class="cal-empty-state">🔍 Gõ tên thiết bị ở mục 2 để hệ thống tự tải dữ liệu, hoặc dùng nút bên dưới để nhập thủ công</td></tr>
+              <tr><td colspan="11" class="cal-empty-state"><i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i> Nhập tên thiết bị ở mục 2 để tải tự động, hoặc sử dụng các nút bên dưới để thêm điểm đo</td></tr>
             </tbody>
           </table>
         </div>
@@ -1012,8 +1113,8 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
 
       <div style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:40px;">
-        <button class="btn btn-secondary" onclick="backToProjectDetail()">← Quay lại dự án</button>
-        <button class="btn btn-primary" onclick="switchToPreview()">👁 Xem trước & In A4</button>
+        <button class="btn btn-secondary" onclick="backToProjectDetail()"><i class="fa-solid fa-arrow-left"></i> Quay lại dự án</button>
+        <button class="btn btn-primary" onclick="switchToPreview()"><i class="fa-solid fa-eye"></i> Xem trước & In A4</button>
       </div>
     </div>
   </div>
@@ -1023,31 +1124,31 @@ document.addEventListener("DOMContentLoaded", () => {
     <div class="preview-panel">
       <div class="preview-toolbar" id="preview-header-actions" style="display: flex; align-items: center; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 12px;">
-          <button class="btn btn-secondary btn-sm" onclick="switchToEditor()">← Sửa dữ liệu</button>
+          <button class="btn btn-secondary btn-sm" onclick="switchToEditor()"><i class="fa-solid fa-pen-to-square"></i> Chỉnh sửa dữ liệu</button>
           <div style="display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--bg);">
-            <button class="btn btn-sm" id="btn-preview-pdf" onclick="showPreviewTab('pdf')" style="border: none; border-radius: 0; background: var(--accent); color: white; font-weight: 500; padding: 6px 12px; cursor: pointer; transition: all 0.2s;">📄 Xem trước PDF (In chuẩn)</button>
-            <button class="btn btn-sm" id="btn-preview-html" onclick="showPreviewTab('html')" style="border: none; border-radius: 0; background: transparent; color: var(--text-muted); font-weight: 500; padding: 6px 12px; cursor: pointer; transition: all 0.2s;">🌐 Xem trước HTML</button>
+            <button class="btn btn-sm" id="btn-preview-pdf" onclick="showPreviewTab('pdf')" style="border: none; border-radius: 0; background: var(--accent); color: white; font-weight: 500; padding: 6px 12px; cursor: pointer; transition: all 0.2s;"><i class="fa-solid fa-file-pdf"></i> Xem trước PDF</button>
+            <button class="btn btn-sm" id="btn-preview-html" onclick="showPreviewTab('html')" style="border: none; border-radius: 0; background: transparent; color: var(--text-muted); font-weight: 500; padding: 6px 12px; cursor: pointer; transition: all 0.2s;"><i class="fa-solid fa-globe"></i> Xem trước HTML</button>
           </div>
-          <span id="pdf-preview-sync-badge" style="display:none; font-size:12px; color:var(--accent); font-weight:600; align-items:center; gap:5px; margin-left:8px;">
-            <span style="display:inline-block; animation: spin 1s linear infinite;">⚡</span> Đang đồng bộ bản in...
+          <span id="pdf-preview-sync-badge" style="display:none; font-size:var(--text-xs); color:var(--accent); font-weight:600; align-items:center; gap:5px; margin-left:8px;">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Đang đồng bộ bản in...
           </span>
         </div>
         <div class="dropdown" style="position:relative;display:inline-block;">
-          <button class="btn btn-primary btn-sm" onclick="toggleExportMenu()" id="export-dropdown-btn">
-            📥 Xuất file ▾
+          <button class="btn btn-primary btn-sm" onclick="toggleExportMenu()" id="export-dropdown-btn" style="display:inline-flex;align-items:center;gap:6px;">
+            <i class="fa-solid fa-cloud-arrow-down"></i> Xuất file <i class="fa-solid fa-chevron-down" style="font-size:10px;"></i>
           </button>
           <div id="export-menu" class="dropdown-menu">
-            <div class="dropdown-item" onclick="exportFile('pdf')">
-              <span style="font-size:18px;">📄</span>
-              <div><strong style="font-size:13px;">PDF</strong><br><span style="font-size:10px;color:var(--text-muted);">Giấy chứng nhận chuẩn in ấn</span></div>
+            <div class="dropdown-item" onclick="exportFile('pdf')" style="display:flex;align-items:center;gap:12px;cursor:pointer;padding:10px 14px;">
+              <i class="fa-solid fa-file-pdf" style="font-size:22px;color:#e11d48;"></i>
+              <div><strong style="font-size:13px;display:block;">Tệp PDF (.pdf)</strong><span style="font-size:11px;color:var(--text-muted);">Giấy chứng nhận chuẩn in ấn</span></div>
             </div>
-            <div class="dropdown-item" onclick="exportFile('excel')">
-              <span style="font-size:18px;">📊</span>
-              <div><strong style="font-size:13px;">Excel (.xlsx)</strong><br><span style="font-size:10px;color:var(--text-muted);">Dữ liệu bảng tính dễ chỉnh sửa</span></div>
+            <div class="dropdown-item" onclick="exportFile('excel')" style="display:flex;align-items:center;gap:12px;cursor:pointer;padding:10px 14px;">
+              <i class="fa-solid fa-file-excel" style="font-size:22px;color:#10b981;"></i>
+              <div><strong style="font-size:13px;display:block;">Bảng tính Excel (.xlsx)</strong><span style="font-size:11px;color:var(--text-muted);">Dữ liệu bảng tính phân tích</span></div>
             </div>
-            <div class="dropdown-item" onclick="exportFile('docx')">
-              <span style="font-size:18px;">📝</span>
-              <div><strong style="font-size:13px;">Word (.docx)</strong><br><span style="font-size:10px;color:var(--text-muted);">Văn bản có thể chỉnh sửa</span></div>
+            <div class="dropdown-item" onclick="exportFile('docx')" style="display:flex;align-items:center;gap:12px;cursor:pointer;padding:10px 14px;">
+              <i class="fa-solid fa-file-word" style="font-size:22px;color:#2563eb;"></i>
+              <div><strong style="font-size:13px;display:block;">Tài liệu Word (.docx)</strong><span style="font-size:11px;color:var(--text-muted);">Văn bản có thể chỉnh sửa</span></div>
             </div>
           </div>
         </div>
@@ -1895,12 +1996,14 @@ async function viewProjectDetail(id, fromPopState = false) {
   const pdStatus = document.getElementById('pd-status');
   if(pdStatus) {
     const statusClass = proj.STATUS === 'Finished' ? 'finished' : 'progress';
-    document.getElementById('view-proj-status').innerHTML = 
-      `<span class="badge badge-${statusClass}">${proj.STATUS}</span>`;
+    const statusText = proj.STATUS === 'Finished' ? 'Hoàn thành' : 'Đang thực hiện';
+    pdStatus.className = `badge badge-${statusClass}`;
+    pdStatus.textContent = statusText;
   }
   
   if(document.getElementById('view-proj-status')) {
-    document.getElementById('view-proj-status').innerText = proj.STATUS;
+    const statusText = proj.STATUS === 'Finished' ? 'Hoàn thành' : 'Đang thực hiện';
+    document.getElementById('view-proj-status').innerText = statusText;
   }
 
   // Đồng nhất thông tin Kỹ thuật viên và Ngày tạo
@@ -1968,6 +2071,7 @@ function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum
     const calDate = currentProj?.CREATED_AT ? new Date(currentProj.CREATED_AT).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN');
 
     const tr = document.createElement('tr');
+    const statusText = currentProj?.STATUS === 'Finished' ? 'Hoàn thành' : 'Đang thực hiện';
     
     // Nếu có equipmentName, row được pre-fill sẵn, không cần search input
     if (equipmentName) {
@@ -1976,37 +2080,37 @@ function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum
       tr.dataset.equipmentName = equipmentName;
       tr.dataset.equipmentId = eqId;
       tr.innerHTML = `
-          <td style="font-weight:600; color:var(--accent);">${rowCount}</td>
-          <td style="font-weight:600;">🔧 ${equipmentName}${eq.manufacturer ? `<br><span style="font-size:12px;color:var(--text-muted);font-weight:400;">${eq.manufacturer}</span>` : ''}</td>
-          <td><span class="badge badge-${statusClass}">${currentProj?.STATUS || 'In Progress'}</span></td>
+          <td style="font-weight:600; color:var(--accent); text-align:center;">${rowCount}</td>
+          <td style="font-weight:600;"><i class="fa-solid fa-microchip" style="color:var(--primary);margin-right:6px;"></i> ${equipmentName}${eq.manufacturer ? `<br><span style="font-size:12px;color:var(--text-muted);font-weight:400;margin-left:20px;">Hãng SX: ${eq.manufacturer}</span>` : ''}</td>
+          <td><span class="badge badge-${statusClass}">${statusText}</span></td>
           <td><input type="text" class="lab-input-cell" placeholder="Nhập người phụ trách..." value="${currentProj?.TECH || ''}" style="min-width:140px;"></td>
           <td>${calDate}</td>
           <td>
               <div style="display:flex; gap:6px; justify-content:center;">
-                  <button class="btn btn-teal btn-sm" onclick="openCalibrationForRow(this)" title="Bắt đầu hiệu chuẩn">Calibration</button>
-                  <button class="btn btn-secondary btn-sm" onclick="openPrintForRow(this)" title="Xem bản in">Print</button>
-                  <button class="btn btn-danger btn-sm" onclick="deleteMachineFromRow(this)" title="Xóa thiết bị khỏi dự án">Delete</button>
+                  <button class="btn btn-teal btn-sm" onclick="openCalibrationForRow(this)" title="Bắt đầu hiệu chuẩn"><i class="fa-solid fa-sliders"></i> Hiệu chuẩn</button>
+                  <button class="btn btn-secondary btn-sm" onclick="openPrintForRow(this)" title="Xem bản in"><i class="fa-solid fa-print"></i> In ấn</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteMachineFromRow(this)" title="Xóa thiết bị khỏi dự án"><i class="fa-regular fa-trash-can"></i> Xóa</button>
               </div>
           </td>
       `;
     } else {
       // Dòng trống với search input (fallback / thêm thủ công)
       tr.innerHTML = `
-          <td style="font-weight:600; color:var(--accent);">${machineLabel}</td>
+          <td style="font-weight:600; color:var(--accent); text-align:center;">${machineLabel}</td>
           <td>
               <div class="autocomplete-wrapper">
-                  <input type="text" class="lab-input-cell device-search-input" placeholder="Tìm tên thiết bị (YouTube style)..." oninput="handleDeviceSearch(this)" autocomplete="off" style="font-weight:600; min-width:220px;">
+                  <input type="text" class="lab-input-cell device-search-input" placeholder="Tìm tên thiết bị mẫu..." oninput="handleDeviceSearch(this)" autocomplete="off" style="font-weight:600; min-width:220px;">
                   <div class="autocomplete-suggestions"></div>
               </div>
           </td>
-          <td><span class="badge badge-${statusClass}">${currentProj?.STATUS || 'In Progress'}</span></td>
+          <td><span class="badge badge-${statusClass}">${statusText}</span></td>
           <td><input type="text" class="lab-input-cell" placeholder="Nhập người phụ trách..." value="${currentProj?.TECH || ''}" style="min-width:140px;"></td>
           <td>${calDate}</td>
           <td>
               <div style="display:flex; gap:6px; justify-content:center;">
-                  <button class="btn btn-teal btn-sm" onclick="openCalibrationForRow(this)" title="Bắt đầu hiệu chuẩn">Calibration</button>
-                  <button class="btn btn-secondary btn-sm" onclick="openPrintForRow(this)" title="Xem bản in">Print</button>
-                  <button class="btn btn-danger btn-sm" onclick="deleteMachineFromRow(this)" title="Xóa thiết bị khỏi dự án">Delete</button>
+                  <button class="btn btn-teal btn-sm" onclick="openCalibrationForRow(this)" title="Bắt đầu hiệu chuẩn"><i class="fa-solid fa-sliders"></i> Hiệu chuẩn</button>
+                  <button class="btn btn-secondary btn-sm" onclick="openPrintForRow(this)" title="Xem bản in"><i class="fa-solid fa-print"></i> In ấn</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteMachineFromRow(this)" title="Xóa thiết bị khỏi dự án"><i class="fa-regular fa-trash-can"></i> Xóa</button>
               </div>
           </td>
       `;
@@ -4518,9 +4622,11 @@ window.addEventListener('resize', adjustPreviewZoom);
 /* ====== TOAST & MODAL HELPERS ====== */
 function showToast(msg, type='success') {
     const container = document.getElementById('toast-container');
+    if (!container) return;
     const t = document.createElement('div');
     t.className = `toast ${type}`;
-    t.innerHTML = `<span>${type==='success'?'✅':'❌'}</span> ${msg}`;
+    const icon = type === 'success' ? '<i class="fa-solid fa-circle-check" style="color:#10b981;"></i>' : (type === 'warning' ? '<i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#ef4444;"></i>');
+    t.innerHTML = `<span style="font-size:16px;display:flex;align-items:center;">${icon}</span> <span>${msg}</span>`;
     container.appendChild(t);
     setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(), 500); }, 3000);
 }
@@ -4555,15 +4661,15 @@ function renderProjectPagination(totalItems, currentPage, limit) {
 
     // Previous button
     html += `<button class="btn btn-secondary btn-sm" ${currentPage === 1 ? 'disabled' : ''} onclick="fetchProjects(${currentPage - 1})">
-                <i class="fas fa-chevron-left"></i> Trước
+                <i class="fa-solid fa-chevron-left"></i> Trước
              </button>`;
 
     // Page info
-    html += `<span style="font-size: 0.9rem; color: var(--text-muted);">Trang <strong>${currentPage}</strong> / ${totalPages}</span>`;
+    html += `<span style="font-size: var(--text-sm); color: var(--text-muted);">Trang <strong>${currentPage}</strong> / ${totalPages}</span>`;
 
     // Next button
     html += `<button class="btn btn-secondary btn-sm" ${currentPage === totalPages ? 'disabled' : ''} onclick="fetchProjects(${currentPage + 1})">
-                Tiếp <i class="fas fa-chevron-right"></i>
+                Tiếp <i class="fa-solid fa-chevron-right"></i>
              </button>`;
 
     paginationContainer.innerHTML = html;
@@ -4596,15 +4702,22 @@ function renderProjectsTableRows(list) {
       const row = document.createElement('tr');
       row.onclick = () => viewProjectDetail(proj.ID);
       const createdDate = proj.CREATED_AT ? new Date(proj.CREATED_AT).toLocaleDateString('vi-VN') : '---';
+      const statusText = proj.STATUS === 'Finished' ? 'Hoàn thành' : 'Đang thực hiện';
       row.innerHTML = `
           <td><strong style="color:var(--accent)">#${proj.ID}</strong></td>
-          <td>${proj.TITLE}</td>
-          <td>${proj.TECH}</td>
-          <td>${createdDate}</td>
-          <td><span class="badge badge-${proj.STATUS==='Finished'?'finished':'progress'}">${proj.STATUS}</span></td>
+          <td style="font-weight:600; color:#0f172a;">${proj.TITLE}</td>
+          <td><i class="fa-regular fa-user" style="color:var(--text-muted);margin-right:4px;"></i> ${proj.TECH || 'Chưa phân công'}</td>
+          <td style="color:var(--text-muted); font-size:var(--text-sm);">${createdDate}</td>
+          <td><span class="badge badge-${proj.STATUS==='Finished'?'finished':'progress'}">${statusText}</span></td>
           <td style="text-align:center;" onclick="event.stopPropagation()">
-            <button class="btn-sm" onclick="copyProjectData('${proj.ID}')" title="Copy dữ liệu dự án" style="border:none;background:none;cursor:pointer;font-size:16px;padding:4px 6px;border-radius:6px;">📋</button>
-            <button class="delete-btn" onclick="deleteProject('${proj.ID}')">🗑</button>
+            <div style="display:inline-flex; gap:6px; align-items:center; justify-content:center;">
+              <button class="btn btn-secondary btn-sm" onclick="copyProjectData('${proj.ID}')" title="Sao chép dữ liệu dự án" style="padding:4px 8px; border-radius:6px;">
+                <i class="fa-regular fa-copy"></i>
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="deleteProject('${proj.ID}')" title="Xóa dự án" style="padding:4px 8px; border-radius:6px;">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
           </td>
       `;
       tbody.appendChild(row);
@@ -4787,8 +4900,7 @@ async function exportFile(format) {
   }
 
   const formatNames = { pdf: 'PDF', excel: 'Excel', docx: 'Word' };
-  const formatEmojis = { pdf: '📄', excel: '📊', docx: '📝' };
-  showToast(`${formatEmojis[format]} Đang lưu dữ liệu và sinh file ${formatNames[format]}...`, 'info');
+  showToast(`Đang lưu dữ liệu và xuất tệp ${formatNames[format]}...`, 'info');
 
   const pointRecords = collectCalibrationResults().map(r => ({
     parameterName: r.param,
@@ -4888,7 +5000,7 @@ function saveCalibrationData() {
     }
 
     const saveBtn = document.getElementById('btn-save-cal');
-    const originalHtml = (saveBtn && saveBtn.getAttribute('data-orig-text')) || (saveBtn ? saveBtn.innerHTML : '💾 Save');
+    const originalHtml = (saveBtn && saveBtn.getAttribute('data-orig-text')) || (saveBtn ? saveBtn.innerHTML : '<i class="fa-solid fa-floppy-disk"></i> Lưu kết quả');
     if (saveBtn && !saveBtn.getAttribute('data-orig-text')) {
         saveBtn.setAttribute('data-orig-text', originalHtml);
     }
@@ -4917,7 +5029,7 @@ function saveCalibrationData() {
 
     // 1. PHẢN HỒI GIAO DIỆN TỨC THÌ TRONG 0.0001 ms (ZERO LAG)
     if (saveBtn) {
-        saveBtn.innerHTML = '✅ Đã lưu!';
+        saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Đã lưu!';
         saveBtn.style.background = '#059669';
         saveBtn.style.borderColor = '#059669';
         saveBtn.style.color = '#ffffff';
@@ -4931,7 +5043,7 @@ function saveCalibrationData() {
             }
         }, 1500);
     }
-    showToast("✅ Đã lưu dữ liệu thành công!", "success");
+    showToast("Đã lưu dữ liệu thành công!", "success");
 
     // 2. LƯU LOCALSTORAGE AN TOÀN TRONG 0.0001 ms
     try {

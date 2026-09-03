@@ -3,7 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Standard Equipment – LabMaster Enterprise</title>
+    <title>Thiết bị chuẩn – LabMaster Enterprise</title>
+    <script>
+    (function() {
+      try {
+        var raw = localStorage.getItem('labmaster_user');
+        var u = raw ? JSON.parse(raw) : null;
+        if (!u || !u.username) {
+          window.location.replace('login.html');
+          return;
+        }
+        document.documentElement.classList.add('auth-ok');
+      } catch(e) {
+        window.location.replace('login.html');
+      }
+    })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -407,8 +423,8 @@
 </head>
 <body>
 <header class="header">
-    <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer; display: flex; align-items: center;">
-        <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
+    <div class="logo-wrapper" onclick="location.href='index.html'" title="LabMaster Enterprise">
+        <img src="img/logo_240.png" alt="LabMaster Logo" class="main-logo">
     </div>
     
     <button class="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Menu">
@@ -419,17 +435,21 @@
     
     <div class="nav-container">
         <nav class="navbar">
-            <a href="index.html" id="nav-home">Home</a>
-            <a href="project.html" id="nav-project">Project</a>
-            <a href="customer.html" id="nav-customer">Customer</a> 
-            <a href="equipment.html" id="nav-equipment" class="active">Standard Equipment Database</a>
-            <a href="databasequipment.html" id="nav-databasequipment">Database Equipment</a>
-            <a href="users.html" id="nav-users" style="display:none;">👥 Users</a>
+            <a href="index.html" id="nav-home"><i class="fa-solid fa-house"></i> Trang chủ</a>
+            <a href="project.html" id="nav-project"><i class="fa-solid fa-diagram-project"></i> Dự án</a>
+            <a href="customer.html" id="nav-customer"><i class="fa-solid fa-building-user"></i> Khách hàng</a> 
+            <a href="equipment.html" id="nav-equipment" class="active"><i class="fa-solid fa-scale-balanced"></i> Thiết bị chuẩn</a>
+            <a href="databasequipment.html" id="nav-databasequipment"><i class="fa-solid fa-boxes-stacked"></i> Mẫu thiết bị</a>
+            <a href="users.html" id="nav-users" style="display:none;"><i class="fa-solid fa-users-gear"></i> Tài khoản</a>
         </nav>
-        <div class="nav-container-right" style="display:flex;align-items:center;gap:8px;">
-            <span id="navbar-username" style="color:#b8d4d4;font-size:13px;display:none;"></span>
-            <button class="btn btn-shiny" id="btn-signin" onclick="location.href='login.html'">Sign In</button>
-            <button class="btn btn-soft" id="btn-logout" style="display:none;" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
+        <div class="nav-container-right">
+            <div id="user-badge-container" class="user-profile-badge" style="display:none;">
+                <span class="user-avatar-circle" id="user-avatar-initial">U</span>
+                <span id="navbar-username">User</span>
+            </div>
+            <button class="btn-header-logout" id="btn-logout" style="display:none;" onclick="handleLogout()" title="Đăng xuất khỏi hệ thống">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất
+            </button>
         </div>
     </div>
 </header>
@@ -438,16 +458,17 @@
 <div class="mobile-backdrop" id="mobile-backdrop" onclick="closeMobileMenu()"></div>
 <div class="mobile-menu" id="mobile-menu">
     <div class="mobile-user" id="mobile-username" style="display:none;"></div>
-    <a href="index.html">🏠 Home</a>
-    <a href="project.html">📋 Project</a>
-    <a href="customer.html">👥 Customer</a>
-    <a href="equipment.html" class="active">🔬 Standard Equipment</a>
-    <a href="databasequipment.html">💾 Database Equipment</a>
-    <a href="users.html" id="mobile-nav-users" style="display:none;">👑 Users</a>
+    <a href="index.html"><i class="fa-solid fa-house"></i> Trang chủ</a>
+    <a href="project.html"><i class="fa-solid fa-diagram-project"></i> Dự án</a>
+    <a href="customer.html"><i class="fa-solid fa-building-user"></i> Khách hàng</a>
+    <a href="equipment.html" class="active"><i class="fa-solid fa-scale-balanced"></i> Thiết bị chuẩn</a>
+    <a href="databasequipment.html"><i class="fa-solid fa-boxes-stacked"></i> Mẫu thiết bị</a>
+    <a href="users.html" id="mobile-nav-users" style="display:none;"><i class="fa-solid fa-users-gear"></i> Tài khoản</a>
     <div style="flex:1;"></div>
     <div id="mobile-auth-section">
-        <button class="mobile-auth-btn" id="mobile-btn-signin" onclick="location.href='login.html'">🔑 Sign In</button>
-        <button class="mobile-auth-btn" id="mobile-btn-logout" style="display:none;" onclick="handleLogout()">🚪 Đăng xuất</button>
+        <button class="mobile-auth-btn" id="mobile-btn-logout" style="display:none;" onclick="handleLogout()">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất
+        </button>
     </div>
 </div>
 
@@ -471,6 +492,7 @@ function closeMobileMenu() {
   document.body.style.overflow = '';
 }
 
+// Sync mobile & desktop user profile
 document.addEventListener("DOMContentLoaded", () => {
   const userData = localStorage.getItem('labmaster_user');
   try {
@@ -478,14 +500,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (user && user.username) {
       const mUser = document.getElementById('mobile-username');
       const mNavUsers = document.getElementById('mobile-nav-users');
-      const mBtnSignin = document.getElementById('mobile-btn-signin');
       const mBtnLogout = document.getElementById('mobile-btn-logout');
+      const dNavUsers = document.getElementById('nav-users');
+      const dBadge = document.getElementById('user-badge-container');
+      const dUsername = document.getElementById('navbar-username');
+      const dAvatar = document.getElementById('user-avatar-initial');
+      const dBtnLogout = document.getElementById('btn-logout');
+
+      const displayName = user.fullName || user.username;
+      const initial = displayName.charAt(0).toUpperCase();
+
+      if (dBadge) dBadge.style.display = 'inline-flex';
+      if (dUsername) dUsername.textContent = displayName;
+      if (dAvatar) dAvatar.textContent = initial;
+      if (dBtnLogout) dBtnLogout.style.display = 'inline-flex';
+
       if (mUser) {
         mUser.style.display = 'flex';
-        mUser.textContent = '👤 ' + (user.fullName || user.username);
+        mUser.innerHTML = `<span class="user-avatar-circle" style="margin-right:8px;">${initial}</span> ${displayName}`;
       }
-      if (user.role === 'admin' && mNavUsers) mNavUsers.style.display = 'flex';
-      if (mBtnSignin) mBtnSignin.style.display = 'none';
+      if (user.role === 'admin') {
+        if (dNavUsers) dNavUsers.style.display = 'inline-flex';
+        if (mNavUsers) mNavUsers.style.display = 'flex';
+      }
       if (mBtnLogout) mBtnLogout.style.display = 'flex';
     }
   } catch(e) {}
@@ -496,22 +533,22 @@ document.addEventListener("DOMContentLoaded", () => {
     <!-- Stats Cards -->
     <div class="eq-stats">
         <div class="eq-stat total reveal" style="animation-delay:0.1s">
-            <span class="stat-icon"><i class="fas fa-microchip"></i></span>
+            <span class="stat-icon"><i class="fa-solid fa-microchip"></i></span>
             <h4>Tổng thiết bị chuẩn</h4>
             <p id="stat-total">--</p>
         </div>
         <div class="eq-stat valid reveal" style="animation-delay:0.2s">
-            <span class="stat-icon"><i class="fas fa-check-circle" style="color:var(--success)"></i></span>
+            <span class="stat-icon"><i class="fa-solid fa-circle-check" style="color:var(--success)"></i></span>
             <h4>Đạt chuẩn (Còn hạn)</h4>
             <p id="stat-active">--</p>
         </div>
         <div class="eq-stat expiring-soon reveal" style="animation-delay:0.25s">
-            <span class="stat-icon"><i class="fas fa-clock" style="color:#f59e0b"></i></span>
+            <span class="stat-icon"><i class="fa-solid fa-clock" style="color:#f59e0b"></i></span>
             <h4>Sắp hết hạn (1 tháng)</h4>
             <p id="stat-expiring-soon">--</p>
         </div>
         <div class="eq-stat expired reveal" style="animation-delay:0.3s">
-            <span class="stat-icon"><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i></span>
+            <span class="stat-icon"><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i></span>
             <h4>Hết hạn hiệu chuẩn</h4>
             <p id="stat-expired">--</p>
         </div>
@@ -520,25 +557,25 @@ document.addEventListener("DOMContentLoaded", () => {
     <!-- List View -->
     <section id="equipment-list-view">
         <div class="eq-header reveal" style="animation-delay:0.3s">
-            <h1><i class="fas fa-flask"></i> Standard Equipment Database</h1>
+            <h1><i class="fa-solid fa-scale-balanced"></i> Cơ sở dữ liệu Thiết bị chuẩn</h1>
             <div style="display: flex; gap: 8px;">
                 <button class="btn btn-success ripple-btn" onclick="exportToExcel()">
-                    <i class="fas fa-file-excel"></i> Export Excel
+                    <i class="fa-solid fa-file-excel"></i> Xuất Excel
                 </button>
                 <button class="btn btn-primary ripple-btn" onclick="showAddForm()">
-                    <i class="fas fa-plus-circle"></i> Add New Equipment
+                    <i class="fa-solid fa-circle-plus"></i> Thêm thiết bị mới
                 </button>
             </div>
         </div>
 
         <div class="eq-search reveal" style="animation-delay:0.4s">
-            <span class="search-icon"><i class="fas fa-search"></i></span>
-            <input type="text" id="search-input" placeholder="Search by ID, name, manufacturer, or serial..." onkeyup="filterEquipment()">
+            <span class="search-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input type="text" id="search-input" placeholder="Tìm kiếm theo mã, tên thiết bị, hãng sản xuất, số sê-ri..." onkeyup="filterEquipment()">
             <select id="filter-status" onchange="filterEquipment()">
-                <option value="all">All Status</option>
-                <option value="valid">Valid</option>
-                <option value="expiring-soon">Expiring Soon</option>
-                <option value="expired">Expired</option>
+                <option value="all">Tất cả trạng thái</option>
+                <option value="valid">Còn hạn</option>
+                <option value="expiring-soon">Sắp hết hạn</option>
+                <option value="expired">Đã hết hạn</option>
             </select>
         </div>
 
@@ -987,20 +1024,20 @@ async function loadEquipment() {
     }
 
     async function deleteEquipment(id) {
-        if (!confirm(`Delete equipment "${id}"? This cannot be undone.`)) return;
+        if (!confirm(`Bạn có chắc muốn xóa thiết bị chuẩn "${id}"? Hành động này không thể hoàn tác.`)) return;
 
         try {
             const res = await fetch(`${API_BASE_URL}/api/clock/${encodeURIComponent(id)}`, { method: 'DELETE' });
             const result = await res.json();
             if (result.success) {
-                showToast('🗑️ Equipment deleted!', 'success');
+                showToast('Đã xóa thiết bị chuẩn thành công!', 'success');
                 localStorage.removeItem('lm_clock_standards');
                 await loadEquipment();
             } else {
-                showToast('❌ Delete failed: ' + (result.message || result.error), 'danger');
+                showToast('Xóa thất bại: ' + (result.message || result.error), 'danger');
             }
         } catch (err) {
-            showToast('❌ Error: ' + err.message, 'danger');
+            showToast('Lỗi: ' + err.message, 'danger');
         }
     }
 

@@ -4,6 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LabMaster - Calibration Management System</title>
+    <script>
+    (function() {
+      try {
+        var raw = localStorage.getItem('labmaster_user');
+        var u = raw ? JSON.parse(raw) : null;
+        if (!u || !u.username) {
+          window.location.replace('login.html');
+          return;
+        }
+        document.documentElement.classList.add('auth-ok');
+      } catch(e) {
+        window.location.replace('login.html');
+      }
+    })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -19,8 +35,8 @@
 </style>
 
 <header class="header">
-    <div class="logo-wrapper" onclick="location.href='index.html'" style="cursor: pointer; display: flex; align-items: center;">
-        <img src="./img/noimage.png" alt="LabMaster" class="main-logo">
+    <div class="logo-wrapper" onclick="location.href='index.html'" title="LabMaster Enterprise">
+        <img src="img/logo_240.png" alt="LabMaster Logo" class="main-logo">
     </div>
     
     <button class="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Menu">
@@ -31,17 +47,21 @@
     
     <div class="nav-container">
         <nav class="navbar">
-            <a href="index.html" id="nav-home" class="active">Home</a>
-            <a href="project.html" id="nav-project">Project</a> 
-            <a href="customer.html" id="nav-customer">Customer</a> 
-            <a href="equipment.html" id="nav-equipment">Standard Equipment Database</a>
-            <a href="databasequipment.html" id="nav-databasequipment">Database Equipment</a>
-            <a href="users.html" id="nav-users" style="display:none;">👥 Users</a>
+            <a href="index.html" id="nav-home" class="active"><i class="fa-solid fa-house"></i> Trang chủ</a>
+            <a href="project.html" id="nav-project"><i class="fa-solid fa-diagram-project"></i> Dự án</a> 
+            <a href="customer.html" id="nav-customer"><i class="fa-solid fa-building-user"></i> Khách hàng</a> 
+            <a href="equipment.html" id="nav-equipment"><i class="fa-solid fa-scale-balanced"></i> Thiết bị chuẩn</a>
+            <a href="databasequipment.html" id="nav-databasequipment"><i class="fa-solid fa-boxes-stacked"></i> Mẫu thiết bị</a>
+            <a href="users.html" id="nav-users" style="display:none;"><i class="fa-solid fa-users-gear"></i> Tài khoản</a>
         </nav>
-        <div class="nav-container-right" style="display:flex;align-items:center;gap:8px;">
-            <span id="navbar-username" style="color:#b8d4d4;font-size:13px;display:none;"></span>
-            <button class="btn btn-shiny" id="btn-signin" onclick="location.href='login.html'">Sign In</button>
-            <button class="btn btn-soft" id="btn-logout" style="display:none;" onclick="handleLogoutIndex()"><i class="fas fa-sign-out-alt"></i></button>
+        <div class="nav-container-right">
+            <div id="user-badge-container" class="user-profile-badge" style="display:none;">
+                <span class="user-avatar-circle" id="user-avatar-initial">U</span>
+                <span id="navbar-username">User</span>
+            </div>
+            <button class="btn-header-logout" id="btn-logout" style="display:none;" onclick="handleLogoutIndex()" title="Đăng xuất khỏi hệ thống">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất
+            </button>
         </div>    
     </div>
 </header>
@@ -50,16 +70,17 @@
 <div class="mobile-backdrop" id="mobile-backdrop" onclick="closeMobileMenu()"></div>
 <div class="mobile-menu" id="mobile-menu">
     <div class="mobile-user" id="mobile-username" style="display:none;"></div>
-    <a href="index.html" class="active">🏠 Home</a>
-    <a href="project.html">📋 Project</a>
-    <a href="customer.html">👥 Customer</a>
-    <a href="equipment.html">🔬 Standard Equipment</a>
-    <a href="databasequipment.html">💾 Database Equipment</a>
-    <a href="users.html" id="mobile-nav-users" style="display:none;">👑 Users</a>
+    <a href="index.html" class="active"><i class="fa-solid fa-house"></i> Trang chủ</a>
+    <a href="project.html"><i class="fa-solid fa-diagram-project"></i> Dự án</a>
+    <a href="customer.html"><i class="fa-solid fa-building-user"></i> Khách hàng</a>
+    <a href="equipment.html"><i class="fa-solid fa-scale-balanced"></i> Thiết bị chuẩn</a>
+    <a href="databasequipment.html"><i class="fa-solid fa-boxes-stacked"></i> Mẫu thiết bị</a>
+    <a href="users.html" id="mobile-nav-users" style="display:none;"><i class="fa-solid fa-users-gear"></i> Tài khoản</a>
     <div style="flex:1;"></div>
     <div id="mobile-auth-section">
-        <button class="mobile-auth-btn" id="mobile-btn-signin" onclick="location.href='login.html'">🔑 Sign In</button>
-        <button class="mobile-auth-btn" id="mobile-btn-logout" style="display:none;" onclick="handleLogoutIndex()">🚪 Đăng xuất</button>
+        <button class="mobile-auth-btn" id="mobile-btn-logout" style="display:none;" onclick="handleLogoutIndex()">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất
+        </button>
     </div>
 </div>
 
@@ -83,7 +104,7 @@ function closeMobileMenu() {
   document.body.style.overflow = '';
 }
 
-// Sync mobile menu with auth state
+// Sync mobile & desktop user profile
 document.addEventListener("DOMContentLoaded", () => {
   const userData = localStorage.getItem('labmaster_user');
   try {
@@ -91,14 +112,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (user && user.username) {
       const mUser = document.getElementById('mobile-username');
       const mNavUsers = document.getElementById('mobile-nav-users');
-      const mBtnSignin = document.getElementById('mobile-btn-signin');
       const mBtnLogout = document.getElementById('mobile-btn-logout');
+      const dNavUsers = document.getElementById('nav-users');
+      const dBadge = document.getElementById('user-badge-container');
+      const dUsername = document.getElementById('navbar-username');
+      const dAvatar = document.getElementById('user-avatar-initial');
+      const dBtnLogout = document.getElementById('btn-logout');
+
+      const displayName = user.fullName || user.username;
+      const initial = displayName.charAt(0).toUpperCase();
+
+      if (dBadge) dBadge.style.display = 'inline-flex';
+      if (dUsername) dUsername.textContent = displayName;
+      if (dAvatar) dAvatar.textContent = initial;
+      if (dBtnLogout) dBtnLogout.style.display = 'inline-flex';
+
       if (mUser) {
         mUser.style.display = 'flex';
-        mUser.textContent = '👤 ' + (user.fullName || user.username);
+        mUser.innerHTML = `<span class="user-avatar-circle" style="margin-right:8px;">${initial}</span> ${displayName}`;
       }
-      if (user.role === 'admin' && mNavUsers) mNavUsers.style.display = 'flex';
-      if (mBtnSignin) mBtnSignin.style.display = 'none';
+      if (user.role === 'admin') {
+        if (dNavUsers) dNavUsers.style.display = 'inline-flex';
+        if (mNavUsers) mNavUsers.style.display = 'flex';
+      }
       if (mBtnLogout) mBtnLogout.style.display = 'flex';
     }
   } catch(e) {}
@@ -130,15 +166,15 @@ document.addEventListener("DOMContentLoaded", () => {
     </div>
 
     <div class="section-title-wrapper" style="padding: 0 5%; margin-bottom: 20px;">
-        <h3 style="font-size: 1.5rem; color: #2d3748; display: flex; align-items: center; gap: 10px;">
-            <span>📊</span> Dashboard Tổng quan
+        <h3 style="font-size: 1.5rem; color: #1e293b; display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-chart-line" style="color:var(--primary);"></i> Báo cáo tổng quan hệ thống
         </h3>
     </div>
 
     <div class="dashboard-grid">
         <div class="info-card stat-main" onclick="window.location.href='project.html'">
             <div class="card-header">
-                <div class="icon-bg yellow">📁</div>
+                <div class="icon-bg yellow"><i class="fa-solid fa-folder-tree"></i></div>
                 <span class="trend up">↑ 12%</span>
             </div>
             <h3>Quản lý Dự án</h3>
@@ -151,8 +187,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <div class="info-card stat-main" onclick="window.location.href='customer.html'">
             <div class="card-header">
-                <div class="icon-bg orange">🤝</div>
-                <span class="trend">New</span>
+                <div class="icon-bg orange"><i class="fa-solid fa-building-user"></i></div>
+                <span class="trend">Mới</span>
             </div>
             <h3>Cơ sở Khách hàng</h3>
             <p>Quản lý quan hệ và lịch sử kiểm định khách hàng.</p>
@@ -164,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <div class="info-card stat-main alert-card" onclick="window.location.href='equipment.html'">
             <div class="card-header">
-                <div class="icon-bg purple">🛠️</div>
+                <div class="icon-bg purple"><i class="fa-solid fa-scale-balanced"></i></div>
                 <span class="trend down" style="background: #fed7d7; color: #c53030;">Cần xử lý</span>
             </div>
             <h3>Thiết bị chuẩn</h3>
@@ -177,7 +213,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <div class="info-card stat-main chart-card">
             <div class="card-header">
-                <div class="icon-bg teal anim-float">📊</div>
+                <div class="icon-bg teal anim-float"><i class="fa-solid fa-chart-pie"></i></div>
             </div>
             <h3>Phân bổ Trạng thái</h3>
             <p>Tỷ lệ hoàn thành công việc hệ thống.</p>
@@ -189,7 +225,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     <div class="recent-activity-section" style="padding: 40px 5%;">
         <div class="info-card reveal" style="width: 100%; text-align: left;">
-            <h3 style="border-bottom: 1px solid #edf2f7; padding-bottom: 15px; margin-bottom: 20px;">🕒 Hoạt động gần đây</h3>
+            <h3 style="border-bottom: 1px solid #edf2f7; padding-bottom: 15px; margin-bottom: 20px; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-clock-rotate-left" style="color:var(--primary);"></i> Hoạt động gần đây
+            </h3>
             <div class="activity-list">
                 <div class="activity-item" style="display: flex; gap: 15px; padding: 10px 0; border-bottom: 1px dashed #f0f0f0;">
                     <span style="color: #008080; font-weight: bold;">[PJ-328344]</span>
@@ -197,7 +235,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <span style="margin-left: auto; color: #a0aec0; font-size: 0.85rem;">2 giờ trước</span>
                 </div>
                 <div class="activity-item" style="display: flex; gap: 15px; padding: 10px 0; border-bottom: 1px dashed #f0f0f0;">
-                    <span style="color: #dd6b20; font-weight: bold;">[ALERT]</span>
+                    <span style="color: #dd6b20; font-weight: bold;">[CẢNH BÁO]</span>
                     <span>Thiết bị LAB-TIMER.01 sắp hết hạn hiệu chuẩn trong 15 ngày tới.</span>
                     <span style="margin-left: auto; color: #a0aec0; font-size: 0.85rem;">6 giờ trước</span>
                 </div>
