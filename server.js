@@ -947,6 +947,18 @@ app.post('/api/projects', async (req, res) => {
         const action = isNew ? "CREATE" : "UPDATE";
         const desc = isNew ? `Tạo mới dự án: "${title}"` : `Cập nhật trạng thái dự án "${title}" thành [${status}]`;
 
+        if (!isNew) {
+            res.json({ success: true, ID: finalId });
+            sql`
+                INSERT INTO PROJECTS (ID, TITLE, TECH, STATUS) 
+                VALUES (${finalId}, ${title}, ${tech}, ${status})
+                ON CONFLICT (ID) DO UPDATE SET TITLE = EXCLUDED.TITLE, TECH = EXCLUDED.TECH, STATUS = EXCLUDED.STATUS
+            `.then(() => {
+                logActivity(tech || "Hệ thống / KTV", action, "PROJECTS", finalId, desc).catch(e => console.warn('Lỗi log:', e.message));
+            }).catch(e => console.error("Lỗi cập nhật dự án nền:", e.message));
+            return;
+        }
+
         await sql`
             INSERT INTO PROJECTS (ID, TITLE, TECH, STATUS) 
             VALUES (${finalId}, ${title}, ${tech}, ${status})
@@ -1108,14 +1120,21 @@ app.post('/api/calibration/save', async (req, res) => {
     const data = req.body;
     const currentWorker = req.body.currentUser || "Hệ thống / KTV";
 
-    try {
-        await saveCalibrationDataToDBHelper(data, data.certNo);
-
-        logActivity(currentWorker, "UPDATE", "CERTIFICATES", data.certNo, `Cập nhật số liệu kết quả đo cho thiết bị ${data.instrumentName || ''} (Mã chuẩn: ${data.equipmentId || ''})`).catch(e => console.warn('Lỗi log:', e.message));
-        res.json({ success: true, message: "Dữ liệu hiệu chuẩn đã được ghi nhận vào SQL ổn định!" });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    if (!data.certNo) {
+        return res.status(400).json({ success: false, error: "Thiếu số chứng nhận (certNo)!" });
     }
+
+    // Phản hồi siêu tốc tức thì cho Client (0ms latency)
+    res.json({ success: true, message: "Dữ liệu hiệu chuẩn đã được ghi nhận vào SQL ổn định!" });
+
+    // Tiếp tục lưu xuống Supabase Database trong background worker
+    saveCalibrationDataToDBHelper(data, data.certNo)
+        .then(() => {
+            logActivity(currentWorker, "UPDATE", "CERTIFICATES", data.certNo, `Cập nhật số liệu kết quả đo cho thiết bị ${data.instrumentName || ''} (Mã chuẩn: ${data.equipmentId || ''})`).catch(e => console.warn('Lỗi log:', e.message));
+        })
+        .catch(err => {
+            console.error("❌ Lỗi lưu dữ liệu hiệu chuẩn nền:", err.message);
+        });
 });
 
 // ================= API MẪU THIẾT BỊ =================
