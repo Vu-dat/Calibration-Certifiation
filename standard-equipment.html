@@ -468,7 +468,7 @@
         align-items: center;
         gap: 8px;
     }
-    .form-card-title span {
+    .form-card-title > span:first-child {
         background-color: var(--accent-light);
         color: var(--accent);
         width: 24px;
@@ -479,6 +479,21 @@
         justify-content: center;
         font-size: 12px;
         font-weight: 700;
+        flex-shrink: 0;
+    }
+    #std-count-badge {
+        width: auto !important;
+        height: auto !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 3px 10px !important;
+        border-radius: 12px !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        white-space: nowrap !important;
+        margin-left: 8px !important;
+        line-height: 1.2 !important;
     }
     .field-row {
         display: grid;
@@ -850,6 +865,10 @@
         from { transform: translateY(-20px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
     }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
     
     #toast-container {
         position: fixed;
@@ -1076,7 +1095,7 @@
         <div class="workspace-header-actions" id="editor-header-actions">
           <button class="btn btn-secondary btn-sm" onclick="backToProjectDetail()">← Quay lại dự án</button>
           <button class="btn btn-danger btn-sm" onclick="clearEditorData()">↺ Làm mới</button>
-          <button class="btn btn-teal" onclick="saveCalibrationData()">💾 Lưu vào SQL DB</button>
+          <button class="btn btn-teal" id="btn-save-cal" onclick="saveCalibrationData()">💾 Lưu vào SQL DB</button>
           <button class="btn btn-primary" onclick="switchToPreview()">👁 Xem trước & In</button>
         </div>
       </div>
@@ -1142,7 +1161,10 @@
 
       <!-- CARD 5: THIẾT BỊ CHUẨN ĐƯỢC CHỌN -->
       <div class="form-card">
-        <div class="form-card-title"><span>5</span> Thiết bị chuẩn sử dụng</div>
+        <div class="form-card-title">
+          <span>5</span> Thiết bị chuẩn sử dụng
+          <span id="std-count-badge" class="badge" style="margin-left:8px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:10px;background:#e2e8f0;color:#475569;">(0/5)</span>
+        </div>
         <div class="field">
           <label>Tìm kiếm thiết bị chuẩn để thêm vào chứng nhận</label>
           <div class="autocomplete-wrapper">
@@ -1163,7 +1185,7 @@
             </thead>
             <tbody id="std-form-body"></tbody>
           </table>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="addStandardRow()" style="margin-top:8px; display:inline-flex; align-items:center; gap:6px;">
+          <button type="button" id="btn-add-std-bottom" class="btn btn-secondary btn-sm" onclick="addStandardRow()" style="margin-top:8px; display:inline-flex; align-items:center; gap:6px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-plus"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Thêm thiết bị chuẩn
           </button>
@@ -1434,14 +1456,24 @@ function groupTemplatePointsToFormPoints(points) {
     for (let k = i; k < j; k++) {
       const p = points[k];
       const foundParts = (p.AS_FOUND_VALUE || '').split(' / ');
+      let v1 = (foundParts[0] || '').trim();
+      let v2 = (foundParts[1] || '').trim();
+      let v3 = (foundParts[2] || '').trim();
+
+      // Nếu chỉ có 1 giá trị (giá trị trung bình mẫu), điền cả 3 lần đo để hiển thị đầy đủ
+      if (v1 && !v2 && !v3) {
+        v2 = v1;
+        v3 = v1;
+      }
+
       result.push({
         group: paramName,
         paramName: paramName,
         rowspan: k === i ? groupSize : 0,
         point: p.CAL_POINT || '',
-        v1: foundParts[0] || '',
-        v2: foundParts[1] || '',
-        v3: foundParts[2] || '',
+        v1: v1,
+        v2: v2,
+        v3: v3,
         uncertainty: p.UNCERTAINTY || '',
         tolerance: p.TOLERANCE || '',
         conformity: p.CONFORMITY || '',
@@ -2224,6 +2256,15 @@ function renderStandardRowSuggestions(items, input, index, box, isPromptList = f
 }
 
 function addStandardTag(eq) {
+  if (standards.length >= 5) {
+    if (typeof showToast === 'function') {
+      showToast('Mục 5: Đã đạt tối đa 5 thiết bị chuẩn (không được quá 5 thiết bị)!', 'warning');
+    } else {
+      alert('Mục 5: Đã đạt tối đa 5 thiết bị chuẩn (không được quá 5 thiết bị)!');
+    }
+    return;
+  }
+
   const standardEntry = {
     name: eq.NAME || eq.name || '',
     id: eq.ID || eq.id || eq.EQUIPMENT_ID || '',
@@ -2246,6 +2287,41 @@ function renderStandardsForm() {
   if (!c) {
     console.warn("Cảnh báo: Không tìm thấy phần tử 'std-form-body' trên giao diện HTML.");
     return;
+  }
+
+  // Cập nhật huy hiệu số lượng thiết bị chuẩn (tối đa 5)
+  const badge = document.getElementById('std-count-badge');
+  if (badge) {
+    if (standards.length >= 5) {
+      badge.textContent = `(${standards.length}/5 - Đã đạt tối đa)`;
+      badge.style.background = '#fee2e2';
+      badge.style.color = '#b91c1c';
+    } else {
+      badge.textContent = `(${standards.length}/5)`;
+      badge.style.background = '#e2e8f0';
+      badge.style.color = '#475569';
+    }
+  }
+
+  // Disable / enable nút thêm thiết bị chuẩn khi đã đủ 5 thiết bị
+  const isMax = standards.length >= 5;
+  ['btn-add-std-top', 'btn-add-std-bottom'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.disabled = isMax;
+      btn.style.opacity = isMax ? '0.5' : '1';
+      btn.style.cursor = isMax ? 'not-allowed' : 'pointer';
+      btn.title = isMax ? 'Mục 5: Đã đạt tối đa 5 thiết bị chuẩn' : '+ Thêm thiết bị chuẩn';
+    }
+  });
+
+  const searchInput = document.getElementById('input-standard-search');
+  if (searchInput) {
+    if (isMax) {
+      searchInput.placeholder = 'Đã đạt tối đa 5 thiết bị chuẩn (xóa bớt thiết bị nếu muốn thêm mới)...';
+    } else {
+      searchInput.placeholder = 'Gõ mã hoặc tên thiết bị chuẩn...';
+    }
   }
 
   const wrapper = document.getElementById('selected-standards-wrapper');
@@ -2284,6 +2360,15 @@ function renderStandardsForm() {
 }
 
 function addStandardRow() {
+  if (standards.length >= 5) {
+    if (typeof showToast === 'function') {
+      showToast('Mục 5: Chỉ cho phép tối đa 5 thiết bị chuẩn sử dụng!', 'warning');
+    } else {
+      alert('Mục 5: Chỉ cho phép tối đa 5 thiết bị chuẩn sử dụng!');
+    }
+    return;
+  }
+
   standards.push({name:'', id:'', trace:'', due:''});
   renderStandardsForm();
 
@@ -2723,7 +2808,16 @@ async function exportFile(format) {
 }
 
 async function saveCalibrationData() {
-    const user = JSON.parse(localStorage.getItem('labmaster_user'));
+    const saveBtn = document.getElementById('btn-save-cal');
+    const originalHtml = saveBtn ? saveBtn.innerHTML : '💾 Lưu vào SQL DB';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-right-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:6px;vertical-align:middle;"></span>Đang lưu...';
+        saveBtn.style.opacity = '0.8';
+        saveBtn.style.cursor = 'wait';
+    }
+
+    const user = JSON.parse(localStorage.getItem('labmaster_user') || '{}');
     const payload = {
         certNo: document.getElementById('f-certno').value,
         instrumentName: txt('f-inst-vi'), manufacturer: txt('f-mfr'), model: txt('f-model'),
@@ -2739,15 +2833,58 @@ async function saveCalibrationData() {
         standards: collectAllStandards() 
     };
 
-    const res = await fetch(`${API_URL}/calibration/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if(result.success) showToast("Đã lưu dữ liệu hiệu chuẩn vào SQL Database!");
-    else showToast("Lỗi khi lưu dữ liệu: " + result.error, "error");
+    try {
+        const res = await fetch(`${API_URL}/calibration/save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if(result.success) {
+            if (saveBtn) {
+                saveBtn.innerHTML = '✅ Đã lưu!';
+                saveBtn.style.background = '#059669';
+                setTimeout(() => {
+                    if (saveBtn) {
+                        saveBtn.innerHTML = originalHtml;
+                        saveBtn.style.background = '';
+                        saveBtn.disabled = false;
+                        saveBtn.style.opacity = '1';
+                        saveBtn.style.cursor = 'pointer';
+                    }
+                }, 1500);
+            }
+            showToast("✅ Đã lưu dữ liệu hiệu chuẩn vào SQL Database!");
+        } else {
+            if (saveBtn) {
+                saveBtn.innerHTML = originalHtml;
+                saveBtn.disabled = false;
+                saveBtn.style.opacity = '1';
+                saveBtn.style.cursor = 'pointer';
+            }
+            showToast("Lỗi khi lưu dữ liệu: " + result.error, "error");
+        }
+    } catch(err) {
+        if (saveBtn) {
+            saveBtn.innerHTML = originalHtml;
+            saveBtn.disabled = false;
+            saveBtn.style.opacity = '1';
+            saveBtn.style.cursor = 'pointer';
+        }
+        showToast("Lỗi kết nối khi lưu: " + err.message, "error");
+    }
 }
+
+// Phím tắt Ctrl+S
+window.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        const ws = document.getElementById('calibration-editor-view');
+        if (ws && ws.style.display !== 'none') {
+            e.preventDefault();
+            saveCalibrationData();
+        }
+    }
+});
 
 function deleteProject(id) {
   if (!confirm(`Xác nhận xóa dự án ${id}?`)) return;
@@ -2797,7 +2934,7 @@ async function loadExistingCalibration(projectId) {
             fillCalibrationTableRows(result.points);
 
             if (result.standards && result.standards.length > 0) {
-                standards = result.standards.map(s => ({
+                standards = result.standards.slice(0, 5).map(s => ({
                     name:  s.EQ_NAME  || '',
                     id:    s.EQ_CODE  || '',
                     trace: s.LINK     || '',
@@ -2849,9 +2986,14 @@ function fillCalibrationTableRows(points) {
             }
 
             const foundParts = (pt.AS_FOUND_VALUE || '').split(' / ');
-            const v1 = foundParts[0] || '';
-            const v2 = foundParts[1] || '';
-            const v3 = foundParts[2] || '';
+            let v1 = (foundParts[0] || '').trim();
+            let v2 = (foundParts[1] || '').trim();
+            let v3 = (foundParts[2] || '').trim();
+            // Nếu chỉ có 1 giá trị hoặc thiếu lần 2, lần 3 -> điền cả 3 lần đo là giá trị trung bình
+            if (v1 && !v2 && !v3) {
+              v2 = v1;
+              v3 = v1;
+            }
 
             html += `
               <td><input type="text" class="lab-input-cell cal-point" value="${pt.CAL_POINT || ''}" style="font-weight:700;"></td>

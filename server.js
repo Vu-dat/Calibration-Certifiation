@@ -931,7 +931,9 @@ app.post('/api/projects', async (req, res) => {
 
     try {
         let finalId = id;
+        let isNew = false;
         if (!finalId) {
+            isNew = true;
             const lastRow = await sql`SELECT ID FROM PROJECTS WHERE ID LIKE 'PRJ-%' ORDER BY ID DESC LIMIT 1`;
             let nextNum = 1;
             if (lastRow.length > 0 && lastRow[0].id) {
@@ -942,8 +944,6 @@ app.post('/api/projects', async (req, res) => {
             finalId = `PRJ-${String(nextNum).padStart(6, '0')}`;
         }
 
-        const existing = await sql`SELECT ID FROM PROJECTS WHERE ID = ${finalId}`;
-        const isNew = existing.length === 0;
         const action = isNew ? "CREATE" : "UPDATE";
         const desc = isNew ? `Tạo mới dự án: "${title}"` : `Cập nhật trạng thái dự án "${title}" thành [${status}]`;
 
@@ -953,7 +953,7 @@ app.post('/api/projects', async (req, res) => {
             ON CONFLICT (ID) DO UPDATE SET TITLE = EXCLUDED.TITLE, TECH = EXCLUDED.TECH, STATUS = EXCLUDED.STATUS
         `;
 
-        logActivity(tech || "Hệ thống / KTV", action, "PROJECTS", finalId, desc);
+        logActivity(tech || "Hệ thống / KTV", action, "PROJECTS", finalId, desc).catch(e => console.warn('Lỗi log:', e.message));
         res.json({ success: true, ID: finalId });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -1022,20 +1022,42 @@ app.post('/api/calibration/clone/:srcCertNo/:destCertNo', async (req, res) => {
             
             const points = await sql`SELECT * FROM CALIBRATION_POINTS WHERE CERT_NO = ${cert.cert_no}`;
             await sql`DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ${newCertNo}`;
-            for (const p of points) {
+            if (points.length > 0) {
+                const ptRows = points.map(p => ({
+                    cert_no: newCertNo,
+                    equipment_name: p.equipment_name || '',
+                    parameter_name: p.parameter_name || '',
+                    cal_point: p.cal_point || '',
+                    as_found_value: p.as_found_value || '',
+                    reference_value: p.reference_value || '',
+                    uncertainty: p.uncertainty || '',
+                    tolerance: p.tolerance || '',
+                    conformity: p.conformity || '',
+                    ref_equipment: p.ref_equipment || '',
+                    standard_equipment: p.standard_equipment || ''
+                }));
                 await sql`
-                    INSERT INTO CALIBRATION_POINTS 
-                    (CERT_NO, EQUIPMENT_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, REFERENCE_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT) 
-                    VALUES (${newCertNo}, ${p.equipment_name}, ${p.parameter_name}, ${p.cal_point}, ${p.as_found_value}, ${p.reference_value}, ${p.uncertainty}, ${p.tolerance}, ${p.conformity}, ${p.ref_equipment}, ${p.standard_equipment})
+                    INSERT INTO CALIBRATION_POINTS ${
+                        sql(ptRows, 'cert_no', 'equipment_name', 'parameter_name', 'cal_point', 'as_found_value', 'reference_value', 'uncertainty', 'tolerance', 'conformity', 'ref_equipment', 'standard_equipment')
+                    }
                 `;
             }
             
             const standards = await sql`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${cert.cert_no}`;
             await sql`DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${newCertNo}`;
-            for (const s of standards) {
+            if (standards.length > 0) {
+                const stdRows = standards.map(s => ({
+                    cert_no: newCertNo,
+                    eq_code: s.eq_code || '',
+                    eq_name: s.eq_name || '',
+                    std_cert_no: s.std_cert_no || '',
+                    link: s.link || '',
+                    validity: s.validity || ''
+                }));
                 await sql`
-                    INSERT INTO CERTIFICATE_STANDARDS (CERT_NO, EQ_CODE, EQ_NAME, STD_CERT_NO, LINK, VALIDITY)
-                    VALUES (${newCertNo}, ${s.eq_code}, ${s.eq_name}, ${s.std_cert_no}, ${s.link}, ${s.validity})
+                    INSERT INTO CERTIFICATE_STANDARDS ${
+                        sql(stdRows, 'cert_no', 'eq_code', 'eq_name', 'std_cert_no', 'link', 'validity')
+                    }
                 `;
             }
         }
@@ -1087,43 +1109,9 @@ app.post('/api/calibration/save', async (req, res) => {
     const currentWorker = req.body.currentUser || "Hệ thống / KTV";
 
     try {
-        logActivity(currentWorker, "UPDATE", "CERTIFICATES", data.certNo, `Cập nhật số liệu đo...`);
+        await saveCalibrationDataToDBHelper(data, data.certNo);
 
-        const eqName = data.equipmentName || '';
-        const compositeCertNo = eqName ? `${data.certNo}_${eqName}` : data.certNo;
-
-        await sql`
-            INSERT INTO CERTIFICATES 
-            (CERT_NO, INSTRUMENT_NAME, INSTRUMENT_NAME_EN, MANUFACTURER, MANUFACTURER_ID, MODEL, MODEL_SERIAL, EQUIPMENT_ID, SERIAL_NUMBER, CUSTOMER_NAME, CUSTOMER_ADDRESS, CAL_DATE, RE_CAL_DATE, PROCEDURE, REF_STANDARD, TEMP_ENV, HUMI_ENV, HEAD_OF_LAB, DIRECTOR, SPEC_RANGE, SPEC_RESOLUTION) 
-            VALUES (${compositeCertNo}, ${data.instrumentName || ''}, ${data.instrumentNameEn || ''}, ${data.manufacturer || ''}, ${data.manufacturerId || ''}, ${data.model || ''}, ${data.modelSerial || ''}, ${data.equipmentId || ''}, ${data.serialNumber || ''}, ${data.customerName || ''}, ${data.customerAddress || ''}, ${data.calDate || ''}, ${data.reCalDate || ''}, ${data.procedure || ''}, ${data.refStandard || ''}, ${data.tempEnv || ''}, ${data.humiEnv || ''}, ${data.headOfLab || ''}, ${data.director || ''}, ${data.specRange || ''}, ${data.specResolution || ''})
-            ON CONFLICT (CERT_NO) DO UPDATE SET 
-                INSTRUMENT_NAME = EXCLUDED.INSTRUMENT_NAME, INSTRUMENT_NAME_EN = EXCLUDED.INSTRUMENT_NAME_EN, MANUFACTURER = EXCLUDED.MANUFACTURER, MANUFACTURER_ID = EXCLUDED.MANUFACTURER_ID, MODEL = EXCLUDED.MODEL, MODEL_SERIAL = EXCLUDED.MODEL_SERIAL, EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID, SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER, CUSTOMER_NAME = EXCLUDED.CUSTOMER_NAME, CUSTOMER_ADDRESS = EXCLUDED.CUSTOMER_ADDRESS, CAL_DATE = EXCLUDED.CAL_DATE, RE_CAL_DATE = EXCLUDED.RE_CAL_DATE, PROCEDURE = EXCLUDED.PROCEDURE, REF_STANDARD = EXCLUDED.REF_STANDARD, TEMP_ENV = EXCLUDED.TEMP_ENV, HUMI_ENV = EXCLUDED.HUMI_ENV, HEAD_OF_LAB = EXCLUDED.HEAD_OF_LAB, DIRECTOR = EXCLUDED.DIRECTOR, SPEC_RANGE = EXCLUDED.SPEC_RANGE, SPEC_RESOLUTION = EXCLUDED.SPEC_RESOLUTION
-        `;
-
-        await sql`DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${compositeCertNo}`;
-        
-        const stds = data.standards || [];
-        const stdTasks = stds.map(s => sql`
-            INSERT INTO CERTIFICATE_STANDARDS (CERT_NO, EQ_CODE, EQ_NAME, STD_CERT_NO, LINK, VALIDITY)
-            VALUES (${compositeCertNo}, ${s.id || s.code || ''}, ${s.name || ''}, ${s.certNo || ''}, ${s.trace || s.link || ''}, ${s.due || s.validity || ''})
-        `);
-        
-        await sql`DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ${compositeCertNo}`;
-
-        const points = data.points || [];
-        const pointTasks = points.map(p => {
-            const refEqValue = p.refEq || p.standardEquipment || p.refEquipment || '';
-            const refValValue = p.referenceValue || p.refValue || p.reference_value || '';
-            return sql`
-                INSERT INTO CALIBRATION_POINTS 
-                (CERT_NO, EQUIPMENT_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, REFERENCE_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT) 
-                VALUES (${compositeCertNo}, ${eqName}, ${p.parameterName}, ${p.calPoint}, ${p.asFoundValue}, ${refValValue}, ${p.uncertainty}, ${p.tolerance}, ${p.conformity}, ${refEqValue}, ${refEqValue})
-            `;
-        });
-
-        await Promise.all([...stdTasks, ...pointTasks]);
-
-        logActivity(currentWorker, "UPDATE", "CERTIFICATES", data.certNo, `Cập nhật số liệu kết quả đo cho thiết bị ${data.instrumentName} (Mã chuẩn: ${data.equipmentId})`);
+        logActivity(currentWorker, "UPDATE", "CERTIFICATES", data.certNo, `Cập nhật số liệu kết quả đo cho thiết bị ${data.instrumentName || ''} (Mã chuẩn: ${data.equipmentId || ''})`).catch(e => console.warn('Lỗi log:', e.message));
         res.json({ success: true, message: "Dữ liệu hiệu chuẩn đã được ghi nhận vào SQL ổn định!" });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -1244,15 +1232,25 @@ app.post('/api/equipment', async (req, res) => {
         await sql`DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ${standard_name}`;
 
         if (points && points.length > 0) {
-            for (const p of points) {
-                await sql`
-                    INSERT INTO TEMPLATE_POINTS (TEMPLATE_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, REFERENCE_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, STANDARD_EQUIPMENT)
-                    VALUES (${standard_name}, ${p.parameter || p.parameterName || ''}, ${p.value || p.calPoint || ''}, ${p.asFoundValue || ''}, ${p.referenceValue || p.refValue || ''}, ${p.uncertainty || ''}, ${p.tolerance || ''}, ${p.conformity || ''}, ${p.standardEquipment || ''})
-                `;
-            }
+            const ptRows = points.map(p => ({
+                template_name: standard_name,
+                parameter_name: p.parameter || p.parameterName || '',
+                cal_point: p.value || p.calPoint || '',
+                as_found_value: p.asFoundValue || '',
+                reference_value: p.referenceValue || p.refValue || '',
+                uncertainty: p.uncertainty || '',
+                tolerance: p.tolerance || '',
+                conformity: p.conformity || '',
+                standard_equipment: p.standardEquipment || ''
+            }));
+            await sql`
+                INSERT INTO TEMPLATE_POINTS ${
+                    sql(ptRows, 'template_name', 'parameter_name', 'cal_point', 'as_found_value', 'reference_value', 'uncertainty', 'tolerance', 'conformity', 'standard_equipment')
+                }
+            `;
         }
 
-        logActivity("Hệ thống / KTV", "UPDATE", "EQUIPMENT_TEMPLATES", equipment_id, `Lưu mẫu thiết bị: ${standard_name}`);
+        logActivity("Hệ thống / KTV", "UPDATE", "EQUIPMENT_TEMPLATES", equipment_id, `Lưu mẫu thiết bị: ${standard_name}`).catch(e => console.warn('Lỗi log:', e.message));
         return res.json({ success: true, message: `Thiết bị chuẩn "${standard_name}" đã được lưu thành công!` });
     } catch (err) {
         return res.status(500).json({ success: false, message: "Lỗi xử lý API nội bộ.", error: err.message });
@@ -1461,38 +1459,56 @@ async function saveCalibrationDataToDBHelper(data, cert_no) {
         ON CONFLICT (CERT_NO) DO UPDATE SET INSTRUMENT_NAME = EXCLUDED.INSTRUMENT_NAME, INSTRUMENT_NAME_EN = EXCLUDED.INSTRUMENT_NAME_EN, MANUFACTURER = EXCLUDED.MANUFACTURER, MANUFACTURER_ID = EXCLUDED.MANUFACTURER_ID, MODEL = EXCLUDED.MODEL, MODEL_SERIAL = EXCLUDED.MODEL_SERIAL, EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID, SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER, CUSTOMER_NAME = EXCLUDED.CUSTOMER_NAME, CUSTOMER_ADDRESS = EXCLUDED.CUSTOMER_ADDRESS, CAL_DATE = EXCLUDED.CAL_DATE, RE_CAL_DATE = EXCLUDED.RE_CAL_DATE, PROCEDURE = EXCLUDED.PROCEDURE, REF_STANDARD = EXCLUDED.REF_STANDARD, TEMP_ENV = EXCLUDED.TEMP_ENV, HUMI_ENV = EXCLUDED.HUMI_ENV, HEAD_OF_LAB = EXCLUDED.HEAD_OF_LAB, DIRECTOR = EXCLUDED.DIRECTOR, SPEC_RANGE = EXCLUDED.SPEC_RANGE, SPEC_RESOLUTION = EXCLUDED.SPEC_RESOLUTION
     `;
 
-    const delPointsPromise = sql`DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ${compositeCertNo}`;
-    const delStdsPromise = sql`DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${compositeCertNo}`;
-
-    await Promise.all([certPromise, delPointsPromise, delStdsPromise]);
-
-    const points = data.points || [];
-    const stds = data.standards || [];
-    const insertTasks = [];
-
-    if (points.length > 0) {
-        for (const p of points) {
-            const standardVal = p.refEq || p.standardEquipment || p.standard_equipment || '';
-            const refValValue = p.referenceValue || p.refValue || p.reference_value || '';
-            insertTasks.push(sql`
-                INSERT INTO CALIBRATION_POINTS (CERT_NO, EQUIPMENT_NAME, PARAMETER_NAME, CAL_POINT, AS_FOUND_VALUE, REFERENCE_VALUE, UNCERTAINTY, TOLERANCE, CONFORMITY, REF_EQUIPMENT, STANDARD_EQUIPMENT)
-                VALUES (${compositeCertNo}, ${eqName}, ${p.parameterName || p.param || ''}, ${p.calPoint || p.point || ''}, ${p.asFoundValue || p.found || ''}, ${refValValue}, ${p.uncertainty || p.unc || ''}, ${p.tolerance || p.tol || ''}, ${p.conformity || p.conf || ''}, ${standardVal}, ${standardVal})
-            `);
+    const replacePointsPromise = (async () => {
+        await sql`DELETE FROM CALIBRATION_POINTS WHERE CERT_NO = ${compositeCertNo}`;
+        const points = data.points || [];
+        if (points.length > 0) {
+            const ptRows = points.map(p => {
+                const standardVal = p.refEq || p.standardEquipment || p.standard_equipment || '';
+                const refValValue = p.referenceValue || p.refValue || p.reference_value || '';
+                return {
+                    cert_no: compositeCertNo,
+                    equipment_name: eqName,
+                    parameter_name: p.parameterName || p.param || '',
+                    cal_point: p.calPoint || p.point || '',
+                    as_found_value: p.asFoundValue || p.found || '',
+                    reference_value: refValValue,
+                    uncertainty: p.uncertainty || p.unc || '',
+                    tolerance: p.tolerance || p.tol || '',
+                    conformity: p.conformity || p.conf || '',
+                    ref_equipment: standardVal,
+                    standard_equipment: standardVal
+                };
+            });
+            await sql`
+                INSERT INTO CALIBRATION_POINTS ${
+                    sql(ptRows, 'cert_no', 'equipment_name', 'parameter_name', 'cal_point', 'as_found_value', 'reference_value', 'uncertainty', 'tolerance', 'conformity', 'ref_equipment', 'standard_equipment')
+                }
+            `;
         }
-    }
+    })();
 
-    if (stds.length > 0) {
-        for (const s of stds) {
-            insertTasks.push(sql`
-                INSERT INTO CERTIFICATE_STANDARDS (CERT_NO, EQ_CODE, EQ_NAME, STD_CERT_NO, LINK, VALIDITY)
-                VALUES (${compositeCertNo}, ${s.id || s.code || ''}, ${s.name || ''}, ${s.certNo || ''}, ${s.trace || s.link || ''}, ${s.due || s.validity || ''})
-            `);
+    const replaceStdsPromise = (async () => {
+        await sql`DELETE FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ${compositeCertNo}`;
+        const stds = data.standards || [];
+        if (stds.length > 0) {
+            const stdRows = stds.map(s => ({
+                cert_no: compositeCertNo,
+                eq_code: s.id || s.code || '',
+                eq_name: s.name || '',
+                std_cert_no: s.certNo || '',
+                link: s.trace || s.link || '',
+                validity: s.due || s.validity || ''
+            }));
+            await sql`
+                INSERT INTO CERTIFICATE_STANDARDS ${
+                    sql(stdRows, 'cert_no', 'eq_code', 'eq_name', 'std_cert_no', 'link', 'validity')
+                }
+            `;
         }
-    }
+    })();
 
-    if (insertTasks.length > 0) {
-        await Promise.all(insertTasks);
-    }
+    await Promise.all([certPromise, replacePointsPromise, replaceStdsPromise]);
 }
 
 // ================= EXPORT CHỨNG NHẬN =================

@@ -1483,12 +1483,19 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         var tplVals = [val1, val2, val3].filter(function(v) { return v && v.trim() !== ''; });
         var tplNums = tplVals.map(function(v) { return parseFloat(v.replace(',', '.')); }).filter(function(n) { return !isNaN(n); });
         var tplAvg = tplNums.length > 0 ? (Math.round(tplNums.reduce(function(a,b){return a+b;},0) / tplNums.length * 100) / 100) : '';
+
+        // Điền 3 lần đo là giá trị trung bình để hiển thị rõ thay vì để trống
+        var initV1 = val1 || (tplAvg !== '' ? String(tplAvg) : '');
+        var initV2 = val2 || initV1;
+        var initV3 = val3 || initV1;
+        var dispAvg = tplAvg !== '' ? String(tplAvg) : initV1;
+
         return `
             <td class="point-cell" style="padding:4px;font-weight:600;background:#f8fafc;"><input type="text" value="${p}" class="cell-input point-input" style="font-weight:600;text-align:center;"></td>
-            <td style="padding:4px;"><input type="text" value="" class="cell-input v1" placeholder="Lần 1" oninput="calculateConformity(this.closest('tr'))"></td>
-            <td style="padding:4px;"><input type="text" value="" class="cell-input v2" placeholder="Lần 2" oninput="calculateConformity(this.closest('tr'))"></td>
-            <td style="padding:4px;"><input type="text" value="" class="cell-input v3" placeholder="Lần 3" oninput="calculateConformity(this.closest('tr'))"></td>
-            <td style="padding:4px;"><input type="text" value="${tplAvg}" class="cell-input avg-val" readonly style="background:#f0fdf4;font-weight:700;color:#065f46;text-align:center;"></td>
+            <td style="padding:4px;"><input type="text" value="${initV1}" class="cell-input v1" placeholder="Lần 1" oninput="calculateConformity(this.closest('tr'))"></td>
+            <td style="padding:4px;"><input type="text" value="${initV2}" class="cell-input v2" placeholder="Lần 2" oninput="calculateConformity(this.closest('tr'))"></td>
+            <td style="padding:4px;"><input type="text" value="${initV3}" class="cell-input v3" placeholder="Lần 3" oninput="calculateConformity(this.closest('tr'))"></td>
+            <td style="padding:4px;"><input type="text" value="${dispAvg}" class="cell-input avg-val" placeholder="TB" oninput="handleDbAvgInput(this)" style="background:#f0fdf4;font-weight:700;color:#065f46;text-align:center;cursor:text;" title="Nhập giá trị trung bình để tự động điền 3 lần đo"></td>
             <td style="padding:4px;"><input type="text" value="${displayUnc}" class="cell-input unc" oninput="calculateConformity(this.closest('tr'))"></td>
             <td style="padding:4px;"><input type="text" value="${displayRefVal}" class="cell-input ref-val" placeholder="Giá trị tham chiếu" oninput="calculateConformity(this.closest('tr'))"></td>
             <td style="padding:4px;"><input type="text" value="${displayTol}" class="cell-input tol" oninput="calculateConformity(this.closest('tr'))"></td>
@@ -2031,7 +2038,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
     }
 
 /* ====== TINH TOAN DO PHU HOP TU DONG (Copy from project.html) ====== */
-function calculateConformity(row) {
+function calculateConformity(row, isFromAvgInput) {
   try {
     var v1 = parseFloat((row.querySelector('.v1')||{}).value || '');
     var v2 = parseFloat((row.querySelector('.v2')||{}).value || '');
@@ -2058,6 +2065,10 @@ function calculateConformity(row) {
         if (nums.length > 0) {
           avg = nums.reduce(function(a,b){return a+b;}, 0) / nums.length;
         }
+      }
+      if (isNaN(avg)) {
+        var avgInputVal = parseFloat(((row.querySelector('.avg-val')||{}).value || '').replace(',', '.'));
+        if (!isNaN(avgInputVal)) avg = avgInputVal;
       }
     }
 
@@ -2092,9 +2103,9 @@ function calculateConformity(row) {
       if (confEl) confEl.value = conformity;
     }
 
-    // Cập nhật ô giá trị trung bình (chỉ cập nhật khi người dùng đã nhập giá trị mới)
+    // Cập nhật ô giá trị trung bình (chỉ cập nhật khi không phải đang gõ trực tiếp vào ô TB)
     var avgEl = row.querySelector('.avg-val');
-    if (avgEl) {
+    if (avgEl && !isFromAvgInput) {
       var rawV1 = (row.querySelector('.v1')||{}).value || '';
       var rawV2 = (row.querySelector('.v2')||{}).value || '';
       var rawV3 = (row.querySelector('.v3')||{}).value || '';
@@ -2102,9 +2113,27 @@ function calculateConformity(row) {
       if (hasUserInput && vals.length > 0) {
         avgEl.value = Math.round(avg * 100) / 100;
       }
-      // Nếu chưa nhập gì → giữ nguyên giá trị trung bình mẫu từ template
     }
   } catch(e) {}
+}
+
+/* ====== XỬ LÝ NHẬP TRỰC TIẾP CỘT GIÁ TRỊ TRUNG BÌNH (Database Equipment) ====== */
+function handleDbAvgInput(input) {
+  const row = input.closest('tr');
+  if (!row) return;
+  const avgVal = input.value.trim();
+  const v1El = row.querySelector('.v1');
+  const v2El = row.querySelector('.v2');
+  const v3El = row.querySelector('.v3');
+
+  // Điền 3 lần đo là giá trị trung bình để hiện ra giá trị chứ không ghi mỗi giá trị TB không
+  if (v1El) v1El.value = avgVal;
+  if (v2El) v2El.value = avgVal;
+  if (v3El) v3El.value = avgVal;
+
+  if (typeof calculateConformity === 'function') {
+    calculateConformity(row, true);
+  }
 }
 
 </script>

@@ -419,7 +419,7 @@
       letter-spacing: -0.3px !important;
     }
     
-    .form-card-title span {
+    .form-card-title > span:first-child {
       background: linear-gradient(135deg, var(--primary) 0%, #0d9488 100%) !important;
       color: #ffffff !important;
       width: 26px !important;
@@ -431,6 +431,25 @@
       align-items: center !important;
       justify-content: center !important;
       box-shadow: 0 3px 8px rgba(0, 77, 77, 0.2) !important;
+      flex-shrink: 0 !important;
+    }
+
+    #std-count-badge {
+      width: auto !important;
+      height: auto !important;
+      min-height: 22px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 3px 10px !important;
+      border-radius: 12px !important;
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      letter-spacing: normal !important;
+      white-space: nowrap !important;
+      box-shadow: none !important;
+      line-height: 1.2 !important;
+      margin-left: 8px !important;
     }
     
     .field {
@@ -575,6 +594,10 @@
       color: var(--text-muted);
       font-weight: 400;
       font-style: italic;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
     </style>
 </head>
@@ -766,7 +789,7 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
 
       <div class="proj-actions-bar">
-        <button class="btn btn-teal ripple-btn" onclick="saveProjectDetails()">
+        <button class="btn btn-teal ripple-btn" id="btn-save-project-details" onclick="saveProjectDetails()">
           <i class="fas fa-save"></i> Lưu dự án
         </button>
         <button class="btn btn-success ripple-btn" onclick="markProjectAsFinished()">
@@ -793,7 +816,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <div class="workspace-header-actions" id="editor-header-actions">
           <button class="btn btn-secondary btn-sm" onclick="backToProjectDetail()">← Quay lại dự án</button>
-          <button class="btn btn-teal" onclick="saveCalibrationData()">💾 Save</button>
+          <button class="btn btn-teal" id="btn-save-cal" onclick="saveCalibrationData()">💾 Save</button>
           <button class="btn btn-primary" onclick="switchToPreview()">👁 Xem trước & In</button>
         </div>
       </div>
@@ -892,11 +915,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       <!-- CARD 5: THIẾT BỊ CHUẨN ĐƯỢC CHỌN -->
       <div class="form-card">
-        <div class="form-card-title"><span>5</span> Thiết bị chuẩn sử dụng</div>
+        <div class="form-card-title">
+          <span>5</span> Thiết bị chuẩn sử dụng
+          <span id="std-count-badge" class="badge" style="margin-left:8px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:10px;background:#e2e8f0;color:#475569;">(0/5)</span>
+        </div>
         <div class="field">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <label style="margin:0;">Tìm kiếm thiết bị chuẩn để thêm vào chứng nhận</label>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="addStandardRow()" style="display:inline-flex; align-items:center; gap:6px;">
+            <button type="button" id="btn-add-std-top" class="btn btn-secondary btn-sm" onclick="addStandardRow()" style="display:inline-flex; align-items:center; gap:6px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               + Thêm thiết bị chuẩn
             </button>
@@ -920,7 +946,7 @@ document.addEventListener("DOMContentLoaded", () => {
             </thead>
             <tbody id="std-form-body"></tbody>
           </table>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="addStandardRow()" style="margin-top:8px; display:inline-flex; align-items:center; gap:6px;">
+          <button type="button" id="btn-add-std-bottom" class="btn btn-secondary btn-sm" onclick="addStandardRow()" style="margin-top:8px; display:inline-flex; align-items:center; gap:6px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-plus"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             + Thêm thiết bị chuẩn
           </button>
@@ -1352,14 +1378,24 @@ function groupTemplatePointsToFormPoints(points) {
     for (let k = i; k < j; k++) {
       const p = points[k];
       const foundParts = (p.AS_FOUND_VALUE || '').split(' / ');
+      let v1 = (foundParts[0] || '').trim();
+      let v2 = (foundParts[1] || '').trim();
+      let v3 = (foundParts[2] || '').trim();
+
+      // Nếu chỉ có 1 giá trị (giá trị trung bình mẫu), điền cả 3 lần đo để hiển thị đầy đủ
+      if (v1 && !v2 && !v3) {
+        v2 = v1;
+        v3 = v1;
+      }
+
       result.push({
         group: paramName,
         paramName: paramName,
         rowspan: k === i ? groupSize : 0,
         point: p.CAL_POINT || '',
-        v1: foundParts[0] || '',
-        v2: foundParts[1] || '',
-        v3: foundParts[2] || '',
+        v1: v1,
+        v2: v2,
+        v3: v3,
         uncertainty: p.UNCERTAINTY || '',
         refValue: p.REFERENCE_VALUE || '',
         tolerance: p.TOLERANCE || '',
@@ -1544,7 +1580,7 @@ function showDbSyncBadge() {
   setTimeout(() => { b.style.opacity = '0'; }, 3000);
 }
 /* ====== TINH TOAN DO PHU HOP TU DONG ====== */
-function calculateConformity(row) {
+function calculateConformity(row, isFromAvgInput) {
   try {
     var rawV1 = (row.querySelector('.as-found-1')||{}).value || '';
     var rawV2 = (row.querySelector('.as-found-2')||{}).value || '';
@@ -1581,6 +1617,10 @@ function calculateConformity(row) {
           avg = nums.reduce(function(a,b){return a+b;}, 0) / nums.length;
         }
       }
+      if (isNaN(avg)) {
+        var avgInputVal = parseVal((row.querySelector('.avg-value')||{}).value || '');
+        if (!isNaN(avgInputVal)) avg = avgInputVal;
+      }
     }
 
     var e = !isNaN(avg) && !isNaN(refVal) ? Math.abs(avg - refVal) : NaN;
@@ -1614,9 +1654,9 @@ function calculateConformity(row) {
       if (confEl) confEl.value = conformity;
     }
 
-    // Cập nhật ô giá trị trung bình (chỉ cập nhật khi người dùng đã nhập giá trị mới)
+    // Cập nhật ô giá trị trung bình (chỉ cập nhật khi không phải đang gõ trực tiếp vào ô TB)
     var avgEl = row.querySelector('.avg-value');
-    if (avgEl) {
+    if (avgEl && !isFromAvgInput) {
       var hasUserInput = rawV1.trim() !== '' || rawV2.trim() !== '' || rawV3.trim() !== '';
       if (hasUserInput) {
         var maxDec = 0;
@@ -1646,9 +1686,28 @@ function calculateConformity(row) {
           avgEl.value = avg.toFixed(maxDec);
         }
       }
-      // Nếu chưa nhập gì → giữ nguyên giá trị trung bình mẫu từ template
     }
   } catch(e) {}
+}
+
+/* ====== XỬ LÝ NHẬP TRỰC TIẾP CỘT GIÁ TRỊ TRUNG BÌNH ====== */
+// Khi người dùng nhập/update tại cột giá trị TB -> tự động điền 3 lần đo là giá trị đó
+function handleAvgInput(input) {
+  const row = input.closest('tr');
+  if (!row) return;
+  const avgVal = input.value.trim();
+  const v1El = row.querySelector('.as-found-1');
+  const v2El = row.querySelector('.as-found-2');
+  const v3El = row.querySelector('.as-found-3');
+
+  // Điền 3 lần đo là giá trị trung bình để nó hiện ra giá trị chứ không ghi mỗi giá trị TB không
+  if (v1El) v1El.value = avgVal;
+  if (v2El) v2El.value = avgVal;
+  if (v3El) v3El.value = avgVal;
+
+  if (typeof calculateConformity === 'function') {
+    calculateConformity(row, true);
+  }
 }
 
 
@@ -2847,10 +2906,10 @@ function selectEquipmentTemplate(key) {
   setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
   if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
   
-  // Tự động điền các chuẩn sử dụng từ standardsUsed
+  // Tự động điền các chuẩn sử dụng từ standardsUsed (tối đa 5 thiết bị chuẩn)
   if (Array.isArray(eq.standardsUsed) && eq.standardsUsed.length > 0) {
     standards = [];
-    eq.standardsUsed.forEach(stdId => {
+    eq.standardsUsed.slice(0, 5).forEach(stdId => {
       const matched = (liveStandardsDB || []).find(s => s.ID === stdId || s.id === stdId || s.EQUIPMENT_ID === stdId || s.key_field === stdId);
       if (matched) {
         standards.push({
@@ -2895,12 +2954,19 @@ function selectEquipmentTemplate(key) {
     var templateVals = [pt.v1, pt.v2, pt.v3].filter(function(v) { return v && v.trim() !== ''; });
     var templateNums = templateVals.map(function(v) { return parseFloat(v.replace(',', '.')); }).filter(function(n) { return !isNaN(n); });
     var templateAvg = templateNums.length > 0 ? (Math.round(templateNums.reduce(function(a,b){return a+b;},0) / templateNums.length * 100) / 100) : '';
+
+    // Điền 3 lần đo là giá trị trung bình để hiển thị đầy đủ các lần đo thay vì chỉ ghi mỗi giá trị TB
+    var initialV1 = pt.v1 || (templateAvg !== '' ? String(templateAvg) : '');
+    var initialV2 = pt.v2 || initialV1;
+    var initialV3 = pt.v3 || initialV1;
+    var displayAvg = templateAvg !== '' ? String(templateAvg) : initialV1;
+
     html += `
       <td><textarea class="lab-input-cell cal-point" readonly style="font-weight:700;cursor:default;width:100%;height:32px;resize:none;border:none;background:transparent;text-align:center;padding:4px 0;line-height:1.2;font-family:inherit;">${pt.point}</textarea></td>
-      <td><input type="text" class="lab-input-cell measured-active as-found-1" value="${pt.v1}" placeholder="Lần 1" oninput="calculateConformity(this.closest('tr'))"></td>
-      <td><input type="text" class="lab-input-cell as-found-2" value="${pt.v2}" placeholder="Lần 2" oninput="calculateConformity(this.closest('tr'))"></td>
-      <td><input type="text" class="lab-input-cell as-found-3" value="${pt.v3}" placeholder="Lần 3" oninput="calculateConformity(this.closest('tr'))"></td>
-      <td><input type="text" class="lab-input-cell avg-value" value="${templateAvg}" readonly style="background:#f0fdf4;font-weight:700;color:#065f46;text-align:center;"></td>
+      <td><input type="text" class="lab-input-cell measured-active as-found-1" value="${initialV1}" placeholder="Lần 1" oninput="calculateConformity(this.closest('tr'))"></td>
+      <td><input type="text" class="lab-input-cell as-found-2" value="${initialV2}" placeholder="Lần 2" oninput="calculateConformity(this.closest('tr'))"></td>
+      <td><input type="text" class="lab-input-cell as-found-3" value="${initialV3}" placeholder="Lần 3" oninput="calculateConformity(this.closest('tr'))"></td>
+      <td><input type="text" class="lab-input-cell avg-value" value="${displayAvg}" placeholder="TB" oninput="handleAvgInput(this)" style="background:#f0fdf4;font-weight:700;color:#065f46;text-align:center;cursor:text;" title="Nhập giá trị trung bình để tự động điền 3 lần đo"></td>
       <td><input type="text" class="lab-input-cell uncertainty" value="${pt.uncertainty}" oninput="calculateConformity(this.closest('tr'))"></td>
       <td><input type="text" class="lab-input-cell ref-value" value="${pt.refValue||pt.ref_value||''}" oninput="calculateConformity(this.closest('tr'))"></td>
       <td><input type="text" class="lab-input-cell tolerance" value="${pt.tolerance}" style="font-weight:500;" oninput="calculateConformity(this.closest('tr'))"></td>
@@ -3088,11 +3154,21 @@ function renderTableFromData(data) {
         html += renderGroupHeaderCell(paramName, groupSize);
       }
 
+      var rV1 = r.v1 || '';
+      var rV2 = r.v2 || '';
+      var rV3 = r.v3 || '';
+      var rAvg = r.avg || '';
+      if (rAvg && (!rV1 || !rV2 || !rV3)) {
+        if (!rV1) rV1 = rAvg;
+        if (!rV2) rV2 = rAvg;
+        if (!rV3) rV3 = rAvg;
+      }
+
       html += '<td><input type="text" class="lab-input-cell cal-point" value="' + escHtml(r.calPoint) + '" style="font-weight:700;"></td>' +
-        '<td><input type="text" class="lab-input-cell measured-active as-found-1" value="' + escHtml(r.v1) + '" placeholder="Lần 1" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
-        '<td><input type="text" class="lab-input-cell as-found-2" value="' + escHtml(r.v2) + '" placeholder="Lần 2" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
-        '<td><input type="text" class="lab-input-cell as-found-3" value="' + escHtml(r.v3) + '" placeholder="Lần 3" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
-        '<td><input type="text" class="lab-input-cell avg-value" value="' + escHtml(r.avg || '') + '" readonly style="background:#f0fdf4;font-weight:700;color:#065f46;text-align:center;"></td>' +
+        '<td><input type="text" class="lab-input-cell measured-active as-found-1" value="' + escHtml(rV1) + '" placeholder="Lần 1" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell as-found-2" value="' + escHtml(rV2) + '" placeholder="Lần 2" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell as-found-3" value="' + escHtml(rV3) + '" placeholder="Lần 3" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
+        '<td><input type="text" class="lab-input-cell avg-value" value="' + escHtml(rAvg) + '" placeholder="TB" oninput="handleAvgInput(this)" style="background:#f0fdf4;font-weight:700;color:#065f46;text-align:center;cursor:text;" title="Nhập giá trị trung bình để tự động điền 3 lần đo"></td>' +
         '<td><input type="text" class="lab-input-cell uncertainty" value="' + escHtml(r.uncertainty) + '" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
         '<td><input type="text" class="lab-input-cell ref-value" value="' + escHtml(r.refValue) + '" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
         '<td><input type="text" class="lab-input-cell tolerance" value="' + escHtml(r.tolerance) + '" style="font-weight:500;" oninput="calculateConformity(this.closest(\'tr\'))"></td>' +
@@ -3406,6 +3482,15 @@ function renderStandardRowSuggestions(items, input, index, box, isPromptList = f
 
 /* ====== STANDARD SEARCH ====== */
 function addStandardTag(eq) {
+  if (standards.length >= 5) {
+    if (typeof showToast === 'function') {
+      showToast('Mục 5: Đã đạt tối đa 5 thiết bị chuẩn (không được quá 5 thiết bị)!', 'warning');
+    } else {
+      alert('Mục 5: Đã đạt tối đa 5 thiết bị chuẩn (không được quá 5 thiết bị)!');
+    }
+    return;
+  }
+
   const standardEntry = {
     name: eq.NAME || eq.name || '',
     id: eq.ID || eq.id || eq.EQUIPMENT_ID || '',
@@ -3429,6 +3514,41 @@ function renderStandardsForm() {
   if (!c) {
     console.warn("Cảnh báo: Không tìm thấy phần tử 'std-form-body' trên giao diện HTML.");
     return;
+  }
+
+  // Cập nhật huy hiệu số lượng thiết bị chuẩn (tối đa 5)
+  const badge = document.getElementById('std-count-badge');
+  if (badge) {
+    if (standards.length >= 5) {
+      badge.textContent = `(${standards.length}/5 - Đã đạt tối đa)`;
+      badge.style.background = '#fee2e2';
+      badge.style.color = '#b91c1c';
+    } else {
+      badge.textContent = `(${standards.length}/5)`;
+      badge.style.background = '#e2e8f0';
+      badge.style.color = '#475569';
+    }
+  }
+
+  // Disable / enable các nút thêm thiết bị chuẩn khi đã đủ 5 thiết bị
+  const isMax = standards.length >= 5;
+  ['btn-add-std-top', 'btn-add-std-bottom'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.disabled = isMax;
+      btn.style.opacity = isMax ? '0.5' : '1';
+      btn.style.cursor = isMax ? 'not-allowed' : 'pointer';
+      btn.title = isMax ? 'Mục 5: Đã đạt tối đa 5 thiết bị chuẩn' : '+ Thêm thiết bị chuẩn';
+    }
+  });
+
+  const searchInput = document.getElementById('input-standard-search');
+  if (searchInput) {
+    if (isMax) {
+      searchInput.placeholder = 'Đã đạt tối đa 5 thiết bị chuẩn (xóa bớt thiết bị nếu muốn thêm mới)...';
+    } else {
+      searchInput.placeholder = 'Gõ mã hoặc tên thiết bị chuẩn...';
+    }
   }
 
   // Hiển thị wrapper rõ ràng
@@ -3471,6 +3591,15 @@ function renderStandardsForm() {
 }
 
 function addStandardRow() {
+  if (standards.length >= 5) {
+    if (typeof showToast === 'function') {
+      showToast('Mục 5: Chỉ cho phép tối đa 5 thiết bị chuẩn sử dụng!', 'warning');
+    } else {
+      alert('Mục 5: Chỉ cho phép tối đa 5 thiết bị chuẩn sử dụng!');
+    }
+    return;
+  }
+
   standards.push({name:'', id:'', certNo:'', trace:'', due:''});
   renderStandardsForm();
 
@@ -3539,7 +3668,10 @@ function collectCalibrationResults() {
     const v3 = (row.querySelector('.as-found-3')||{}).value || '';
     const avgEl = row.querySelector('.avg-value');
     const domAvg = avgEl ? (avgEl.value || '') : '';
-    const foundStr = [v1,v2,v3].filter(Boolean).join(' / ') || v1;
+    let foundStr = [v1,v2,v3].filter(Boolean).join(' / ') || v1;
+    if (v1 && v2 && v3 && v1 === v2 && v2 === v3) {
+      foundStr = domAvg || v1;
+    }
     // Tính giá trị trung bình của 3 lần đo (hoặc dùng giá trị từ cột avg)
     let foundAvg = domAvg;
     const nums = [parseFloat(v1.replace(',', '.')), parseFloat(v2.replace(',', '.')), parseFloat(v3.replace(',', '.'))].filter(function(n){return !isNaN(n);});
@@ -4497,6 +4629,13 @@ async function saveProjectDetails() {
   const proj = projectsList.find(p => p.ID === currentProjectId);
   if (!proj) return;
 
+  const btn = document.getElementById('btn-save-project-details');
+  const origHtml = btn ? btn.innerHTML : '<i class="fas fa-save"></i> Lưu dự án';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-right-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:6px;vertical-align:middle;"></span>Đang lưu...';
+  }
+
   const techInput = document.querySelector('#project-items-body input.lab-input-cell');
   const techValue = techInput ? techInput.value.trim() : proj.TECH;
 
@@ -4520,12 +4659,31 @@ async function saveProjectDetails() {
       allTechInputs.forEach(input => {
         input.value = techValue;
       });
+      if (btn) {
+        btn.innerHTML = '✅ Đã lưu!';
+        btn.style.background = '#059669';
+        setTimeout(() => {
+          if (btn) {
+            btn.innerHTML = origHtml;
+            btn.style.background = '';
+            btn.disabled = false;
+          }
+        }, 1500);
+      }
       showToast("✅ Đã cập nhật và lưu thông tin dự án thành công!");
       fetchProjects();
     } else {
+      if (btn) {
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+      }
       showToast("Lỗi khi lưu dự án: " + result.error, "danger");
     }
   } catch (err) {
+    if (btn) {
+      btn.innerHTML = origHtml;
+      btn.disabled = false;
+    }
     console.error("Lỗi khi lưu dự án:", err);
     showToast("Lỗi kết nối khi lưu dự án!", "danger");
   }
@@ -4695,7 +4853,17 @@ async function saveCalibrationData() {
         showToast('Vui lòng nhập Quy trình hiệu chuẩn hoặc Đặc trưng kĩ thuật!', 'warning');
         return;
     }
-    const user = JSON.parse(localStorage.getItem('labmaster_user'));
+
+    const saveBtn = document.getElementById('btn-save-cal');
+    const originalHtml = saveBtn ? saveBtn.innerHTML : '💾 Save';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-right-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:6px;vertical-align:middle;"></span>Đang lưu...';
+        saveBtn.style.opacity = '0.8';
+        saveBtn.style.cursor = 'wait';
+    }
+
+    const user = JSON.parse(localStorage.getItem('labmaster_user') || '{}');
     const payload = {
         certNo: document.getElementById('f-certno').value,
         instrumentName: txt('f-inst-vi'), instrumentNameEn: txt('f-inst-en'), manufacturer: txt('f-mfr'), manufacturerId: txt('f-mfr-id'), model: txt('f-model'), modelSerial: txt('f-model-sn'),
@@ -4715,15 +4883,58 @@ async function saveCalibrationData() {
         standards: collectAllStandards() 
     };
 
-    const res = await fetch(`${API_URL}/calibration/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if(result.success) showToast("Đã lưu dữ liệu hiệu chuẩn thành công!");
-    else showToast("Lỗi khi lưu dữ liệu: " + result.error, "error");
+    try {
+        const res = await fetch(`${API_URL}/calibration/save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.success) {
+            if (saveBtn) {
+                saveBtn.innerHTML = '✅ Đã lưu!';
+                saveBtn.style.background = '#059669';
+                setTimeout(() => {
+                    if (saveBtn) {
+                        saveBtn.innerHTML = originalHtml;
+                        saveBtn.style.background = '';
+                        saveBtn.disabled = false;
+                        saveBtn.style.opacity = '1';
+                        saveBtn.style.cursor = 'pointer';
+                    }
+                }, 1500);
+            }
+            showToast("✅ Đã lưu dữ liệu hiệu chuẩn thành công!");
+        } else {
+            if (saveBtn) {
+                saveBtn.innerHTML = originalHtml;
+                saveBtn.disabled = false;
+                saveBtn.style.opacity = '1';
+                saveBtn.style.cursor = 'pointer';
+            }
+            showToast("Lỗi khi lưu dữ liệu: " + result.error, "error");
+        }
+    } catch (err) {
+        if (saveBtn) {
+            saveBtn.innerHTML = originalHtml;
+            saveBtn.disabled = false;
+            saveBtn.style.opacity = '1';
+            saveBtn.style.cursor = 'pointer';
+        }
+        showToast("Lỗi kết nối khi lưu: " + err.message, "error");
+    }
 }
+
+// Hỗ trợ phím tắt Ctrl+S (hoặc Cmd+S) để lưu dữ liệu hiệu chuẩn nhanh chóng
+window.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        const ws = document.getElementById('calibration-editor-view');
+        if (ws && ws.style.display !== 'none') {
+            e.preventDefault();
+            saveCalibrationData();
+        }
+    }
+});
 
 function deleteProject(id) {
   if (!confirm(`Xác nhận xóa dự án ${id}?`)) return;
@@ -4786,7 +4997,7 @@ async function loadExistingCalibration(projectId, equipmentName) {
             fillCalibrationTableRows(result.points);
 
             if (result.standards && result.standards.length > 0) {
-                standards = result.standards.map(s => ({
+                standards = result.standards.slice(0, 5).map(s => ({
                     name:    s.EQ_NAME   || '',
                     id:      s.EQ_CODE   || '',
                     certNo:  s.CERT_NO  || s.certNo || '',
@@ -4854,21 +5065,26 @@ function fillCalibrationTableRows(points) {
             }
 
             const foundParts = (pt.AS_FOUND_VALUE || '').split(' / ');
-            const v1 = foundParts[0] || '';
-            const v2 = foundParts[1] || '';
-            const v3 = foundParts[2] || '';
+            let v1 = (foundParts[0] || '').trim();
+            let v2 = (foundParts[1] || '').trim();
+            let v3 = (foundParts[2] || '').trim();
+            // Nếu chỉ có 1 giá trị hoặc thiếu lần 2, lần 3 -> điền cả 3 lần đo là giá trị trung bình
+            if (v1 && !v2 && !v3) {
+              v2 = v1;
+              v3 = v1;
+            }
             // Tính giá trị trung bình từ v1/v2/v3 để hiển thị ở cột Giá trị TB
             var savedNums = [v1, v2, v3].filter(function(v) { return v && v.trim() !== ''; })
               .map(function(v) { return parseFloat(v.replace(',', '.')); })
               .filter(function(n) { return !isNaN(n); });
-            var savedAvg = savedNums.length > 0 ? (Math.round(savedNums.reduce(function(a,b){return a+b;},0) / savedNums.length * 100) / 100) : '';
+            var savedAvg = savedNums.length > 0 ? (Math.round(savedNums.reduce(function(a,b){return a+b;},0) / savedNums.length * 100) / 100) : (v1 || '');
 
             html += `
               <td><textarea class="lab-input-cell cal-point" style="font-weight:700;width:100%;height:32px;resize:vertical;border:none;background:transparent;text-align:center;padding:4px 0;line-height:1.2;font-family:inherit;">${pt.CAL_POINT || ''}</textarea></td>
               <td><input type="text" class="lab-input-cell measured-active as-found-1" value="${v1}" placeholder="Lần 1" oninput="calculateConformity(this.closest('tr'))"></td>
               <td><input type="text" class="lab-input-cell as-found-2" value="${v2}" placeholder="Lần 2" oninput="calculateConformity(this.closest('tr'))"></td>
               <td><input type="text" class="lab-input-cell as-found-3" value="${v3}" placeholder="Lần 3" oninput="calculateConformity(this.closest('tr'))"></td>
-              <td><input type="text" class="lab-input-cell avg-value" value="${savedAvg}" readonly style="background:#f0fdf4;font-weight:700;color:#065f46;text-align:center;"></td>
+              <td><input type="text" class="lab-input-cell avg-value" value="${savedAvg}" placeholder="TB" oninput="handleAvgInput(this)" style="background:#f0fdf4;font-weight:700;color:#065f46;text-align:center;cursor:text;" title="Nhập giá trị trung bình để tự động điền 3 lần đo"></td>
               <td><input type="text" class="lab-input-cell uncertainty" value="${pt.UNCERTAINTY || ''}" oninput="calculateConformity(this.closest('tr'))"></td>
               <td><input type="text" class="lab-input-cell ref-value" value="${pt.REFERENCE_VALUE || ''}" oninput="calculateConformity(this.closest('tr'))"></td>
               <td><input type="text" class="lab-input-cell tolerance" oninput="calculateConformity(this.closest('tr'))" value="${pt.TOLERANCE || ''}" style="font-weight:500;"></td>
