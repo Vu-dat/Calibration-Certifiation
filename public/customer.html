@@ -19,9 +19,13 @@
       }
     })();
     </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
@@ -1185,21 +1189,33 @@ function renderCustomerSkeleton(count) {
     tbody.innerHTML = html;
 }
 
-async function loadCustomers(page = 1, searchQuery = '') {
+async function loadCustomers(page = 1, searchQuery = '', force = false) {
     currentPage = page;
     const tbody = document.getElementById('customer-table-body');
-    renderCustomerSkeleton(5);
+    const cacheKey = `lm_customers_list_${page}_${searchQuery}`;
+    
+    // TỨC THÌ (0ms): Dùng cache trang nếu có sẵn
+    const cached = (typeof cacheGet === 'function') ? cacheGet(cacheKey) : null;
+    if (cached && cached.data && cached.data.length > 0) {
+        globalCustomersList = cached.data || [];
+        filteredList = [...globalCustomersList];
+        renderTable(filteredList);
+        updateStats(cached.total, cached.vipCount);
+        renderPagination(cached.total, page, customersPerPage);
+        computeNextId();
+    } else {
+        renderCustomerSkeleton(5);
+    }
 
     try {
         const url = new URL(`${API_BASE_URL}/api/customers`);
         url.searchParams.append('page', page);
         url.searchParams.append('limit', customersPerPage);
         if (searchQuery) url.searchParams.append('q', searchQuery);
-        
-        const cacheKey = `lm_customers_list_${page}_${searchQuery}`;
+        if (force) url.searchParams.append('_t', Date.now());
         
         const data = await swrFetch(cacheKey, async () => {
-            const res = await fetch(url.toString(), { cache: 'no-cache' });
+            const res = await fetch(url.toString());
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const freshData = await res.json();
             

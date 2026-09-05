@@ -17,7 +17,11 @@
         window.location.replace('login.html');
       }
     })();
-    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -1356,8 +1360,8 @@ async function fetchLiveStandards(force) {
   }
 }
 
-// Gọi tải trước dữ liệu thiết bị chuẩn ngay khi mở trang
-fetchLiveStandards();
+// Tải trước dữ liệu thiết bị chuẩn được chuyển vào luồng idle nền (initPageData) để không tranh chấp băng thông lúc mở trang
+// fetchLiveStandards sẽ được gọi ngầm khi rảnh rỗi hoặc khi mở Workspace
 
 /* Lấy dữ liệu thiết bị chuẩn trực tiếp từ Database SQL (Bảng CLOCK) */
 function getCombinedStandardsDB() {
@@ -1672,9 +1676,12 @@ async function initPageData() {
     }, 30000);
   }
 
-  pageDataInitialized = true;
+// Trì hoãn nạp dữ liệu cấu hình mẫu & chuẩn để ưu tiên hiển thị ngay danh sách dự án (0ms)
+if ('requestIdleCallback' in window) {
+  requestIdleCallback(() => initPageData(), { timeout: 1500 });
+} else {
+  setTimeout(initPageData, 800);
 }
-initPageData();
 
 function showDbSyncBadge() {
   let b = document.getElementById('db-sync-badge');
@@ -2026,27 +2033,33 @@ async function viewProjectDetail(id, fromPopState = false) {
   }
 
   // Khởi tạo danh sách máy — Lấy dữ liệu các máy đã lưu cho dự án này từ SQL
-  resetMachineList();
-  
   // TỨC THÌ (0ms): Dùng cache danh sách máy nếu có sẵn
   const cachedMachinesKey = `lm_machines_${proj.ID}`;
   const cachedMachines = (typeof cacheGet === 'function') ? cacheGet(cachedMachinesKey) : null;
   if (cachedMachines && Array.isArray(cachedMachines) && cachedMachines.length > 0) {
+    resetMachineList();
     cachedMachines.forEach((eqName, idx) => {
       addMachineToProjectList(proj, eqName, idx + 1);
     });
+  } else {
+    const tbody = document.getElementById('project-items-body');
+    if (tbody) {
+      tbody.innerHTML = `<tr class="skeleton-row"><td colspan="7" style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;"><i class="fas fa-circle-notch fa-spin" style="margin-right:8px;color:var(--primary);"></i>Đang tải danh sách thiết bị/task...</td></tr>`;
+    }
   }
 
   fetch(`${API_BASE_URL}/api/projects/${proj.ID}/machines`)
     .then(res => res.json())
     .then(resData => {
-      if (resData.success && resData.machines && resData.machines.length > 0) {
+      if (resData.success && resData.machines) {
         if (typeof cacheSet === 'function') cacheSet(cachedMachinesKey, resData.machines, 300000);
         resetMachineList();
-        resData.machines.sort((a, b) => a.localeCompare(b));
-        resData.machines.forEach((eqName, idx) => {
-          addMachineToProjectList(proj, eqName, idx + 1);
-        });
+        if (resData.machines.length > 0) {
+          resData.machines.sort((a, b) => a.localeCompare(b));
+          resData.machines.forEach((eqName, idx) => {
+            addMachineToProjectList(proj, eqName, idx + 1);
+          });
+        }
       }
     })
     .catch(err => {
@@ -4732,12 +4745,16 @@ function renderProjectStatsData(stats) {
   if (document.getElementById('project-count-badge')) document.getElementById('project-count-badge').textContent = stats.total || 0;
 }
 
-async function fetchProjects(page = 1) {
+async function fetchProjects(page = 1, force = false) {
   projectCurrentPage = page;
   
-  // TỨC THÌ (0ms): Dùng cache trang nếu có sẵn
+  // TỨC THÌ (0ms): Dùng cache trang nếu có sẵn (cơ chế Facebook-Style)
   const cacheKey = `lm_projects_page_${page}`;
-  const cached = (typeof cacheGet === 'function') ? cacheGet(cacheKey) : null;
+  let cached = (typeof cacheGet === 'function') ? cacheGet(cacheKey) : null;
+  if (!cached && page === 1 && typeof cacheGet === 'function') {
+    cached = cacheGet('lm_projects_fast_cache');
+  }
+
   if (cached && cached.data && cached.data.length > 0) {
     projectsList = cached.data;
     renderProjectsTableRows(projectsList);
@@ -4750,17 +4767,21 @@ async function fetchProjects(page = 1) {
   const url = new URL(`${API_URL}/projects`);
   url.searchParams.append('page', page);
   url.searchParams.append('limit', projectLimit);
+  if (force) url.searchParams.append('_t', Date.now());
 
   try {
-    const res = await fetch(url.toString(), { cache: 'no-cache' });
+    const res = await fetch(url.toString());
     const result = await res.json();
-    projectsList = result.data;
-    if (typeof cacheSet === 'function') {
-      cacheSet(cacheKey, result, 120000);
+    if (result && result.data) {
+      projectsList = result.data;
+      if (typeof cacheSet === 'function') {
+        cacheSet(cacheKey, result, 120000);
+        if (page === 1) cacheSet('lm_projects_fast_cache', result, 600000);
+      }
+      renderProjectsTableRows(projectsList);
+      renderProjectStatsData(result);
+      renderProjectPagination(result.total, page, projectLimit);
     }
-    renderProjectsTableRows(projectsList);
-    renderProjectStatsData(result);
-    renderProjectPagination(result.total, page, projectLimit);
 
     if (window._initCertCount !== undefined && window._initCertCount !== null) {
         document.getElementById('stat-certs').textContent = window._initCertCount;
@@ -5920,6 +5941,13 @@ function getCalibrationPayload() {
 }
 
 async function prewarmPdfPreview() {
+  // Tiết kiệm CPU/mạng: Không chạy tạo trước PDF nếu đang ở mobile hoặc chưa mở màn hình xem trước
+  const isMobile = window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const previewView = document.getElementById('preview-view');
+  const isPreviewOpen = previewView && previewView.style.display !== 'none';
+  if (isMobile && !isPreviewOpen) return;
+  if (!isPreviewOpen && currentPreviewTab !== 'pdf') return;
+
   const payload = getCalibrationPayload();
   if (!payload.cert_no || payload.cert_no === '-') return;
   if (calibrateMethods.length === 0 && !getSpecProcedureTableData()) return;

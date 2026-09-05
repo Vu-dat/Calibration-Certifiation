@@ -20,22 +20,25 @@ if (!SUPABASE_HOST || !SUPABASE_USER || !SUPABASE_PASSWORD) {
     );
   };
 
-  // Tạo hàm giả lập để tránh làm crash server khi require module, nhưng sẽ báo lỗi rõ ràng khi gọi truy vấn
   sql = throwConfigError;
   sql.unsafe = throwConfigError;
 } else {
-  sql = postgres({
-    host: SUPABASE_HOST,
-    port: SUPABASE_PORT,
-    database: SUPABASE_DB,
-    username: SUPABASE_USER,
-    password: SUPABASE_PASSWORD,
-    ssl: { rejectUnauthorized: false },
-    prepare: false,
-    max: 10,
-    idle_timeout: 30,
-    connect_timeout: 15,
-  });
+  // Tối ưu cho Serverless: Giữ lại kết nối trong bộ nhớ toàn cục để tránh kết nối lại giữa các request
+  if (!global._postgresSql) {
+    global._postgresSql = postgres({
+      host: SUPABASE_HOST,
+      port: SUPABASE_PORT,
+      database: SUPABASE_DB,
+      username: SUPABASE_USER,
+      password: SUPABASE_PASSWORD,
+      ssl: { rejectUnauthorized: false },
+      prepare: false,
+      max: process.env.VERCEL ? 3 : 10,
+      idle_timeout: 20,
+      connect_timeout: 10,
+    });
+  }
+  sql = global._postgresSql;
 }
 
 module.exports = sql;

@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "regions": ["sin1"],
   "builds": [
     {
       "src": "api/index.js",
@@ -18,7 +19,20 @@
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "api/index.js" },
-    { "src": "/static/(.*)", "dest": "/static/$1" },
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1",
+      "headers": {
+        "cache-control": "public, max-age=86400, stale-while-revalidate=604800"
+      }
+    },
+    {
+      "src": "/(.*)\\.(css|js|png|jpg|jpeg|svg|ico|woff|woff2|ttf)",
+      "dest": "/public/$1.$2",
+      "headers": {
+        "cache-control": "public, max-age=86400, stale-while-revalidate=604800"
+      }
+    },
     { "src": "/(.*)", "dest": "/public/$1" }
   ]
 }

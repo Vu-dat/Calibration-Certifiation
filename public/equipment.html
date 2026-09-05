@@ -19,9 +19,13 @@
       }
     })();
     </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* ════════════════════════════════════════════
@@ -788,34 +792,41 @@ function swrFetch(key, fetcher, ttlMs) {
   tbody.innerHTML = html;
 }
 
-async function loadEquipment() {
+async function loadEquipment(force = false) {
         const tbody = document.getElementById('equipment-table-body');
-        renderEquipmentSkeleton(5);
+        let data = !force ? cacheGet('lm_clock_standards') : null;
+        
+        // TỨC THÌ (0ms): Nếu có cache, render ngay không làm nhấp nháy giao diện
+        if (data && Array.isArray(data) && data.length > 0) {
+            equipmentList = data;
+            renderTable(equipmentList);
+        } else {
+            renderEquipmentSkeleton(5);
+        }
 
         try {
-            // Luôn fetch từ API khi load trang (không dùng SWR cache cho lần đầu)
-            // SWR cache dùng cho lần refresh sau (khi stale)
-            let data = cacheGet('lm_clock_standards');
-            
-            if (!data) {
-                // Chưa có cache → fetch trực tiếp từ API
-                const res = await fetch(`${API_BASE_URL}/api/clock`);
+            if (!data || force) {
+                // Chưa có cache hoặc bắt buộc tải mới → fetch từ API
+                const url = `${API_BASE_URL}/api/clock${force ? '?_t=' + Date.now() : ''}`;
+                const res = await fetch(url);
                 if (!res.ok) throw new Error('Failed to fetch');
                 data = await res.json();
-                // Lưu vào cache cho lần sau
-                cacheSet('lm_clock_standards', data, 30000);
-            } else {
-                // Có cache rồi → background refresh nếu stale
-                if (cacheIsStale('lm_clock_standards')) {
-                    fetch(`${API_BASE_URL}/api/clock`)
-                        .then(r => r.json())
-                        .then(fresh => cacheSet('lm_clock_standards', fresh, 30000))
-                        .catch(() => {});
-                }
+                cacheSet('lm_clock_standards', data, 60000);
+                equipmentList = data || [];
+                renderTable(equipmentList);
+            } else if (cacheIsStale('lm_clock_standards')) {
+                // Có cache rồi → background refresh ngầm mượt mà
+                fetch(`${API_BASE_URL}/api/clock`)
+                    .then(r => r.json())
+                    .then(fresh => {
+                        if (fresh && Array.isArray(fresh)) {
+                            cacheSet('lm_clock_standards', fresh, 60000);
+                            equipmentList = fresh;
+                            renderTable(equipmentList);
+                        }
+                    })
+                    .catch(() => {});
             }
-            
-            equipmentList = data || [];
-            renderTable(equipmentList);
         } catch (err) {
             console.error('Error loading equipment:', err);
             tbody.innerHTML = `<tr><td colspan="12" class="eq-empty"><span class="empty-icon"><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i></span><p>Failed to load equipment data</p><small>${err.message}</small></td></tr>`;

@@ -3,10 +3,17 @@ const cors = require('cors');
 const path = require('path');
 const os = require('os');
 const bcrypt = require('bcryptjs');
-// exec removed — generator functions are called directly (not via child_process)
-const { generatePDF } = require('./generate_pdf');
-const { generateExcel } = require('./generate_excel');
-const { generateDocx } = require('./generate_docx');
+// Lazy-load generator modules on demand to eliminate cold-start latency on Vercel
+function getGeneratePDF() {
+    return require('./generate_pdf').generatePDF;
+}
+function getGenerateExcel() {
+    return require('./generate_excel').generateExcel;
+}
+function getGenerateDocx() {
+    return require('./generate_docx').generateDocx;
+}
+
 // Supabase Storage — graceful fallback nếu module không load được (VD: trên Vercel)
 let uploadToSupabase, getPublicUrl, isConfigured, BUCKET_NAME;
 try {
@@ -22,7 +29,6 @@ try {
     isConfigured = () => false;
     BUCKET_NAME = 'certificates';
 }
-const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const app = express();
 const port = process.env.PORT || 18080;
@@ -437,6 +443,7 @@ async function runColumnMigrations() {
 
 let dbInitPromise = null;
 async function ensureDbInitialized() {
+    if (global._dbInitialized) return;
     if (!dbInitPromise) {
         dbInitPromise = (async () => {
             try {
@@ -451,6 +458,7 @@ async function ensureDbInitialized() {
                 
                 const exists = checkTable[0] && checkTable[0].exists;
                 if (exists) {
+                    global._dbInitialized = true;
                     console.log("✅ Supabase đã được khởi tạo trước đó. Chạy migrations cột mới (nếu có) trong background...");
                     // Chạy migrations trong background để tránh block request đầu tiên/cold start
                     runColumnMigrations().catch(err => {
@@ -531,6 +539,7 @@ app.get('/api/static/:filename', (req, res) => {
 // Combined /api/init endpoint — trả về tất cả dữ liệu cần thiết cho frontend trong 1 request
 app.get('/api/init', async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
         if (serverCache.init) {
             return res.json(serverCache.init);
         }
@@ -676,6 +685,7 @@ async function getOrLoadClockCache() {
 
 app.get('/api/clock', async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
         const rows = await getOrLoadClockCache();
         res.json(rows);
     } catch (err) {
@@ -684,6 +694,7 @@ app.get('/api/clock', async (req, res) => {
 });
 
 app.get('/api/clock/search', async (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=120');
     const q = (req.query.q || '').toString().trim();
     try {
         const allClocks = await getOrLoadClockCache();
@@ -890,6 +901,7 @@ app.get('/api/calibrate-method/search', async (req, res) => {
 
 app.get('/api/projects', async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
@@ -1085,6 +1097,7 @@ app.post('/api/calibration/clone/:srcCertNo/:destCertNo', async (req, res) => {
 });
 
 app.get('/api/calibration/:certNo', async (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
     const certNo = req.params.certNo;
     const eqName = req.query.equipment_name || '';
     const compositeCertNo = eqName ? `${certNo}_${eqName}` : certNo;
@@ -1225,6 +1238,7 @@ app.post('/api/calibration/save', async (req, res) => {
 
 async function getEquipmentTemplatesHelper(req, res) {
     try {
+        res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
         const searchTerm = req.query.q ? `%${req.query.q.toLowerCase()}%` : null;
         const cacheKey = searchTerm || 'all';
         if (serverCache.equipmentTemplates[cacheKey]) {
@@ -1377,6 +1391,7 @@ app.delete('/api/equipment-templates/:name', async (req, res) => {
 
 app.get('/api/customers', async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 15;
         const offset = (page - 1) * limit;
@@ -1531,6 +1546,7 @@ app.get('/api/audit-logs', async (req, res) => {
 
 app.get('/api/stats/summary', async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
         if (serverCache.statsSummary) {
             return res.json(serverCache.statsSummary);
         }
@@ -1641,6 +1657,7 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
             });
         }
 
+        const generatePDF = getGeneratePDF();
         const pdfBuffer = await generatePDF({ 
             certNo: compositeCertNo, 
             downloadUrl, 
@@ -1714,6 +1731,7 @@ app.get('/api/calibration/export-pdf/:certNo', async (req, res) => {
         const localUrl = `${publicBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}${fileName}`;
         const downloadUrl = supabaseUrl || localUrl;
 
+        const generatePDF = getGeneratePDF();
         const pdfBuffer = await generatePDF({ certNo: compositeCertNo, downloadUrl, equipmentName: eqName });
         const base64 = pdfBuffer.toString('base64');
         let fileUrl = isConfigured() ? getPublicUrl(fileName) : null;
@@ -1751,6 +1769,7 @@ app.post('/api/calibration/export-excel', async (req, res) => {
             console.error('⚠️ Lỗi lưu dữ liệu trong background khi xuất Excel:', err.message);
         });
 
+        const generateExcel = getGenerateExcel();
         await generateExcel({ certNo: compositeCertNo, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [], data: data });
 
         const outputDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, 'static');
@@ -1822,6 +1841,7 @@ app.post('/api/calibration/export-docx', async (req, res) => {
             console.error('⚠️ Lỗi lưu dữ liệu trong background khi xuất Word:', err.message);
         });
 
+        const generateDocx = getGenerateDocx();
         const docxBuffer = await generateDocx({ certNo: compositeCertNo, downloadUrl, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [], data: data });
         const base64 = docxBuffer.toString('base64');
         
@@ -2095,6 +2115,7 @@ app.get('/api/projects/:id', async (req, res) => {
 });
 
 app.get('/api/projects/:id/machines', async (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
     const projectId = req.params.id;
     if (serverCache.machines[projectId]) {
         return res.json(serverCache.machines[projectId]);
