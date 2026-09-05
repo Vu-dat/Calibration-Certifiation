@@ -17,6 +17,7 @@
         window.location.replace('login.html');
       }
     })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
@@ -1675,6 +1676,9 @@ async function initPageData() {
       return t;
     }, 30000);
   }
+
+  pageDataInitialized = true;
+}
 
 // Trì hoãn nạp dữ liệu cấu hình mẫu & chuẩn để ưu tiên hiển thị ngay danh sách dự án (0ms)
 if ('requestIdleCallback' in window) {
@@ -4849,7 +4853,7 @@ async function saveProjectDetails() {
     keepalive: true
   }).then(res => res.json()).then(result => {
     if (result.success && typeof fetchProjects === 'function') {
-      fetchProjects();
+      fetchProjects(projectCurrentPage, true);
     }
   }).catch(err => {
     console.warn("⚠️ Lỗi đồng bộ dự án nền:", err.message);
@@ -4882,7 +4886,7 @@ async function markProjectAsFinished(skipConfirm = false) {
   if (result.success) {
     showToast("Dự án đã được đánh dấu hoàn thành!");
     document.getElementById('pd-status').innerHTML = `<span class="badge badge-finished">Finished</span>`;
-    fetchProjects(); 
+    fetchProjects(projectCurrentPage, true); 
   }
 }
 
@@ -5154,7 +5158,7 @@ function deleteProject(id) {
   if (!confirm(`Xác nhận xóa dự án ${id}?`)) return;
   fetch(`${API_URL}/projects/${id}`, { method: 'DELETE' }).then(() => {
       showToast("Đã xóa dự án thành công.");
-      fetchProjects();
+      fetchProjects(projectCurrentPage, true);
   });
 }
 
@@ -5774,7 +5778,7 @@ async function executeCreateProject(payload) {
                 })();
             }
 
-            fetchProjects(); 
+            fetchProjects(1, true); 
         } else {
             showToast("Lỗi: " + result.message, "danger");
         }
