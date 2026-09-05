@@ -362,9 +362,8 @@ function drawPage1Body(doc, cert, pts, stds, accM, tpl) {
   var addr = (cert.CUSTOMER_ADDRESS && cert.CUSTOMER_ADDRESS !== 'null') ? cert.CUSTOMER_ADDRESS : '';
   var inst = (cert.INSTRUMENT_NAME && cert.INSTRUMENT_NAME !== 'null') ? cert.INSTRUMENT_NAME : ((tpl && tpl.NAME_VI) ? tpl.NAME_VI : '');
   var instEn = (cert.INSTRUMENT_NAME_EN && cert.INSTRUMENT_NAME_EN !== 'null') ? cert.INSTRUMENT_NAME_EN : '';
-  if (!instEn && tpl && tpl.NAME) {
-    // Strip leading number prefix (e.g. "1.1 Auto Crocking Meter" → "Auto Crocking Meter")
-    instEn = tpl.NAME.replace(/^\d+\.\d*\s*/, '').trim();
+  if (!instEn && tpl) {
+    instEn = tpl.NAME_EN || tpl.name_en || (tpl.NAME ? tpl.NAME.replace(/^\d+\.\d*\s*/, '').trim() : '');
   }
   var manuf = (cert.MANUFACTURER && cert.MANUFACTURER !== 'null') ? cert.MANUFACTURER : '';
   var model = (cert.MODEL && cert.MODEL !== 'null' && cert.MODEL !== '') ? cert.MODEL : '';

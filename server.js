@@ -257,7 +257,8 @@ async function initDatabaseSchema() {
             SPEC_RANGE TEXT,
             SPEC_RESOLUTION TEXT,
             STANDARDS_USED TEXT,
-            NAME_VI TEXT
+            NAME_VI TEXT,
+            NAME_EN TEXT
         )`;
 
         await sql`CREATE TABLE IF NOT EXISTS TEMPLATE_POINTS (
@@ -279,6 +280,7 @@ async function initDatabaseSchema() {
         try {
             await sql`ALTER TABLE CERTIFICATE_STANDARDS ADD COLUMN IF NOT EXISTS STD_CERT_NO TEXT`;
             await sql`ALTER TABLE EQUIPMENT_TEMPLATES ADD COLUMN IF NOT EXISTS NAME_VI TEXT`;
+            await sql`ALTER TABLE EQUIPMENT_TEMPLATES ADD COLUMN IF NOT EXISTS NAME_EN TEXT`;
         } catch(e) { /* ignore if column already exists */ }
 
         // Thực hiện nạp dữ liệu mặc định ban đầu
@@ -1289,6 +1291,7 @@ async function getEquipmentTemplatesHelper(req, res) {
             // Map sang key IN HOA cho frontend cũ nhận diện đúng
             template.NAME = template.name;
             template.NAME_VI = template.name_vi;
+            template.NAME_EN = template.name_en || template.name;
             template.MANUFACTURER = template.manufacturer;
             template.NEXT_DUE = template.next_due;
             template.EQUIPMENT_ID = template.equipment_id;
@@ -1321,15 +1324,17 @@ app.get('/api/equipment', async (req, res) => {
 app.post('/api/equipment', async (req, res) => {
     invalidateServerCache();
     try {
-        const { equipment_id, standard_name, manufacturer, due_date, procedure, ref_standard, points, model, serial_number, model_serial, manufacturer_id, spec_range, spec_resolution, standards_used, name_vi } = req.body;
+        const { equipment_id, standard_name, manufacturer, due_date, procedure, ref_standard, points, model, serial_number, model_serial, manufacturer_id, spec_range, spec_resolution, standards_used, name_vi, name_en, nameEn, instrumentNameEn } = req.body;
 
         if (!equipment_id || !standard_name) {
             return res.status(400).json({ success: false, message: "Thiếu mã nhận diện hoặc tên thiết bị chuẩn!" });
         }
 
+        const englishName = name_en || nameEn || instrumentNameEn || '';
+
         await sql`
-            INSERT INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID, PROCEDURE, REF_STANDARD, MODEL, SERIAL_NUMBER, MODEL_SERIAL, MANUFACTURER_ID, SPEC_RANGE, SPEC_RESOLUTION, STANDARDS_USED, NAME_VI)
-            VALUES (${standard_name}, ${manufacturer || ''}, ${due_date || ''}, ${equipment_id}, ${procedure || ''}, ${ref_standard || ''}, ${model || ''}, ${serial_number || ''}, ${model_serial || ''}, ${manufacturer_id || ''}, ${spec_range || ''}, ${spec_resolution || ''}, ${standards_used || ''}, ${name_vi || ''})
+            INSERT INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID, PROCEDURE, REF_STANDARD, MODEL, SERIAL_NUMBER, MODEL_SERIAL, MANUFACTURER_ID, SPEC_RANGE, SPEC_RESOLUTION, STANDARDS_USED, NAME_VI, NAME_EN)
+            VALUES (${standard_name}, ${manufacturer || ''}, ${due_date || ''}, ${equipment_id}, ${procedure || ''}, ${ref_standard || ''}, ${model || ''}, ${serial_number || ''}, ${model_serial || ''}, ${manufacturer_id || ''}, ${spec_range || ''}, ${spec_resolution || ''}, ${standards_used || ''}, ${name_vi || ''}, ${englishName})
             ON CONFLICT (NAME) DO UPDATE SET 
                 MANUFACTURER = EXCLUDED.MANUFACTURER, 
                 NEXT_DUE = EXCLUDED.NEXT_DUE, 
@@ -1343,7 +1348,8 @@ app.post('/api/equipment', async (req, res) => {
                 SPEC_RANGE = EXCLUDED.SPEC_RANGE,
                 SPEC_RESOLUTION = EXCLUDED.SPEC_RESOLUTION,
                 STANDARDS_USED = EXCLUDED.STANDARDS_USED,
-                NAME_VI = EXCLUDED.NAME_VI
+                NAME_VI = EXCLUDED.NAME_VI,
+                NAME_EN = COALESCE(NULLIF(EXCLUDED.NAME_EN, ''), EQUIPMENT_TEMPLATES.NAME_EN)
         `;
 
         await sql`DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ${standard_name}`;
@@ -2188,6 +2194,7 @@ async function prewarmServerCache() {
         const templates = templatesResult.map(t => ({
             NAME: t.name,
             NAME_VI: t.name_vi,
+            NAME_EN: t.name_en || t.NAME_EN || t.name,
             MANUFACTURER: t.manufacturer,
             NEXT_DUE: t.next_due,
             EQUIPMENT_ID: t.equipment_id,

@@ -957,13 +957,13 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="field">
           <label>Tên thiết bị (tìm kiếm thông minh từ DB)</label>
           <div class="autocomplete-wrapper">
-            <input type="text" id="f-inst-vi" oninput="handleEquipmentSearch(this.value)" placeholder="Nhập tên thiết bị để tìm kiếm…" autocomplete="off">
+            <input type="text" id="f-inst-vi" oninput="handleEquipmentSearch(this.value)" onchange="handleEquipmentBlur(this.value)" placeholder="Nhập tên thiết bị để tìm kiếm…" autocomplete="off">
             <div id="equipment-suggestions" class="autocomplete-suggestions"></div>
           </div>
         </div>
 
         <div class="field-row">
-          <div class="field"><label>Tên tiếng Anh (Instrument)</label><input id="f-inst-en" autocomplete="off"></div>
+          <div class="field"><label>Tên tiếng Anh (Instrument)</label><input id="f-inst-en" onchange="handleEquipmentBlur(this.value)" autocomplete="off"></div>
           <div class="field"><label>Nhà sản xuất (Manufacturer)</label><input id="f-mfr" autocomplete="off"></div>
         </div>
         <div class="field-row">
@@ -1554,23 +1554,25 @@ function applyEquipmentCache(templates) {
     } catch (e) {
       stds = (t.STANDARDS_USED || '').split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
     }
+    const englishName = (t.NAME_EN || t.name_en || '').trim() || (function() {
+      const name = t.NAME.replace(/^\d+\.\d*\s*/, '').trim();
+      if (name === 'Manual Crocking Meter' || name === 'JIS Rubbing Tester' || name === 'Auto Crocking Meter' || name === 'ref_crocking' || name === 'Crocking meter') return 'Crocking meter';
+      if (name === 'Rotary Crocking Meter') return 'Rotary crocking meter';
+      if (name === 'Veslic Rubbing Tester') return 'Veslic Rub Fastness Tester';
+      if (name === 'Random Tumble Pilling Tester - 2' || name === 'Random Tumble Pilling Tester - 4') return 'Random Tumble Pilling Tester';
+      if (name === 'ICI Pilling and Snagging Tester') return 'ICI Pilling and Snagging Tester';
+      if (name === 'Snagging box') return 'ICI Pilling Box';
+      if (name === 'BS 8479 Snagging Test Box') return 'BS 8479 Snagging Test Box';
+      if (name === 'Tensile Strength Tester') return 'Tensile Strength Tester';
+      if (name.startsWith('Martindale')) return 'Martindale';
+      return name;
+    })();
+
     freshDB[t.NAME] = {
       manufacturer: t.MANUFACTURER || '',
       model: t.MODEL || '',
-      instEn: (function() {
-        const name = t.NAME.replace(/^\d+\.\d*\s*/, '').trim();
-        if (name === 'Manual Crocking Meter' || name === 'JIS Rubbing Tester') return 'Crocking meter';
-        if (name === 'Auto Crocking Meter') return 'Auto Crocking Meter';
-        if (name === 'Rotary Crocking Meter') return 'Rotary crocking meter';
-        if (name === 'Veslic Rubbing Tester') return 'Veslic Rub Fastness Tester';
-        if (name === 'Random Tumble Pilling Tester - 2' || name === 'Random Tumble Pilling Tester - 4') return 'Random Tumble Pilling Tester';
-        if (name === 'ICI Pilling and Snagging Tester') return 'Pilling and Snagging Tester';
-        if (name === 'Snagging box') return 'Pilling Box';
-        if (name === 'BS 8479 Snagging Test Box') return 'BS 8479 Snagging Test Box';
-        if (name === 'Tensile Strength Tester') return 'Tensile Strength Tester';
-        if (name.startsWith('Martindale')) return 'Martindale';
-        return name;
-      })(),
+      instEn: englishName,
+      nameEn: englishName,
       nameVi: t.NAME_VI || '',
       equipmentId: t.EQUIPMENT_ID || '',
       serialNumber: t.SERIAL_NUMBER || '',
@@ -1599,7 +1601,7 @@ try {
   }
 } catch (e) {}
 
-// Re-sync t? SQL khi tab ???c focus l?i (SWR: ch? background refresh n?u stale)
+// Re-sync từ SQL khi tab được focus lại (SWR: chỉ background refresh nếu stale)
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'visible') {
     if (cacheIsStale('lm_equipment_templates')) {
@@ -1609,33 +1611,98 @@ document.addEventListener('visibilitychange', function() {
   }
 });
 
-// Helper: resolve equipment NAME từ ID hoặc NAME (ID ưu tiên để liên kết bền vững)
+// Helper: resolve equipment NAME từ ID hoặc NAME (Hỗ trợ tra cứu 2 chiều: Tiếng Việt, Tiếng Anh, Mã ID, và từ khóa thông minh)
 function resolveEquipmentName(idOrName) {
   if (!idOrName) return null;
-  // Nếu lookup trực tiếp bằng NAME thành công
-  if (MockDatabaseEquipment[idOrName]) return idOrName;
-  
-  // Tìm kiếm không phân biệt chữ hoa thường và bỏ số thứ tự ở đầu
-  const cleanStr = (s) => String(s).replace(/^\d+(\.\d+)*[\s\.\-:_]*/, '').replace(/mater/gi, 'meter').trim().toLowerCase();
-  const cleanedIdOrName = cleanStr(idOrName);
+  const str = String(idOrName).trim();
+  if (!str) return null;
+
+  // 1. Nếu lookup trực tiếp bằng key trong MockDatabaseEquipment thành công
+  if (MockDatabaseEquipment[str]) return str;
+
+  // 2. Nếu là ID → tra ngược từ map _equipmentById
+  if (window._equipmentById && window._equipmentById[str]) {
+    return window._equipmentById[str];
+  }
+
+  // Chuẩn hóa văn bản (bỏ dấu tiếng Việt, ký tự đặc biệt, số thứ tự ở đầu)
+  const norm = (s) => String(s || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'd')
+    .replace(/^\d+(\.\d+)*[\s\.\-:_]*/, '')
+    .replace(/mater/gi, 'meter')
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const queryNorm = norm(str);
+  if (!queryNorm) return null;
+
+  // 3. Quy tắc ưu tiên từ khóa đặc trưng (Alias đặc thù cho các máy thực tế trong data)
+  if (queryNorm.includes('8479') || queryNorm.includes('xuoc moc') || queryNorm.includes('snagpod')) {
+    if (MockDatabaseEquipment['BS 8479 Snagging Test Box']) return 'BS 8479 Snagging Test Box';
+  }
+  if (queryNorm.includes('veslic') || queryNorm.includes('cha xat veslic') || queryNorm.includes('fastness tester')) {
+    if (MockDatabaseEquipment['Veslic Rubbing Tester']) return 'Veslic Rubbing Tester';
+  }
+  if (queryNorm.includes('rotary') && (queryNorm.includes('crock') || queryNorm.includes('ma sat') || queryNorm.includes('xoay tron'))) {
+    if (MockDatabaseEquipment['Rotary Crocking Meter']) return 'Rotary Crocking Meter';
+  }
+  if (queryNorm.includes('jis') && (queryNorm.includes('rub') || queryNorm.includes('ma sat'))) {
+    if (MockDatabaseEquipment['JIS Rubbing Tester']) return 'JIS Rubbing Tester';
+  }
+  if (queryNorm.includes('auto') && (queryNorm.includes('crock') || queryNorm.includes('ma sat'))) {
+    if (MockDatabaseEquipment['Auto Crocking Meter']) return 'Auto Crocking Meter';
+  }
+  if (queryNorm.includes('manual') && (queryNorm.includes('crock') || queryNorm.includes('ma sat'))) {
+    if (MockDatabaseEquipment['Manual Crocking Meter']) return 'Manual Crocking Meter';
+  }
+  if (queryNorm.includes('ici pilling and snagging') || queryNorm.includes('xu long va xuoc moc')) {
+    if (MockDatabaseEquipment['ICI Pilling and Snagging Tester']) return 'ICI Pilling and Snagging Tester';
+  }
+  if (queryNorm.includes('snagging box') || queryNorm.includes('pilling box') || (queryNorm.includes('hop') && queryNorm.includes('xu long'))) {
+    if (MockDatabaseEquipment['Snagging box']) return 'Snagging box';
+  }
+  if (queryNorm.includes('tensile') || queryNorm.includes('keo dut')) {
+    if (MockDatabaseEquipment['Tensile Strength Tester']) return 'Tensile Strength Tester';
+  }
+  if (queryNorm.includes('martindale')) {
+    if (queryNorm.includes('9') && MockDatabaseEquipment['Martindale - 9']) return 'Martindale - 9';
+    if (queryNorm.includes('6') && MockDatabaseEquipment['Martindale - 6']) return 'Martindale - 6';
+    if (MockDatabaseEquipment['Martindale - 3']) return 'Martindale - 3';
+  }
+  if (queryNorm.includes('random tumble') || queryNorm.includes('d3512') || (queryNorm.includes('thiet bi') && queryNorm.includes('xu long astm'))) {
+    if (queryNorm.includes('4') && MockDatabaseEquipment['Random Tumble Pilling Tester - 4']) return 'Random Tumble Pilling Tester - 4';
+    if (MockDatabaseEquipment['Random Tumble Pilling Tester - 2']) return 'Random Tumble Pilling Tester - 2';
+  }
+
   const keys = Object.keys(MockDatabaseEquipment);
+
+  // 4. So khớp chính xác sau khi chuẩn hóa với key, nameVi, instEn, nameEn, equipmentId
   for (const k of keys) {
-    if (k.toLowerCase() === idOrName.toLowerCase() || cleanStr(k) === cleanedIdOrName) {
+    const eq = MockDatabaseEquipment[k] || {};
+    const kNorm = norm(k);
+    const viNorm = norm(eq.nameVi);
+    const enNorm = norm(eq.instEn || eq.nameEn);
+    const idNorm = norm(eq.equipmentId);
+
+    if (queryNorm === kNorm || queryNorm === viNorm || queryNorm === enNorm || (idNorm && queryNorm === idNorm)) {
       return k;
     }
   }
 
-  // Nếu là ID → tra ngược để lấy NAME
-  if (window._equipmentById && window._equipmentById[idOrName]) {
-    return window._equipmentById[idOrName];
+  // 5. So khớp chuỗi con (substring) 2 chiều
+  for (const k of keys) {
+    const eq = MockDatabaseEquipment[k] || {};
+    const kNorm = norm(k);
+    const viNorm = norm(eq.nameVi);
+    const enNorm = norm(eq.instEn || eq.nameEn);
+
+    if (kNorm && (queryNorm.includes(kNorm) || kNorm.includes(queryNorm))) return k;
+    if (viNorm && (queryNorm.includes(viNorm) || viNorm.includes(queryNorm))) return k;
+    if (enNorm && (queryNorm.includes(enNorm) || enNorm.includes(queryNorm))) return k;
   }
 
-  // Fallback tìm gần đúng
-  for (const k of keys) {
-    if (cleanStr(k).includes(cleanedIdOrName) || cleanedIdOrName.includes(cleanStr(k))) {
-      return k;
-    }
-  }
   return null;
 }
 
@@ -1942,37 +2009,12 @@ async function viewProjectDetail(id, fromPopState = false) {
 
   currentTitle = proj.TITLE;
 
-  // --- LOGIC MỚI: Tìm tên thiết bị chuẩn từ Database Equipment dựa trên tên dự án ---
-  const titleLower = proj.TITLE.toLowerCase();
-  const templateMapping = {
-    'wascator': 'Washing Machine', 'máy giặt': 'Washing Machine', 'sij': 'Washing Machine',
-    'lò sấy': 'Dryer', 'dryer': 'Dryer',
-    'tủ lạnh': 'Refrigerator', 'refrigerator': 'Refrigerator'
-  };
-
-  // Mặc định ban đầu nếu không khớp mẫu nào thì dùng tên dự án hiện tại
-  currentEquipmentName = proj.TITLE; 
-
-  // Kiểm tra từ khóa ánh xạ sang tên thiết bị chuẩn trong DB
-  let matched = false;
-  for (const [kw, tpl] of Object.entries(templateMapping)) {
-    if (titleLower.includes(kw) && MockDatabaseEquipment[tpl]) {
-      currentEquipmentName = tpl; // Gán bằng tên thiết bị lấy từ databasequipment
-      matched = true;
-      break;
-    }
-  }
-
-  if (!matched) {
-    const normalizedTitle = titleLower.replace(/[\s\-_]+/g, ' ').replace('mater', 'meter').trim();
-    const allNames = Object.keys(MockDatabaseEquipment);
-    for (const eqName of allNames) {
-      const cleanName = eqName.toLowerCase().replace(/[\s\-_]+/g, ' ').trim();
-      if (normalizedTitle.includes(cleanName) || cleanName.includes(normalizedTitle)) {
-        currentEquipmentName = eqName;
-        break;
-      }
-    }
+  // --- Tự động nhận diện thiết bị từ tên dự án qua resolveEquipmentName ---
+  const resolvedFromTitle = resolveEquipmentName(proj.TITLE);
+  if (resolvedFromTitle && MockDatabaseEquipment[resolvedFromTitle]) {
+    currentEquipmentName = resolvedFromTitle;
+  } else {
+    currentEquipmentName = proj.TITLE;
   }
   // --------------------------------------------------------------------------------
 
@@ -2092,13 +2134,15 @@ function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum
     
     // Nếu có equipmentName, row được pre-fill sẵn, không cần search input
     if (equipmentName) {
-      const eq = MockDatabaseEquipment[equipmentName] || {};
-      const eqId = eq.equipmentId || equipmentName;
-      tr.dataset.equipmentName = equipmentName;
+      const resolved = resolveEquipmentName(equipmentName) || equipmentName;
+      const eq = MockDatabaseEquipment[resolved] || {};
+      const eqId = eq.equipmentId || resolved;
+      tr.dataset.equipmentName = resolved;
       tr.dataset.equipmentId = eqId;
+      const displayName = eq.nameVi ? `${eq.nameVi} <span style="font-weight:400;color:var(--text-muted);font-size:12px;">(${eq.instEn || resolved})</span>` : equipmentName;
       tr.innerHTML = `
           <td style="font-weight:600; color:var(--accent); text-align:center;">${rowCount}</td>
-          <td style="font-weight:600;"><i class="fa-solid fa-microchip" style="color:var(--primary);margin-right:6px;"></i> ${equipmentName}${eq.manufacturer ? `<br><span style="font-size:12px;color:var(--text-muted);font-weight:400;margin-left:20px;">Hãng SX: ${eq.manufacturer}</span>` : ''}</td>
+          <td style="font-weight:600;"><i class="fa-solid fa-microchip" style="color:var(--primary);margin-right:6px;"></i> ${displayName}${eq.manufacturer ? `<br><span style="font-size:12px;color:var(--text-muted);font-weight:400;margin-left:20px;">Hãng SX: ${eq.manufacturer}</span>` : ''}</td>
           <td><span class="badge badge-${statusClass}">${statusText}</span></td>
           <td><input type="text" class="lab-input-cell" placeholder="Nhập người phụ trách..." value="${currentProj?.TECH || ''}" style="min-width:140px;"></td>
           <td>${calDate}</td>
@@ -2185,7 +2229,7 @@ function handleEquipmentSearch(keyword) {
             div.className = 'suggestion-item';
             div.style.cssText = 'padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 2px; text-align: left;';
             div.innerHTML = `
-                <div style="font-weight: 600; color: var(--text);">🔧 ${key}</div>
+                <div style="font-weight: 600; color: var(--text);">🔧 ${eq.nameVi ? `${eq.nameVi} <span style="font-weight:400;color:var(--text-muted);font-size:12px;">(${eq.instEn || key})</span>` : key}</div>
                 <div style="font-size: 11px; color: var(--text-muted);">
                     ${eq.manufacturer ? `Mfr: ${eq.manufacturer}` : ''} 
                     ${eq.model ? ` | Model: ${eq.model}` : ''} 
@@ -2194,12 +2238,24 @@ function handleEquipmentSearch(keyword) {
             `;
             div.onclick = () => {
                 selectEquipmentTemplate(key);
+                window._currentWorkingEquipment = key;
                 box.style.display = 'none';
             };
             box.appendChild(div);
         });
     }
     box.style.display = 'block';
+}
+
+function handleEquipmentBlur(val) {
+    if (!val || !val.trim()) return;
+    const matched = resolveEquipmentName(val);
+    if (matched && MockDatabaseEquipment[matched]) {
+        selectEquipmentTemplate(matched);
+        window._currentWorkingEquipment = matched;
+        const box = document.getElementById('equipment-suggestions');
+        if (box) box.style.display = 'none';
+    }
 }
 
 function handleDeviceSearch(input) {
@@ -2249,7 +2305,7 @@ function handleDeviceSearch(input) {
             div.className = 'suggestion-item';
             div.style.cssText = 'padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 2px; text-align: left;';
             div.innerHTML = `
-                <div style="font-weight: 600; color: var(--text);">🔧 ${key}</div>
+                <div style="font-weight: 600; color: var(--text);">🔧 ${eq.nameVi ? `${eq.nameVi} <span style="font-weight:400;color:var(--text-muted);font-size:12px;">(${eq.instEn || key})</span>` : key}</div>
                 <div style="font-size: 11px; color: var(--text-muted);">
                     ${eq.manufacturer ? `Mfr: ${eq.manufacturer}` : ''} 
                     ${eq.model ? ` | Model: ${eq.model}` : ''} 
@@ -2257,7 +2313,7 @@ function handleDeviceSearch(input) {
                 </div>
             `;
             div.onclick = () => {
-                input.value = key;
+                input.value = eq.nameVi ? `${eq.nameVi} (${eq.instEn || key})` : key;
                 box.style.display = 'none';
                 const tr = input.closest('tr');
                 if (tr) {
@@ -2268,7 +2324,7 @@ function handleDeviceSearch(input) {
                     if (tdName) {
                         tdName.innerHTML = `
                             <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span style="font-weight:600;">🔧 ${key}${eq.manufacturer ? `<br><span style="font-size:12px;color:var(--text-muted);font-weight:400;">${eq.manufacturer}</span>` : ''}</span>
+                                <span style="font-weight:600;">🔧 ${eq.nameVi ? `${eq.nameVi} <span style="font-size:12px;color:var(--text-muted);font-weight:400;">(${eq.instEn || key})</span>` : key}${eq.manufacturer ? `<br><span style="font-size:12px;color:var(--text-muted);font-weight:400;">Hãng SX: ${eq.manufacturer}</span>` : ''}</span>
                                 <button class="btn btn-ghost btn-xs" onclick="resetSearchRow(this)" style="color:var(--text-muted); padding:2px 6px; font-size:10px;">Thay đổi</button>
                             </div>
                         `;
@@ -2754,10 +2810,26 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null, fromPopStat
   const resolvedName = window._currentWorkingEquipment;
   if (resolvedName && MockDatabaseEquipment[resolvedName]) {
       const eq = MockDatabaseEquipment[resolvedName];
+      const viInput = document.getElementById('f-inst-vi');
+      const enInput = document.getElementById('f-inst-en');
+      if (eq.nameVi && (!viInput.value || viInput.value.trim() === '')) {
+          viInput.value = eq.nameVi;
+      }
+      if (eq.instEn && (!enInput.value || enInput.value.trim() === '' || enInput.value === eq.nameVi)) {
+          enInput.value = eq.instEn;
+      }
+
+      // Kiểm tra bảng kết quả đo: Nếu bảng trống (chưa có điểm đo nào hoặc chỉ có thông báo rỗng)
+      const calRows = document.querySelectorAll('#calibration-table-body tr:not(.cal-empty-state)');
+      if (calRows.length === 0 && Array.isArray(eq.formPoints) && eq.formPoints.length > 0) {
+          console.log("Truy xuất bảng kết quả đo từ Database Equipment:", resolvedName);
+          selectEquipmentTemplate(resolvedName);
+      }
+
       if (!hasData) {
           // Chỉ điền thông tin mặc định từ template nếu đây là chứng chỉ mới tinh (chưa lưu dữ liệu)
-          document.getElementById('f-inst-vi').value = eq.nameVi || resolvedName;
-          document.getElementById('f-inst-en').value = eq.instEn || resolvedName;
+          viInput.value = eq.nameVi || resolvedName;
+          enInput.value = eq.instEn || resolvedName;
           document.getElementById('f-mfr').value = eq.manufacturer || '';
           document.getElementById('f-model').value = eq.model || '';
           document.getElementById('f-id').value = eq.equipmentId || '';
@@ -5166,29 +5238,39 @@ function populateCalibrationForm(result) {
     if (!result || !result.cert) return false;
     const c = result.cert;
     const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-    setVal('f-inst-vi',   c.INSTRUMENT_NAME);
-    setVal('f-inst-en',   c.INSTRUMENT_NAME_EN || c.INSTRUMENT_NAME);
-    setVal('f-mfr',       c.MANUFACTURER);
-    setVal('f-model',     c.MODEL);
-    setVal('f-id',        c.EQUIPMENT_ID);
-    setVal('f-sn',        c.SERIAL_NUMBER);
-    setVal('f-mfr-id',    c.MANUFACTURER_ID || '');
-    setVal('f-model-sn',  c.MODEL_SERIAL || '');
+
+    // Tìm cấu hình mẫu từ Database Equipment
+    const currentEq = window._currentWorkingEquipment || '';
+    const resolvedName = resolveEquipmentName(currentEq) || resolveEquipmentName(c.INSTRUMENT_NAME) || currentEq;
+    const eq = resolvedName ? MockDatabaseEquipment[resolvedName] : null;
+
+    setVal('f-inst-vi',   c.INSTRUMENT_NAME || (eq ? eq.nameVi : ''));
+    
+    // Đảm bảo Tên tiếng Anh chuẩn xác theo Database Equipment nếu chưa có hoặc đang bị lưu tiếng Việt
+    let instEnVal = c.INSTRUMENT_NAME_EN;
+    if (!instEnVal || instEnVal.trim() === '' || instEnVal === c.INSTRUMENT_NAME) {
+        instEnVal = eq ? (eq.instEn || eq.nameEn) : '';
+    }
+    setVal('f-inst-en',   instEnVal);
+
+    setVal('f-mfr',       c.MANUFACTURER || (eq ? eq.manufacturer : ''));
+    setVal('f-model',     c.MODEL || (eq ? eq.model : ''));
+    setVal('f-id',        c.EQUIPMENT_ID || (eq ? eq.equipmentId : ''));
+    setVal('f-sn',        c.SERIAL_NUMBER || (eq ? eq.serialNumber : ''));
+    setVal('f-mfr-id',    c.MANUFACTURER_ID || (eq ? eq.manufacturerId : ''));
+    setVal('f-model-sn',  c.MODEL_SERIAL || (eq ? eq.modelSerial : ''));
     setVal('f-cust',      c.CUSTOMER_NAME);
     setVal('f-cust-addr', c.CUSTOMER_ADDRESS || '');
     setVal('f-caldate',   c.CAL_DATE);
-    setVal('f-recaldate', c.RE_CAL_DATE);
+    setVal('f-recaldate', c.RE_CAL_DATE || (eq ? eq.nextDue : ''));
+    
     let specRange = c.SPEC_RANGE || '';
     let specResolution = c.SPEC_RESOLUTION || '';
-    if (!specRange.trim()) {
-        const resolvedName = window._currentWorkingEquipment;
-        const eq = resolvedName ? MockDatabaseEquipment[resolvedName] : null;
-        if (eq) {
-            specRange = eq.specRange || '';
-            specResolution = eq.specResolution || '';
-        }
+    if (!specRange.trim() && eq) {
+        specRange = eq.specRange || '';
+        specResolution = eq.specResolution || '';
     }
-    setSpecTableFromData(specRange, specResolution, c.PROCEDURE || '', c.REF_STANDARD || '');
+    setSpecTableFromData(specRange, specResolution, c.PROCEDURE || (eq ? eq.procedure : ''), c.REF_STANDARD || (eq ? eq.refStandard : ''));
     setVal('f-temp',      c.TEMP_ENV);
     setVal('f-humi',      c.HUMI_ENV);
     setVal('f-sign1',     c.HEAD_OF_LAB);
@@ -5196,13 +5278,17 @@ function populateCalibrationForm(result) {
 
     if (result.points && result.points.length > 0) {
         fillCalibrationTableRows(result.points);
+    } else if (eq && Array.isArray(eq.formPoints) && eq.formPoints.length > 0) {
+        // TRUY XUẤT BẢNG KẾT QUẢ TỪ DATABASE EQUIPMENT
+        console.log("Truy xuất bảng kết quả từ Database Equipment cho:", resolvedName);
+        selectEquipmentTemplate(resolvedName);
     } else {
         const tbody = document.getElementById('calibration-table-body');
         if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="cal-empty-state"><i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i> Nhập tên thiết bị ở mục 2 để tải tự động, hoặc sử dụng các nút bên dưới để thêm điểm đo</td></tr>';
         updateRowCount();
     }
 
-    if (result.standards && Array.isArray(result.standards)) {
+    if (result.standards && Array.isArray(result.standards) && result.standards.length > 0) {
         standards = result.standards.slice(0, 5).map(s => ({
             name:    s.EQ_NAME   || s.name || '',
             id:      s.EQ_CODE   || s.id || '',
@@ -5210,6 +5296,23 @@ function populateCalibrationForm(result) {
             trace:   s.LINK      || s.link || s.trace || '',
             due:     s.VALIDITY  || s.validity || s.due || ''
         }));
+        renderStandardsForm();
+    } else if (eq && Array.isArray(eq.standardsUsed) && eq.standardsUsed.length > 0) {
+        standards = [];
+        eq.standardsUsed.slice(0, 5).forEach(stdId => {
+          const matched = (liveStandardsDB || []).find(s => s.ID === stdId || s.id === stdId || s.EQUIPMENT_ID === stdId || s.key_field === stdId);
+          if (matched) {
+            standards.push({
+              name: matched.NAME || matched.name || '',
+              id: matched.ID || matched.id || matched.EQUIPMENT_ID || '',
+              certNo: matched.GCN || matched.gcn || '',
+              trace: matched.MANUFACTURER || matched.manufacturer || matched.LINK || matched.link || '',
+              due: matched.VALIDITY || matched.validity || matched.NEXT_DUE || matched.next_due || ''
+            });
+          } else {
+            standards.push({ name: '', id: stdId, certNo: '', trace: '', due: '' });
+          }
+        });
         renderStandardsForm();
     } else {
         standards = [];
@@ -5236,7 +5339,7 @@ async function loadExistingCalibration(projectId, equipmentName) {
         const response = await fetch(`${API_BASE_URL}/api/calibration/${projectId}${eqParam}`);
 
         if (response.status === 404) {
-            if (!populatedFromCache) resetWorkspaceForm();
+            if (!populatedFromCache && !window._currentWorkingEquipment) resetWorkspaceForm();
             return populatedFromCache; 
         }
 
@@ -5252,7 +5355,7 @@ async function loadExistingCalibration(projectId, equipmentName) {
             return true; 
         }
 
-        if (!populatedFromCache) {
+        if (!populatedFromCache && !window._currentWorkingEquipment) {
             resetWorkspaceForm();
         }
         return populatedFromCache;

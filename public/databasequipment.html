@@ -664,7 +664,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div style="display:flex;flex-direction:column;gap:18px;max-height:450px;overflow-y:auto;padding-right:4px;">
                     <div>
                         <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Tên thiết bị chuẩn <span style="color:var(--danger)">*</span></label>
-                        <input type="text" id="new-name" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font);font-size:14px;outline:none;transition:all 0.2s;box-sizing:border-box;" placeholder="Ví dụ: Thermo-Hygrometer">
+                        <input type="text" id="new-name" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font);font-size:14px;outline:none;transition:all 0.2s;box-sizing:border-box;" placeholder="Ví dụ: Hộp thử nghiệm xước móc BS 8479">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Tên tiếng Anh (English Name)</label>
+                        <input type="text" id="new-name-en" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font);font-size:14px;outline:none;transition:all 0.2s;box-sizing:border-box;" placeholder="Ví dụ: BS 8479 Snagging Test Box">
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                         <div>
@@ -697,6 +701,14 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
 
         <div class="db-admin-grid">
+            <div class="field-group">
+                <label><i class="fas fa-tag"></i> Tên thiết bị (Tiếng Việt)</label>
+                <input type="text" id="in-name" placeholder="Ví dụ: Hộp thử nghiệm xước móc BS 8479">
+            </div>
+            <div class="field-group">
+                <label><i class="fas fa-language"></i> Tên thiết bị (Tiếng Anh / English Name)</label>
+                <input type="text" id="in-name-en" placeholder="Ví dụ: BS 8479 Snagging Test Box">
+            </div>
             <div class="field-group">
                 <label><i class="fas fa-tasks"></i> Quy trình hiệu chuẩn</label>
                 <input type="text" id="in-procedure" placeholder="Ví dụ: LAB-F-01, LAB-T-02">
@@ -1372,6 +1384,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
             
             const eqCode = eq.EQUIPMENT_ID || eq.NAME || eq.equipment_id || eq.ID || eq.id || `EQ${String(i + 1).padStart(3, '0')}`;
             const eqName = eq.NAME || eq.standard_name || '';
+            const eqNameEn = eq.NAME_EN || eq.name_en || '';
             const eqManu = eq.MANUFACTURER || eq.manufacturer || '-';
             const eqDue = eq.NEXT_DUE || eq.next_due || '-';
 
@@ -1379,7 +1392,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
 
             tr.innerHTML = `
                 <td>#${eqCode}</td>
-                <td><strong>${eqName}</strong></td>
+                <td><strong>${eqName}</strong>${eqNameEn ? `<br><small style="color:var(--text-muted);font-weight:500;">${eqNameEn}</small>` : ''}</td>
                 <td>${eqManu}</td>
                 <td><span class="badge" style="background: #edf2f7; color: #2d3748; padding: 4px 8px; border-radius: 4px;">${eqDue || '-'}</span></td>
                 <td style="text-align: center;">
@@ -1478,6 +1491,8 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         showView('edit-view');
 
         document.getElementById('edit-title').innerText = "Detail: " + eq.NAME;
+        if (document.getElementById('in-name')) document.getElementById('in-name').value = eq.NAME || eq.standard_name || '';
+        if (document.getElementById('in-name-en')) document.getElementById('in-name-en').value = eq.NAME_EN || eq.name_en || '';
         if (document.getElementById('in-nsx')) document.getElementById('in-nsx').value = eq.MANUFACTURER || '';
         if (document.getElementById('in-due')) document.getElementById('in-due').value = eq.NEXT_DUE || '';
         if (document.getElementById('in-procedure')) document.getElementById('in-procedure').value = eq.PROCEDURE || eq.procedure || '';
@@ -1738,7 +1753,9 @@ async function fetchEquipmentTemplates(searchQuery = '') {
 
     async function saveEq() {
         const titleText = document.getElementById('edit-title').innerText;
-        const name = titleText.replace("Detail: ", "").trim();
+        const nameFromInput = document.getElementById('in-name') ? document.getElementById('in-name').value.trim() : '';
+        const name = nameFromInput || titleText.replace("Detail: ", "").trim();
+        const nameEn = document.getElementById('in-name-en') ? document.getElementById('in-name-en').value.trim() : '';
 
         const rows = document.querySelectorAll('#calibration-table-rows tr');
         const points = [];
@@ -1795,6 +1812,8 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         const payload = {
             equipment_id: currentEquipmentId || name,
             standard_name: name,
+            name_en: nameEn,
+            name_vi: name,
             manufacturer: manufacturer,
             due_date: nextDue,
             procedure: procedure,
@@ -1928,6 +1947,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
 
     async function executeCreateEquipment() {
         const nameInput = document.getElementById('new-name');
+        const nameEnInput = document.getElementById('new-name-en');
         const idInput = document.getElementById('new-eq-id');
         const manuInput = document.getElementById('new-manu');
         const dueInput = document.getElementById('new-due');
@@ -1935,6 +1955,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         if (!nameInput) return;
 
         const name = nameInput.value.trim();
+        const nameEn = nameEnInput ? nameEnInput.value.trim() : '';
         const eqId = idInput ? idInput.value.trim() : '';
         const manu = manuInput ? manuInput.value.trim() : '';
         const due = dueInput ? dueInput.value : '';
@@ -1965,6 +1986,8 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         const payload = {
             equipment_id: eqId || `EQ-${Date.now().toString().slice(-5)}`, 
             standard_name: name,
+            name_en: nameEn,
+            name_vi: name,
             manufacturer: manu,
             due_date: due,
             points: points
@@ -2001,6 +2024,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         if (modal) modal.style.display = 'flex';
 
         if (document.getElementById('new-name')) document.getElementById('new-name').value = '';
+        if (document.getElementById('new-name-en')) document.getElementById('new-name-en').value = '';
         if (document.getElementById('new-eq-id')) document.getElementById('new-eq-id').value = '';
         if (document.getElementById('new-manu')) document.getElementById('new-manu').value = '';
         if (document.getElementById('new-due')) document.getElementById('new-due').value = '';

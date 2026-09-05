@@ -858,9 +858,8 @@ async function main(opts) {
         // Determine instDisplay early for dynamic line estimation
         let instVi = cert.INSTRUMENT_NAME || (tpl && tpl.NAME_VI) || '–';
         let instEn = cert.INSTRUMENT_NAME_EN || '';
-        if (!instEn && tpl && tpl.NAME) {
-            // Strip leading number prefix (e.g. "1.1 Auto Crocking Meter" → "Auto Crocking Meter")
-            instEn = tpl.NAME.replace(/^\d+\.\d*\s*/, '').trim();
+        if (!instEn && tpl) {
+            instEn = tpl.NAME_EN || tpl.name_en || (tpl.NAME ? tpl.NAME.replace(/^\d+\.\d*\s*/, '').trim() : '');
         }
 
         // ─── DYNAMIC SPACER AND FONT SIZE CALCULATION FOR TABLE 1 ───

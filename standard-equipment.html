@@ -1501,7 +1501,9 @@ async function syncEquipmentDBFromAPI() {
       freshDB[t.NAME] = {
         manufacturer: t.MANUFACTURER || '',
         model: t.MODEL || '',
-        instEn: t.NAME,
+        instEn: t.NAME_EN || t.name_en || t.NAME,
+        nameEn: t.NAME_EN || t.name_en || t.NAME,
+        nameVi: t.NAME_VI || t.name_vi || '',
         equipmentId: t.EQUIPMENT_ID || '',
         procedure: t.PROCEDURE || t.procedure || '',
         refStandard: t.REF_STANDARD || t.ref_standard || '',
@@ -1926,10 +1928,10 @@ function formatParamNameHtml(rawName) {
 }
 
 function selectEquipmentTemplate(key) {
-  document.getElementById('f-inst-vi').value = key;
-  document.getElementById('equipment-suggestions').style.display = 'none';
   const eq = MockDatabaseEquipment[key];
   if (!eq) return;
+  document.getElementById('f-inst-vi').value = eq.nameVi || key;
+  document.getElementById('equipment-suggestions').style.display = 'none';
   document.getElementById('f-mfr').value = eq.manufacturer || '';
   document.getElementById('f-model').value = eq.model || '';
   document.getElementById('f-id').value = eq.equipmentId || '';
