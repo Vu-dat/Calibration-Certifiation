@@ -1564,6 +1564,13 @@ function applyEquipmentCache(templates) {
       if (name === 'Snagging box') return 'ICI Pilling Box';
       if (name === 'BS 8479 Snagging Test Box') return 'BS 8479 Snagging Test Box';
       if (name === 'Tensile Strength Tester') return 'Tensile Strength Tester';
+      if (name === 'Tearing Tester') return 'Tearing Strength Tester';
+      if (name === 'Pneumatic Bursting Strength Tester') return 'Pneumatic Bursting Strength Tester';
+      if (name === 'Hydraulic Bursting Strength Tester') return 'Hydraulic Bursting Strength Tester';
+      if (name === 'Mullen C Bursting Strength Tester') return 'Mullen C Bursting Strength Tester';
+      if (name === 'Hydrostatic Test Head') return 'Hydrostatic Head Tester';
+      if (name === 'Wascator') return 'Wascator';
+      if (name === 'AATCC Washing Machine') return 'AATCC Washing Machine';
       if (name.startsWith('Martindale')) return 'Martindale';
       return name;
     })();
@@ -1674,6 +1681,27 @@ function resolveEquipmentName(idOrName) {
   if (queryNorm.includes('random tumble') || queryNorm.includes('d3512') || (queryNorm.includes('thiet bi') && queryNorm.includes('xu long astm'))) {
     if (queryNorm.includes('4') && MockDatabaseEquipment['Random Tumble Pilling Tester - 4']) return 'Random Tumble Pilling Tester - 4';
     if (MockDatabaseEquipment['Random Tumble Pilling Tester - 2']) return 'Random Tumble Pilling Tester - 2';
+  }
+  if (queryNorm.includes('tearing') || queryNorm.includes('xe rach')) {
+    if (MockDatabaseEquipment['Tearing Tester']) return 'Tearing Tester';
+  }
+  if (queryNorm.includes('pneumatic') || (queryNorm.includes('danh thung') && queryNorm.includes('khi nen'))) {
+    if (MockDatabaseEquipment['Pneumatic Bursting Strength Tester']) return 'Pneumatic Bursting Strength Tester';
+  }
+  if (queryNorm.includes('hydraulic') || (queryNorm.includes('danh thung') && queryNorm.includes('thuy luc'))) {
+    if (MockDatabaseEquipment['Hydraulic Bursting Strength Tester']) return 'Hydraulic Bursting Strength Tester';
+  }
+  if (queryNorm.includes('mullen')) {
+    if (MockDatabaseEquipment['Mullen C Bursting Strength Tester']) return 'Mullen C Bursting Strength Tester';
+  }
+  if (queryNorm.includes('hydrostatic') || queryNorm.includes('chong tham')) {
+    if (MockDatabaseEquipment['Hydrostatic Test Head']) return 'Hydrostatic Test Head';
+  }
+  if (queryNorm.includes('wascator') || queryNorm.includes('6330') || queryNorm.includes('fom 71')) {
+    if (MockDatabaseEquipment['Wascator']) return 'Wascator';
+  }
+  if (queryNorm.includes('aatcc') && (queryNorm.includes('washing') || queryNorm.includes('giat') || queryNorm.includes('lbt'))) {
+    if (MockDatabaseEquipment['AATCC Washing Machine']) return 'AATCC Washing Machine';
   }
 
   const keys = Object.keys(MockDatabaseEquipment);
