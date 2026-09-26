@@ -1571,6 +1571,20 @@ function applyEquipmentCache(templates) {
       if (name === 'Hydrostatic Test Head') return 'Hydrostatic Head Tester';
       if (name === 'Wascator') return 'Wascator';
       if (name === 'AATCC Washing Machine') return 'AATCC Washing Machine';
+      if (name === 'Color Fastness to wash tester') return 'Color fastness to wash tester';
+      if (name === 'Miele Washing Machine PWM 906') return 'Front-load washing machine Miele PWM 906';
+      if (name === 'ISO 6330 Tumble Dryer') return 'ISO 6330 Precision Tumble Dryer';
+      if (name === 'AATCC Tumble Dryer') return 'AATCC Tumble Dryer';
+      if (name === 'Oven') return 'Oven';
+      if (name === 'Temp_hump chamber') return 'Temperature and humidity chamber';
+      if (name === 'Perspirometer with weight') return 'Perspirometer with weight';
+      if (name === 'Perspirometer - without weight') return 'Perspirometer without weight';
+      if (name === 'Weight for Perspirometer') return 'Weight for perspirometer';
+      if (name === 'Loading weight') return 'Loading weight';
+      if (name === 'pH meter') return 'pH meter';
+      if (name === 'Scorch and Submilation Tester') return 'Scorch and Sublimation Tester';
+      if (name === 'Heat press') return 'Heat press machine';
+      if (name === 'Fusion machine') return 'Fusion machine';
       if (name.startsWith('Martindale')) return 'Martindale';
       return name;
     })();
@@ -1702,6 +1716,47 @@ function resolveEquipmentName(idOrName) {
   }
   if (queryNorm.includes('aatcc') && (queryNorm.includes('washing') || queryNorm.includes('giat') || queryNorm.includes('lbt'))) {
     if (MockDatabaseEquipment['AATCC Washing Machine']) return 'AATCC Washing Machine';
+  }
+  if (queryNorm.includes('fastness to wash') || queryNorm.includes('ben mau giat') || queryNorm.includes('m228c')) {
+    if (MockDatabaseEquipment['Color Fastness to wash tester']) return 'Color Fastness to wash tester';
+  }
+  if (queryNorm.includes('pwm 906') || queryNorm.includes('pw 906') || (queryNorm.includes('miele') && queryNorm.includes('giat'))) {
+    if (MockDatabaseEquipment['Miele Washing Machine PWM 906']) return 'Miele Washing Machine PWM 906';
+  }
+  if (queryNorm.includes('iso') && (queryNorm.includes('dryer') || queryNorm.includes('say'))) {
+    if (MockDatabaseEquipment['ISO 6330 Tumble Dryer']) return 'ISO 6330 Tumble Dryer';
+  }
+  if (queryNorm.includes('aatcc') && (queryNorm.includes('dryer') || queryNorm.includes('say'))) {
+    if (MockDatabaseEquipment['AATCC Tumble Dryer']) return 'AATCC Tumble Dryer';
+  }
+  if (queryNorm.includes('oven') || queryNorm.includes('tu say') || queryNorm.includes('un55')) {
+    if (MockDatabaseEquipment['Oven']) return 'Oven';
+  }
+  if (queryNorm.includes('temp hump') || queryNorm.includes('nhiet do do am') || queryNorm.includes('humidity chamber')) {
+    if (MockDatabaseEquipment['Temp_hump chamber']) return 'Temp_hump chamber';
+  }
+  if (queryNorm.includes('perspirometer') || queryNorm.includes('mo hoi')) {
+    if ((queryNorm.includes('without') || queryNorm.includes('khong kem')) && MockDatabaseEquipment['Perspirometer - without weight']) return 'Perspirometer - without weight';
+    if ((queryNorm.includes('weight') || queryNorm.includes('kem')) && !queryNorm.includes('tai trong') && MockDatabaseEquipment['Perspirometer with weight']) return 'Perspirometer with weight';
+    if (queryNorm.includes('weight') || queryNorm.includes('tai trong') || queryNorm.includes('qua can')) {
+      if (MockDatabaseEquipment['Weight for Perspirometer']) return 'Weight for Perspirometer';
+    }
+    if (MockDatabaseEquipment['Perspirometer with weight']) return 'Perspirometer with weight';
+  }
+  if (queryNorm.includes('loading weight') || (queryNorm.includes('tai trong') && !queryNorm.includes('perspirometer'))) {
+    if (MockDatabaseEquipment['Loading weight']) return 'Loading weight';
+  }
+  if (queryNorm.includes('ph meter') || queryNorm.includes('do ph')) {
+    if (MockDatabaseEquipment['pH meter']) return 'pH meter';
+  }
+  if (queryNorm.includes('scorch') || queryNorm.includes('submilation') || queryNorm.includes('chay xem') || queryNorm.includes('thang hoa')) {
+    if (MockDatabaseEquipment['Scorch and Submilation Tester']) return 'Scorch and Submilation Tester';
+  }
+  if (queryNorm.includes('heat press') || queryNorm.includes('ep nhiet')) {
+    if (MockDatabaseEquipment['Heat press']) return 'Heat press';
+  }
+  if (queryNorm.includes('fusion') || queryNorm.includes('ep keo')) {
+    if (MockDatabaseEquipment['Fusion machine']) return 'Fusion machine';
   }
 
   const keys = Object.keys(MockDatabaseEquipment);
