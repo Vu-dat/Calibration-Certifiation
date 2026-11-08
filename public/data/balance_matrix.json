@@ -1,0 +1,1918 @@
+{
+  "0.0001g": [
+    {
+      "maxLabel": "220/210 g",
+      "maxNumeric": 220,
+      "unit": "g",
+      "testPoints": [
+        1,
+        2,
+        5,
+        10,
+        20,
+        50,
+        100,
+        150,
+        200
+      ],
+      "tolerances": [
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.001",
+        "± 0.001",
+        "± 0.001"
+      ],
+      "uncertainties": [
+        0.00015,
+        0.00017,
+        0.00021,
+        0.00026,
+        0.00032,
+        0.00038,
+        0.00062,
+        0.00084,
+        0.0013
+      ],
+      "repeatabilityLoad": 150,
+      "eccentricityLoad": 70,
+      "accuracyClass": "Cấp I",
+      "sourceSheet": "0.0001g",
+      "sourceRow": 3
+    },
+    {
+      "maxLabel": "110/100 g",
+      "maxNumeric": 110,
+      "unit": "g",
+      "testPoints": [
+        1,
+        2,
+        5,
+        10,
+        15,
+        20,
+        30,
+        50,
+        70,
+        100
+      ],
+      "tolerances": [
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.001",
+        "± 0.001"
+      ],
+      "uncertainties": [
+        0.00015,
+        0.00017,
+        0.00021,
+        0.00026,
+        0.00028,
+        0.00032,
+        0.00034,
+        0.00038,
+        0.005,
+        0.0062
+      ],
+      "repeatabilityLoad": 80,
+      "eccentricityLoad": 40,
+      "accuracyClass": "Cấp I",
+      "sourceSheet": "0.0001g",
+      "sourceRow": 12
+    },
+    {
+      "maxLabel": "50 g",
+      "maxNumeric": 50,
+      "unit": "g",
+      "testPoints": [
+        1,
+        2,
+        5,
+        10,
+        15,
+        20,
+        25,
+        30,
+        40,
+        50
+      ],
+      "tolerances": [
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.0005",
+        "± 0.001",
+        "± 0.001",
+        "± 0.001",
+        "± 0.0015"
+      ],
+      "uncertainties": [
+        0.00015,
+        0.00017,
+        0.00021,
+        0.00026,
+        0.00028,
+        0.00032,
+        0.00033,
+        0.00034,
+        0.00036,
+        0.00038
+      ],
+      "repeatabilityLoad": 50,
+      "eccentricityLoad": 20,
+      "accuracyClass": "Cấp I",
+      "sourceSheet": "0.0001g",
+      "sourceRow": 21
+    }
+  ],
+  "0.001g": [
+    {
+      "maxLabel": "100/120 g",
+      "maxNumeric": 100,
+      "unit": "g",
+      "testPoints": [
+        1,
+        2,
+        5,
+        10,
+        15,
+        20,
+        30,
+        50,
+        70,
+        100
+      ],
+      "tolerances": [
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.01",
+        "± 0.01"
+      ],
+      "uncertainties": [
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053
+      ],
+      "repeatabilityLoad": 80,
+      "eccentricityLoad": 40,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.001g",
+      "sourceRow": 3
+    },
+    {
+      "maxLabel": "200/220 g",
+      "maxNumeric": 200,
+      "unit": "g",
+      "testPoints": [
+        1,
+        2,
+        5,
+        10,
+        20,
+        50,
+        100,
+        150,
+        170,
+        200
+      ],
+      "tolerances": [
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.01",
+        "± 0.01",
+        "± 0.01",
+        "± 0.01"
+      ],
+      "uncertainties": [
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053
+      ],
+      "repeatabilityLoad": 150,
+      "eccentricityLoad": 60,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.001g",
+      "sourceRow": 12
+    },
+    {
+      "maxLabel": "300/320 g",
+      "maxNumeric": 300,
+      "unit": "g",
+      "testPoints": [
+        1,
+        2,
+        5,
+        10,
+        20,
+        50,
+        100,
+        150,
+        200,
+        300
+      ],
+      "tolerances": [
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.01",
+        "± 0.01",
+        "± 0.01",
+        "± 0.015"
+      ],
+      "uncertainties": [
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053
+      ],
+      "repeatabilityLoad": 250,
+      "eccentricityLoad": 100,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.001g",
+      "sourceRow": 21
+    },
+    {
+      "maxLabel": "400/420 g",
+      "maxNumeric": 400,
+      "unit": "g",
+      "testPoints": [
+        1,
+        2,
+        5,
+        10,
+        20,
+        50,
+        100,
+        200,
+        300,
+        400
+      ],
+      "tolerances": [
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.01",
+        "± 0.01",
+        "± 0.01",
+        "± 0.015"
+      ],
+      "uncertainties": [
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.02
+      ],
+      "repeatabilityLoad": 300,
+      "eccentricityLoad": 120,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.001g",
+      "sourceRow": 30
+    },
+    {
+      "maxLabel": "500/520 g",
+      "maxNumeric": 500,
+      "unit": "g",
+      "testPoints": [
+        1,
+        2,
+        5,
+        10,
+        50,
+        100,
+        200,
+        300,
+        400,
+        500
+      ],
+      "tolerances": [
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.01",
+        "± 0.01",
+        "± 0.015",
+        "± 0.015",
+        "± 0.015"
+      ],
+      "uncertainties": [
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.02,
+        0.02
+      ],
+      "repeatabilityLoad": 400,
+      "eccentricityLoad": 150,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.001g",
+      "sourceRow": 39
+    },
+    {
+      "maxLabel": "600/620 g",
+      "maxNumeric": 600,
+      "unit": "g",
+      "testPoints": [
+        1,
+        5,
+        20,
+        50,
+        100,
+        200,
+        300,
+        400,
+        500,
+        600
+      ],
+      "tolerances": [
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.005",
+        "± 0.01",
+        "± 0.01",
+        "± 0.015",
+        "± 0.015",
+        "± 0.015",
+        "± 0.015"
+      ],
+      "uncertainties": [
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.0053,
+        0.02,
+        0.02,
+        0.02
+      ],
+      "repeatabilityLoad": 500,
+      "eccentricityLoad": 200,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.001g",
+      "sourceRow": 48
+    }
+  ],
+  "0.01g": [
+    {
+      "maxLabel": "200/220 g",
+      "maxNumeric": 200,
+      "unit": "g",
+      "testPoints": [
+        1,
+        2,
+        5,
+        10,
+        20,
+        50,
+        70,
+        100,
+        150,
+        200
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.1",
+        "± 0.1",
+        "± 0.1",
+        "± 0.1"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02
+      ],
+      "repeatabilityLoad": 150,
+      "eccentricityLoad": 60,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.01g",
+      "sourceRow": 3
+    },
+    {
+      "maxLabel": "300/320 g",
+      "maxNumeric": 300,
+      "unit": "g",
+      "testPoints": [
+        1,
+        2,
+        5,
+        10,
+        20,
+        50,
+        100,
+        150,
+        200,
+        300
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.1",
+        "± 0.1",
+        "± 0.1",
+        "± 0.15"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02
+      ],
+      "repeatabilityLoad": 250,
+      "eccentricityLoad": 100,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.01g",
+      "sourceRow": 12
+    },
+    {
+      "maxLabel": "400/420 g",
+      "maxNumeric": 400,
+      "unit": "g",
+      "testPoints": [
+        1,
+        2,
+        5,
+        10,
+        20,
+        50,
+        100,
+        200,
+        300,
+        400
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.1",
+        "± 0.1",
+        "± 0.1",
+        "± 0.15"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02
+      ],
+      "repeatabilityLoad": 300,
+      "eccentricityLoad": 120,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.01g",
+      "sourceRow": 21
+    },
+    {
+      "maxLabel": "500/520 g",
+      "maxNumeric": 500,
+      "unit": "g",
+      "testPoints": [
+        1,
+        2,
+        5,
+        10,
+        50,
+        100,
+        200,
+        300,
+        400,
+        500
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02
+      ],
+      "repeatabilityLoad": 400,
+      "eccentricityLoad": 150,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.01g",
+      "sourceRow": 30
+    },
+    {
+      "maxLabel": "600/620 g",
+      "maxNumeric": 600,
+      "unit": "g",
+      "testPoints": [
+        1,
+        5,
+        20,
+        50,
+        100,
+        200,
+        300,
+        400,
+        500,
+        600
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.1"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.03
+      ],
+      "repeatabilityLoad": 500,
+      "eccentricityLoad": 20,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.01g",
+      "sourceRow": 39
+    },
+    {
+      "maxLabel": "1200/1000/1500 g",
+      "maxNumeric": 1200,
+      "unit": "g",
+      "testPoints": [
+        1,
+        5,
+        20,
+        50,
+        100,
+        200,
+        300,
+        500,
+        700,
+        1000
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.1",
+        "± 0.1"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.03,
+        0.03
+      ],
+      "repeatabilityLoad": 1000,
+      "eccentricityLoad": 400,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.01g",
+      "sourceRow": 48
+    },
+    {
+      "maxLabel": "2200/2000 g",
+      "maxNumeric": 2200,
+      "unit": "g",
+      "testPoints": [
+        1,
+        5,
+        20,
+        50,
+        100,
+        200,
+        500,
+        1000,
+        1500,
+        2000
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.1",
+        "± 0.1",
+        "± 0.1"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.03,
+        0.03,
+        0.03
+      ],
+      "repeatabilityLoad": 1500,
+      "eccentricityLoad": 700,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.01g",
+      "sourceRow": 57
+    },
+    {
+      "maxLabel": "3000/3200 g",
+      "maxNumeric": 3000,
+      "unit": "g",
+      "testPoints": [
+        1,
+        5,
+        20,
+        50,
+        100,
+        200,
+        500,
+        1000,
+        2000,
+        3000
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.1",
+        "± 0.1",
+        "± 0.15"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.03,
+        0.03
+      ],
+      "repeatabilityLoad": 2500,
+      "eccentricityLoad": 1000,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.01g",
+      "sourceRow": 66
+    },
+    {
+      "maxLabel": "4200/4000 g",
+      "maxNumeric": 4200,
+      "unit": "g",
+      "testPoints": [
+        1,
+        5,
+        20,
+        50,
+        100,
+        500,
+        1000,
+        2000,
+        3000,
+        4000
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.1",
+        "± 0.15",
+        "± 0.15"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.03,
+        0.03,
+        0.03
+      ],
+      "repeatabilityLoad": 3000,
+      "eccentricityLoad": 1400,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.01g",
+      "sourceRow": 75
+    },
+    {
+      "maxLabel": "6200/6000 g",
+      "maxNumeric": 6200,
+      "unit": "g",
+      "testPoints": [
+        10,
+        50,
+        100,
+        500,
+        1000,
+        2000,
+        3000,
+        4000,
+        5000,
+        6000
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.1",
+        "± 0.15",
+        "± 0.15",
+        "± 0.15",
+        "± 0.15"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.03,
+        0.03,
+        0.03,
+        0.03,
+        0.03
+      ],
+      "repeatabilityLoad": 5000,
+      "eccentricityLoad": 2000,
+      "accuracyClass": "Cấp II",
+      "sourceSheet": "0.01g",
+      "sourceRow": 84
+    }
+  ],
+  "0.1g": [
+    {
+      "maxLabel": "1200/1000/1500 g",
+      "maxNumeric": 1200,
+      "unit": "g",
+      "testPoints": [
+        1,
+        5,
+        20,
+        50,
+        100,
+        200,
+        300,
+        500,
+        700,
+        1000
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.1",
+        "± 0.1"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.03,
+        0.03
+      ],
+      "repeatabilityLoad": 1000,
+      "eccentricityLoad": 400,
+      "accuracyClass": "Cấp III",
+      "sourceSheet": "0.1g",
+      "sourceRow": 48
+    },
+    {
+      "maxLabel": "2200/2000 g",
+      "maxNumeric": 2200,
+      "unit": "g",
+      "testPoints": [
+        1,
+        5,
+        20,
+        50,
+        100,
+        200,
+        500,
+        1000,
+        1500,
+        2000
+      ],
+      "tolerances": [
+        "± 0.5",
+        "± 0.5",
+        "± 0.5",
+        "± 0.5",
+        "± 0.5",
+        "± 0.5",
+        "± 0.5",
+        "± 0.5",
+        "± 0.5",
+        "± 0.5"
+      ],
+      "uncertainties": [
+        0.005,
+        0.005,
+        0.005,
+        0.005,
+        0.005,
+        0.005,
+        0.005,
+        0.03,
+        0.03,
+        0.03
+      ],
+      "repeatabilityLoad": 1500,
+      "eccentricityLoad": 700,
+      "accuracyClass": "Cấp III",
+      "sourceSheet": "0.1g",
+      "sourceRow": 12
+    },
+    {
+      "maxLabel": "3000/3200 g",
+      "maxNumeric": 3000,
+      "unit": "g",
+      "testPoints": [
+        1,
+        5,
+        20,
+        50,
+        100,
+        200,
+        500,
+        1000,
+        2000,
+        3000
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.1",
+        "± 0.1",
+        "± 0.15"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.03,
+        0.03
+      ],
+      "repeatabilityLoad": 2500,
+      "eccentricityLoad": 1000,
+      "accuracyClass": "Cấp III",
+      "sourceSheet": "0.1g",
+      "sourceRow": 66
+    },
+    {
+      "maxLabel": "4200/4000 g",
+      "maxNumeric": 4200,
+      "unit": "g",
+      "testPoints": [
+        1,
+        5,
+        20,
+        50,
+        100,
+        500,
+        1000,
+        2000,
+        3000,
+        4000
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.1",
+        "± 0.15",
+        "± 0.15"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.03,
+        0.03,
+        0.03
+      ],
+      "repeatabilityLoad": 3000,
+      "eccentricityLoad": 1400,
+      "accuracyClass": "Cấp III",
+      "sourceSheet": "0.1g",
+      "sourceRow": 75
+    },
+    {
+      "maxLabel": "6200/6000 g",
+      "maxNumeric": 6200,
+      "unit": "g",
+      "testPoints": [
+        10,
+        50,
+        100,
+        500,
+        1000,
+        2000,
+        3000,
+        4000,
+        5000,
+        6000
+      ],
+      "tolerances": [
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.05",
+        "± 0.1",
+        "± 0.15",
+        "± 0.15",
+        "± 0.15",
+        "± 0.15"
+      ],
+      "uncertainties": [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.03,
+        0.03,
+        0.03,
+        0.03,
+        0.03
+      ],
+      "repeatabilityLoad": 5000,
+      "eccentricityLoad": 2000,
+      "accuracyClass": "Cấp III",
+      "sourceSheet": "0.1g",
+      "sourceRow": 84
+    }
+  ],
+  "1g": [],
+  "sourceMatrices": {
+    "0.01kg": [
+      [
+        null,
+        null,
+        null,
+        null,
+        "4 số lẻ = 0.0001g",
+        "3 số lẻ = 0.001g",
+        "2 số lẻ = 0.01g",
+        "1 số lẻ = 0.1g"
+      ],
+      [
+        null,
+        null,
+        null,
+        {
+          "richText": [
+            {
+              "text": "M"
+            },
+            {
+              "font": {
+                "bold": true,
+                "size": 10,
+                "color": {
+                  "argb": "FF000000"
+                },
+                "name": "Arial",
+                "family": 2
+              },
+              "text": "ức cân"
+            }
+          ]
+        },
+        "Dung sai",
+        "Dung sai",
+        "Dung sai",
+        "Dung sai"
+      ],
+      [
+        null,
+        null,
+        null,
+        "Load",
+        "Tolerance",
+        "Tolerance",
+        "Tolerance",
+        "Tolerance"
+      ],
+      [
+        null,
+        null,
+        null,
+        "(g)",
+        "(g)",
+        "(g)",
+        "(g)",
+        "(g)"
+      ],
+      [
+        null,
+        null,
+        null,
+        1,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        2,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        5,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        10,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        20,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        50,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        100,
+        "± 0.001",
+        "± 0.01",
+        "± 0.1",
+        "± 1"
+      ],
+      [
+        null,
+        null,
+        null,
+        150,
+        "± 0.001",
+        "± 0.01",
+        "± 0.1",
+        "± 1"
+      ],
+      [
+        null,
+        null,
+        null,
+        200,
+        "± 0.001",
+        "± 0.01",
+        "± 0.1",
+        "± 1"
+      ],
+      [
+        null,
+        null,
+        null,
+        200,
+        300,
+        600,
+        1200
+      ],
+      [
+        null,
+        null,
+        null,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        null,
+        null,
+        null,
+        2,
+        2,
+        2,
+        2
+      ],
+      [
+        null,
+        null,
+        null,
+        5,
+        5,
+        5,
+        5
+      ],
+      [
+        null,
+        null,
+        null,
+        10,
+        10,
+        10,
+        10
+      ],
+      [
+        null,
+        null,
+        null,
+        20,
+        20,
+        20,
+        50
+      ],
+      [
+        null,
+        null,
+        null,
+        50,
+        50,
+        50,
+        100
+      ],
+      [
+        null,
+        null,
+        null,
+        100,
+        100,
+        100,
+        200
+      ],
+      [
+        null,
+        null,
+        null,
+        150,
+        200,
+        300,
+        500
+      ],
+      [
+        null,
+        null,
+        null,
+        200,
+        300,
+        600,
+        1000
+      ],
+      [
+        null,
+        null,
+        "Mức cân độ lặp lại"
+      ],
+      [
+        null,
+        null,
+        null,
+        150,
+        200,
+        500,
+        1000
+      ],
+      [
+        null,
+        null,
+        "Mức cân độ lệch góc"
+      ],
+      [
+        null,
+        null,
+        null,
+        70,
+        100,
+        200,
+        400
+      ]
+    ],
+    "0.1kg": [
+      [
+        null,
+        null,
+        null,
+        null,
+        "4 số lẻ = 0.0001g",
+        "3 số lẻ = 0.001g",
+        "2 số lẻ = 0.01g",
+        "1 số lẻ = 0.1g"
+      ],
+      [
+        null,
+        null,
+        null,
+        {
+          "richText": [
+            {
+              "text": "M"
+            },
+            {
+              "font": {
+                "bold": true,
+                "size": 10,
+                "color": {
+                  "argb": "FF000000"
+                },
+                "name": "Arial",
+                "family": 2
+              },
+              "text": "ức cân"
+            }
+          ]
+        },
+        "Dung sai",
+        "Dung sai",
+        "Dung sai",
+        "Dung sai"
+      ],
+      [
+        null,
+        null,
+        null,
+        "Load",
+        "Tolerance",
+        "Tolerance",
+        "Tolerance",
+        "Tolerance"
+      ],
+      [
+        null,
+        null,
+        null,
+        "(g)",
+        "(g)",
+        "(g)",
+        "(g)",
+        "(g)"
+      ],
+      [
+        null,
+        null,
+        null,
+        1,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        2,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        5,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        10,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        20,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        50,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        100,
+        "± 0.001",
+        "± 0.01",
+        "± 0.1",
+        "± 1"
+      ],
+      [
+        null,
+        null,
+        null,
+        150,
+        "± 0.001",
+        "± 0.01",
+        "± 0.1",
+        "± 1"
+      ],
+      [
+        null,
+        null,
+        null,
+        200,
+        "± 0.001",
+        "± 0.01",
+        "± 0.1",
+        "± 1"
+      ],
+      [
+        null,
+        null,
+        null,
+        200,
+        300,
+        600,
+        1200
+      ],
+      [
+        null,
+        null,
+        null,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        null,
+        null,
+        null,
+        2,
+        2,
+        2,
+        2
+      ],
+      [
+        null,
+        null,
+        null,
+        5,
+        5,
+        5,
+        5
+      ],
+      [
+        null,
+        null,
+        null,
+        10,
+        10,
+        10,
+        10
+      ],
+      [
+        null,
+        null,
+        null,
+        20,
+        20,
+        20,
+        50
+      ],
+      [
+        null,
+        null,
+        null,
+        50,
+        50,
+        50,
+        100
+      ],
+      [
+        null,
+        null,
+        null,
+        100,
+        100,
+        100,
+        200
+      ],
+      [
+        null,
+        null,
+        null,
+        150,
+        200,
+        300,
+        500
+      ],
+      [
+        null,
+        null,
+        null,
+        200,
+        300,
+        600,
+        1000
+      ],
+      [
+        null,
+        null,
+        "Mức cân độ lặp lại"
+      ],
+      [
+        null,
+        null,
+        null,
+        150,
+        200,
+        500,
+        1000
+      ],
+      [
+        null,
+        null,
+        "Mức cân độ lệch góc"
+      ],
+      [
+        null,
+        null,
+        null,
+        70,
+        100,
+        200,
+        400
+      ]
+    ],
+    "1kg": [
+      [
+        null,
+        null,
+        null,
+        null,
+        "4 số lẻ = 0.0001g",
+        "3 số lẻ = 0.001g",
+        "2 số lẻ = 0.01g",
+        "1 số lẻ = 0.1g"
+      ],
+      [
+        null,
+        null,
+        null,
+        {
+          "richText": [
+            {
+              "text": "M"
+            },
+            {
+              "font": {
+                "bold": true,
+                "size": 10,
+                "color": {
+                  "argb": "FF000000"
+                },
+                "name": "Arial",
+                "family": 2
+              },
+              "text": "ức cân"
+            }
+          ]
+        },
+        "Dung sai",
+        "Dung sai",
+        "Dung sai",
+        "Dung sai"
+      ],
+      [
+        null,
+        null,
+        null,
+        "Load",
+        "Tolerance",
+        "Tolerance",
+        "Tolerance",
+        "Tolerance"
+      ],
+      [
+        null,
+        null,
+        null,
+        "(g)",
+        "(g)",
+        "(g)",
+        "(g)",
+        "(g)"
+      ],
+      [
+        null,
+        null,
+        null,
+        1,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        2,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        5,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        10,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        20,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        50,
+        "± 0.0005",
+        "± 0.005",
+        "± 0.05",
+        "± 0.5"
+      ],
+      [
+        null,
+        null,
+        null,
+        100,
+        "± 0.001",
+        "± 0.01",
+        "± 0.1",
+        "± 1"
+      ],
+      [
+        null,
+        null,
+        null,
+        150,
+        "± 0.001",
+        "± 0.01",
+        "± 0.1",
+        "± 1"
+      ],
+      [
+        null,
+        null,
+        null,
+        200,
+        "± 0.001",
+        "± 0.01",
+        "± 0.1",
+        "± 1"
+      ],
+      [
+        null,
+        null,
+        null,
+        200,
+        300,
+        600,
+        1200
+      ],
+      [
+        null,
+        null,
+        null,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        null,
+        null,
+        null,
+        2,
+        2,
+        2,
+        2
+      ],
+      [
+        null,
+        null,
+        null,
+        5,
+        5,
+        5,
+        5
+      ],
+      [
+        null,
+        null,
+        null,
+        10,
+        10,
+        10,
+        10
+      ],
+      [
+        null,
+        null,
+        null,
+        20,
+        20,
+        20,
+        50
+      ],
+      [
+        null,
+        null,
+        null,
+        50,
+        50,
+        50,
+        100
+      ],
+      [
+        null,
+        null,
+        null,
+        100,
+        100,
+        100,
+        200
+      ],
+      [
+        null,
+        null,
+        null,
+        150,
+        200,
+        300,
+        500
+      ],
+      [
+        null,
+        null,
+        null,
+        200,
+        300,
+        600,
+        1000
+      ],
+      [
+        null,
+        null,
+        "Mức cân độ lặp lại"
+      ],
+      [
+        null,
+        null,
+        null,
+        150,
+        200,
+        500,
+        1000
+      ],
+      [
+        null,
+        null,
+        "Mức cân độ lệch góc"
+      ],
+      [
+        null,
+        null,
+        null,
+        70,
+        100,
+        200,
+        400
+      ]
+    ]
+  }
+}

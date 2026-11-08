@@ -239,6 +239,285 @@ function t2Cell(children, width, colSpan = 1, opts = {}) {
     });
 }
 
+// ─── BALANCE (CÂN ĐIỆN TỬ) HELPERS ─────────────────────────────────────
+function isBalanceName(name) {
+    const normalized = String(name || '').toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+    return normalized.includes('balance')
+        || normalized.includes('can dien tu')
+        || normalized.includes('can phan tich')
+        || normalized.includes('can ky thuat')
+        || /\bcan\b/.test(normalized);
+}
+
+function parseBalanceRaw(cert, optsData) {
+    const candidates = [];
+    if (optsData) candidates.push(optsData.balanceRawData, optsData.raw_data);
+    if (cert) candidates.push(cert.RAW_DATA, cert.raw_data);
+
+    for (const candidate of candidates) {
+        if (!candidate) continue;
+        try {
+            const obj = typeof candidate === 'string' ? JSON.parse(candidate) : candidate;
+            if (obj && obj.division && Array.isArray(obj.indication)) return obj;
+        } catch (e) { /* bỏ qua dữ liệu không hợp lệ */ }
+    }
+    return null;
+}
+
+function balanceDecimals(division) {
+    const match = String(division || '').match(/\.(\d+)/);
+    return match ? match[1].length : 0;
+}
+
+function balanceFmt(value, decimals) {
+    if (value === null || value === undefined || value === '' || !isFinite(Number(value))) return '';
+    const factor = Math.pow(10, decimals);
+    return (Math.round(Number(value) * factor) / factor).toFixed(decimals);
+}
+
+function balanceNum(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const n = parseFloat(String(value).replace(',', '.'));
+    return isFinite(n) ? n : null;
+}
+
+// 3 bảng đặc thù của Cân theo mẫu 40. Balance.docx
+function createBalanceResultTables(balance) {
+    const decimals = balanceDecimals(balance.division);
+    // Mẫu 40. Balance: giá trị chỉ thị/hiệu chính hiển thị theo độ chia kiểm e (10d)
+    const displayDecimals = Math.max(decimals - 1, 0);
+    const unit = balance.unit || 'g';
+    const blocks = [];
+    const cellMargins = { top: 60, bottom: 60, left: 80, right: 80 };
+    const grid = { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID };
+
+    const mkHeaderCell = (vi, en, width) => new TableCell({
+        children: [
+            para(vi, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER }),
+            para(en, { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER })
+        ],
+        width: { size: width, type: WidthType.DXA },
+        verticalAlign: 'center',
+        shading: { fill: 'F2F2F2' },
+        borders: grid,
+        margins: cellMargins
+    });
+
+    const mkCell = (text, width, opts = {}) => new TableCell({
+        children: [para(text, { fontSize: 10, bold: !!opts.bold, alignment: AlignmentType.CENTER })],
+        width: { size: width, type: WidthType.DXA },
+        verticalAlign: 'center',
+        borders: grid,
+        margins: cellMargins
+    });
+
+    // ─── 1. Sai lệch của chỉ thị ───
+    blocks.push(new Paragraph({
+        spacing: { before: 0, after: 80 },
+        children: [
+            new TextRun({ text: 'Sai lệch của chỉ thị/ ', font, size: 20, bold: true }),
+            new TextRun({ text: 'Difference of Indication :', font, size: 20, bold: true, italics: true })
+        ]
+    }));
+
+    const indicationWidths = [1350, 1800, 1617, 1623, 1440, 1356];
+    const indicationRows = [new TableRow({
+        tableHeader: true,
+        height: { value: 520, rule: HeightRule.AT_LEAST },
+        children: [
+            mkHeaderCell(`Mức cân Load (${unit})`, 'Load', indicationWidths[0]),
+            mkHeaderCell(`Giá trị hiển thị (${unit})`, 'Indication value', indicationWidths[1]),
+            mkHeaderCell(`Độ KĐBĐ (${unit})`, 'Uncertainty', indicationWidths[2]),
+            mkHeaderCell(`Số hiệu chính (${unit})`, 'Correction', indicationWidths[3]),
+            mkHeaderCell(`Dung sai (${unit})`, 'Tolerance', indicationWidths[4]),
+            mkHeaderCell('Kết luận', 'Conclusion', indicationWidths[5])
+        ]
+    })];
+
+    const indication = Array.isArray(balance.indication) ? balance.indication : [];
+    indication.forEach(item => {
+        const load = balanceNum(item.load);
+        const indicated = balanceNum(item.indicated);
+        let correction = balanceNum(item.correction);
+        if (correction === null && load !== null && indicated !== null) correction = load - indicated;
+
+        indicationRows.push(new TableRow({
+            height: { value: 300, rule: HeightRule.AT_LEAST },
+            children: [
+                mkCell(load !== null ? balanceFmt(load, 0) : '', indicationWidths[0], { bold: true }),
+                mkCell(indicated !== null ? balanceFmt(indicated, displayDecimals) : '', indicationWidths[1]),
+                mkCell(balanceFmt(item.uncertainty, Math.max(decimals, 1)), indicationWidths[2]),
+                mkCell(correction !== null ? balanceFmt(correction, displayDecimals) : '', indicationWidths[3]),
+                mkCell(item.tolerance || '', indicationWidths[4]),
+                mkCell(item.conformity || '', indicationWidths[5], { bold: true })
+            ]
+        }));
+    });
+
+    if (!indication.length) {
+        indicationRows.push(new TableRow({
+            children: [mkCell('Chưa có dữ liệu', indicationWidths.reduce((a, b) => a + b, 0))]
+        }));
+    }
+
+    blocks.push(new Table({
+        rows: indicationRows,
+        width: { size: 9186, type: WidthType.DXA },
+        columnWidths: indicationWidths,
+        indent: { size: 355, type: WidthType.DXA },
+        alignment: AlignmentType.CENTER,
+        borders: TABLE_BORDER_GRID
+    }));
+
+    blocks.push(new Paragraph({ spacing: { before: 0, after: 0, line: 1 }, children: [new TextRun({ text: '', size: 2 })] }));
+
+    // ─── 2. Độ lặp lại ───
+    blocks.push(new Paragraph({
+        spacing: { before: 160, after: 80 },
+        children: [
+            new TextRun({ text: 'Độ lặp lại / ', font, size: 20, bold: true }),
+            new TextRun({ text: 'Repeatability :', font, size: 20, bold: true, italics: true })
+        ]
+    }));
+
+    const repeatability = balance.repeatability || {};
+    const repeatLoad = repeatability.load !== undefined && repeatability.load !== '' ? repeatability.load : balance.repeatabilityLoad;
+    const repeatDecimals = Math.max(decimals, 1);
+    const repeatRows = [
+        new TableRow({
+            tableHeader: true,
+            children: [
+                mkHeaderCell(`Mức cân Load (${unit})`, 'Load', 4680),
+                mkHeaderCell(`Độ lệch chuẩn (${unit})`, 'Standard Deviation', 4320)
+            ]
+        }),
+        new TableRow({
+            height: { value: 320, rule: HeightRule.AT_LEAST },
+            children: [
+                mkCell(`${repeatLoad !== undefined && repeatLoad !== '' ? repeatLoad : ''} ${unit} — Mức cân độ lặp lại`, 4680),
+                mkCell(balanceFmt(repeatability.stdDev, repeatDecimals), 4320, { bold: true })
+            ]
+        })
+    ];
+
+    blocks.push(new Table({
+        rows: repeatRows,
+        width: { size: 9000, type: WidthType.DXA },
+        columnWidths: [4680, 4320],
+        indent: { size: 355, type: WidthType.DXA },
+        alignment: AlignmentType.CENTER,
+        borders: TABLE_BORDER_GRID
+    }));
+
+    blocks.push(new Paragraph({ spacing: { before: 0, after: 0, line: 1 }, children: [new TextRun({ text: '', size: 2 })] }));
+
+    // ─── 3. Độ lệch góc ───
+    blocks.push(new Paragraph({
+        spacing: { before: 160, after: 80 },
+        children: [
+            new TextRun({ text: 'Độ lệch góc / ', font, size: 20, bold: true }),
+            new TextRun({ text: 'Eccentricity :', font, size: 20, bold: true, italics: true })
+        ]
+    }));
+
+    const eccentricity = balance.eccentricity || {};
+    const eccLoad = eccentricity.load !== undefined && eccentricity.load !== '' ? eccentricity.load : balance.eccentricityLoad;
+    const ecValues = Array.isArray(eccentricity.values) ? eccentricity.values : [];
+    const centerValue = balanceNum(ecValues[0]);
+    const diffs = [];
+    let maxDiff = null;
+    for (let i = 0; i < 5; i++) {
+        let diff = null;
+        if (i === 0 && centerValue !== null) diff = 0;
+        else {
+            const value = balanceNum(ecValues[i]);
+            if (value !== null && centerValue !== null) diff = Math.abs(value - centerValue);
+        }
+        diffs.push(diff);
+        if (i > 0 && diff !== null && (maxDiff === null || diff > maxDiff)) maxDiff = diff;
+    }
+
+    const sketchTable = new Table({
+        rows: [
+            new TableRow({ children: [mkCell('', 500), mkCell('2', 500, { bold: true }), mkCell('', 500)] }),
+            new TableRow({ children: [mkCell('1', 500, { bold: true }), mkCell('0', 500, { bold: true }), mkCell('3', 500, { bold: true })] }),
+            new TableRow({ children: [mkCell('', 500), mkCell('4', 500, { bold: true }), mkCell('', 500)] })
+        ],
+        width: { size: 1500, type: WidthType.DXA },
+        columnWidths: [500, 500, 500],
+        alignment: AlignmentType.CENTER,
+        borders: TABLE_BORDER_GRID
+    });
+
+    const eccWidths = [3468, 1244, 1243, 1243, 1243, 1243];
+    const eccRows = [
+        new TableRow({
+            height: { value: 300, rule: HeightRule.AT_LEAST },
+            children: [
+                mkCell('Tải áp dụng / Load (g)', eccWidths[0]),
+                new TableCell({
+                    children: [para(`${eccLoad !== undefined && eccLoad !== '' ? eccLoad : ''} ${unit} — Mức cân độ lệch góc`, { fontSize: 10, alignment: AlignmentType.CENTER })],
+                    columnSpan: 5,
+                    width: { size: eccWidths.slice(1).reduce((a, b) => a + b, 0), type: WidthType.DXA },
+                    verticalAlign: 'center',
+                    borders: grid,
+                    margins: cellMargins
+                })
+            ]
+        }),
+        new TableRow({
+            children: [
+                mkCell('Sơ đồ / Sketch', eccWidths[0]),
+                new TableCell({
+                    children: [sketchTable, para('0: Tâm — 1: Trái — 2: Trước — 3: Phải — 4: Sau', { fontSize: 8, italics: true, alignment: AlignmentType.CENTER })],
+                    columnSpan: 5,
+                    width: { size: eccWidths.slice(1).reduce((a, b) => a + b, 0), type: WidthType.DXA },
+                    verticalAlign: 'center',
+                    borders: grid,
+                    margins: cellMargins
+                })
+            ]
+        }),
+        new TableRow({
+            children: [
+                mkCell('Vị trí đặt tải/ Load Position', eccWidths[0]),
+                ...['0', '1', '2', '3', '4'].map((label, i) => mkCell(label, eccWidths[i + 1], { bold: true }))
+            ]
+        }),
+        new TableRow({
+            children: [
+                mkCell('Sai lệch / Difference (g)', eccWidths[0]),
+                ...diffs.map(diff => mkCell(diff === null ? '' : balanceFmt(diff, decimals), eccWidths[1]))
+            ]
+        }),
+        new TableRow({
+            children: [
+                mkCell('Sai lệch lớn nhất so với vị trí số 1 Max. difference between position 1 & other (g)', eccWidths[0]),
+                new TableCell({
+                    children: [para(maxDiff === null ? '' : balanceFmt(maxDiff, decimals), { fontSize: 10, bold: true, alignment: AlignmentType.CENTER })],
+                    columnSpan: 5,
+                    width: { size: eccWidths.slice(1).reduce((a, b) => a + b, 0), type: WidthType.DXA },
+                    verticalAlign: 'center',
+                    borders: grid,
+                    margins: cellMargins
+                })
+            ]
+        })
+    ];
+
+    blocks.push(new Table({
+        rows: eccRows,
+        width: { size: 9684, type: WidthType.DXA },
+        columnWidths: eccWidths,
+        indent: { size: 355, type: WidthType.DXA },
+        alignment: AlignmentType.CENTER,
+        borders: TABLE_BORDER_GRID
+    }));
+
+    return blocks;
+}
+
 // ─── Specifications matcher based on instrument name ───────────────────
 function getSpecsForInstrument(instName) {
     const name = (instName || '').toLowerCase();
@@ -663,6 +942,9 @@ async function main(opts) {
             tpl = await dbGet(`SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ? OR NAME = ? OR REPLACE(NAME_VI, ' thử', '') = ? OR REPLACE(NAME, 'mater', 'meter') = ?`, [cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME_EN, cleanName, cleanName]);
         }
         if (tpl) tpl = toUpperKeys(tpl);
+
+        // Dữ liệu thô của Cân (nếu có) — dùng cho 3 bảng đặc thù ở Mục 16
+        const balanceData = parseBalanceRaw(cert, opts && opts.data);
 
         let specRange = '';
         let specResolution = '';
@@ -1272,6 +1554,10 @@ async function main(opts) {
         );
 
         // ─── TABLE 2: Calibration Results Table ───
+        if (balanceData) {
+            // Cân điện tử: 3 bảng Sai lệch chỉ thị / Độ lặp lại / Độ lệch góc
+            children.push(...createBalanceResultTables(balanceData));
+        } else {
         const t2Rows = [];
 
         // Table 2 Row 1 (Header) - mathematically aligned with the column width grid
@@ -1542,6 +1828,7 @@ async function main(opts) {
                 children: [new TextRun({ text: "", size: 2 })]
             })
         );
+        } // end non-balance results table
 
         // ═══════════════════════════════════════════════════════════════
         //  SNAGPOD IMAGE PAGES (matching PDF: pages 4-5 with diagrams)

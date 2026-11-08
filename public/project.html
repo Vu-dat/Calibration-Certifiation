@@ -419,7 +419,7 @@
       box-shadow: 0 4px 20px rgba(15, 23, 42, 0.02), 0 2px 6px rgba(15, 23, 42, 0.01) !important;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
-    
+
     .form-card:hover {
       box-shadow: 0 10px 30px rgba(0, 77, 77, 0.04), 0 4px 12px rgba(0, 77, 77, 0.02) !important;
       border-color: rgba(0, 77, 77, 0.15) !important;
@@ -618,6 +618,340 @@
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
+    }
+
+    /* ================= BALANCE SPECIFIC STYLES ================= */
+    .balance-card {
+      border-left: 4px solid #2563eb !important;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 18px rgba(37,99,235,0.06);
+      margin-bottom: 24px;
+    }
+    .bal-step-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .bal-step-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 13.5px;
+      color: #1e3a8a;
+      margin-bottom: 12px;
+    }
+    .bal-step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff;
+      font-weight: 800;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .bal-guide {
+      background: #eff6ff;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #1e3a8a;
+      line-height: 1.65;
+    }
+    .bal-guide strong { color: #1d4ed8; }
+    .bal-toolbar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      align-items: end;
+    }
+    .bal-field label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 6px;
+    }
+    .bal-select {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #0f172a;
+      background: #fff;
+    }
+    .bal-select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+    .bal-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .bal-summary-item {
+      background: #fff;
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 12.5px;
+      color: #1e40af;
+    }
+    .bal-summary-item b { color: #1e3a8a; }
+    .bal-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.8px;
+      background: #fff;
+    }
+    .bal-table th {
+      background: #eff6ff;
+      color: #1e3a8a;
+      font-size: 11.5px;
+      font-weight: 700;
+      text-align: center;
+      padding: 8px 6px;
+      border: 1px solid #cbd5e1;
+      line-height: 1.35;
+    }
+    .bal-table th span { font-weight: 400; font-style: italic; font-size: 10.5px; display: block; }
+    .bal-table td {
+      border: 1px solid #e2e8f0;
+      padding: 4px 6px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .bal-table td.bal-load { font-weight: 700; color: #0f172a; background: #f8fafc; }
+    .bal-table input {
+      width: 100%;
+      border: 1px solid transparent;
+      background: #fffdf5;
+      border-radius: 5px;
+      padding: 6px 4px;
+      text-align: center;
+      font-size: 12.8px;
+      font-family: inherit;
+      color: #0f172a;
+    }
+    .bal-table input:focus { outline: none; border-color: #2563eb; background: #fff; box-shadow: 0 0 0 2px rgba(37,99,235,0.12); }
+    .bal-readout { font-weight: 800; color: #1d4ed8; }
+    .bal-pass { color: #059669; font-weight: 800; }
+    .bal-fail { color: #dc2626; font-weight: 800; }
+    .bal-a { color: #059669; font-weight: 800; }
+    .bal-b { color: #dc2626; font-weight: 800; }
+    .bal-c { color: #b45309; font-weight: 800; }
+    .bal-d { color: #64748b; font-weight: 800; }
+    .bal-note { font-size: 12px; color: #64748b; margin-top: 8px; line-height: 1.5; }
+    .bal-result-line {
+      margin-top: 12px;
+      text-align: right;
+      font-size: 13.5px;
+      color: #1e293b;
+    }
+    .bal-result-line b { color: #1d4ed8; font-size: 15px; }
+    .bal-sketch-wrap { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+    .bal-sketch {
+      display: grid;
+      grid-template-columns: repeat(3, 54px);
+      grid-template-rows: repeat(3, 54px);
+      gap: 4px;
+      background: #fff;
+      padding: 6px;
+      border: 1px dashed #94a3b8;
+      border-radius: 8px;
+    }
+    .bal-pos {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 1.5px solid #93c5fd;
+      border-radius: 6px;
+      background: #eff6ff;
+      font-size: 13px;
+      font-weight: 800;
+      color: #1e40af;
+      line-height: 1.1;
+    }
+    .bal-pos small { font-size: 8.5px; font-weight: 500; color: #3b82f6; }
+    .bal-pos.is-center { background: #dbeafe; border-color: #2563eb; }
+    .bal-pos.is-empty { border: none; background: transparent; }
+    .bal-legend { font-size: 12px; color: #475569; line-height: 1.7; }
+
+    /* ================= OVEN SPECIFIC STYLES ================= */
+    .oven-card {
+      border-left: 4px solid var(--accent, #0d9488) !important;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.04);
+      margin-bottom: 24px;
+    }
+    .oven-step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0d9488, #059669);
+      color: #fff;
+      font-weight: 800;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-right: 8px;
+    }
+    .oven-step-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .oven-chips-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+      margin-bottom: 12px;
+    }
+    .oven-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: #ecfdf5;
+      border: 1.5px solid #a7f3d0;
+      color: #065f46;
+      border-radius: 20px;
+      font-size: 13.5px;
+      font-weight: 700;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      transition: all 0.2s;
+    }
+    .oven-chip:hover {
+      background: #d1fae5;
+      border-color: #6ee7b7;
+    }
+    .oven-chip-remove {
+      cursor: pointer;
+      color: #dc2626;
+      font-size: 16px;
+      font-weight: 800;
+      margin-left: 2px;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .oven-chip-remove:hover {
+      background: #fee2e2;
+    }
+    .oven-legend-box {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12.5px;
+      margin-bottom: 16px;
+      border: 1px solid #e2e8f0;
+    }
+    .oven-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+    .oven-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+    .oven-raw-table-card {
+      background: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+      overflow: hidden;
+    }
+    .oven-raw-table-header {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1.5px solid #cbd5e1;
+    }
+    .oven-raw-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: center;
+    }
+    .oven-raw-table th, .oven-raw-table td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 6px;
+      vertical-align: middle;
+    }
+    .oven-raw-table th {
+      background: #f8fafc;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .oven-input-red {
+      color: #dc2626 !important;
+      font-weight: 700 !important;
+      text-align: center !important;
+      border: 1.5px solid #fecaca !important;
+      background: #fff5f5 !important;
+      border-radius: 6px !important;
+      width: 100% !important;
+      height: 34px !important;
+      font-size: 13.5px !important;
+      padding: 2px 4px !important;
+      box-sizing: border-box !important;
+      transition: all 0.2s !important;
+    }
+    .oven-input-red:focus {
+      border-color: #ef4444 !important;
+      background: #ffffff !important;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+      outline: none !important;
+    }
+    .oven-avg-cell {
+      background: #fef3c7 !important;
+      color: #b45309 !important;
+      font-weight: 700 !important;
+      text-align: center !important;
+      font-size: 13.5px !important;
+    }
+    .oven-summary-gradient-cell {
+      background: #f8fafc;
+      font-size: 14.5px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .oven-summary-fluctuation-cell {
+      background: #f0f9ff;
+      font-size: 14.5px;
+      font-weight: 800;
+      color: #0284c7;
     }
     </style>
 </head>
@@ -1069,8 +1403,255 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       </div>
 
+      <!-- ================= CARD OVEN: QUY TRÌNH HIỆU CHUẨN TỦ SẤY (OVEN) ================= -->
+      <div class="form-card oven-card" id="card-oven-workspace" style="display:none;">
+        <div class="form-card-title" style="border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 16px;">
+          <span style="background: linear-gradient(135deg, #0d9488, #059669);"><i class="fa-solid fa-temperature-arrow-up"></i></span>
+          Hiệu chuẩn Tủ sấy (Oven) — Quy trình đo buồng nhiệt 9 điểm
+          <span class="badge" style="margin-left:auto; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; font-size:12px; font-weight:700; padding:4px 10px; border-radius:12px;">LAB-T-02:2023</span>
+        </div>
+
+        <!-- HƯỚNG DẪN 3 BƯỚC QUY TRÌNH -->
+        <div style="background: #f0fdfa; border: 1.5px solid #ccfbf1; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;">
+          <div style="font-weight: 700; color: #0f766e; font-size: 13.5px; margin-bottom: 8px; display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-circle-info"></i> QUY TRÌNH HIỆU CHUẨN MÁY OVEN (3 BƯỚC THEO TIÊU CHUẨN):
+          </div>
+          <div style="font-size: 13px; color: #134e4a; line-height: 1.6;">
+            <div><strong>Bước 1:</strong> Người dùng nhập các thông số ở trang 1 <em>(Thông tin chung ở các Mục 1 - 6 phía trên)</em>.</div>
+            <div><strong>Bước 2:</strong> Nhập các điểm nhiệt độ cần đo <em>(ví dụ: 30, 37, 50, 70, 90,...)</em> ở khung cấu hình bên dưới.</div>
+            <div><strong>Bước 3:</strong> Phần mềm tự động phát sinh các bảng dữ liệu thô (DATA TABLE) tương ứng. Kỹ thuật viên nhập các giá trị Max & Min đo được tại 9 vị trí cảm biến. Hệ thống sẽ tự động tính toán <strong>Giá trị trung bình, Độ đồng đều</strong> và <strong>Độ biến động</strong>.</div>
+          </div>
+        </div>
+
+        <!-- BƯỚC 2: CẤU HÌNH ĐIỂM NHIỆT ĐỘ CẦN ĐO -->
+        <div class="oven-step-box">
+          <div class="oven-step-title">
+            <span class="oven-step-badge">Bước 2</span>
+            <span>Nhập các điểm nhiệt độ cần đo (°C)</span>
+          </div>
+
+          <div style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px;">
+            Các điểm nhiệt độ hiệu chuẩn buồng sấy hiện hành:
+          </div>
+
+          <!-- Danh sách chips hiển thị các điểm đo -->
+          <div class="oven-chips-container" id="oven-setpoints-chips"></div>
+
+          <!-- Form thêm điểm đo mới hoặc nhập bulk -->
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: #ffffff; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label style="margin:0; font-weight:600; font-size:12.5px; color:#334155;">Thêm điểm đo:</label>
+              <input type="number" step="0.1" id="oven-new-point-input" placeholder="VD: 30" style="width: 100px; padding: 6px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-weight: 700; font-size: 13px; text-align: center;" onkeydown="if(event.key==='Enter'){event.preventDefault();addOvenSetPoint();}">
+              <span style="font-size:12px; color:#64748b;">°C</span>
+              <button type="button" class="btn btn-primary btn-sm" onclick="addOvenSetPoint()"><i class="fa-solid fa-plus"></i> Thêm</button>
+            </div>
+
+            <div style="height: 24px; width: 1px; background: #cbd5e1; margin: 0 4px;"></div>
+
+            <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 260px;">
+              <input type="text" id="oven-bulk-input" placeholder="Nhập nhanh cách nhau bởi dấu phẩy (VD: 30, 37, 50, 70, 90)..." style="flex:1; padding: 6px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 12.5px;" onkeydown="if(event.key==='Enter'){event.preventDefault();applyOvenBulkPoints();}">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="applyOvenBulkPoints()"><i class="fa-solid fa-bolt"></i> Áp dụng</button>
+            </div>
+
+            <button type="button" class="btn btn-secondary btn-sm" onclick="resetOvenDefaultPoints()" title="Khôi phục lại 5 điểm nhiệt độ tiêu chuẩn"><i class="fa-solid fa-arrow-rotate-left"></i> Điểm mẫu</button>
+          </div>
+        </div>
+
+        <!-- BƯỚC 3: PHÁT SINH CÁC BẢNG DỮ LIỆU THÔ ĐỂ NHẬP GIÁ TRỊ ĐO ĐƯỢC -->
+        <div class="oven-step-box" style="background:#ffffff; border: 1.5px solid #0d9488; box-shadow: 0 4px 16px rgba(13,148,136,0.08);">
+          <div class="oven-step-title" style="color:#0f766e;">
+            <span class="oven-step-badge">Bước 3</span>
+            <span>Phần mềm phát sinh các bảng dữ liệu thô (Sensor Positions 1 -> 9)</span>
+          </div>
+
+          <!-- SƠ ĐỒ BỐ TRÍ CẢM BIẾN & GHI CHÚ QUY ƯỚC MÀU SẮC -->
+          <div style="display: grid; grid-template-columns: minmax(280px, 320px) 1fr; gap: 16px; margin-bottom: 20px; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+            <div style="text-align: center; border-right: 1px solid #e2e8f0; padding-right: 16px;">
+              <div style="font-weight: 700; font-size: 12.5px; color: #1e293b; margin-bottom: 2px;">Bố trí các cảm biến trong tủ nhiệt (x1 = x2 = x3 = 50mm)</div>
+              <div style="font-style: italic; font-size: 11.5px; color: #64748b; margin-bottom: 8px;">Sensor Position (1 -> 9)</div>
+              <img src="img/oven_sensor_position.png" alt="Oven Sensor Position" style="max-width: 250px; width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); background:#fff; padding:4px;">
+            </div>
+
+            <div>
+              <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 8px;">
+                <i class="fa-solid fa-palette"></i> Quy ước màu sắc & Công thức chuẩn:
+              </div>
+              <div class="oven-legend-box" style="margin-bottom: 10px;">
+                <div class="oven-legend-item">
+                  <span class="oven-dot" style="background: #16a34a;"></span>
+                  <span>Màu xanh: Điểm nhiệt cần đo (Set point)</span>
+                </div>
+                <div class="oven-legend-item">
+                  <span class="oven-dot" style="background: #dc2626;"></span>
+                  <span>Màu đỏ: Các nhiệt độ đo người dùng tự nhập vào (Max & Min)</span>
+                </div>
+                <div class="oven-legend-item">
+                  <span class="oven-dot" style="background: #d97706;"></span>
+                  <span>Giá trị trung bình = (Max + Min) / 2</span>
+                </div>
+              </div>
+              <div style="font-size: 12.5px; color: #334155; line-height: 1.6; background:#fff; padding:10px 14px; border-radius:6px; border:1px solid #cbd5e1;">
+                <div>• <strong>Độ đồng đều:</strong> <code>(Max của các giá trị max từ vị trí 1 đến 9) - (Min của các giá trị min từ vị trí 1 đến 9)</code></div>
+                <div>• <strong>Độ biến động:</strong> <code>Giá trị lớn nhất của chênh lệch nhiệt độ Max và Min tại từng vị trí đó</code></div>
+                <div style="color:#059669; font-weight:600; margin-top:4px;"><i class="fa-solid fa-bolt"></i> Hệ thống tự động tính toán tức thì ngay khi bạn nhập số liệu vào ô màu đỏ!</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DANH SÁCH BẢNG DỮ LIỆU THÔ PHÁT SINH -->
+          <div id="oven-raw-tables-container"></div>
+        </div>
+      </div>
+
+      <!-- ================= CARD BALANCE: QUY TRÌNH HIỆU CHUẨN CÂN ĐIỆN TỬ ================= -->
+      <div class="form-card balance-card" id="card-balance-workspace" style="display:none;">
+        <div class="form-card-title" style="border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 16px;">
+          <span style="background: linear-gradient(135deg, #2563eb, #1d4ed8);"><i class="fa-solid fa-scale-balanced"></i></span>
+          Hiệu chuẩn Cân điện tử (Balance) — Sai lệch chỉ thị, Độ lặp lại & Độ lệch góc
+          <span class="badge" style="margin-left:auto; background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; font-size:12px; font-weight:700; padding:4px 10px; border-radius:12px;">OIML R76 / LAB-M-02</span>
+        </div>
+
+        <div class="bal-guide">
+          <div style="font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-circle-info"></i> QUY TRÌNH HIỆU CHUẨN CÂN ĐIỆN TỬ (3 BƯỚC):
+          </div>
+          <div><strong>Bước 1:</strong> Chọn <em>Độ chia d</em> và <em>Mức cân Max</em>. App tự tra cứu Excel và điền thông số chuẩn vào form cùng các trường kỹ thuật của template.</div>
+          <div><strong>Bước 2:</strong> Nhập giá trị chỉ thị đo được trên cân cho từng mức cân. Hệ thống tự tính <strong>hiệu chính</strong> và đánh giá <strong>A/D</strong> theo dung sai.</div>
+          <div><strong>Bước 3:</strong> Nhập 6–10 lần cân cho phép thử <strong>độ lặp lại</strong> và 5 giá trị tại các vị trí đặt tải cho phép thử <strong>độ lệch góc</strong>. Hệ thống tự tính độ lệch chuẩn <em>s</em> và sai lệch cực đại.</div>
+        </div>
+
+        <!-- BƯỚC 1: CHỌN THÔNG SỐ -->
+        <div class="bal-step-box">
+          <div class="bal-step-title">
+            <span class="bal-step-badge">Bước 1</span>
+            <span>Chọn độ chia & mức cân chuẩn</span>
+          </div>
+          <div class="bal-toolbar">
+            <div class="bal-field">
+              <label>Độ chia d (Resolution)</label>
+              <select id="bal-division" class="bal-select" onchange="onBalanceDivisionChange()"><option value="">Đang tải độ chia…</option></select>
+            </div>
+            <div class="bal-field">
+              <label>Mức cân Max (Capacity)</label>
+              <select id="bal-max" class="bal-select" onchange="onBalanceMaxChange()" disabled><option value="">Chọn độ chia trước</option></select>
+            </div>
+            <div class="bal-field">
+              <button type="button" class="btn btn-primary" onclick="loadBalanceStandardParams()" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 14px;">
+                <i class="fa-solid fa-rotate"></i> Tải lại thông số chuẩn
+              </button>
+            </div>
+          </div>
+          <div class="bal-summary" id="bal-summary"></div>
+          <div class="bal-note" id="balance-lookup-status"></div>
+        </div>
+
+        <!-- BƯỚC 2: BẢNG SAI LỆCH CHỈ THỊ -->
+        <div class="bal-step-box" style="background:#ffffff; border:1.5px solid #93c5fd;">
+          <div class="bal-step-title" style="color:#1e40af;">
+            <span class="bal-step-badge">Bước 2</span>
+            <span>Bảng 1 — Sai lệch của chỉ thị (Difference of Indication)</span>
+          </div>
+          <div class="cal-table-wrapper">
+            <table class="bal-table" id="bal-indication-table">
+              <thead>
+                <tr>
+                  <th style="width:12%;">Mức cân<span>Load</span></th>
+                  <th style="width:22%;">Chỉ thị đo được<span>Indication value</span></th>
+                  <th style="width:17%;">Hiệu chính<span>Correction</span></th>
+                  <th style="width:16%;">Dung sai<span>Tolerance</span></th>
+                  <th style="width:16%;">Độ KĐBĐ<span>Uncertainty</span></th>
+                  <th style="width:13%;">Kết luận<span>Conclusion</span></th>
+                </tr>
+              </thead>
+              <tbody id="bal-indication-body">
+                <tr><td colspan="6" style="padding:16px; color:#94a3b8;">Chọn độ chia và mức cân Max để tự động nạp thông số chuẩn.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bal-note">
+            • <strong>Hiệu chính</strong> = Mức cân (tải chuẩn) − Chỉ thị đo được. &nbsp;• <strong>Kết luận</strong> A nếu |Hiệu chính| ≤ Dung sai, ngược lại D.
+          </div>
+        </div>
+
+        <!-- BƯỚC 3A: ĐỘ LẶP LẠI -->
+        <div class="bal-step-box" style="background:#ffffff; border:1.5px solid #93c5fd;">
+          <div class="bal-step-title" style="color:#1e40af;">
+            <span class="bal-step-badge">Bước 3</span>
+            <span>Bảng 2 — Độ lặp lại (Repeatability)</span>
+          </div>
+          <div class="bal-result-line">Tải kiểm độ lặp lại / Repeatability load: <b id="bal-repeat-summary-load">—</b></div>
+          <div style="overflow-x:auto; display:none;">
+            <table class="bal-table" id="bal-repeat-table" style="min-width:760px;">
+              <thead>
+                <tr>
+                  <th style="width:14%;">Mức cân<span>Load</span></th>
+                  <th>Lần 1</th><th>Lần 2</th><th>Lần 3</th><th>Lần 4</th><th>Lần 5</th>
+                  <th>Lần 6</th><th>Lần 7</th><th>Lần 8</th><th>Lần 9</th><th>Lần 10</th>
+                </tr>
+              </thead>
+              <tbody id="bal-repeat-body">
+                <tr>
+                  <td class="bal-load" id="bal-repeat-load">—</td>
+                  <td colspan="10" style="padding:14px; color:#94a3b8;">Nhập tối thiểu 6 lần cân tại tải kiểm độ lặp lại.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bal-result-line" style="display:none;">Độ lệch chuẩn (Bessel): <b id="bal-repeat-s">—</b> <span id="bal-repeat-count" style="font-size:12px;color:#64748b;"></span></div>
+          <div class="bal-note" style="display:none;">Công thức độ lệch chuẩn.</div>
+        </div>
+
+        <!-- BƯỚC 3B: ĐỘ LỆCH GÓC -->
+        <div class="bal-step-box" style="background:#ffffff; border:1.5px solid #93c5fd;">
+          <div class="bal-step-title" style="color:#1e40af;">
+            <span class="bal-step-badge">Bước 3</span>
+            <span>Bảng 3 — Độ lệch góc (Eccentricity)</span>
+          </div>
+          <div class="bal-sketch-wrap">
+            <div class="bal-sketch">
+              <div class="bal-pos is-empty"></div>
+              <div class="bal-pos">2<small>Trước</small></div>
+              <div class="bal-pos is-empty"></div>
+              <div class="bal-pos">1<small>Trái</small></div>
+              <div class="bal-pos is-center">0<small>Tâm</small></div>
+              <div class="bal-pos">3<small>Phải</small></div>
+              <div class="bal-pos is-empty"></div>
+              <div class="bal-pos">4<small>Sau</small></div>
+              <div class="bal-pos is-empty"></div>
+            </div>
+            <div class="bal-legend">
+              <div><strong>Vị trí 0:</strong> tâm đĩa cân (chuẩn so sánh)</div>
+              <div><strong>Vị trí 1–4:</strong> trái, trước, phải, sau (giữa cạnh đĩa cân)</div>
+              <div>Tải áp dụng: <strong id="bal-ecc-load-label">—</strong></div>
+            </div>
+          </div>
+          <div style="overflow-x:auto; margin-top:14px;">
+            <table class="bal-table" id="bal-ecc-table" style="min-width:720px;">
+              <thead>
+                <tr>
+                  <th style="width:22%;">Vị trí đặt tải<span>Load position</span></th>
+                  <th>0 — Tâm</th>
+                  <th>1 — Trái</th>
+                  <th>2 — Trước</th>
+                  <th>3 — Phải</th>
+                  <th>4 — Sau</th>
+                </tr>
+              </thead>
+              <tbody id="bal-ecc-body">
+                <tr>
+                  <td class="bal-load" id="bal-ecc-load">—</td>
+                  <td colspan="5" style="padding:14px; color:#94a3b8;">Nhập giá trị chỉ thị tại 5 vị trí đặt tải.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bal-result-line">Sai lệch cực đại so với vị trí tâm: <b id="bal-ecc-max">—</b></div>
+          <div class="bal-note">Sai lệch tại vị trí i = |Giá trị vị trí i − Giá trị vị trí tâm 0|. Sai lệch cực đại là giá trị lớn nhất trong 4 vị trí 1–4.</div>
+        </div>
+      </div>
+
       <!-- CARD 7: BẢNG KẾT QUẢ ĐO -->
-      <div class="form-card">
+      <div class="form-card" id="card-results">
         <div class="form-card-title">
           <span>7</span> Kết quả đo lường thực tế
           <span class="row-count" id="result-row-count">0</span>
@@ -1852,6 +2433,9 @@ function showDbSyncBadge() {
 /* ====== TINH TOAN DO PHU HOP TU DONG ====== */
 function calculateConformity(row, isFromAvgInput) {
   try {
+    // Balance uses its own decision rule and syncs a single indication value.
+    if (row?.dataset?.balanceRow === '1') return;
+
     var rawV1 = (row.querySelector('.as-found-1')||{}).value || '';
     var rawV2 = (row.querySelector('.as-found-2')||{}).value || '';
     var rawV3 = (row.querySelector('.as-found-3')||{}).value || '';
@@ -2339,6 +2923,7 @@ function handleEquipmentBlur(val) {
         const box = document.getElementById('equipment-suggestions');
         if (box) box.style.display = 'none';
     }
+    checkAndToggleOvenWorkspace();
 }
 
 function handleDeviceSearch(input) {
@@ -2937,6 +3522,8 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null, fromPopStat
   renderStandardsForm();
   renderResultsForm();
   updateRowCount();
+  checkAndToggleOvenWorkspace();
+  checkAndToggleBalanceWorkspace();
   setTimeout(prewarmPdfPreview, 300);
   window.scrollTo(0,0);
 }
@@ -3053,7 +3640,7 @@ function addSpecRangeRow(param = '', value = '', resolution = '', procedure = ''
 function getSpecRangeTableData() {
   const tbody = document.getElementById('spec-range-table-body');
   if (!tbody) return '';
-  const rows = tbody.querySelectorAll('tr');
+  const rows = tbody.querySelectorAll('tr:not([data-balance-selector="1"])');
   const lines = [];
   rows.forEach(tr => {
     const param = (tr.querySelector('.spec-param-input')?.value || '').trim();
@@ -3072,7 +3659,7 @@ function getSpecRangeTableData() {
 function getSpecResolutionTableData() {
   const tbody = document.getElementById('spec-range-table-body');
   if (!tbody) return '';
-  const rows = tbody.querySelectorAll('tr');
+  const rows = tbody.querySelectorAll('tr:not([data-balance-selector="1"])');
   const lines = [];
   rows.forEach(tr => {
     const val = (tr.querySelector('.spec-res-input')?.value || '').trim();
@@ -3084,7 +3671,7 @@ function getSpecResolutionTableData() {
 function getSpecProcedureTableData() {
   const tbody = document.getElementById('spec-range-table-body');
   if (!tbody) return '';
-  const rows = tbody.querySelectorAll('tr');
+  const rows = tbody.querySelectorAll('tr:not([data-balance-selector="1"])');
   const lines = [];
   rows.forEach(tr => {
     const val = (tr.querySelector('.spec-proc-input')?.value || '').trim();
@@ -3096,7 +3683,7 @@ function getSpecProcedureTableData() {
 function getSpecRefTableData() {
   const tbody = document.getElementById('spec-range-table-body');
   if (!tbody) return '';
-  const rows = tbody.querySelectorAll('tr');
+  const rows = tbody.querySelectorAll('tr:not([data-balance-selector="1"])');
   const lines = [];
   rows.forEach(tr => {
     const val = (tr.querySelector('.spec-ref-input')?.value || '').trim();
@@ -3184,10 +3771,10 @@ function setSpecTableFromData(specRange, specResolution, procedure, refStandard)
 function setSpecRangeTableData(text) {
   setSpecTableFromData(text, '', '', '');
 }
-
 function selectEquipmentTemplate(key) {
   const eq = MockDatabaseEquipment[key];
   if (!eq) return;
+  window._balanceData = null;
   document.getElementById('f-inst-vi').value = eq.nameVi || key;
   document.getElementById('equipment-suggestions').style.display = 'none';
   document.getElementById('f-mfr').value = eq.manufacturer || '';
@@ -3197,10 +3784,10 @@ function selectEquipmentTemplate(key) {
   if (eq.manufacturerId) document.getElementById('f-mfr-id').value = eq.manufacturerId;
   if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
   if (eq.instEn) document.getElementById('f-inst-en').value = eq.instEn;
-  
+
   setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
   if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
-  
+
   // Tự động điền các chuẩn sử dụng từ standardsUsed (tối đa 5 thiết bị chuẩn)
   if (Array.isArray(eq.standardsUsed) && eq.standardsUsed.length > 0) {
     standards = [];
@@ -3277,7 +3864,7 @@ function selectEquipmentTemplate(key) {
     tbody.appendChild(row);
   });
   updateRowCount();
-  
+
   // Recalculate conformity for all loaded points
   const allRows = tbody.querySelectorAll('tr');
   allRows.forEach(row => {
@@ -3285,6 +3872,1174 @@ function selectEquipmentTemplate(key) {
       calculateConformity(row);
     }
   });
+
+  // Mới: sau khi áp dụng mẫu thiết bị, nếu là Cân thì nạp dữ liệu chuẩn từ Excel/DB vào workspace.
+  checkAndToggleOvenWorkspace();
+  checkAndToggleBalanceWorkspace();
+}
+
+/* ================= OVEN (TỦ SẤY) CALIBRATION MODULE ================= */
+window._ovenData = null;
+
+function isOvenEquipment(name) {
+  const target = (name || window._currentWorkingEquipment || document.getElementById('f-inst-vi')?.value || document.getElementById('f-inst-en')?.value || '').toLowerCase();
+  return target.includes('oven') || target.includes('tủ sấy') || target.includes('tu say');
+}
+
+// Chỉ gửi dữ liệu thô Oven khi thiết bị hiện tại là Tủ sấy (tránh ghi đè/chèn nhầm lên máy khác)
+function currentOvenRawData() {
+  if (!isOvenEquipment()) return '';
+  return window._ovenData || null;
+}
+
+function getDefaultOvenData() {
+  return {
+    setPoints: ['30.0', '37.0', '50.0', '70.0', '90.0'],
+    tables: [
+      {
+        setPoint: '30.0',
+        max: ['31.8', '31.7', '31.4', '31.5', '31.2', '31.0', '30.5', '30.8', '31.5'],
+        min: ['31.4', '31.3', '31.0', '30.9', '30.8', '30.6', '29.9', '30.2', '30.9'],
+        avg: ['31.6', '31.5', '31.2', '31.2', '31.0', '30.8', '30.2', '30.5', '31.2'],
+        gradient: '1.9',
+        fluctuation: '0.6'
+      },
+      {
+        setPoint: '37.0',
+        max: ['37.1', '37.1', '37.1', '36.8', '36.8', '37.0', '37.3', '37.4', '36.8'],
+        min: ['36.7', '36.6', '36.6', '35.8', '35.9', '36.0', '36.4', '36.4', '36.0'],
+        avg: ['36.9', '36.9', '36.9', '36.4', '36.5', '36.6', '36.9', '37.0', '36.6'],
+        gradient: '1.6',
+        fluctuation: '1.0'
+      },
+      {
+        setPoint: '50.0',
+        max: ['50.2', '50.3', '50.3', '50.2', '50.5', '49.5', '49.8', '49.8', '49.3'],
+        min: ['49.4', '49.4', '49.2', '49.0', '49.6', '49.0', '49.4', '49.6', '48.9'],
+        avg: ['49.8', '49.9', '49.8', '49.6', '50.1', '49.3', '49.6', '49.7', '49.1'],
+        gradient: '1.6',
+        fluctuation: '1.1'
+      },
+      {
+        setPoint: '70.0',
+        max: ['70.7', '70.8', '70.9', '70.8', '70.8', '70.9', '70.8', '70.8', '70.7'],
+        min: ['70.5', '70.4', '70.5', '70.6', '70.4', '70.6', '70.4', '70.5', '70.5'],
+        avg: ['70.6', '70.6', '70.7', '70.7', '70.6', '70.8', '70.6', '70.7', '70.6'],
+        gradient: '0.5',
+        fluctuation: '0.4'
+      },
+      {
+        setPoint: '90.0',
+        max: ['90.5', '90.4', '91.0', '91.1', '90.4', '90.3', '91.4', '91.0', '91.4'],
+        min: ['90.1', '90.0', '90.9', '90.9', '91.0', '90.0', '90.1', '90.9', '91.0'],
+        avg: ['90.3', '90.2', '91.0', '91.0', '90.7', '90.2', '90.8', '91.0', '91.2'],
+        gradient: '1.4',
+        fluctuation: '1.3'
+      }
+    ]
+  };
+}
+
+function checkAndToggleOvenWorkspace() {
+  const card = document.getElementById('card-oven-workspace');
+  if (!card) return;
+  if (isOvenEquipment()) {
+    card.style.display = 'block';
+    if (!window._ovenData || !window._ovenData.tables || window._ovenData.tables.length === 0) {
+      initOvenWorkspace();
+    } else {
+      renderOvenWorkspace();
+    }
+  } else {
+    card.style.display = 'none';
+  }
+}
+
+function initOvenWorkspace(savedData = null) {
+  const card = document.getElementById('card-oven-workspace');
+  if (!card) return;
+  card.style.display = 'block';
+
+  if (savedData && Array.isArray(savedData.tables) && savedData.tables.length > 0) {
+    window._ovenData = savedData;
+  } else if (!window._ovenData || !Array.isArray(window._ovenData.tables) || window._ovenData.tables.length === 0) {
+    window._ovenData = getDefaultOvenData();
+  }
+
+  // Đảm bảo tính toán lại tất cả các bảng
+  window._ovenData.tables.forEach(tbl => calculateOvenTable(tbl));
+
+  renderOvenWorkspace();
+  syncOvenToCalibrationTable();
+}
+
+function calculateOvenTable(tbl) {
+  if (!tbl) return;
+  if (!Array.isArray(tbl.max)) tbl.max = Array(9).fill('');
+  if (!Array.isArray(tbl.min)) tbl.min = Array(9).fill('');
+  tbl.avg = [];
+
+  const maxNums = tbl.max.map(v => parseFloat(String(v || '').replace(',', '.')));
+  const minNums = tbl.min.map(v => parseFloat(String(v || '').replace(',', '.')));
+
+  const validMaxes = [];
+  const validMins = [];
+  const validDiffs = [];
+
+  for (let i = 0; i < 9; i++) {
+    const mx = maxNums[i];
+    const mn = minNums[i];
+
+    if (!isNaN(mx) && !isNaN(mn)) {
+      // Giá trị trung bình = (giá trị lớn nhất + giá trị nhỏ nhất) / 2
+      const avg = Math.round(((mx + mn) / 2) * 10) / 10;
+      tbl.avg[i] = avg.toFixed(1);
+
+      // Chênh lệch nhiệt độ Max và Min tại từng vị trí đó
+      const diff = Math.round(Math.abs(mx - mn) * 10) / 10;
+      validDiffs.push(diff);
+      validMaxes.push(mx);
+      validMins.push(mn);
+    } else if (!isNaN(mx)) {
+      tbl.avg[i] = mx.toFixed(1);
+      validMaxes.push(mx);
+    } else if (!isNaN(mn)) {
+      tbl.avg[i] = mn.toFixed(1);
+      validMins.push(mn);
+    } else {
+      tbl.avg[i] = '';
+    }
+  }
+
+  // Độ đồng đều = (Max của các giá trị lớn nhất từ vị trí 1 đến 9) - (Min của các giá trị nhỏ nhất từ vị trí 1 đến 9)
+  if (validMaxes.length > 0 && validMins.length > 0) {
+    const maxOfMax = Math.max(...validMaxes);
+    const minOfMin = Math.min(...validMins);
+    tbl.gradient = (Math.round((maxOfMax - minOfMin) * 10) / 10).toFixed(1);
+  } else {
+    tbl.gradient = '--';
+  }
+
+  // Độ biến động = Giá trị lớn nhất của chênh lệch nhiệt độ Max và Min tại từng vị trí đó
+  if (validDiffs.length > 0) {
+    const maxDiff = Math.max(...validDiffs);
+    tbl.fluctuation = maxDiff.toFixed(1);
+  } else {
+    tbl.fluctuation = '--';
+  }
+}
+
+function renderOvenWorkspace() {
+  if (!window._ovenData) window._ovenData = getDefaultOvenData();
+
+  // 1. Render Chips điểm nhiệt độ (Bước 2)
+  const chipsContainer = document.getElementById('oven-setpoints-chips');
+  if (chipsContainer) {
+    chipsContainer.innerHTML = '';
+    window._ovenData.setPoints.forEach((sp, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'oven-chip';
+      chip.innerHTML = `
+        <i class="fa-solid fa-temperature-half" style="color:#059669;"></i>
+        <span>${sp} °C</span>
+        <span class="oven-chip-remove" onclick="removeOvenSetPoint(${idx})" title="Xóa điểm đo này">×</span>
+      `;
+      chipsContainer.appendChild(chip);
+    });
+  }
+
+  // 2. Render các BẢNG SỐ LIỆU / DATA TABLE thô (Bước 3)
+  const tablesContainer = document.getElementById('oven-raw-tables-container');
+  if (!tablesContainer) return;
+
+  tablesContainer.innerHTML = '';
+  window._ovenData.tables.forEach((tbl, spIdx) => {
+    const card = document.createElement('div');
+    card.className = 'oven-raw-table-card';
+    card.id = `oven-table-card-${spIdx}`;
+
+    let html = `
+      <div class="oven-raw-table-header">
+        <div style="font-weight:700; font-size:14px; color:#1e293b; display:flex; align-items:center; gap:8px;">
+          <i class="fa-solid fa-table-cells" style="color:#0d9488;"></i>
+          <span>BẢNG SỐ LIỆU / DATA TABLE</span>
+          <span style="color:#16a34a; font-weight:800; font-size:15px; margin-left:6px;">Set point: ${tbl.setPoint} (⁰C)</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="removeOvenSetPoint(${spIdx})" style="color:#dc2626; padding:4px 10px; font-size:12px;">
+            <i class="fa-solid fa-trash"></i> Xóa bảng này
+          </button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="oven-raw-table">
+          <thead>
+            <tr>
+              <th style="width:25%; text-align:left; padding-left:14px;">
+                <div>Vị trí đo / Sensor Pos.</div>
+                <div style="color:#16a34a; font-weight:800; font-size:13.5px; margin-top:2px;">Set point: ${tbl.setPoint} (⁰C)</div>
+              </th>
+              <th style="width:8.3%;">1</th>
+              <th style="width:8.3%;">2</th>
+              <th style="width:8.3%;">3</th>
+              <th style="width:8.3%;">4</th>
+              <th style="width:8.3%;">5 <span style="font-size:10px;color:#0d9488;">(tâm)</span></th>
+              <th style="width:8.3%;">6</th>
+              <th style="width:8.3%;">7</th>
+              <th style="width:8.3%;">8</th>
+              <th style="width:8.3%;">9</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Hàng 1: Giá trị trung bình (Tự động tính = (Max + Min) / 2) -->
+            <tr>
+              <td style="text-align:left; padding-left:14px; font-weight:700; color:#475569;">
+                <div>Giá trị trung bình</div>
+                <div style="font-size:11px; font-style:italic; color:#64748b;">Average Value (⁰C)</div>
+              </td>
+              ${[0,1,2,3,4,5,6,7,8].map(i => `
+                <td class="oven-avg-cell" id="oven-avg-${spIdx}-${i}">${tbl.avg[i] || '--'}</td>
+              `).join('')}
+            </tr>
+
+            <!-- Hàng 2: Giá trị lớn nhất (Người dùng tự nhập vào - MÀU ĐỎ) -->
+            <tr>
+              <td style="text-align:left; padding-left:14px; font-weight:700; color:#dc2626;">
+                <div>Giá trị lớn nhất <span style="font-size:11px;font-weight:400;color:#ef4444;">(nhập số)</span></div>
+                <div style="font-size:11px; font-style:italic; color:#ef4444;">Max. Value(⁰C)</div>
+              </td>
+              ${[0,1,2,3,4,5,6,7,8].map(i => `
+                <td>
+                  <input type="text" class="oven-input-red" id="oven-max-${spIdx}-${i}" value="${tbl.max[i] || ''}" placeholder="Max" oninput="onOvenRawInputChange(${spIdx}, ${i}, 'max', this)">
+                </td>
+              `).join('')}
+            </tr>
+
+            <!-- Hàng 3: Giá trị nhỏ nhất (Người dùng tự nhập vào - MÀU ĐỎ) -->
+            <tr>
+              <td style="text-align:left; padding-left:14px; font-weight:700; color:#dc2626;">
+                <div>Giá trị nhỏ nhất <span style="font-size:11px;font-weight:400;color:#ef4444;">(nhập số)</span></div>
+                <div style="font-size:11px; font-style:italic; color:#ef4444;">Min. Value (⁰C)</div>
+              </td>
+              ${[0,1,2,3,4,5,6,7,8].map(i => `
+                <td>
+                  <input type="text" class="oven-input-red" id="oven-min-${spIdx}-${i}" value="${tbl.min[i] || ''}" placeholder="Min" oninput="onOvenRawInputChange(${spIdx}, ${i}, 'min', this)">
+                </td>
+              `).join('')}
+            </tr>
+
+            <!-- Hàng 4: Tiêu đề Độ đồng đều & Độ biến động -->
+            <tr style="background:#f8fafc;">
+              <td colspan="4" style="font-weight:700; color:#1e293b; padding:8px 14px;">
+                <div>Độ đồng đều</div>
+                <div style="font-size:11px; font-style:italic; color:#64748b;">Temp. Gradient (⁰C)</div>
+              </td>
+              <td colspan="6" style="font-weight:700; color:#0284c7; padding:8px 14px;">
+                <div>Độ biến động</div>
+                <div style="font-size:11px; font-style:italic; color:#0284c7;">Temp. Fluctuation (⁰C)</div>
+              </td>
+            </tr>
+
+            <!-- Hàng 5: Kết quả tính toán -->
+            <tr>
+              <td colspan="4" class="oven-summary-gradient-cell" id="oven-grad-${spIdx}">
+                ${tbl.gradient || '--'}
+              </td>
+              <td colspan="6" class="oven-summary-fluctuation-cell" id="oven-fluc-${spIdx}">
+                ${tbl.fluctuation || '--'}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+    card.innerHTML = html;
+    tablesContainer.appendChild(card);
+  });
+}
+
+function onOvenRawInputChange(spIdx, posIdx, type, el) {
+  if (!window._ovenData || !window._ovenData.tables[spIdx]) return;
+  const tbl = window._ovenData.tables[spIdx];
+  const val = (el.value || '').trim();
+
+  if (type === 'max') {
+    tbl.max[posIdx] = val;
+  } else if (type === 'min') {
+    tbl.min[posIdx] = val;
+  }
+
+  // Tính toán lại bảng
+  calculateOvenTable(tbl);
+
+  // Cập nhật DOM trực tiếp để giữ focus và mượt mà
+  const avgEl = document.getElementById(`oven-avg-${spIdx}-${posIdx}`);
+  if (avgEl) avgEl.textContent = tbl.avg[posIdx] || '--';
+
+  const gradEl = document.getElementById(`oven-grad-${spIdx}`);
+  if (gradEl) gradEl.textContent = tbl.gradient || '--';
+
+  const flucEl = document.getElementById(`oven-fluc-${spIdx}`);
+  if (flucEl) flucEl.textContent = tbl.fluctuation || '--';
+
+  // Đồng bộ sang bảng kết quả chính Card 7
+  syncOvenToCalibrationTable();
+
+  // Kích hoạt tiền tạo PDF ngầm
+  schedulePdfPrewarm();
+}
+
+function addOvenSetPoint(pointVal = null) {
+  let val = pointVal;
+  if (!val) {
+    const input = document.getElementById('oven-new-point-input');
+    val = input ? input.value.trim() : '';
+  }
+  if (!val) return;
+  const num = parseFloat(val.replace(',', '.'));
+  if (isNaN(num)) {
+    showToast('Vui lòng nhập giá trị nhiệt độ hợp lệ (số)!', 'warning');
+    return;
+  }
+  const formatted = num.toFixed(1);
+  if (!window._ovenData) window._ovenData = { setPoints: [], tables: [] };
+
+  if (window._ovenData.setPoints.includes(formatted)) {
+    showToast(`Điểm nhiệt độ ${formatted} °C đã tồn tại trong danh sách!`, 'info');
+    return;
+  }
+
+  window._ovenData.setPoints.push(formatted);
+  window._ovenData.setPoints.sort((a,b) => parseFloat(a) - parseFloat(b));
+
+  const oldTables = window._ovenData.tables || [];
+  window._ovenData.tables = window._ovenData.setPoints.map(sp => {
+    const found = oldTables.find(t => t.setPoint === sp);
+    return found || {
+      setPoint: sp,
+      max: ['', '', '', '', '', '', '', '', ''],
+      min: ['', '', '', '', '', '', '', '', ''],
+      avg: ['', '', '', '', '', '', '', '', ''],
+      gradient: '--',
+      fluctuation: '--'
+    };
+  });
+
+  const inputEl = document.getElementById('oven-new-point-input');
+  if (inputEl) inputEl.value = '';
+
+  renderOvenWorkspace();
+  syncOvenToCalibrationTable();
+  showToast(`Đã thêm điểm nhiệt độ ${formatted} °C và phát sinh bảng dữ liệu thô!`);
+}
+
+function removeOvenSetPoint(index) {
+  if (!window._ovenData || !window._ovenData.setPoints[index]) return;
+  const removedSp = window._ovenData.setPoints[index];
+  window._ovenData.setPoints.splice(index, 1);
+  window._ovenData.tables = (window._ovenData.tables || []).filter(t => t.setPoint !== removedSp);
+
+  renderOvenWorkspace();
+  syncOvenToCalibrationTable();
+  showToast(`Đã xóa điểm đo ${removedSp} °C.`);
+}
+
+function applyOvenBulkPoints() {
+  const input = document.getElementById('oven-bulk-input');
+  if (!input) return;
+  const raw = input.value.trim();
+  if (!raw) return;
+
+  const parts = raw.split(/[,;\s]+/).map(p => parseFloat(p.replace(',', '.'))).filter(n => !isNaN(n));
+  if (parts.length === 0) {
+    showToast('Không tìm thấy điểm nhiệt độ hợp lệ!', 'warning');
+    return;
+  }
+
+  if (!window._ovenData) window._ovenData = { setPoints: [], tables: [] };
+
+  parts.forEach(p => {
+    const formatted = p.toFixed(1);
+    if (!window._ovenData.setPoints.includes(formatted)) {
+      window._ovenData.setPoints.push(formatted);
+    }
+  });
+
+  window._ovenData.setPoints.sort((a,b) => parseFloat(a) - parseFloat(b));
+
+  const oldTables = window._ovenData.tables || [];
+  window._ovenData.tables = window._ovenData.setPoints.map(sp => {
+    const found = oldTables.find(t => t.setPoint === sp);
+    return found || {
+      setPoint: sp,
+      max: ['', '', '', '', '', '', '', '', ''],
+      min: ['', '', '', '', '', '', '', '', ''],
+      avg: ['', '', '', '', '', '', '', '', ''],
+      gradient: '--',
+      fluctuation: '--'
+    };
+  });
+
+  input.value = '';
+  renderOvenWorkspace();
+  syncOvenToCalibrationTable();
+  showToast(`Đã cập nhật danh sách các điểm nhiệt độ cần đo!`);
+}
+
+function resetOvenDefaultPoints() {
+  window._ovenData = getDefaultOvenData();
+  renderOvenWorkspace();
+  syncOvenToCalibrationTable();
+  showToast('Đã khôi phục 5 điểm nhiệt độ mẫu (30, 37, 50, 70, 90 °C).');
+}
+
+function syncOvenToCalibrationTable() {
+  const tbody = document.getElementById('calibration-table-body');
+  if (!tbody || !window._ovenData || !window._ovenData.tables) return;
+
+  tbody.innerHTML = '';
+
+  window._ovenData.tables.forEach(tbl => {
+    const sp = tbl.setPoint;
+    const paramName = `Nhiệt độ buồng sấy (${sp} °C) / Oven Temperature`;
+
+    for (let pos = 0; pos < 9; pos++) {
+      const posLabel = `Vị trí ${pos + 1}`;
+      const avgVal = tbl.avg[pos] || '';
+      const row = document.createElement('tr');
+      row.dataset.parameterName = paramName;
+      row.dataset.ovenSetPoint = sp;
+      row.dataset.ovenPos = String(pos + 1);
+      row.dataset.ovenGradient = tbl.gradient || '';
+      row.dataset.ovenFluctuation = tbl.fluctuation || '';
+
+      let html = '';
+      if (pos === 0) {
+        html += renderGroupHeaderCell(paramName, 9);
+      }
+
+      html += `
+        <td><textarea class="lab-input-cell cal-point" readonly style="font-weight:700;cursor:default;width:100%;height:32px;resize:none;border:none;background:transparent;text-align:center;padding:4px 0;line-height:1.2;font-family:inherit;">${posLabel}</textarea></td>
+        <td><input type="text" class="lab-input-cell measured-active as-found-1" value="${sp}" placeholder="Lần 1" oninput="calculateConformity(this.closest('tr'))"></td>
+        <td><input type="text" class="lab-input-cell as-found-2" value="${sp}" placeholder="Lần 2" oninput="calculateConformity(this.closest('tr'))"></td>
+        <td><input type="text" class="lab-input-cell as-found-3" value="${sp}" placeholder="Lần 3" oninput="calculateConformity(this.closest('tr'))"></td>
+        <td><input type="text" class="lab-input-cell avg-value" value="${sp}" placeholder="TB" oninput="handleAvgInput(this)" style="background:#f0fdf4;font-weight:700;color:#065f46;text-align:center;cursor:text;"></td>
+        <td><input type="text" class="lab-input-cell uncertainty" value="1.0" oninput="calculateConformity(this.closest('tr'))"></td>
+        <td><input type="text" class="lab-input-cell ref-value" value="${avgVal}" oninput="calculateConformity(this.closest('tr'))"></td>
+        <td><input type="text" class="lab-input-cell tolerance" value="± 3" style="font-weight:500;" oninput="calculateConformity(this.closest('tr'))"></td>
+        <td><input type="text" class="lab-input-cell conformity" value="A" style="font-weight:700;color:var(--accent);"></td>
+      `;
+
+      if (pos === 0) {
+        html += `<td rowspan="9" class="ref-eq-col">${renderRefEqControl(paramName, 'LAB-THERMO.07')}</td>`;
+      }
+
+      html += `
+        <td style="text-align:center;"><button onclick="deleteCalRow(this);" class="btn-rm">×</button></td>
+      `;
+
+      row.innerHTML = html;
+      tbody.appendChild(row);
+    }
+  });
+
+  updateRowCount();
+
+  const allRows = tbody.querySelectorAll('tr');
+  allRows.forEach(row => {
+    if (typeof calculateConformity === 'function') {
+      calculateConformity(row);
+    }
+  });
+}
+
+/* ================= BALANCE (CÂN ĐIỆN TỬ) CALIBRATION MODULE ================= */
+window._balanceData = null;
+window._balanceLookup = null;
+window._balanceInitPromise = null;
+window._balanceLoadRequestId = 0;
+
+// Nhận diện thiết bị là Cân điện tử / Cân phân tích / Cân kỹ thuật
+function isBalanceEquipment(name) {
+  const target = (name || window._currentWorkingEquipment || document.getElementById('f-inst-vi')?.value || document.getElementById('f-inst-en')?.value || '');
+  const normalized = String(target).toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+  return normalized.includes('balance')
+    || normalized.includes('can dien tu')
+    || normalized.includes('can phan tich')
+    || normalized.includes('can ky thuat')
+    || /\bcan\b/.test(normalized);
+}
+
+// Chỉ gửi dữ liệu thô Balance khi thiết bị hiện tại là Cân
+function currentBalanceRawData() {
+  if (!isBalanceEquipment()) return '';
+  return window._balanceData || null;
+}
+
+function balanceDecimals(division) {
+  const m = String(division || '').match(/\.(\d+)/);
+  return m ? m[1].length : 0;
+}
+
+function balanceRound(value, decimals) {
+  const factor = Math.pow(10, decimals);
+  return Math.round(value * factor) / factor;
+}
+
+function balanceFmt(value, decimals) {
+  if (value === null || value === undefined || value === '' || !isFinite(Number(value))) return '—';
+  return balanceRound(Number(value), decimals).toFixed(decimals);
+}
+
+function balanceFormatSourceNumber(value) {
+  if (value === null || value === undefined || value === '' || !isFinite(Number(value))) return '—';
+  // Keep the precision supplied by the Excel lookup; rounding to the balance division
+  // can visibly change small uncertainty values (for example 0.00015 to 0.0002).
+  return String(Number(value));
+}
+
+function balanceParseNumber(value) {
+  const n = parseFloat(String(value ?? '').replace(',', '.'));
+  return isFinite(n) ? n : null;
+}
+
+function balanceParseTolerance(tolerance) {
+  const m = String(tolerance ?? '').replace(',', '.').match(/-?\d+(?:\.\d+)?/);
+  return m ? Math.abs(parseFloat(m[0])) : null;
+}
+
+async function fetchBalanceLookup(force = false) {
+  if (!force && window._balanceLookup) return window._balanceLookup;
+  let apiError = null;
+  try {
+    const response = await fetch(`${API_URL}/balance-lookup`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`API HTTP ${response.status}`);
+    const payload = await response.json();
+    // /api/balance-lookup returns { matrix, sourceMatrix }; static fallback is the matrix itself.
+    const lookup = payload?.matrix && typeof payload.matrix === 'object' ? payload.matrix : payload;
+    if (!lookup || !Object.keys(lookup).some(key => Array.isArray(lookup[key]))) {
+      throw new Error('Invalid Balance lookup response');
+    }
+    window._balanceLookup = lookup;
+    return lookup;
+  } catch (error) {
+    apiError = error;
+  }
+
+  const response = await fetch('/data/balance_matrix.json', { cache: 'no-store' });
+  if (!response.ok) throw new Error(`${apiError?.message || 'Balance API unavailable'}; JSON HTTP ${response.status}`);
+  const lookup = await response.json();
+  if (!lookup || !Object.keys(lookup).some(key => Array.isArray(lookup[key]))) {
+    throw new Error('balance_matrix.json has no valid divisions');
+  }
+  window._balanceLookup = lookup;
+  return lookup;
+}
+
+function buildBalanceData(division, entry) {
+  const decimals = balanceDecimals(division);
+  return {
+    division: division,
+    maxLabel: entry.maxLabel,
+    maxNumeric: entry.maxNumeric,
+    unit: entry.unit || 'g',
+    accuracyClass: entry.accuracyClass || '',
+    decimals: decimals,
+    testPoints: (entry.testPoints || []).slice(),
+    tolerances: (entry.tolerances || []).slice(),
+    uncertainties: (entry.uncertainties || []).slice(),
+    repeatabilityLoad: entry.repeatabilityLoad ?? '',
+    eccentricityLoad: entry.eccentricityLoad ?? '',
+    indication: (entry.testPoints || []).map((load, i) => ({
+      load: load,
+      indicated: '',
+      correction: null,
+      tolerance: (entry.tolerances || [])[i] || '',
+      uncertainty: (entry.uncertainties || [])[i] ?? '',
+      conformity: ''
+    })),
+    repeatability: { load: entry.repeatabilityLoad ?? '' },
+    eccentricity: { load: entry.eccentricityLoad ?? '', values: Array(5).fill(''), diffs: ['', '', '', '', ''], maxDiff: '' }
+  };
+}
+
+function normalizeBalanceData(saved) {
+  const data = Object.assign({}, saved);
+  data.decimals = balanceDecimals(data.division);
+  data.unit = data.unit || 'g';
+  if (!Array.isArray(data.testPoints)) data.testPoints = (data.indication || []).map(x => Number(x.load));
+  if (!Array.isArray(data.tolerances)) data.tolerances = (data.indication || []).map(x => x.tolerance || '');
+  if (!Array.isArray(data.uncertainties)) data.uncertainties = (data.indication || []).map(x => x.uncertainty ?? '');
+
+  if (!Array.isArray(data.indication)) {
+    data.indication = data.testPoints.map((load, i) => ({
+      load: load, indicated: '', correction: null,
+      tolerance: data.tolerances[i] || '', uncertainty: data.uncertainties[i] ?? '', conformity: ''
+    }));
+  }
+
+  data.repeatability = data.repeatability || {};
+  if (!Array.isArray(data.repeatability.readings)) data.repeatability.readings = [];
+  while (data.repeatability.readings.length < 10) data.repeatability.readings.push('');
+  data.repeatability.readings = data.repeatability.readings.slice(0, 10);
+  if (data.repeatability.load === undefined) data.repeatability.load = data.repeatabilityLoad ?? '';
+
+  data.eccentricity = data.eccentricity || {};
+  if (!Array.isArray(data.eccentricity.values)) data.eccentricity.values = [];
+  while (data.eccentricity.values.length < 5) data.eccentricity.values.push('');
+  data.eccentricity.values = data.eccentricity.values.slice(0, 5);
+  if (!Array.isArray(data.eccentricity.diffs)) data.eccentricity.diffs = ['', '', '', '', ''];
+  if (data.eccentricity.load === undefined) data.eccentricity.load = data.eccentricityLoad ?? '';
+  return data;
+}
+
+function populateBalanceSelectors() {
+  const lookup = window._balanceLookup || {};
+  const divSel = document.getElementById('bal-division');
+  const maxSel = document.getElementById('bal-max');
+  if (!divSel || !maxSel) return;
+
+  const current = window._balanceData || {};
+  const selectedDivision = current.division || divSel.value || '';
+  divSel.innerHTML = '<option value="">-- Chọn độ chia d --</option>' + Object.keys(lookup).filter(key => Array.isArray(lookup[key])).map(key => {
+    const count = (lookup[key] || []).length;
+    return `<option value="${escHtml(key)}"${count ? '' : ' disabled'}>${escHtml(key)}${count ? '' : ' (chưa có dữ liệu)'}</option>`;
+  }).join('');
+  divSel.value = Array.from(divSel.options).some(option => option.value === selectedDivision) ? selectedDivision : '';
+
+  populateBalanceMaxOptions();
+}
+
+function populateBalanceMaxOptions() {
+  const lookup = window._balanceLookup || {};
+  const divSel = document.getElementById('bal-division');
+  const maxSel = document.getElementById('bal-max');
+  if (!maxSel) return;
+  const division = (divSel && divSel.value) || '';
+  const entries = lookup[division] || [];
+  const selectedMax = window._balanceData?.division === division
+    ? window._balanceData.maxLabel
+    : maxSel.value;
+
+  maxSel.innerHTML = '<option value="">-- Chọn mức cân Max --</option>' + entries.map(entry =>
+    `<option value="${escHtml(entry.maxLabel)}">${escHtml(entry.maxLabel)}</option>`
+  ).join('');
+  maxSel.disabled = !division || entries.length === 0;
+
+  maxSel.value = entries.some(entry => entry.maxLabel === selectedMax) ? selectedMax : '';
+}
+
+function clearBalanceSelectionResults() {
+  window._balanceLoadRequestId += 1;
+  window._balanceData = null;
+  const indication = document.getElementById('bal-indication-body');
+  const repeat = document.getElementById('bal-repeat-body');
+  const eccentricity = document.getElementById('bal-ecc-body');
+  const summary = document.getElementById('bal-summary');
+  if (summary) summary.innerHTML = '';
+  if (indication) indication.innerHTML = '<tr><td colspan="6" style="padding:14px;color:#94a3b8;">Chọn mức cân Max để xem thông số Excel.</td></tr>';
+  if (repeat) repeat.innerHTML = '<tr><td colspan="11" style="padding:14px;color:#94a3b8;">Chọn mức cân Max để xem tải độ lặp lại.</td></tr>';
+  if (eccentricity) eccentricity.innerHTML = '<tr><td colspan="6" style="padding:14px;color:#94a3b8;">Chọn mức cân Max để xem tải độ lệch góc.</td></tr>';
+  ['bal-repeat-s', 'bal-repeat-summary-load', 'bal-ecc-max', 'bal-ecc-load-label'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '—';
+  });
+  const count = document.getElementById('bal-repeat-count');
+  if (count) count.textContent = '';
+
+  document.querySelectorAll('#spec-range-table-body tr[data-balance-spec="1"]:not([data-balance-selector="1"])').forEach(row => row.remove());
+  const mainBody = document.getElementById('calibration-table-body');
+  if (mainBody?.querySelector('tr[data-balance-row="1"]')) {
+    renderTableFromData(captureTableData().filter(row => !String(row.calibrateStt || '').startsWith('BALANCE:')));
+  }
+}
+
+function onBalanceDivisionChange() {
+  const divVal = document.getElementById('bal-division')?.value || '';
+  populateBalanceMaxOptions();
+  const maxSel = document.getElementById('bal-max');
+  if (maxSel) maxSel.value = '';
+  clearBalanceSelectionResults();
+  const count = (window._balanceLookup?.[divVal] || []).length;
+  const statusEl = document.getElementById('balance-lookup-status');
+  if (statusEl) {
+    statusEl.textContent = divVal
+      ? (count ? `Độ chia ${divVal} có ${count} mức Max trong Excel. Chọn mức Max để tải thông số.` : `Excel không có cấu hình hiệu chuẩn đầy đủ cho độ chia ${divVal}.`)
+      : 'Chọn độ chia d để xem các mức Max trong Excel.';
+  }
+  syncBalanceSpecFields();
+}
+
+function onBalanceMaxChange() {
+  const maxVal = document.getElementById('bal-max')?.value || '';
+  if (!maxVal) {
+    clearBalanceSelectionResults();
+    const statusEl = document.getElementById('balance-lookup-status');
+    if (statusEl) statusEl.textContent = 'Chọn một mức Max để hiển thị các thông số tương ứng.';
+    return;
+  }
+  loadBalanceStandardParams();
+}
+
+async function initBalanceWorkspace(savedData = null) {
+  const card = document.getElementById('card-balance-workspace');
+  if (!card) return;
+  card.style.display = 'block';
+  const statusEl = document.getElementById('balance-lookup-status');
+  if (statusEl) statusEl.textContent = 'Đang tải danh sách độ chia và mức Max từ Excel...';
+
+  if (savedData && savedData.division) {
+    window._balanceData = normalizeBalanceData(savedData);
+    try { await fetchBalanceLookup(); } catch (e) { /* vẫn render dữ liệu đã lưu */ }
+    renderBalanceWorkspace();
+    syncBalanceSpecFields();
+    syncBalanceToCalibrationTable();
+    if (statusEl) statusEl.textContent = `Đã khôi phục dữ liệu Balance: d = ${window._balanceData.division}, Max = ${window._balanceData.maxLabel || '—'}.`;
+    return;
+  }
+
+  try {
+    const lookup = await fetchBalanceLookup();
+    populateBalanceSelectors();
+    syncBalanceSpecFields();
+    const statusEl = document.getElementById('balance-lookup-status');
+    if (statusEl) statusEl.textContent = 'Chọn độ chia d nhỏ nhất của cân. Danh sách Max sẽ lấy theo Excel.';
+  } catch (e) {
+    const statusEl = document.getElementById('balance-lookup-status');
+    if (statusEl) statusEl.textContent = '⚠️ Không tải được dữ liệu tra cứu cân: ' + e.message;
+    showToast('Không tải được dữ liệu tra cứu cân: ' + e.message, 'danger');
+  }
+}
+
+function checkAndToggleBalanceWorkspace() {
+  const card = document.getElementById('card-balance-workspace');
+  if (!card) return;
+  const resultsCard = document.getElementById('card-results');
+
+  if (isBalanceEquipment()) {
+    card.style.display = 'block';
+    if (resultsCard) resultsCard.style.display = 'block';
+    if (!window._balanceData && window._balanceLookup) {
+      populateBalanceSelectors();
+      syncBalanceSpecFields();
+    } else if (!window._balanceData) {
+      if (!window._balanceInitPromise) {
+        window._balanceInitPromise = initBalanceWorkspace().finally(() => { window._balanceInitPromise = null; });
+      }
+    } else {
+      renderBalanceWorkspace();
+      syncBalanceSpecFields();
+      syncBalanceToCalibrationTable();
+    }
+  } else {
+    card.style.display = 'none';
+    if (resultsCard) resultsCard.style.display = '';
+    document.querySelectorAll('#spec-range-table-body tr[data-balance-spec="1"]').forEach(tr => tr.remove());
+    const tbody = document.getElementById('calibration-table-body');
+    if (tbody && tbody.querySelector('tr[data-balance-row="1"]')) {
+      renderTableFromData(captureTableData().filter(row => !String(row.calibrateStt || '').startsWith('BALANCE:')));
+    }
+  }
+}
+
+function renderBalanceWorkspace() {
+  const data = window._balanceData;
+  if (!data) return;
+  populateBalanceSelectors();
+  renderBalanceSummary();
+  renderBalanceIndication();
+  renderBalanceRepeatability();
+  renderBalanceEccentricity();
+  recalcBalanceIndication();
+  recalcBalanceEccentricity();
+}
+
+function renderBalanceSummary() {
+  const data = window._balanceData;
+  const box = document.getElementById('bal-summary');
+  if (!data || !box) return;
+  const items = [
+    ['Độ chia d', data.division],
+    ['Mức cân Max', data.maxLabel],
+    ['Cấp chính xác', data.accuracyClass || '—'],
+    ['Tải kiểm độ lặp lại', `${data.repeatabilityLoad} ${data.unit}`],
+    ['Tải kiểm độ lệch góc', `${data.eccentricityLoad} ${data.unit}`]
+  ];
+  box.innerHTML = items.map(([label, value]) =>
+    `<div class="bal-summary-item">${escHtml(label)}: <b>${escHtml(value)}</b></div>`
+  ).join('');
+  const eccLabel = document.getElementById('bal-ecc-load-label');
+  if (eccLabel) eccLabel.textContent = `${data.eccentricityLoad} ${data.unit}`;
+}
+
+function renderBalanceIndication() {
+  const data = window._balanceData;
+  const tbody = document.getElementById('bal-indication-body');
+  if (!data || !tbody) return;
+  tbody.innerHTML = data.indication.map(item => `
+    <tr data-load="${item.load}">
+      <td class="bal-load">${escHtml(item.load)}</td>
+      <td><input type="text" class="bal-ind" value="${escHtml(item.indicated || '')}" placeholder="VD: ${escHtml(item.load)}" oninput="recalcBalanceIndication()"></td>
+      <td class="bal-corr">${item.correction === null || item.correction === '' ? '—' : balanceFmt(item.correction, data.decimals)}</td>
+      <td class="bal-tol">${escHtml(item.tolerance || '—')}</td>
+      <td class="bal-unc">${escHtml(balanceFormatSourceNumber(item.uncertainty))}</td>
+      <td class="bal-conf">${item.conformity ? `<span class="bal-${item.conformity.toLowerCase()}">${item.conformity}</span>` : '—'}</td>
+    </tr>`).join('');
+}
+
+function recalcBalanceIndication() {
+  const data = window._balanceData;
+  if (!data) return;
+  const rows = document.querySelectorAll('#bal-indication-body tr[data-load]');
+  const decimals = data.decimals;
+
+  rows.forEach(row => {
+    const load = balanceParseNumber(row.dataset.load);
+    const input = row.querySelector('.bal-ind');
+    const corrCell = row.querySelector('.bal-corr');
+    const confCell = row.querySelector('.bal-conf');
+    const item = data.indication.find(x => Number(x.load) === load);
+    if (!item) return;
+
+    const indicated = balanceParseNumber(input ? input.value : '');
+    item.indicated = input ? input.value.trim() : '';
+
+    if (indicated === null || load === null) {
+      item.correction = null;
+      item.conformity = '';
+      if (corrCell) corrCell.textContent = '—';
+      if (confCell) confCell.textContent = '—';
+      syncBalanceMainRow(item);
+      return;
+    }
+
+    const correction = balanceRound(load - indicated, decimals);
+    const tolerance = balanceParseTolerance(item.tolerance);
+    const uncertainty = balanceParseNumber(item.uncertainty);
+    let conformity = '';
+    if (tolerance === null) {
+      conformity = 'D';
+    } else if (uncertainty !== null) {
+      if (Math.abs(correction) + uncertainty <= tolerance + 1e-12) conformity = 'A';
+      else if (Math.abs(correction) - uncertainty > tolerance + 1e-12) conformity = 'B';
+      else conformity = 'C';
+    } else {
+      conformity = Math.abs(correction) <= tolerance + 1e-12 ? 'A' : 'B';
+    }
+
+    item.correction = correction;
+    item.conformity = conformity;
+    if (corrCell) corrCell.textContent = balanceFmt(correction, decimals);
+    if (confCell) confCell.innerHTML = conformity
+      ? `<span class="bal-${conformity.toLowerCase()}">${conformity}</span>`
+      : '—';
+    syncBalanceMainRow(item);
+  });
+}
+
+function renderBalanceRepeatability() {
+  const data = window._balanceData;
+  if (!data) return;
+  const load = data.repeatability?.load ?? data.repeatabilityLoad ?? '';
+  const display = load === '' ? '—' : `${load} ${data.unit}`;
+  const summary = document.getElementById('bal-repeat-summary-load');
+  const tableCell = document.getElementById('bal-repeat-load');
+  if (summary) summary.textContent = display;
+  if (tableCell) tableCell.textContent = display;
+}
+
+function renderBalanceEccentricity() {
+  const data = window._balanceData;
+  const tbody = document.getElementById('bal-ecc-body');
+  if (!data || !tbody) return;
+  const labels = ['Tâm (0)', 'Trái (1)', 'Trước (2)', 'Phải (3)', 'Sau (4)'];
+  const values = data.eccentricity.values;
+
+  tbody.innerHTML = `<tr>
+      <td class="bal-load" id="bal-ecc-load">${escHtml(data.eccentricity.load)} ${escHtml(data.unit)}</td>
+      ${values.map((value, i) => `<td><input type="text" class="bal-ecc" data-pos="${i}" value="${escHtml(value || '')}" placeholder="${labels[i]}" oninput="recalcBalanceEccentricity()"></td>`).join('')}
+    </tr>
+    <tr>
+      <td class="bal-load">Sai lệch<span style="font-size:10.5px;font-weight:400;display:block;">Difference</span></td>
+      ${[0, 1, 2, 3, 4].map(i => `<td class="bal-ecc-diff" data-pos="${i}">—</td>`).join('')}
+    </tr>`;
+}
+
+function recalcBalanceEccentricity() {
+  const data = window._balanceData;
+  if (!data) return;
+  const inputs = Array.from(document.querySelectorAll('#bal-ecc-body .bal-ecc'));
+  const diffCells = Array.from(document.querySelectorAll('#bal-ecc-body .bal-ecc-diff'));
+  const values = inputs.map(input => balanceParseNumber(input.value));
+  const center = values[0];
+  const decimals = data.decimals;
+  let maxDiff = null;
+
+  data.eccentricity.values = inputs.map(input => input.value.trim());
+
+  values.forEach((value, i) => {
+    const cell = diffCells[i];
+    let diff = null;
+    if (i === 0) {
+      diff = center === null ? null : 0;
+    } else if (value !== null && center !== null) {
+      diff = Math.abs(value - center);
+    }
+
+    if (cell) cell.textContent = diff === null ? '—' : balanceFmt(diff, decimals);
+    data.eccentricity.diffs[i] = diff === null ? '' : balanceRound(diff, decimals);
+
+    if (i > 0 && diff !== null && (maxDiff === null || diff > maxDiff)) maxDiff = diff;
+  });
+
+  const maxEl = document.getElementById('bal-ecc-max');
+  if (maxEl) maxEl.textContent = maxDiff === null ? '—' : `${balanceFmt(maxDiff, decimals)} ${data.unit}`;
+  data.eccentricity.maxDiff = maxDiff === null ? '' : balanceRound(maxDiff, decimals);
+}
+
+// Tự động điền ngược Mục 7 (phạm vi đo), Mục 8 (độ phân giải), Mục 9 (cấp chính xác)
+function findBalanceDivisionKey(value) {
+  const lookup = window._balanceLookup || {};
+  const normalized = String(value || '').replace(/\s+/g, '').replace(',', '.').toLowerCase();
+  if (!normalized) return '';
+  const keys = Object.keys(lookup).filter(key => Array.isArray(lookup[key]) && lookup[key].length);
+  const direct = keys.find(key => key.replace(/\s+/g, '').toLowerCase() === normalized);
+  if (direct) return direct;
+  if (/^[\d.]+$/.test(normalized)) return keys.find(key => key.toLowerCase() === `${normalized}g`) || '';
+  return '';
+}
+
+function createBalanceSpecSelectorRow(tbody, division, maxLabel, carriedProc, carriedRef) {
+  const lookup = window._balanceLookup || {};
+  const matchedDivision = findBalanceDivisionKey(division);
+  const maxEntries = matchedDivision ? (lookup[matchedDivision] || []) : [];
+  const maxOptions = maxEntries.map(entry => `<option value="${escHtml(entry.maxLabel)}">${escHtml(entry.maxLabel)}</option>`).join('');
+  const row = document.createElement('tr');
+  row.dataset.balanceSpec = '1';
+  row.dataset.balanceSelector = '1';
+  row.innerHTML = `
+    <td><input type="text" class="lab-input-cell spec-param-input" value="Độ chia d / Resolution → Mức cân Max / Capacity" readonly></td>
+    <td><select class="lab-input-cell spec-value-input" onchange="onBalanceSpecMaxChange(this)" ${maxEntries.length ? '' : 'disabled'}>
+      <option value="">-- Chọn mức cân Max --</option>${maxOptions}</select></td>
+    <td><input type="text" class="lab-input-cell spec-res-input" value="${escHtml(division)}" placeholder="Nhập độ chia, ví dụ 0.01g" oninput="onBalanceSpecResolutionChange(this)" autocomplete="off"></td>
+    <td><input type="text" class="lab-input-cell spec-proc-input" value="${escHtml(carriedProc)}" autocomplete="off"></td>
+    <td><input type="text" class="lab-input-cell spec-ref-input" value="${escHtml(carriedRef)}" autocomplete="off"></td>
+    <td style="text-align:center;"><span title="Chọn độ chia và mức Max để nạp dữ liệu">↳</span></td>`;
+  const maxSelect = row.querySelector('.spec-value-input');
+  const resolutionInput = row.querySelector('.spec-res-input');
+  if (matchedDivision) {
+    resolutionInput.style.backgroundColor = '#dcfce7';
+    resolutionInput.style.borderColor = '#16a34a';
+  } else if (division) {
+    resolutionInput.style.backgroundColor = '#fee2e2';
+    resolutionInput.style.borderColor = '#dc2626';
+  }
+  if (maxEntries.some(entry => entry.maxLabel === maxLabel)) maxSelect.value = maxLabel;
+  tbody.insertBefore(row, tbody.firstChild);
+  return row;
+}
+
+function onBalanceSpecResolutionChange(input) {
+  const division = findBalanceDivisionKey(input.value);
+  const divisionSelect = document.getElementById('bal-division');
+  const maxSelect = input.closest('tr')?.querySelector('.spec-value-input');
+  const statusEl = document.getElementById('balance-lookup-status');
+  if (window._balanceData) clearBalanceSelectionResults();
+
+  if (divisionSelect) divisionSelect.value = division;
+  const entries = division ? (window._balanceLookup?.[division] || []) : [];
+  const found = Boolean(division && entries.length);
+  input.style.backgroundColor = found ? '#dcfce7' : (input.value.trim() ? '#fee2e2' : '');
+  input.style.borderColor = found ? '#16a34a' : (input.value.trim() ? '#dc2626' : '');
+  input.setAttribute('aria-invalid', found || !input.value.trim() ? 'false' : 'true');
+  if (maxSelect) {
+    maxSelect.innerHTML = '<option value="">-- Chọn mức cân Max --</option>' + entries.map(entry =>
+      `<option value="${escHtml(entry.maxLabel)}">${escHtml(entry.maxLabel)}</option>`
+    ).join('');
+    maxSelect.disabled = entries.length === 0;
+    maxSelect.value = '';
+  }
+  const topMax = document.getElementById('bal-max');
+  if (divisionSelect) populateBalanceMaxOptions();
+  if (topMax) topMax.value = '';
+  if (statusEl) statusEl.textContent = found
+    ? `Đã tìm thấy độ chia ${division} trong Excel (${entries.length} mức Max). Chọn Max để nạp dữ liệu.`
+    : (input.value.trim() ? `Không tìm thấy độ chia “${input.value.trim()}” trong các sheet Excel.` : 'Nhập độ chia để tìm cấu hình trong Excel.');
+}
+
+function onBalanceSpecMaxChange(select) {
+  const row = select.closest('tr');
+  const resolutionInput = row?.querySelector('.spec-res-input');
+  const division = findBalanceDivisionKey(resolutionInput?.value);
+  const divisionSelect = document.getElementById('bal-division');
+  if (!division || !select.value) return;
+  if (divisionSelect) divisionSelect.value = division;
+  populateBalanceMaxOptions();
+  const maxSelect = document.getElementById('bal-max');
+  if (maxSelect) maxSelect.value = select.value;
+  loadBalanceStandardParams();
+}
+
+function syncBalanceSpecFields() {
+  const data = window._balanceData;
+  const tbody = document.getElementById('spec-range-table-body');
+  if (!tbody || !window._balanceLookup) return;
+
+  // Giữ lại Quy trình (Mục 8) / Tiêu chuẩn tham khảo (Mục 9) từ các dòng cũ trước khi dựng lại bảng
+  let carriedProc = '';
+  let carriedRef = '';
+  Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
+    const proc = (tr.querySelector('.spec-proc-input')?.value || '').trim();
+    const ref = (tr.querySelector('.spec-ref-input')?.value || '').trim();
+    if (!carriedProc && proc) carriedProc = proc;
+    if (!carriedRef && ref) carriedRef = ref;
+
+    // Xóa các dòng Phạm vi đo / Cấp chính xác cũ (kể cả dòng đã lưu từ DB) và dòng rỗng của mẫu để tránh nhân đôi
+    if (tr.dataset.balanceSpec === '1') { tr.remove(); return; }
+    const param = (tr.querySelector('.spec-param-input')?.value || '').trim().toLowerCase();
+    const value = (tr.querySelector('.spec-value-input')?.value || '').trim();
+    const resolution = (tr.querySelector('.spec-res-input')?.value || '').trim();
+    if (param.startsWith('phạm vi đo') || param.startsWith('cấp chính xác') || (!param && !value && !resolution)) tr.remove();
+  });
+
+  const existingResolution = tbody.querySelector('tr[data-balance-selector="1"] .spec-res-input')?.value || '';
+  const division = data?.division || document.getElementById('bal-division')?.value || existingResolution;
+  const maxLabel = data?.maxLabel || '';
+  const selectorRow = createBalanceSpecSelectorRow(tbody, division, maxLabel, carriedProc, carriedRef);
+  if (!data) return;
+
+  const divisionLabel = /(kg|g)$/i.test(data.division)
+    ? data.division.replace(/(kg|g)$/i, ' $1')
+    : `${data.division} ${data.unit}`;
+  const rows = [
+    { param: 'Phạm vi đo / Range', value: `(0 ~ ${String(data.maxLabel || data.maxNumeric || '').replace(/\s*[a-z]+$/i, '')}) ${data.unit}`, resolution: `d = ${divisionLabel}` },
+    { param: 'Cấp chính xác / Accuracy class', value: data.accuracyClass || '—', resolution: '' }
+  ];
+
+  rows.slice().reverse().forEach(row => {
+    const tr = document.createElement('tr');
+    tr.dataset.balanceSpec = '1';
+    tr.innerHTML = `
+      <td><input type="text" class="lab-input-cell spec-param-input" value="${escHtml(row.param)}" autocomplete="off"></td>
+      <td><input type="text" class="lab-input-cell spec-value-input" value="${escHtml(row.value)}" autocomplete="off"></td>
+      <td><input type="text" class="lab-input-cell spec-res-input" value="${escHtml(row.resolution)}" autocomplete="off"></td>
+      <td><input type="text" class="lab-input-cell spec-proc-input" value="${escHtml(carriedProc)}" autocomplete="off"></td>
+      <td><input type="text" class="lab-input-cell spec-ref-input" value="${escHtml(carriedRef)}" autocomplete="off"></td>
+      <td style="text-align:center;"><button type="button" class="btn-rm" onclick="this.closest('tr').remove()">×</button></td>`;
+    tbody.insertBefore(tr, tbody.firstChild);
+  });
+  tbody.insertBefore(selectorRow, tbody.firstChild);
+}
+
+// Mirror Excel test points into the main results table and keep its single
+// indication field synchronized with the dedicated Balance workspace.
+function syncBalanceToCalibrationTable() {
+  const data = window._balanceData;
+  const tbody = document.getElementById('calibration-table-body');
+  if (!data || !tbody || !Array.isArray(data.indication)) return;
+
+  const otherRows = captureTableData().filter(row => !String(row.calibrateStt || '').startsWith('BALANCE:'));
+  const balanceRows = data.indication.map(item => ({
+    paramName: 'Sai lệch chỉ thị / Difference of Indication',
+    calibrateStt: `BALANCE:${item.load}`,
+    calPoint: String(item.load ?? ''),
+    v1: item.indicated || '',
+    v2: '',
+    v3: '',
+    avg: '',
+    uncertainty: String(item.uncertainty ?? ''),
+    refValue: String(item.load ?? ''),
+    tolerance: item.tolerance || '',
+    conformity: item.conformity || '',
+    refEq: ''
+  }));
+
+  renderTableFromData([...otherRows, ...balanceRows]);
+  tbody.querySelectorAll('tr[data-balance-row="1"] .as-found-1').forEach(input => {
+    input.addEventListener('input', () => syncBalanceIndicationFromMain(input.closest('tr')));
+  });
+}
+
+function syncBalanceMainRow(item) {
+  const tbody = document.getElementById('calibration-table-body');
+  if (!tbody || !item) return;
+  const row = Array.from(tbody.querySelectorAll('tr[data-balance-row="1"]'))
+    .find(tr => balanceParseNumber(tr.dataset.balanceLoad) === balanceParseNumber(item.load));
+  if (!row) return;
+  const indication = row.querySelector('.as-found-1');
+  const average = row.querySelector('.avg-value');
+  const conformity = row.querySelector('.conformity');
+  if (indication) indication.value = item.indicated || '';
+  if (average) average.value = item.indicated || '';
+  if (conformity) conformity.value = item.conformity || '';
+}
+
+function syncBalanceIndicationFromMain(row) {
+  const data = window._balanceData;
+  if (!data || !row) return;
+  const item = data.indication.find(entry => balanceParseNumber(entry.load) === balanceParseNumber(row.dataset.balanceLoad));
+  if (!item) return;
+  item.indicated = row.querySelector('.as-found-1')?.value.trim() || '';
+  const balanceRow = Array.from(document.querySelectorAll('#bal-indication-body tr[data-load]'))
+    .find(tr => balanceParseNumber(tr.dataset.load) === balanceParseNumber(item.load));
+  const balanceInput = balanceRow?.querySelector('.bal-ind');
+  if (balanceInput) balanceInput.value = item.indicated;
+  recalcBalanceIndication();
+}
+
+async function loadBalanceStandardParams() {
+  const division = document.getElementById('bal-division')?.value || '';
+  const maxLabel = document.getElementById('bal-max')?.value || '';
+  const statusEl = document.getElementById('balance-lookup-status');
+  if (!division || !maxLabel) return;
+  const previousSelection = window._balanceData;
+  if (previousSelection && (previousSelection.division !== division || previousSelection.maxLabel !== maxLabel)) {
+    clearBalanceSelectionResults();
+  }
+  const requestId = ++window._balanceLoadRequestId;
+  if (statusEl) statusEl.textContent = `Đang tra cứu d = ${division}, Max = ${maxLabel} trong Excel...`;
+  try {
+    const lookup = await fetchBalanceLookup();
+    if (requestId !== window._balanceLoadRequestId) return;
+    const entry = (lookup[division] || []).find(
+      e => (e.maxLabel || '').toString() === (maxLabel || '').toString() || (e.maxNumeric || e.maxLabel || '').toString() === (maxLabel || '').toString()
+    );
+
+    if (!entry) {
+      if (statusEl) statusEl.textContent = 'Không tìm thấy thông số cho độ chia và mức Max đã chọn.';
+      return;
+    }
+
+    const previous = window._balanceData;
+    const next = buildBalanceData(division, entry);
+
+    // Giữ lại số liệu đã nhập khi nạp lại cùng độ chia & mức cân
+    if (previous && previous.division === division && previous.maxLabel === entry.maxLabel) {
+      next.indication.forEach((item, i) => {
+        const old = previous.indication[i];
+        if (old) item.indicated = old.indicated || '';
+      });
+      if (previous.repeatability) next.repeatability = previous.repeatability;
+      if (previous.eccentricity) next.eccentricity = previous.eccentricity;
+    }
+
+    if (requestId !== window._balanceLoadRequestId) return;
+    window._balanceData = next;
+    renderBalanceWorkspace();
+    syncBalanceSpecFields();
+    syncBalanceToCalibrationTable();
+    if (statusEl) {
+      const source = entry.sourceSheet && entry.sourceRow
+        ? ` (Excel: sheet ${entry.sourceSheet}, dòng ${entry.sourceRow})`
+        : '';
+      statusEl.textContent = `Đã tự động nạp ${entry.testPoints.length} điểm kiểm, dung sai, độ KĐBĐ và tải phép thử cho d = ${division}, Max = ${entry.maxLabel}${source}.`;
+    }
+  } catch (e) {
+    if (requestId !== window._balanceLoadRequestId) return;
+    if (statusEl) statusEl.textContent = 'Không tải được dữ liệu tra cứu Balance: ' + e.message;
+    showToast('Lỗi khi nạp thông số chuẩn: ' + e.message, 'danger');
+  }
 }
 
 /* ====== SMART DATA-DRIVEN TABLE RENDERING ====== */
@@ -3443,6 +5198,10 @@ function renderTableFromData(data) {
       var row = document.createElement('tr');
       row.dataset.parameterName = paramName;
       if (r.calibrateStt) row.dataset.calibrateStt = r.calibrateStt;
+      if (String(r.calibrateStt || '').startsWith('BALANCE:')) {
+        row.dataset.balanceRow = '1';
+        row.dataset.balanceLoad = String(r.calibrateStt).slice('BALANCE:'.length);
+      }
 
       var html = '';
       if (k === i) {
@@ -4126,8 +5885,136 @@ function buildSpecTableHtml() {
   return h;
 }
 
+function buildOvenResultsTableHtml() {
+  const ovenData = window._ovenData || getDefaultOvenData();
+  let h = `
+    <table class="cert-results" style="font-size:8.5pt;">
+      <thead>
+        <tr>
+          <th style="width:10%;">Điểm đặt<br><i>Setting point<br>(⁰C)</i></th>
+          <th style="width:10%;">Giá trị chỉ thị<br><i>Indication Value<br>(⁰C)</i></th>
+          <th style="width:9%;">Vị trí đo<br><i>Measuring Pos.</i></th>
+          <th style="width:11%;">Giá trị chuẩn<br><i>Reference Value<br>(⁰C)</i></th>
+          <th style="width:10%;">Số hiệu chính<br><i>Correction<br>(⁰C)</i></th>
+          <th style="width:10%;">Độ đồng đều<br><i>Gradient<br>(⁰C)</i></th>
+          <th style="width:10%;">Độ ổn định<br><i>Fluctuation<br>(⁰C)</i></th>
+          <th style="width:10%;">Độ KĐBĐ<br><i>Uncertainty<br>(⁰C)</i></th>
+          <th style="width:10%;">Dung sai<br><i>Tolerance<br>(⁰C)</i></th>
+          <th style="width:10%;">Sự phù hợp<br><i>Conformity</i></th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  ovenData.tables.forEach(tbl => {
+    const sp = tbl.setPoint;
+    const avg1 = parseFloat(String(tbl.avg[0] || sp).replace(',', '.'));
+    const spNum = parseFloat(sp);
+    const correction = (!isNaN(avg1) && !isNaN(spNum)) ? (Math.round((avg1 - spNum) * 10) / 10).toFixed(1) : '0.0';
+
+    for (let pos = 0; pos < 9; pos++) {
+      h += '<tr>';
+      if (pos === 0) {
+        h += `<td rowspan="9" style="text-align:center;font-weight:bold;">${sp}</td>`;
+        h += `<td rowspan="9" style="text-align:center;">${sp}</td>`;
+      }
+      h += `<td style="text-align:center;">${pos + 1}</td>`;
+      h += `<td style="text-align:center;">${tbl.avg[pos] || '--'}</td>`;
+      if (pos === 0) {
+        h += `<td rowspan="9" style="text-align:center;">${correction}</td>`;
+        h += `<td rowspan="9" style="text-align:center;">${tbl.gradient || '--'}</td>`;
+        h += `<td rowspan="9" style="text-align:center;">${tbl.fluctuation || '--'}</td>`;
+        h += `<td rowspan="9" style="text-align:center;">1.0</td>`;
+        h += `<td rowspan="9" style="text-align:center;">± 3</td>`;
+        h += `<td rowspan="9" style="text-align:center;font-weight:bold;color:var(--accent);">A</td>`;
+      }
+      h += '</tr>';
+    }
+  });
+
+  h += '</tbody></table>';
+
+  // Sơ đồ cảm biến
+  h += `
+    <div style="margin:20px 0 15px 0; text-align:center;">
+      <div style="font-weight:700; font-size:10.5pt; color:#1e293b;">Bố trị các cảm biến trong tủ nhiệt (x1= x2= x3=50mm)</div>
+      <div style="font-style:italic; font-size:9.5pt; color:#64748b; margin-bottom:8px;">Sensor Position</div>
+      <img src="img/oven_sensor_position.png" alt="Sensor Position" style="max-width:300px; width:100%; height:auto; border:1px solid #e2e8f0; border-radius:6px; padding:6px; background:#fff;">
+    </div>
+  `;
+
+  // Các bảng số liệu thô (DATA TABLE)
+  h += `<div style="text-align:center; font-weight:800; font-size:11.5pt; margin:16px 0 10px 0; color:#0f172a; letter-spacing:0.5px;">BẢNG SỐ LIỆU/ DATA TABLE</div>`;
+
+  ovenData.tables.forEach(tbl => {
+    h += `
+      <table class="cert-results" style="margin-bottom:16px; font-size:8.5pt;">
+        <thead>
+          <tr>
+            <th style="width:26%; text-align:left; padding-left:10px;">
+              <div>Vị trí đo/ Sensor Pos.</div>
+              <div style="color:#008000; font-weight:bold;">Set point: ${tbl.setPoint} (⁰C)</div>
+            </th>
+            <th style="width:8.2%;">1</th>
+            <th style="width:8.2%;">2</th>
+            <th style="width:8.2%;">3</th>
+            <th style="width:8.2%;">4</th>
+            <th style="width:8.2%;">5</th>
+            <th style="width:8.2%;">6</th>
+            <th style="width:8.2%;">7</th>
+            <th style="width:8.2%;">8</th>
+            <th style="width:8.2%;">9</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="text-align:left; padding-left:10px; font-weight:bold;">
+              <div>Giá trị trung bình</div>
+              <div style="font-size:7.5pt; font-style:italic; font-weight:normal;">Average Value (⁰C)</div>
+            </td>
+            ${[0,1,2,3,4,5,6,7,8].map(i => `<td style="color:#b45309; font-weight:bold;">${tbl.avg[i] || '--'}</td>`).join('')}
+          </tr>
+          <tr>
+            <td style="text-align:left; padding-left:10px; font-weight:bold; color:#dc2626;">
+              <div>Giá trị lớn nhất</div>
+              <div style="font-size:7.5pt; font-style:italic; font-weight:normal;">Max. Value(⁰C)</div>
+            </td>
+            ${[0,1,2,3,4,5,6,7,8].map(i => `<td style="color:#dc2626; font-weight:bold;">${tbl.max[i] || '--'}</td>`).join('')}
+          </tr>
+          <tr>
+            <td style="text-align:left; padding-left:10px; font-weight:bold; color:#dc2626;">
+              <div>Giá trị nhỏ nhất</div>
+              <div style="font-size:7.5pt; font-style:italic; font-weight:normal;">Min. Value (⁰C)</div>
+            </td>
+            ${[0,1,2,3,4,5,6,7,8].map(i => `<td style="color:#dc2626; font-weight:bold;">${tbl.min[i] || '--'}</td>`).join('')}
+          </tr>
+          <tr style="background:#f8fafc;">
+            <td colspan="4" style="font-weight:bold; text-align:center;">
+              <div>Độ đồng đều</div>
+              <div style="font-size:7.5pt; font-style:italic; font-weight:normal;">Temp. Gradient (⁰C)</div>
+            </td>
+            <td colspan="6" style="font-weight:bold; text-align:center; color:#0284c7;">
+              <div>Độ biến động</div>
+              <div style="font-size:7.5pt; font-style:italic; font-weight:normal;">Temp. Fluctuation (⁰C)</div>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="4" style="font-weight:bold; font-size:10.5pt; text-align:center;">${tbl.gradient || '--'}</td>
+            <td colspan="6" style="font-weight:bold; font-size:10.5pt; text-align:center; color:#0284c7;">${tbl.fluctuation || '--'}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+  });
+
+  return h;
+}
+
 // Bảng mục 16: Kết quả (6 cột như PDF, gộp thông số rowspan, ref/dung sai/kết luận ở dòng giữa)
 function buildResultsTableHtml(allRes) {
+  if (isOvenEquipment()) {
+    return buildOvenResultsTableHtml();
+  }
   const groups = [];
   let cur = null;
   allRes.forEach(function(r) {
@@ -5127,7 +7014,10 @@ async function exportFile(format) {
     specResolution: getSpecResolutionTableData(),
     points:         pointRecords.map((p, idx) => ({ ...p, refEq: (currentResults[idx] && currentResults[idx].refEq) || '' })),
     standards:      standardRecords,
-    accreditedMethods: (typeof calibrateMethods !== 'undefined' && Array.isArray(calibrateMethods)) ? calibrateMethods : []
+    accreditedMethods: (typeof calibrateMethods !== 'undefined' && Array.isArray(calibrateMethods)) ? calibrateMethods : [],
+    balanceRawData: currentBalanceRawData(),
+    ovenRawData: currentOvenRawData(),
+    raw_data: currentBalanceRawData() || currentOvenRawData()
   };
 
   const apiEndpoints = {
@@ -5204,7 +7094,10 @@ function saveCalibrationData() {
             uncertainty: p.unc, referenceValue: p.refValue, tolerance: p.tol, conformity: p.conf, refEq: p.refEq
         })),
         currentUser: user?.fullName || "KTV",
-        standards: collectAllStandards() 
+        standards: collectAllStandards(),
+        balanceRawData: currentBalanceRawData(),
+        ovenRawData: currentOvenRawData(),
+        raw_data: currentBalanceRawData() || currentOvenRawData()
     };
 
     // 1. PHẢN HỒI GIAO DIỆN TỨC THÌ TRONG 0.0001 ms (ZERO LAG)
@@ -5252,7 +7145,8 @@ function saveCalibrationData() {
             HEAD_OF_LAB: payload.headOfLab,
             DIRECTOR: payload.director,
             SPEC_RANGE: payload.specRange,
-            SPEC_RESOLUTION: payload.specResolution
+            SPEC_RESOLUTION: payload.specResolution,
+            RAW_DATA: window._balanceData ? JSON.stringify(window._balanceData) : (window._ovenData ? JSON.stringify(window._ovenData) : '')
         },
         points: payload.points.map(p => ({
             PARAMETER_NAME: p.parameterName,
@@ -5401,6 +7295,25 @@ function populateCalibrationForm(result) {
         standards = [];
         renderStandardsForm();
     }
+
+    // Khôi phục dữ liệu thô Oven / Balance nếu có (không có thì reset về dữ liệu mẫu của máy hiện tại)
+    window._ovenData = null;
+    window._balanceData = null;
+    if (c.RAW_DATA) {
+        try {
+            const rawObj = typeof c.RAW_DATA === 'string' ? JSON.parse(c.RAW_DATA) : c.RAW_DATA;
+            if (rawObj && Array.isArray(rawObj.tables) && rawObj.tables.length > 0) {
+                window._ovenData = rawObj;
+            } else if (rawObj && rawObj.division && Array.isArray(rawObj.indication)) {
+                window._balanceData = normalizeBalanceData(rawObj);
+            }
+        } catch (e) {
+            console.warn("Lỗi parse RAW_DATA:", e);
+        }
+    }
+    checkAndToggleOvenWorkspace();
+    checkAndToggleBalanceWorkspace();
+
     return true;
 }
 
@@ -6126,7 +8039,10 @@ function getCalibrationPayload() {
     specResolution:    getSpecResolutionTableData(),
     points:            pointRecords.map((p, idx) => ({ ...p, refEq: (currentResults[idx] && currentResults[idx].refEq) || '' })),
     standards:         standardRecords,
-    accreditedMethods: (typeof calibrateMethods !== 'undefined' && Array.isArray(calibrateMethods)) ? calibrateMethods : []
+    accreditedMethods: (typeof calibrateMethods !== 'undefined' && Array.isArray(calibrateMethods)) ? calibrateMethods : [],
+    balanceRawData:    currentBalanceRawData() || null,
+    ovenRawData:       window._ovenData || null,
+    raw_data:          currentBalanceRawData() || window._ovenData || null
   };
 }
 

@@ -37,6 +37,7 @@ const SALT_ROUNDS = 10;
 
 // Database connection (centralized) - Gọi file db.js mới của bạn
 const sql = require('./db');
+const balanceLookup = require('./public/data/balance_matrix.json');
 
 // Server-side memory cache for read-heavy APIs to eliminate latency bottlenecks
 let serverCache = {
@@ -482,6 +483,38 @@ async function ensureDbInitialized() {
     }
     return dbInitPromise;
 }
+
+// Tra cứu dữ liệu hiệu chuẩn Balance đã trích xuất từ Balance.xlsx.
+app.get('/api/balance-lookup', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+
+    const sourceMatrix = balanceLookup.sourceMatrices || {};
+    const publicMatrix = Object.fromEntries(
+        Object.entries(balanceLookup).filter(([key, value]) => key !== 'sourceMatrices' && Array.isArray(value))
+    );
+    const resolution = String(req.query.resolution || '').trim();
+
+    if (!resolution) {
+        return res.json({ matrix: publicMatrix, sourceMatrix });
+    }
+    if (!Object.prototype.hasOwnProperty.call(publicMatrix, resolution)) {
+        return res.status(404).json({
+            success: false,
+            error: `Không có dữ liệu cho độ chia "${resolution}"`,
+            resolutions: Object.keys(publicMatrix)
+        });
+    }
+
+    let entries = publicMatrix[resolution];
+    if (req.query.maxLabel !== undefined) {
+        const maxLabel = String(req.query.maxLabel).trim();
+        entries = entries.filter(entry => entry.maxLabel === maxLabel);
+    } else if (req.query.max !== undefined) {
+        const max = Number(req.query.max);
+        if (Number.isFinite(max)) entries = entries.filter(entry => entry.maxNumeric === max);
+    }
+    return res.json(entries);
+});
 
 // Middleware để đảm bảo cơ sở dữ liệu luôn được khởi tạo trước khi xử lý bất kỳ API nào
 // ensureDbInitialized() đã được chạy khi server start (local), middleware này đảm bảo init cả trên Vercel serverless

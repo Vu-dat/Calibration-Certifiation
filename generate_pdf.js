@@ -1080,6 +1080,257 @@ function drawResultsTable(doc, pts, pageContext) {
   return y;
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+//  BALANCE (CÂN ĐIỆN TỬ) — Sai lệch chỉ thị / Độ lặp lại / Độ lệch góc
+// ═══════════════════════════════════════════════════════════════════════
+function isBalanceName(name) {
+  var normalized = String(name || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+  return normalized.indexOf('balance') >= 0
+    || normalized.indexOf('can dien tu') >= 0
+    || normalized.indexOf('can phan tich') >= 0
+    || normalized.indexOf('can ky thuat') >= 0
+    || /\bcan\b/.test(normalized);
+}
+
+function parseBalanceRaw(cert, optsData) {
+  var candidates = [];
+  if (optsData) { candidates.push(optsData.balanceRawData, optsData.raw_data); }
+  if (cert) { candidates.push(cert.RAW_DATA, cert.raw_data); }
+  for (var i = 0; i < candidates.length; i++) {
+    var candidate = candidates[i];
+    if (!candidate) continue;
+    try {
+      var obj = typeof candidate === 'string' ? JSON.parse(candidate) : candidate;
+      if (obj && obj.division && Array.isArray(obj.indication)) return obj;
+    } catch (e) { /* bỏ qua dữ liệu không hợp lệ */ }
+  }
+  return null;
+}
+
+function balanceDecimals(division) {
+  var match = String(division || '').match(/\.(\d+)/);
+  return match ? match[1].length : 0;
+}
+
+function balanceFmt(value, decimals) {
+  if (value === null || value === undefined || value === '' || !isFinite(Number(value))) return '';
+  var factor = Math.pow(10, decimals);
+  return (Math.round(Number(value) * factor) / factor).toFixed(decimals);
+}
+
+function balanceNum(value) {
+  if (value === null || value === undefined || value === '') return null;
+  var n = parseFloat(String(value).replace(',', '.'));
+  return isFinite(n) ? n : null;
+}
+
+function estimateBalanceHeight(balance) {
+  var rows = (balance.indication || []).length;
+  return 18 + 34 + rows * 16 + 14 + 14 + 30 + 20 + 16 + 14 + 24 + 20 + 20 + 24 + 20;
+}
+
+function drawBalanceTables(doc, balance, pageContext) {
+  var logo = pageContext.logo;
+  var cNo = pageContext.cNo;
+  var calDate = pageContext.calDate;
+  var qr = pageContext.qr;
+  var decimals = balanceDecimals(balance.division);
+  var displayDecimals = Math.max(decimals - 1, 0);
+  var unit = balance.unit || 'g';
+  var startX = 28.7, endX = 574.3;
+  var y = 160.3;
+
+  function ensureSpace(height) {
+    if (y + height > 790) {
+      drawFooter(doc, pageContext.currentPage, pageContext.totalPages);
+      doc.addPage();
+      pageContext.currentPage++;
+      drawH(doc, logo, cNo, calDate, qr);
+      y = 160.3;
+      return true;
+    }
+    return false;
+  }
+
+  function drawTitle(text) {
+    sf(doc, true); doc.fontSize(10).fillColor('#000000');
+    doc.text(text, startX, y, { lineGap: 0 });
+    y += 16;
+  }
+
+  function drawHeader(cols, labels, headerH) {
+    doc.lineWidth(0.3).strokeColor('#000000');
+    for (var i = 0; i < labels.length; i++) {
+      var x0 = cols[i], x1 = cols[i + 1];
+      doc.rect(x0, y, x1 - x0, headerH).fillColor('#FFFFFF').fill();
+      doc.lineWidth(0.3).strokeColor('#000000');
+      doc.rect(x0, y, x1 - x0, headerH).stroke();
+      sf(doc, true); doc.fontSize(9); doc.fillColor('#000000');
+      doc.text(labels[i][0], x0 + 3, y + 5, { width: x1 - x0 - 6, align: 'center', lineGap: 0 });
+      sf(doc, true, true); doc.fontSize(8);
+      doc.text(labels[i][1], x0 + 3, y + 18, { width: x1 - x0 - 6, align: 'center', lineGap: 0 });
+    }
+    y += headerH;
+  }
+
+  function drawRow(cells, cols, rowH, opts) {
+    opts = opts || {};
+    doc.lineWidth(0.3).strokeColor('#000000');
+    for (var i = 0; i < cells.length; i++) {
+      var x0 = cols[i], x1 = cols[i + 1];
+      doc.rect(x0, y, x1 - x0, rowH).stroke();
+      if (cells[i] !== null && cells[i] !== undefined && cells[i] !== '') {
+        sf(doc, !!(opts.bold && opts.bold.indexOf(i) >= 0));
+        drawCell(doc, String(cells[i]), x0, y, x1 - x0, rowH);
+      }
+    }
+    y += rowH;
+  }
+
+  // Section 16 heading
+  sf(doc, true); doc.fontSize(11).fillColor('#000000');
+  doc.text(VN.sec16, 36.0, 146.1, { lineGap: 0 });
+  sf(doc, true, true); doc.fontSize(11);
+  doc.text(VN.sec16En, 100.9, 146.1, { lineGap: 0 });
+
+  // ─── 1. Sai lệch của chỉ thị ───
+  drawTitle('Sai lệch của chỉ thị/ Difference of Indication :');
+
+  var indCols = [28.7, 110.0, 232.0, 342.0, 438.0, 514.0, 574.3];
+  var indLabels = [
+    ['Mức cân', 'Load (' + unit + ')'],
+    ['Giá trị hiển thị', 'Indication value (' + unit + ')'],
+    ['Độ KĐBĐ', 'Uncertainty (' + unit + ')'],
+    ['Số hiệu chính', 'Correction (' + unit + ')'],
+    ['Dung sai', 'Tolerance (' + unit + ')'],
+    ['Kết luận', 'Conclusion']
+  ];
+  var indHeaderH = 32;
+  ensureSpace(indHeaderH + 16);
+  drawHeader(indCols, indLabels, indHeaderH);
+
+  var indication = Array.isArray(balance.indication) ? balance.indication : [];
+  if (!indication.length) {
+    drawRow(['Chưa có dữ liệu', '', '', '', '', ''], indCols, 16);
+  } else {
+    for (var i = 0; i < indication.length; i++) {
+      var item = indication[i];
+      var load = balanceNum(item.load);
+      var indicated = balanceNum(item.indicated);
+      var correction = balanceNum(item.correction);
+      if (correction === null && load !== null && indicated !== null) correction = load - indicated;
+
+      if (ensureSpace(16)) {
+        drawHeader(indCols, indLabels, indHeaderH);
+      }
+      drawRow([
+        load !== null ? balanceFmt(load, 0) : '',
+        indicated !== null ? balanceFmt(indicated, displayDecimals) : '',
+        balanceFmt(item.uncertainty, Math.max(decimals, 1)),
+        correction !== null ? balanceFmt(correction, displayDecimals) : '',
+        item.tolerance || '',
+        item.conformity || ''
+      ], indCols, 16, { bold: [0, 5] });
+    }
+  }
+
+  // ─── 2. Độ lặp lại ───
+  y += 10;
+  ensureSpace(90);
+  drawTitle('Độ lặp lại / Repeatability :');
+
+  var repCols = [28.7, 300.0, 574.3];
+  var repHeaderH = 28;
+  drawHeader(repCols, [
+    ['Mức cân', 'Load (' + unit + ')'],
+    ['Độ lệch chuẩn', 'Standard Deviation (' + unit + ')']
+  ], repHeaderH);
+
+  var repeatability = balance.repeatability || {};
+  var repeatLoad = (repeatability.load !== undefined && repeatability.load !== '') ? repeatability.load : balance.repeatabilityLoad;
+  var repeatDecimals = Math.max(decimals, 1);
+  drawRow([
+    (repeatLoad !== undefined && repeatLoad !== '' ? repeatLoad : '') + ' — Mức cân độ lặp lại',
+    balanceFmt(repeatability.stdDev, repeatDecimals)
+  ], repCols, 20, { bold: [1] });
+
+  // ─── 3. Độ lệch góc ───
+  y += 10;
+  ensureSpace(150);
+  drawTitle('Độ lệch góc / Eccentricity :');
+
+  var eccCols = [28.7, 238.7, 306.0, 373.3, 440.6, 507.9, 574.3];
+  var eccentricity = balance.eccentricity || {};
+  var eccLoad = (eccentricity.load !== undefined && eccentricity.load !== '') ? eccentricity.load : balance.eccentricityLoad;
+  var values = Array.isArray(eccentricity.values) ? eccentricity.values : [];
+  var centerValue = balanceNum(values[0]);
+  var diffs = [];
+  var maxDiff = null;
+  for (var k = 0; k < 5; k++) {
+    var diff = null;
+    if (k === 0 && centerValue !== null) diff = 0;
+    else {
+      var v = balanceNum(values[k]);
+      if (v !== null && centerValue !== null) diff = Math.abs(v - centerValue);
+    }
+    diffs.push(diff);
+    if (k > 0 && diff !== null && (maxDiff === null || diff > maxDiff)) maxDiff = diff;
+  }
+
+  // Row 1: tải áp dụng
+  drawRow(['Tải áp dụng / Load (g)', (eccLoad !== undefined && eccLoad !== '' ? eccLoad : '') + ' — Mức cân độ lệch góc', '', '', '', ''], eccCols, 20);
+
+  // Row 2: sơ đồ đĩa cân (0 tâm, 1–4 bốn góc)
+  var sketchRowH = 62;
+  drawRow(['Sơ đồ / Sketch', '', '', '', '', ''], eccCols, sketchRowH);
+  var sketchLabels = [['', '2', ''], ['1', '0', '3'], ['', '4', '']];
+  var boxW = 22, boxH = 16;
+  var gridW = boxW * 3;
+  var gridX = 238.7 + ((574.3 - 238.7) - gridW) / 2;
+  var gridY = y - sketchRowH + (sketchRowH - boxH * 3) / 2;
+  for (var gr = 0; gr < 3; gr++) {
+    for (var gc = 0; gc < 3; gc++) {
+      var label = sketchLabels[gr][gc];
+      doc.lineWidth(0.3).strokeColor('#000000');
+      doc.rect(gridX + gc * boxW, gridY + gr * boxH, boxW, boxH).stroke();
+      if (label) {
+        sf(doc, true); doc.fontSize(8);
+        doc.text(label, gridX + gc * boxW, gridY + gr * boxH + 4, { width: boxW, align: 'center', lineGap: 0 });
+      }
+    }
+  }
+  sf(doc, false, true); doc.fontSize(7);
+  doc.text('0: Tâm — 1: Trái — 2: Trước — 3: Phải — 4: Sau', 238.7, y - 10, { width: 574.3 - 238.7, align: 'center', lineGap: 0 });
+
+  // Row 3: vị trí đặt tải
+  drawRow(['Vị trí đặt tải/ Load Position', '0', '1', '2', '3', '4'], eccCols, 18, { bold: [1, 2, 3, 4, 5] });
+
+  // Row 4: sai lệch
+  drawRow([
+    'Sai lệch / Difference (g)',
+    diffs[0] === null ? '' : balanceFmt(diffs[0], decimals),
+    diffs[1] === null ? '' : balanceFmt(diffs[1], decimals),
+    diffs[2] === null ? '' : balanceFmt(diffs[2], decimals),
+    diffs[3] === null ? '' : balanceFmt(diffs[3], decimals),
+    diffs[4] === null ? '' : balanceFmt(diffs[4], decimals)
+  ], eccCols, 18);
+
+  // Row 5: sai lệch lớn nhất
+  var maxRowH = 24;
+  ensureSpace(maxRowH);
+  doc.lineWidth(0.3).strokeColor('#000000');
+  doc.rect(eccCols[0], y, eccCols[1] - eccCols[0], maxRowH).stroke();
+  doc.rect(eccCols[1], y, eccCols[6] - eccCols[1], maxRowH).stroke();
+  sf(doc, false); doc.fontSize(7.5);
+  doc.text('Sai lệch lớn nhất so với vị trí số 1 / Max. difference between position 1 & other (g)', eccCols[0] + 2, y + 8, { width: eccCols[1] - eccCols[0] - 4, align: 'center', lineGap: 0 });
+  sf(doc, true); doc.fontSize(9);
+  doc.text(maxDiff === null ? '' : balanceFmt(maxDiff, decimals), eccCols[1], y + 8, { width: eccCols[6] - eccCols[1], align: 'center', lineGap: 0 });
+  y += maxRowH;
+
+  return y;
+}
+
 // Section 17 + legal text. Reference: all 8pt, x=20.0, EXACT line spacing 10.55pt
 // Reference line positions: startY=483.4, each line at startY + n*10.55
 function drawSection17(doc, startY, cNo, pts) {
@@ -1468,6 +1719,7 @@ async function main(opts) {
 
     var qr = dUrl ? await getCachedQR(dUrl) : null;
     var tpl = await getCachedTemplate(eqName, cert);
+    var balanceData = parseBalanceRaw(cert, opts && opts.data);
 
     const SD = process.env.VERCEL ? require('os').tmpdir() : path.join(BD, 'static');
     if (!fs.existsSync(SD)) fs.mkdirSync(SD, { recursive: true });
@@ -1556,7 +1808,15 @@ async function main(opts) {
 
     // Estimate heights to determine total pages dynamically
     var sec17EstH = estimateSection17Height(doc, pts);
-    var totalPages = determinePages(doc, pts, tpl, sec17EstH);
+    var totalPages;
+    if (balanceData) {
+      var balEnd = 160.3 + estimateBalanceHeight(balanceData);
+      totalPages = 2;
+      while (balEnd > 790) { totalPages++; balEnd = 160.3 + (balEnd - 790); }
+      if (balEnd + 8 + sec17EstH > 810) totalPages++;
+    } else {
+      totalPages = determinePages(doc, pts, tpl, sec17EstH);
+    }
 
     // ═══ PAGE 1 ═══
     doc.addPage();
@@ -1577,7 +1837,9 @@ async function main(opts) {
       totalPages: totalPages,
       tpl: tpl
     };
-    var tableEnd = drawResultsTable(doc, pts, pageContext);
+    var tableEnd = balanceData
+      ? drawBalanceTables(doc, balanceData, pageContext)
+      : drawResultsTable(doc, pts, pageContext);
     
     var lastTablePage = pageContext.currentPage;
     var isSnagpod = tpl && (

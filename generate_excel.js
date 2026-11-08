@@ -20,6 +20,7 @@ async function dbGet(query, params) {
   const rows = await db.unsafe(pgQuery, params);
   return rows[0] || null;
 }
+
 async function dbAll(query, params) {
   dbAll._idx = 0;
   const pgQuery = query.replace(/\?/g, () => `$${++dbAll._idx}`);
@@ -28,8 +29,7 @@ async function dbAll(query, params) {
 
 // ─────────────────────── CẤU HÌNH ĐƯỜNG DẪN ───────────────────────
 const certNo = process.argv[2];
-const BASE_DIR   = __dirname;
-
+const BASE_DIR = __dirname;
 
 
 function parseDate(d) {
@@ -94,8 +94,9 @@ async function main(opts) {
         // Compute output paths inside main() (compositeCNo is guaranteed valid here)
         const STATIC_DIR = process.env.VERCEL ? require('os').tmpdir() : path.join(BASE_DIR, 'static');
         if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
-        const SAFE_NAME   = compositeCNo.replace(/[^a-zA-Z0-9]/g, '_');
+        const SAFE_NAME = compositeCNo.replace(/[^a-zA-Z0-9]/g, '_');
         const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.xlsx`);
+
 function mapDataToCert(data, cNo) {
     return {
         CERT_NO: cNo,
@@ -234,134 +235,7 @@ function mapDataToStandards(standards) {
             r++;
         });
 
-        
-
         // --- RESULTS TABLE ---
-        r += 1;
-        ws.mergeCells('A' + r + ':G' + r);
-        ws.getCell('A' + r).value = '16. KẾT QUẢ HIỆU CHUẨN / CALIBRATION RESULTS:';
-        ws.getCell('A' + r).font = { name: 'Arial', size: 11, bold: true, color: { argb: primaryColor } };
-        ws.getCell('A' + r).alignment = { horizontal: 'center', vertical: 'middle' };
-        ws.getRow(r).height = 24;
-        r++;
-
-        // Results header (7 columns: A through G, merging F & G for Phù hợp)
-        var resH = ['Thông số', 'Điểm HC', 'Giá trị đo được', 'KĐBĐ ±', 'Dung sai', 'Phù hợp'];
-        ws.getRow(r).height = 28;
-        var resColLetters = ['A','B','C','D','E','F','G'];
-        resH.forEach(function(h, i) {
-            var cell = ws.getCell(resColLetters[i] + r);
-            cell.value = h;
-            cell.font = { name: 'Arial', size: 8, bold: true, color: { argb: primaryColor } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightBg } };
-            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-            cell.border = defaultBorder();
-        });
-        ws.mergeCells('F' + r + ':G' + r);
-        ws.getCell('G' + r).border = defaultBorder();
-        r++;
-
-        if (points.length === 0) {
-            ws.mergeCells('A' + r + ':G' + r);
-            ws.getCell('A' + r).value = 'Chưa có dữ liệu điểm đo';
-            ws.getCell('A' + r).font = { name: 'Arial', size: 10, color: { argb: '9e9c96' } };
-            ws.getCell('A' + r).alignment = { horizontal: 'center', vertical: 'middle' };
-            r++;
-        } else {
-            // Group by PARAMETER_NAME
-            var grouped = [];
-            var curGroup = null;
-            for (var pi = 0; pi < points.length; pi++) {
-                var pn = points[pi].PARAMETER_NAME || points[pi].parameter_name || '–';
-                if (!curGroup || curGroup.paramName !== pn) {
-                    curGroup = { paramName: pn, rows: [] };
-                    grouped.push(curGroup);
-                }
-                curGroup.rows.push(points[pi]);
-            }
-
-            for (var gi = 0; gi < grouped.length; gi++) {
-                var group = grouped[gi];
-                for (var ri = 0; ri < group.rows.length; ri++) {
-                    var p = group.rows[ri];
-                    ws.getRow(r).height = 22;
-
-                    var paramName = ri === 0 ? cleanParamName(group.paramName) : '';
-                    var calPt = String(p.CAL_POINT || p.cal_point || '–');
-                    var asFound = String(p.AS_FOUND_VALUE || p.as_found_value || '–');
-                    var unc = String(p.UNCERTAINTY || p.uncertainty || '–');
-                    var tol = String(p.TOLERANCE || p.tolerance || '–');
-                    var conf = String(p.CONFORMITY || p.conformity || '–');
-
-                    var vals = [paramName, calPt, asFound, unc, tol, conf];
-                    for (var vi = 0; vi < vals.length; vi++) {
-                        var cell = ws.getCell(resColLetters[vi] + r);
-                        cell.value = vals[vi];
-                        cell.font = { name: 'Arial', size: 9, color: { argb: '1a1917' }, bold: vi === 0 };
-                        cell.alignment = { horizontal: vi === 0 ? 'left' : 'center', vertical: 'middle', wrapText: true };
-                        cell.border = defaultBorder();
-                    }
-                    ws.mergeCells('F' + r + ':G' + r);
-                    ws.getCell('G' + r).border = defaultBorder();
-                    r++;
-                }
-            }
-        }
-
-        // --- OTHER INFO ---
-        r += 1;
-        ws.mergeCells('A' + r + ':G' + r);
-        ws.getCell('A' + r).value = '17. THÔNG TIN KHÁC / OTHER INFORMATION:';
-        ws.getCell('A' + r).font = { name: 'Arial', size: 11, bold: true, color: { argb: primaryColor } };
-        ws.getCell('A' + r).alignment = { horizontal: 'center', vertical: 'middle' };
-        ws.getRow(r).height = 24;
-        r++;
-
-        var otherInfo = [
-            ['17.1 Độ không đảm bảo đo / Uncertainty:', true],
-            ['Độ không đảm bảo đo là độ không đảm bảo đo mở rộng được tính từ độ không đảm bảo đo chuẩn nhân với hệ số phủ k=2, phân bố chuẩn tương đương với 95% độ tin cậy.', false],
-            ['The reported expanded uncertainty of measurement is stated as the standard uncertainty multiplied by a coverage factor k=2, which for a normal distribution corresponds to a coverage probability of approximately 95%.', false],
-            ['', false],
-            ['17.2. Công bố về sự phù hợp / Statements of conformity:', true],
-            ['+ A: Kết quả đo khi tính cả độ không đảm bảo đo nằm trong giới hạn cho phép. Within tolerance.', false],
-            ['+ B: Kết quả đo nằm ngoài giới hạn cho phép. Out of tolerance.', false],
-            ['+ C: Kết quả đo có thể nằm ngoài giới hạn. Không có kết luận. May be out of tolerance. No conclusion.', false],
-            ['+ D: Tiêu chuẩn kỹ thuật không quy định dung sai. No tolerance stated.', false]
-        ];
-
-        otherInfo.forEach(function(item) {
-            var text = item[0], isBold = item[1];
-            ws.mergeCells('A' + r + ':G' + r);
-            var cell = ws.getCell('A' + r);
-            cell.value = text;
-            cell.font = { name: 'Arial', size: 9, color: { argb: '1a1917' }, bold: isBold };
-            cell.alignment = { vertical: 'middle', wrapText: true };
-            ws.getRow(r).height = isBold ? 22 : 18;
-            r++;
-        });
-
-        // --- SIGNATURE ---
-        r += 2;
-        var sigRow = r;
-        ws.mergeCells('A' + sigRow + ':C' + (sigRow + 2));
-        ws.getCell('A' + sigRow).value = 'NGƯỜI SOÁT XÉT / REVIEWED BY';
-        ws.getCell('A' + sigRow).font = { name: 'Arial', size: 10, bold: true, color: { argb: primaryColor } };
-        ws.getCell('A' + sigRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightBg } };
-        ws.getCell('A' + sigRow).alignment = { horizontal: 'center', vertical: 'center' };
-        ws.getCell('A' + sigRow).border = defaultBorder();
-        ws.getCell('A' + (sigRow + 2)).value = cert.HEAD_OF_LAB || '';
-        ws.getCell('A' + (sigRow + 2)).font = { name: 'Arial', size: 10, color: { argb: '1a1917' } };
-        ws.getCell('A' + (sigRow + 2)).alignment = { horizontal: 'center', vertical: 'bottom' };
-
-        ws.mergeCells('E' + sigRow + ':G' + (sigRow + 2));
-        ws.getCell('E' + sigRow).value = 'GIÁM ĐỐC / DIRECTOR';
-        ws.getCell('E' + sigRow).font = { name: 'Arial', size: 10, bold: true, color: { argb: primaryColor } };
-        ws.getCell('E' + sigRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightBg } };
-        ws.getCell('E' + sigRow).alignment = { horizontal: 'center', vertical: 'center' };
-        ws.getCell('E' + sigRow).border = defaultBorder();
-        ws.getCell('E' + (sigRow + 2)).value = cert.DIRECTOR || '';
-        ws.getCell('E' + (sigRow + 2)).font = { name: 'Arial', size: 10, color: { argb: '1a1917' } };
-        ws.getCell('E' + (sigRow + 2)).alignment = { horizontal: 'center', vertical: 'bottom' };
 
         for (var is = 0; is < 3; is++) {
             ws.getRow(sigRow + is).height = 28;
@@ -419,6 +293,64 @@ function mapDataToStandards(standards) {
 
         for (var ic = 1; ic <= 8; ic++) {
             ws2.getColumn(ic).width = 18;
+        }
+
+        // ===== SHEET 3: THAM CHÍ DỮ LIỆU (sourceMatrix) =====
+        // Dành cho các mảnh dữ liệu khác nhau (tỷ lệ dung sai chung) đã trích xuất
+        // từ file Excel nguồn, giúp người dùng đối chiếu khi xuất PDF/xlsx.
+        try {
+            const sourceMatrixPath = path.join(BASE_DIR, 'public', 'data', 'balance_matrix.json');
+            const sourceMatrix = JSON.parse(fs.readFileSync(sourceMatrixPath, 'utf-8'));
+            const wsS = workbook.addWorksheet('Tham Chỉ Dữ Liệu');
+            wsS.getRow(1).height = 24;
+            const header = ['Mức độ chia / Resolution', 'Mức cân Max', 'Đơn vị', 'Điểm HC', 'Tolerance', 'Uncertainty', 'Lặp lại', 'Lệch góc'];
+            header.forEach(function(h, i) {
+                const cell = wsS.getCell(String.fromCharCode(65 + i) + '1');
+                cell.value = h;
+                cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: primaryColor } };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightBg } };
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cell.border = defaultBorder();
+            });
+
+            let rowIdx = 2;
+            for (const resolution of Object.keys(sourceMatrix).sort()) {
+                const entries = sourceMatrix[resolution];
+                if (!Array.isArray(entries)) continue;
+
+                for (const entry of entries) {
+                    if (typeof entry === 'string' || typeof entry === 'number' || Array.isArray(entry)) {
+                        continue;
+                    }
+                    const testPoints = entry.testPoints || [];
+                    const tolerances = entry.tolerances || [];
+                    const uncertainties = entry.uncertainties || [];
+                    const repeated = entry.repeatabilityLoad || '';
+                    const eccentric = entry.eccentricityLoad || '';
+
+                    wsS.getCell('A' + rowIdx).value = resolution;
+                    wsS.getCell('B' + rowIdx).value = entry.maxLabel || '';
+                    wsS.getCell('C' + rowIdx).value = entry.unit || '';
+                    wsS.getCell('D' + rowIdx).value = Array.isArray(testPoints) ? testPoints.join(', ') : '';
+                    wsS.getCell('E' + rowIdx).value = Array.isArray(tolerances) ? tolerances.join(', ') : '';
+                    wsS.getCell('F' + rowIdx).value = Array.isArray(uncertainties) ? uncertainties.join(', ') : '';
+                    wsS.getCell('G' + rowIdx).value = repeated;
+                    wsS.getCell('H' + rowIdx).value = eccentric;
+
+                    for (let c = 1; c <= 8; c++) {
+                        wsS.getCell(String.fromCharCode(64 + c) + rowIdx).font = { name: 'Arial', size: 9, color: { argb: '1a1917' } };
+                        wsS.getCell(String.fromCharCode(64 + c) + rowIdx).alignment = { horizontal: c === 1 ? 'left' : 'center', vertical: 'middle' };
+                        wsS.getCell(String.fromCharCode(64 + c) + rowIdx).border = defaultBorder();
+                    }
+                    rowIdx++;
+                }
+            }
+
+            for (let c = 1; c <= 8; c++) {
+                wsS.getColumn(c).width = 30;
+            }
+        } catch (err) {
+            console.error('⚠️ Không thể sinh sheet tham chiếu sourceMatrix:', err.message);
         }
 
         await workbook.xlsx.writeFile(OUTPUT_FILE);

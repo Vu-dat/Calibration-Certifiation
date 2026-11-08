@@ -25,6 +25,8 @@ Thumbs.db
 .vscode/
 .agents/
 build/
+scratch/
+temp_balance/
 
 # Windows reserved device names
 nul
