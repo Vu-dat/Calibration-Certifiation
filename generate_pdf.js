@@ -579,12 +579,16 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     // Calculate dynamic height for this row (AFTER labelPart is defined)
     sf(doc, false); doc.fontSize(9);
     var hRange = Y1.specRowSp;
+    var rangeValW = is5Col ? SPEC_X[2] - valX - 5 : SPEC_X[2] - valX - 5;
     // Calculate label text height within the label column width
     var lblW = valX - SPEC_X[1] - 5;
     if (colon > 0) {
       sf(doc, false); doc.fontSize(9);
       var hLbl = doc.heightOfString(labelPart + ':', { width: lblW, lineGap: 0 });
       hRange = Math.max(hRange, hLbl);
+      sf(doc, false); doc.fontSize(9);
+      var hVal = doc.heightOfString(valPart, { width: rangeValW, lineGap: 0 });
+      hRange = Math.max(hRange, hVal);
     }
     
     sf(doc, false); doc.fontSize(procSize);
@@ -616,7 +620,7 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
         doc.text(labelPart + ':', SPEC_X[1], y, { width: lblW, lineGap: 0 });
       }
       sf(doc, false); doc.fontSize(9);
-      drawTextWithDegree(doc, valPart, valX, y, { lineGap: 0 });
+      drawTextWithDegree(doc, valPart, valX, y, { width: rangeValW, lineGap: 0 });
     } else {
       sf(doc, false); doc.fontSize(9).fillColor('#000000');
       var isEnOnly = /^[A-Za-z\s\(\)]+$/.test(rl);
@@ -1188,6 +1192,22 @@ function drawBalanceTables(doc, balance, pageContext) {
     y += rowH;
   }
 
+  // Match the merged five-column cells used by the source Balance DOCX.
+  function drawMergedRow(label, value, rowH, valueBold, labelSize, valueSize) {
+    doc.lineWidth(0.3).strokeColor('#000000');
+    doc.rect(eccCols[0], y, eccCols[1] - eccCols[0], rowH).stroke();
+    doc.rect(eccCols[1], y, eccCols[6] - eccCols[1], rowH).stroke();
+    if (label) {
+      sf(doc, false); doc.fontSize(labelSize || 9);
+      drawCell(doc, label, eccCols[0], y, eccCols[1] - eccCols[0], rowH);
+    }
+    if (value !== null && value !== undefined && value !== '') {
+      sf(doc, !!valueBold); doc.fontSize(valueSize || 9);
+      drawCell(doc, String(value), eccCols[1], y, eccCols[6] - eccCols[1], rowH);
+    }
+    y += rowH;
+  }
+
   // Section 16 heading
   sf(doc, true); doc.fontSize(11).fillColor('#000000');
   doc.text(VN.sec16, 36.0, 146.1, { lineGap: 0 });
@@ -1257,7 +1277,7 @@ function drawBalanceTables(doc, balance, pageContext) {
 
   // ─── 3. Độ lệch góc ───
   y += 10;
-  ensureSpace(150);
+  ensureSpace(180);
   drawTitle('Độ lệch góc / Eccentricity :');
 
   var eccCols = [28.7, 238.7, 306.0, 373.3, 440.6, 507.9, 574.3];
@@ -1279,16 +1299,17 @@ function drawBalanceTables(doc, balance, pageContext) {
   }
 
   // Row 1: tải áp dụng
-  drawRow(['Tải áp dụng / Load (g)', (eccLoad !== undefined && eccLoad !== '' ? eccLoad : '') + ' — Mức cân độ lệch góc', '', '', '', ''], eccCols, 20);
+  drawMergedRow('Tải áp dụng / Load (g)', (eccLoad !== undefined && eccLoad !== '' ? eccLoad : '') + ' — Mức cân độ lệch góc', 20);
 
   // Row 2: sơ đồ đĩa cân (0 tâm, 1–4 bốn góc)
-  var sketchRowH = 62;
-  drawRow(['Sơ đồ / Sketch', '', '', '', '', ''], eccCols, sketchRowH);
+  var sketchRowH = 68;
+  var sketchRowTop = y;
+  drawMergedRow('Sơ đồ / Sketch', '', sketchRowH);
   var sketchLabels = [['', '2', ''], ['1', '0', '3'], ['', '4', '']];
   var boxW = 22, boxH = 16;
   var gridW = boxW * 3;
   var gridX = 238.7 + ((574.3 - 238.7) - gridW) / 2;
-  var gridY = y - sketchRowH + (sketchRowH - boxH * 3) / 2;
+  var gridY = sketchRowTop + 5;
   for (var gr = 0; gr < 3; gr++) {
     for (var gc = 0; gc < 3; gc++) {
       var label = sketchLabels[gr][gc];
@@ -1301,7 +1322,7 @@ function drawBalanceTables(doc, balance, pageContext) {
     }
   }
   sf(doc, false, true); doc.fontSize(7);
-  doc.text('0: Tâm — 1: Trái — 2: Trước — 3: Phải — 4: Sau', 238.7, y - 10, { width: 574.3 - 238.7, align: 'center', lineGap: 0 });
+  doc.text('0: Tâm — 1: Trái — 2: Trước — 3: Phải — 4: Sau', eccCols[1] + 4, sketchRowTop + 55, { width: eccCols[6] - eccCols[1] - 8, align: 'center', lineGap: 0 });
 
   // Row 3: vị trí đặt tải
   drawRow(['Vị trí đặt tải/ Load Position', '0', '1', '2', '3', '4'], eccCols, 18, { bold: [1, 2, 3, 4, 5] });
@@ -1320,13 +1341,7 @@ function drawBalanceTables(doc, balance, pageContext) {
   var maxRowH = 24;
   ensureSpace(maxRowH);
   doc.lineWidth(0.3).strokeColor('#000000');
-  doc.rect(eccCols[0], y, eccCols[1] - eccCols[0], maxRowH).stroke();
-  doc.rect(eccCols[1], y, eccCols[6] - eccCols[1], maxRowH).stroke();
-  sf(doc, false); doc.fontSize(7.5);
-  doc.text('Sai lệch lớn nhất so với vị trí số 1 / Max. difference between position 1 & other (g)', eccCols[0] + 2, y + 8, { width: eccCols[1] - eccCols[0] - 4, align: 'center', lineGap: 0 });
-  sf(doc, true); doc.fontSize(9);
-  doc.text(maxDiff === null ? '' : balanceFmt(maxDiff, decimals), eccCols[1], y + 8, { width: eccCols[6] - eccCols[1], align: 'center', lineGap: 0 });
-  y += maxRowH;
+  drawMergedRow('Sai lệch lớn nhất so với vị trí số 1 / Max. difference between position 1 & other (g)', maxDiff === null ? '' : balanceFmt(maxDiff, decimals), maxRowH, true, 7.5, 9);
 
   return y;
 }

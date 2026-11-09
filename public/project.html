@@ -1580,7 +1580,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <span>Bảng 2 — Độ lặp lại (Repeatability)</span>
           </div>
           <div class="bal-result-line">Tải kiểm độ lặp lại / Repeatability load: <b id="bal-repeat-summary-load">—</b></div>
-          <div style="overflow-x:auto; display:none;">
+          <div style="overflow-x:auto;">
             <table class="bal-table" id="bal-repeat-table" style="min-width:760px;">
               <thead>
                 <tr>
@@ -1597,7 +1597,7 @@ document.addEventListener("DOMContentLoaded", () => {
               </tbody>
             </table>
           </div>
-          <div class="bal-result-line" style="display:none;">Độ lệch chuẩn (Bessel): <b id="bal-repeat-s">—</b> <span id="bal-repeat-count" style="font-size:12px;color:#64748b;"></span></div>
+          <div class="bal-result-line">Độ lệch chuẩn (Bessel): <b id="bal-repeat-s">—</b> <span id="bal-repeat-count" style="font-size:12px;color:#64748b;"></span></div>
           <div class="bal-note" style="display:none;">Công thức độ lệch chuẩn.</div>
         </div>
 
@@ -4714,18 +4714,21 @@ function recalcBalanceIndication() {
       return;
     }
 
-    const correction = balanceRound(load - indicated, decimals);
+    // Keep full precision for the conformity decision; round only the displayed correction.
+    const rawCorrection = load - indicated;
+    const correction = balanceRound(rawCorrection, decimals);
     const tolerance = balanceParseTolerance(item.tolerance);
-    const uncertainty = balanceParseNumber(item.uncertainty);
+    const parsedUncertainty = balanceParseNumber(item.uncertainty);
+    const uncertainty = parsedUncertainty === null ? null : Math.abs(parsedUncertainty);
     let conformity = '';
     if (tolerance === null) {
       conformity = 'D';
     } else if (uncertainty !== null) {
-      if (Math.abs(correction) + uncertainty <= tolerance + 1e-12) conformity = 'A';
-      else if (Math.abs(correction) - uncertainty > tolerance + 1e-12) conformity = 'B';
+      if (Math.abs(rawCorrection) + uncertainty <= tolerance + 1e-12) conformity = 'A';
+      else if (Math.abs(rawCorrection) - uncertainty > tolerance + 1e-12) conformity = 'B';
       else conformity = 'C';
     } else {
-      conformity = Math.abs(correction) <= tolerance + 1e-12 ? 'A' : 'B';
+      conformity = Math.abs(rawCorrection) <= tolerance + 1e-12 ? 'A' : 'B';
     }
 
     item.correction = correction;
@@ -4744,9 +4747,34 @@ function renderBalanceRepeatability() {
   const load = data.repeatability?.load ?? data.repeatabilityLoad ?? '';
   const display = load === '' ? '—' : `${load} ${data.unit}`;
   const summary = document.getElementById('bal-repeat-summary-load');
-  const tableCell = document.getElementById('bal-repeat-load');
   if (summary) summary.textContent = display;
-  if (tableCell) tableCell.textContent = display;
+  const tbody = document.getElementById('bal-repeat-body');
+  if (!tbody) return;
+  if (!data.repeatability) data.repeatability = {};
+  if (!Array.isArray(data.repeatability.readings)) data.repeatability.readings = Array(10).fill('');
+  while (data.repeatability.readings.length < 10) data.repeatability.readings.push('');
+  data.repeatability.readings = data.repeatability.readings.slice(0, 10);
+  tbody.innerHTML = `<tr><td class="bal-load" id="bal-repeat-load">${escHtml(display)}</td>${data.repeatability.readings.map((value, index) => `<td><input type="text" class="bal-repeat-reading" data-index="${index}" value="${escHtml(value || '')}" inputmode="decimal" autocomplete="off" aria-label="Reading ${index + 1}" oninput="recalcBalanceRepeatability()"></td>`).join('')}</tr>`;
+  recalcBalanceRepeatability();
+}
+
+function recalcBalanceRepeatability() {
+  const data = window._balanceData;
+  if (!data) return;
+  const readings = Array.from(document.querySelectorAll('#bal-repeat-body .bal-repeat-reading')).map(input => input.value.trim());
+  data.repeatability.readings = readings;
+  const values = readings.map(balanceParseNumber).filter(value => value !== null);
+  let stdDev = null;
+  if (values.length >= 2) {
+    const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+    stdDev = Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (values.length - 1));
+  }
+  const decimals = Math.max(data.decimals || 0, 1);
+  const result = document.getElementById('bal-repeat-s');
+  const count = document.getElementById('bal-repeat-count');
+  if (result) result.textContent = stdDev === null ? '—' : balanceFmt(stdDev, decimals);
+  if (count) count.textContent = `(${values.length} readings${values.length < 6 ? ', minimum 6' : ''})`;
+  data.repeatability.stdDev = stdDev === null ? '' : balanceRound(stdDev, decimals);
 }
 
 function renderBalanceEccentricity() {

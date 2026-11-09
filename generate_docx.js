@@ -1272,7 +1272,10 @@ async function main(opts) {
                         { text: 'Range', fontSize: 10, italics: true },
                     ]),
                 ], 2835, 3),
-                t1Cell([], 1418, 2), // empty Resolution cell matching the reference!
+                t1Cell([
+                    para('Độ phân giải:', { fontSize: 10 }),
+                    para('Resolution', { fontSize: 10, italics: true }),
+                ], 1418, 2),
                 t1Cell([
                     para('8. Quy trình thực hiện', { fontSize: 10 }),
                     para('Procedure', { fontSize: 10, italics: true }),
@@ -1307,7 +1310,8 @@ async function main(opts) {
                 } else {
                     rangeLabelsParas.push(para(labelPart + ':', { fontSize: 9 }));
                 }
-                rangeValuesParas.push(para(valuePart.replace(/\s+/g, '\u00A0'), { fontSize: 9 }));
+                // Keep technical specifications breakable in narrow Word table cells.
+                rangeValuesParas.push(para(valuePart.replace(/\s+/g, ' '), { fontSize: 9 }));
             } else {
                 const isEn = /^[A-Za-z\s\(\)]+$/.test(lineStr);
                 rangeLabelsParas.push(para(lineStr, { fontSize: 9, italics: isEn }));
@@ -1338,7 +1342,10 @@ async function main(opts) {
             : (specs.resolution || '').split(/[,;]+/);
         const resolutionParas = resLines.map(line => {
             const trimLine = line.trim();
-            return para((trimLine === '--------' || !trimLine) ? '' : trimLine, { fontSize: 9 });
+            // Resolution values often contain long unit/range strings. Add Word
+            // break opportunities around separators so they wrap inside their cell.
+            const breakableLine = trimLine.replace(/\s*([/;])\s*/g, '$1\u200B ');
+            return para((trimLine === '--------' || !trimLine) ? '' : breakableLine, { fontSize: 8 });
         });
 
         t1Rows.push(new TableRow({
@@ -1346,9 +1353,11 @@ async function main(opts) {
             height: { value: 1448, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 2132, 2), // spacer
-                t1Cell(rangeLabelsParas, 2126, 1, { margins: { top: 0, bottom: 0, left: 108, right: 0 } }),
-                t1Cell(rangeValuesParas, 709, 2, { margins: { top: 0, bottom: 0, left: 0, right: 0 } }),
-                t1Cell(resolutionParas, 1418, 2),
+                // Match the underlying 15-column grid: Range is 2263 + (86 + 486) DXA.
+                // The old 2126/709 split exceeded the grid and pushed the Resolution cell over it.
+                t1Cell(rangeLabelsParas, 2263, 1, { margins: { top: 0, bottom: 0, left: 108, right: 0 } }),
+                t1Cell(rangeValuesParas, 572, 2, { margins: { top: 0, bottom: 0, left: 0, right: 0 } }),
+                t1Cell(resolutionParas, 1418, 2, { margins: { top: 0, bottom: 0, left: 60, right: 60 } }),
                 t1Cell(procParas, 2268, 4),
                 t1Cell(refParas, 2551, 4),
             ]
