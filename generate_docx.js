@@ -265,6 +265,140 @@ function parseBalanceRaw(cert, optsData) {
     return null;
 }
 
+function parseOvenRaw(cert, optsData) {
+    const candidates = [];
+    if (optsData) candidates.push(optsData.ovenRawData, optsData.raw_data);
+    if (cert) candidates.push(cert.OVEN_RAW_DATA, cert.RAW_DATA, cert.raw_data);
+    for (const candidate of candidates) {
+        if (!candidate) continue;
+        try {
+            const obj = typeof candidate === 'string' ? JSON.parse(candidate) : candidate;
+            if (obj && Array.isArray(obj.tables) && obj.tables.length) return obj;
+        } catch (_) { /* Ignore unrelated or invalid raw data. */ }
+    }
+    return null;
+}
+
+function ovenNum(value) {
+    if (value === null || value === undefined || String(value).trim() === '') return null;
+    const text = String(value).trim().replace(',', '.');
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) return null;
+    const n = Number(text);
+    return Number.isFinite(n) ? n : null;
+}
+
+function ovenFmt(value) {
+    const n = ovenNum(value);
+    return n === null ? '' : (Math.round(n * 10) / 10).toFixed(1);
+}
+
+function ovenTolerance(value) {
+    const matches = String(value ?? '').replace(',', '.').match(/[+-]?\d+(?:\.\d+)?/g) || [];
+    return matches.length === 1 ? Math.abs(Number(matches[0])) : null;
+}
+
+function ovenConformity(correction, uncertainty, toleranceText) {
+    const tolerance = ovenTolerance(toleranceText);
+    if (!String(toleranceText ?? '').trim() || /^(?:--|n\/a|-)$/.test(String(toleranceText).trim().toLowerCase())) return 'D';
+    const error = ovenNum(correction);
+    if (error === null || tolerance === null) return '';
+    const u = ovenNum(uncertainty);
+    if (u === null) return Math.abs(error) <= tolerance + 1e-12 ? 'A' : 'B';
+    if (Math.abs(error) + Math.abs(u) <= tolerance + 1e-12) return 'A';
+    if (Math.abs(error) - Math.abs(u) > tolerance + 1e-12) return 'B';
+    return 'C';
+}
+
+function createOvenResultTables(oven, points) {
+    const blocks = [];
+    const grid = { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID };
+    const margins = { top: 45, bottom: 45, left: 45, right: 45 };
+    const widths = [840, 840, 560, 980, 820, 870, 870, 850, 850, 800];
+    const totalWidth = widths.reduce((sum, width) => sum + width, 0);
+    const cell = (text, width, opts = {}) => new TableCell({
+        children: [para(String(text ?? ''), { fontSize: opts.small ? 8 : 9, bold: !!opts.bold, alignment: AlignmentType.CENTER })],
+        width: { size: width, type: WidthType.DXA },
+        verticalAlign: 'center', verticalMerge: opts.verticalMerge,
+        shading: opts.header ? { fill: 'F2F2F2' } : undefined,
+        borders: grid, margins
+    });
+    const heading = text => blocks.push(new Paragraph({
+        spacing: { before: 130, after: 70 },
+        children: [new TextRun({ text, font: 'Arial', size: 20, bold: true })]
+    }));
+
+    heading('Oven Calibration Results');
+    const resultRows = [new TableRow({
+        tableHeader: true,
+        children: ['Setting point (°C)', 'Indication (°C)', 'Pos.', 'Reference (°C)', 'Correction (°C)', 'Gradient (°C)', 'Fluctuation (°C)', 'Uncertainty (°C)', 'Tolerance (°C)', 'Conformity'].map((label, i) => cell(label, widths[i], { header: true, small: true, bold: true }))
+    })];
+
+    let pointIndex = 0;
+    (oven.tables || []).forEach(table => {
+        const setPoint = ovenNum(table.setPoint);
+        for (let pos = 0; pos < 9; pos++) {
+            const point = points[pointIndex++] || {};
+            const reference = ovenNum(point.REFERENCE_VALUE) ?? ovenNum((table.avg || [])[pos]);
+            const asFoundText = String(point.AS_FOUND_VALUE ?? '');
+            const asFoundValues = asFoundText.split('/').map(ovenNum).filter(value => value !== null);
+            const indication = asFoundValues.length
+                ? asFoundValues.reduce((sum, value) => sum + value, 0) / asFoundValues.length
+                : setPoint;
+            const correction = reference !== null && indication !== null ? reference - indication : null;
+            const uncertainty = point.UNCERTAINTY ?? '';
+            const tolerance = point.TOLERANCE ?? '';
+            const conformity = point.CONFORMITY || ovenConformity(correction, uncertainty, tolerance);
+            const first = pos === 0;
+            const vm = first ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE;
+            const rowCells = [
+                cell(first ? ovenFmt(table.setPoint) : '', widths[0], { bold: true, verticalMerge: vm }),
+                cell(indication === null ? '' : ovenFmt(indication), widths[1]),
+                cell(String(pos + 1), widths[2]),
+                cell(reference === null ? '' : ovenFmt(reference), widths[3]),
+                cell(first && correction !== null ? ovenFmt(correction) : '', widths[4], { verticalMerge: vm }),
+                cell(first ? (table.gradient ?? '') : '', widths[5], { verticalMerge: vm }),
+                cell(first ? (table.fluctuation ?? '') : '', widths[6], { verticalMerge: vm }),
+                cell(uncertainty, widths[7]),
+                cell(tolerance, widths[8]),
+                cell(conformity, widths[9], { bold: true })
+            ];
+            resultRows.push(new TableRow({ height: { value: 250, rule: HeightRule.AT_LEAST }, children: rowCells }));
+        }
+    });
+    blocks.push(new Table({ rows: resultRows, width: { size: totalWidth, type: WidthType.DXA }, columnWidths: widths, alignment: AlignmentType.CENTER, borders: TABLE_BORDER_GRID }));
+
+    const diagramPath = path.join(BASE_DIR, 'public', 'img', 'oven_sensor_position.png');
+    if (fs.existsSync(diagramPath)) {
+        blocks.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 80 }, children: [new ImageRun({ data: fs.readFileSync(diagramPath), transformation: { width: 260, height: 207 } })] }));
+    }
+    heading('Oven Raw Measurement Data');
+    (oven.tables || []).forEach(table => {
+        const rows = [];
+        rows.push(new TableRow({ tableHeader: true, children: [
+            cell(`Sensor position / Set point ${ovenFmt(table.setPoint)} °C`, 2400, { header: true, bold: true, small: true }),
+            ...Array.from({ length: 9 }, (_, i) => cell(String(i + 1), 800, { header: true, bold: true }))
+        ] }));
+        for (const [label, values] of [
+            ['Average value (°C)', table.avg || []],
+            ['Maximum value (°C)', table.max || []],
+            ['Minimum value (°C)', table.min || []]
+        ]) {
+            rows.push(new TableRow({ children: [cell(label, 2400, { bold: true, small: true }), ...Array.from({ length: 9 }, (_, i) => cell(values[i] ?? '', 800))] }));
+        }
+        rows.push(new TableRow({ children: [
+            new TableCell({ children: [para('Temperature gradient (°C)', { fontSize: 9, bold: true, alignment: AlignmentType.CENTER })], columnSpan: 8, width: { size: 8000, type: WidthType.DXA }, verticalAlign: 'center', borders: grid, margins }),
+            new TableCell({ children: [para(table.gradient ?? '', { fontSize: 9, bold: true, alignment: AlignmentType.CENTER })], columnSpan: 2, width: { size: 1600, type: WidthType.DXA }, verticalAlign: 'center', borders: grid, margins })
+        ] }));
+        rows.push(new TableRow({ children: [
+            new TableCell({ children: [para('Temperature fluctuation (°C)', { fontSize: 9, bold: true, alignment: AlignmentType.CENTER })], columnSpan: 8, width: { size: 8000, type: WidthType.DXA }, verticalAlign: 'center', borders: grid, margins }),
+            new TableCell({ children: [para(table.fluctuation ?? '', { fontSize: 9, bold: true, alignment: AlignmentType.CENTER })], columnSpan: 2, width: { size: 1600, type: WidthType.DXA }, verticalAlign: 'center', borders: grid, margins })
+        ] }));
+        blocks.push(new Table({ rows, width: { size: 9600, type: WidthType.DXA }, columnWidths: [2400, ...Array(9).fill(800)], alignment: AlignmentType.CENTER, borders: TABLE_BORDER_GRID }));
+        blocks.push(new Paragraph({ spacing: { after: 50 }, children: [new TextRun({ text: '', size: 2 })] }));
+    });
+    return blocks;
+}
+
 function balanceDecimals(division) {
     const match = String(division || '').match(/\.(\d+)/);
     return match ? match[1].length : 0;
@@ -945,6 +1079,8 @@ async function main(opts) {
 
         // Dữ liệu thô của Cân (nếu có) — dùng cho 3 bảng đặc thù ở Mục 16
         const balanceData = parseBalanceRaw(cert, opts && opts.data);
+        // Dữ liệu thô của Oven — dùng cho bảng kết quả 9 vị trí và các bảng Max/Min.
+        const ovenData = parseOvenRaw(cert, opts && opts.data);
 
         let specRange = '';
         let specResolution = '';
@@ -1288,8 +1424,7 @@ async function main(opts) {
         }));
 
         // Row 6: Specifications Values
-        const rangeLabelsParas = [];
-        const rangeValuesParas = [];
+        const rangeParas = [];
         
         specs.range.split('\n').forEach(line => {
             const lineStr = line.trim();
@@ -1299,23 +1434,23 @@ async function main(opts) {
                 const colonIdx = lineStr.indexOf(':');
                 const labelPart = lineStr.substring(0, colonIdx).trim();
                 const valuePart = lineStr.substring(colonIdx + 1).trim();
+                const rangeRuns = [];
                 
                 if (labelPart.includes('/')) {
                     const parts = labelPart.split('/');
-                    rangeLabelsParas.push(para([
-                        { text: parts[0] + '/', fontSize: 9 },
-                        { text: parts[1], fontSize: 9, italics: true },
-                        { text: ':', fontSize: 9 }
-                    ]));
+                    rangeRuns.push(
+                        { text: parts[0] + '/', fontSize: 8 },
+                        { text: parts[1], fontSize: 8, italics: true },
+                        { text: ': ', fontSize: 8 }
+                    );
                 } else {
-                    rangeLabelsParas.push(para(labelPart + ':', { fontSize: 9 }));
+                    rangeRuns.push({ text: labelPart + ': ', fontSize: 8 });
                 }
-                // Keep technical specifications breakable in narrow Word table cells.
-                rangeValuesParas.push(para(valuePart.replace(/\s+/g, ' '), { fontSize: 9 }));
+                rangeRuns.push({ text: valuePart.replace(/\s+/g, ' '), fontSize: 8 });
+                rangeParas.push(para(rangeRuns));
             } else {
                 const isEn = /^[A-Za-z\s\(\)]+$/.test(lineStr);
-                rangeLabelsParas.push(para(lineStr, { fontSize: 9, italics: isEn }));
-                rangeValuesParas.push(para('', { fontSize: 9 }));
+                rangeParas.push(para(lineStr, { fontSize: 9, italics: isEn }));
             }
         });
         
@@ -1337,9 +1472,11 @@ async function main(opts) {
             : (displayRefStandard || '–').split(/[;]+/);
         const refParas = refLines.map(line => para(line.trim() || '–', { fontSize: 10 }));
 
-        const resLines = (specs.resolution || '').indexOf('\n') >= 0 
+        // Commas may be decimal marks (for example 0,1 °C), so only use line
+        // breaks and semicolons to separate multiple resolution values.
+        const resLines = (specs.resolution || '').indexOf('\n') >= 0
             ? (specs.resolution || '').split('\n')
-            : (specs.resolution || '').split(/[,;]+/);
+            : (specs.resolution || '').split(/;+/);
         const resolutionParas = resLines.map(line => {
             const trimLine = line.trim();
             // Resolution values often contain long unit/range strings. Add Word
@@ -1353,10 +1490,9 @@ async function main(opts) {
             height: { value: 1448, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 2132, 2), // spacer
-                // Match the underlying 15-column grid: Range is 2263 + (86 + 486) DXA.
-                // The old 2126/709 split exceeded the grid and pushed the Resolution cell over it.
-                t1Cell(rangeLabelsParas, 2263, 1, { margins: { top: 0, bottom: 0, left: 108, right: 0 } }),
-                t1Cell(rangeValuesParas, 572, 2, { margins: { top: 0, bottom: 0, left: 0, right: 0 } }),
+                // Keep each range label and its value in the same paragraph/cell so units
+                // such as "(37~250) °C" do not wrap into an awkward second line.
+                t1Cell(rangeParas, 2835, 3, { margins: { top: 0, bottom: 0, left: 108, right: 60 } }),
                 t1Cell(resolutionParas, 1418, 2, { margins: { top: 0, bottom: 0, left: 60, right: 60 } }),
                 t1Cell(procParas, 2268, 4),
                 t1Cell(refParas, 2551, 4),
@@ -1566,6 +1702,8 @@ async function main(opts) {
         if (balanceData) {
             // Cân điện tử: 3 bảng Sai lệch chỉ thị / Độ lặp lại / Độ lệch góc
             children.push(...createBalanceResultTables(balanceData));
+        } else if (ovenData) {
+            children.push(...createOvenResultTables(ovenData, points));
         } else {
         const t2Rows = [];
 

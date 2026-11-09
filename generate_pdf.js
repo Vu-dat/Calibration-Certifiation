@@ -505,6 +505,11 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     if (str.indexOf('\n') >= 0) return str.split('\n');
     return str.split(/[,;]+/).map(function(s){return s.trim();}).filter(Boolean);
   };
+  var splitResolution = function(str) {
+    if (!str) return [];
+    if (str.indexOf('\n') >= 0) return str.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+    return str.split(/[;]+/).map(function(s){return s.trim();}).filter(Boolean);
+  };
 
   var splitRef = function(str) {
     if (!str) return [];
@@ -519,7 +524,7 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
   if (cert && cert.SPEC_RANGE) {
     rangeLines = cert.SPEC_RANGE.split('\n').map(function(s){return s.trim();}).filter(Boolean);
     procLines = splitMulti(proc);
-    resLines = splitMulti(cert.SPEC_RESOLUTION);
+    resLines = splitResolution(cert.SPEC_RESOLUTION);
   } else if (accM && accM.length) {
     procSize = 9;
     for (var ai = 0; ai < accM.length && ai < 4; ai++) {
@@ -529,7 +534,7 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
       rangeLines.push(rngVal);
       procLines.push(procVal);
     }
-    resLines = splitMulti(cert && cert.SPEC_RESOLUTION || tpl && tpl.SPEC_RESOLUTION);
+    resLines = splitResolution(cert && cert.SPEC_RESOLUTION || tpl && tpl.SPEC_RESOLUTION);
   } else {
     if (tpl && tpl.SPEC_RANGE) {
       rangeLines = tpl.SPEC_RANGE.split('\n').map(function(s){return s.trim();}).filter(Boolean);
@@ -552,7 +557,7 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     }
     if (rangeLines.length === 0) rangeLines = ['--'];
     procLines = splitMulti(proc);
-    resLines = splitMulti(cert && cert.SPEC_RESOLUTION || tpl && tpl.SPEC_RESOLUTION);
+    resLines = splitResolution(cert && cert.SPEC_RESOLUTION || tpl && tpl.SPEC_RESOLUTION);
   }
   var refLines = splitRef(refStd);
   var rows = Math.max(rangeLines.length, procLines.length, refLines.length, resLines.length);
@@ -575,6 +580,10 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
       labelPart = rl.substring(0, colon).trim();
       valPart = rl.substring(colon + 1).trim();
     }
+    var rangeColumnW = SPEC_X[2] - SPEC_X[1] - 5;
+    var compactRange = colon > 0 ? labelPart + ': ' + valPart : '';
+    sf(doc, false); doc.fontSize(7.5);
+    var compactRangeFits = colon > 0 && doc.widthOfString(compactRange) <= rangeColumnW;
 
     // Calculate dynamic height for this row (AFTER labelPart is defined)
     sf(doc, false); doc.fontSize(9);
@@ -582,7 +591,10 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     var rangeValW = is5Col ? SPEC_X[2] - valX - 5 : SPEC_X[2] - valX - 5;
     // Calculate label text height within the label column width
     var lblW = valX - SPEC_X[1] - 5;
-    if (colon > 0) {
+    if (compactRangeFits) {
+      sf(doc, false); doc.fontSize(7.5);
+      hRange = Math.max(hRange, doc.heightOfString(compactRange, { width: rangeColumnW, lineGap: 0 }));
+    } else if (colon > 0) {
       sf(doc, false); doc.fontSize(9);
       var hLbl = doc.heightOfString(labelPart + ':', { width: lblW, lineGap: 0 });
       hRange = Math.max(hRange, hLbl);
@@ -604,8 +616,11 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
 
     var rowHeight = Math.max(Y1.specRowSp, hRange, hProc, hRef, hRes);
 
-    // Now draw the Range column with wrapping
-    if (colon > 0) {
+    // Keep short bilingual labels and their values together on one line when they fit.
+    if (compactRangeFits) {
+      sf(doc, false); doc.fontSize(7.5).fillColor('#000000');
+      drawTextWithDegree(doc, compactRange, SPEC_X[1], y, { width: rangeColumnW, lineGap: 0 });
+    } else if (colon > 0) {
       var slash = labelPart.indexOf('/');
       sf(doc, false); doc.fontSize(9).fillColor('#000000');
       if (slash > 0) {
@@ -1110,6 +1125,95 @@ function parseBalanceRaw(cert, optsData) {
     } catch (e) { /* bỏ qua dữ liệu không hợp lệ */ }
   }
   return null;
+}
+
+function parseOvenRaw(cert, optsData) {
+  var candidates = [];
+  if (optsData) candidates.push(optsData.ovenRawData, optsData.raw_data);
+  if (cert) candidates.push(cert.OVEN_RAW_DATA, cert.RAW_DATA, cert.raw_data);
+  for (var i = 0; i < candidates.length; i++) {
+    var candidate = candidates[i];
+    if (!candidate) continue;
+    try {
+      var obj = typeof candidate === 'string' ? JSON.parse(candidate) : candidate;
+      if (obj && Array.isArray(obj.tables) && obj.tables.length) return obj;
+    } catch (e) { /* Ignore unrelated or invalid raw data. */ }
+  }
+  return null;
+}
+
+function ovenNumber(value) {
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+  var text = String(value).trim().replace(',', '.');
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) return null;
+  var number = Number(text);
+  return Number.isFinite(number) ? number : null;
+}
+
+function drawOvenRawTables(doc, oven, pageContext, startY) {
+  var logo = pageContext.logo, cNo = pageContext.cNo, calDate = pageContext.calDate, qr = pageContext.qr;
+  var x = 28.7, width = 545.6, y = startY + 12;
+  function ensureSpace(height) {
+    if (y + height <= 790) return;
+    drawFooter(doc, pageContext.currentPage, pageContext.totalPages);
+    doc.addPage();
+    pageContext.currentPage++;
+    drawH(doc, logo, cNo, calDate, qr);
+    y = 160.3;
+  }
+  function drawTextCell(text, x0, cellWidth, height, opts) {
+    opts = opts || {};
+    doc.lineWidth(0.3).strokeColor('#000000').rect(x0, y, cellWidth, height).stroke();
+    sf(doc, !!opts.bold, !!opts.italic);
+    doc.fontSize(opts.fontSize || 7).fillColor('#000000');
+    if (text !== null && text !== undefined && text !== '') {
+      doc.text(String(text), x0 + 2, y + 3, { width: cellWidth - 4, height: height - 5, align: opts.align || 'center', valign: 'center', lineGap: 0, ellipsis: true });
+    }
+  }
+  ensureSpace(215);
+  sf(doc, true); doc.fontSize(10).fillColor('#000000');
+  doc.text('Oven Raw Measurement Data', x, y, { lineGap: 0 });
+  y += 16;
+  var diagramPath = path.join(BD, 'public', 'img', 'oven_sensor_position.png');
+  if (fs.existsSync(diagramPath)) {
+    doc.image(diagramPath, x + (width - 250) / 2, y, { fit: [250, 190], align: 'center' });
+    y += 200;
+  }
+  (oven.tables || []).forEach(function(table) {
+    ensureSpace(112);
+    var firstWidth = 115, sensorWidth = (width - firstWidth) / 9;
+    var headers = ['Sensor Pos. / Set point ' + (table.setPoint || '') + ' °C'].concat([1,2,3,4,5,6,7,8,9]);
+    var rowHeight = 16;
+    var xPos = x;
+    headers.forEach(function(value, index) {
+      var cellWidth = index === 0 ? firstWidth : sensorWidth;
+      drawTextCell(value, xPos, cellWidth, rowHeight, { bold: true, fontSize: index === 0 ? 6 : 7 });
+      xPos += cellWidth;
+    });
+    y += rowHeight;
+    [
+      ['Average value (°C)', table.avg || []],
+      ['Maximum value (°C)', table.max || []],
+      ['Minimum value (°C)', table.min || []]
+    ].forEach(function(row) {
+      xPos = x;
+      drawTextCell(row[0], xPos, firstWidth, rowHeight, { bold: true, fontSize: 6.5 });
+      xPos += firstWidth;
+      for (var i = 0; i < 9; i++) {
+        drawTextCell((row[1] || [])[i] || '', xPos, sensorWidth, rowHeight, { fontSize: 7 });
+        xPos += sensorWidth;
+      }
+      y += rowHeight;
+    });
+    [['Temperature gradient (°C)', table.gradient], ['Temperature fluctuation (°C)', table.fluctuation]].forEach(function(row) {
+      xPos = x;
+      drawTextCell(row[0], xPos, width * 0.78, rowHeight, { bold: true, fontSize: 7 });
+      drawTextCell(row[1] || '', xPos + width * 0.78, width * 0.22, rowHeight, { bold: true, fontSize: 7 });
+      y += rowHeight;
+    });
+    y += 8;
+  });
+  return y;
 }
 
 function balanceDecimals(division) {
@@ -1735,6 +1839,7 @@ async function main(opts) {
     var qr = dUrl ? await getCachedQR(dUrl) : null;
     var tpl = await getCachedTemplate(eqName, cert);
     var balanceData = parseBalanceRaw(cert, opts && opts.data);
+    var ovenData = parseOvenRaw(cert, opts && opts.data);
 
     const SD = process.env.VERCEL ? require('os').tmpdir() : path.join(BD, 'static');
     if (!fs.existsSync(SD)) fs.mkdirSync(SD, { recursive: true });
@@ -1829,6 +1934,11 @@ async function main(opts) {
       totalPages = 2;
       while (balEnd > 790) { totalPages++; balEnd = 160.3 + (balEnd - 790); }
       if (balEnd + 8 + sec17EstH > 810) totalPages++;
+    } else if (ovenData) {
+      var ovenPointCount = (ovenData.tables || []).length * 9;
+      var ovenResultsHeight = 60 + ovenPointCount * 20;
+      var ovenRawHeight = 175 + (ovenData.tables || []).length * 112;
+      totalPages = 1 + Math.ceil((ovenResultsHeight + ovenRawHeight + sec17EstH + 24) / 629);
     } else {
       totalPages = determinePages(doc, pts, tpl, sec17EstH);
     }
@@ -1855,6 +1965,9 @@ async function main(opts) {
     var tableEnd = balanceData
       ? drawBalanceTables(doc, balanceData, pageContext)
       : drawResultsTable(doc, pts, pageContext);
+    if (!balanceData && ovenData) {
+      tableEnd = drawOvenRawTables(doc, ovenData, pageContext, tableEnd);
+    }
     
     var lastTablePage = pageContext.currentPage;
     var isSnagpod = tpl && (

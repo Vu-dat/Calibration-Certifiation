@@ -3977,56 +3977,32 @@ function calculateOvenTable(tbl) {
   if (!tbl) return;
   if (!Array.isArray(tbl.max)) tbl.max = Array(9).fill('');
   if (!Array.isArray(tbl.min)) tbl.min = Array(9).fill('');
-  tbl.avg = [];
+  const parse = value => {
+    const text = String(value ?? '').trim().replace(',', '.');
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) return null;
+    const number = Number(text);
+    return Number.isFinite(number) ? number : null;
+  };
+  const maxNums = Array.from({ length: 9 }, (_, i) => parse(tbl.max[i]));
+  const minNums = Array.from({ length: 9 }, (_, i) => parse(tbl.min[i]));
+  const complete = maxNums.every((value, i) => value !== null && minNums[i] !== null && value >= minNums[i]);
 
-  const maxNums = tbl.max.map(v => parseFloat(String(v || '').replace(',', '.')));
-  const minNums = tbl.min.map(v => parseFloat(String(v || '').replace(',', '.')));
+  tbl.avg = Array.from({ length: 9 }, (_, i) => {
+    const mx = maxNums[i], mn = minNums[i];
+    if (mx === null || mn === null || mx < mn) return '';
+    return (Math.round(((mx + mn) / 2) * 10) / 10).toFixed(1);
+  });
 
-  const validMaxes = [];
-  const validMins = [];
-  const validDiffs = [];
-
-  for (let i = 0; i < 9; i++) {
-    const mx = maxNums[i];
-    const mn = minNums[i];
-
-    if (!isNaN(mx) && !isNaN(mn)) {
-      // Giá trị trung bình = (giá trị lớn nhất + giá trị nhỏ nhất) / 2
-      const avg = Math.round(((mx + mn) / 2) * 10) / 10;
-      tbl.avg[i] = avg.toFixed(1);
-
-      // Chênh lệch nhiệt độ Max và Min tại từng vị trí đó
-      const diff = Math.round(Math.abs(mx - mn) * 10) / 10;
-      validDiffs.push(diff);
-      validMaxes.push(mx);
-      validMins.push(mn);
-    } else if (!isNaN(mx)) {
-      tbl.avg[i] = mx.toFixed(1);
-      validMaxes.push(mx);
-    } else if (!isNaN(mn)) {
-      tbl.avg[i] = mn.toFixed(1);
-      validMins.push(mn);
-    } else {
-      tbl.avg[i] = '';
-    }
+  if (!complete) {
+    tbl.gradient = '';
+    tbl.fluctuation = '';
+    return;
   }
 
-  // Độ đồng đều = (Max của các giá trị lớn nhất từ vị trí 1 đến 9) - (Min của các giá trị nhỏ nhất từ vị trí 1 đến 9)
-  if (validMaxes.length > 0 && validMins.length > 0) {
-    const maxOfMax = Math.max(...validMaxes);
-    const minOfMin = Math.min(...validMins);
-    tbl.gradient = (Math.round((maxOfMax - minOfMin) * 10) / 10).toFixed(1);
-  } else {
-    tbl.gradient = '--';
-  }
-
-  // Độ biến động = Giá trị lớn nhất của chênh lệch nhiệt độ Max và Min tại từng vị trí đó
-  if (validDiffs.length > 0) {
-    const maxDiff = Math.max(...validDiffs);
-    tbl.fluctuation = maxDiff.toFixed(1);
-  } else {
-    tbl.fluctuation = '--';
-  }
+  // The source Oven form defines gradient as max(all nine maxima) - min(all nine minima).
+  tbl.gradient = (Math.round((Math.max(...maxNums) - Math.min(...minNums)) * 10) / 10).toFixed(1);
+  // Fluctuation is the largest paired Max-Min range among the nine sensor positions.
+  tbl.fluctuation = (Math.round(Math.max(...maxNums.map((mx, i) => mx - minNums[i])) * 10) / 10).toFixed(1);
 }
 
 function renderOvenWorkspace() {
@@ -4327,7 +4303,7 @@ function syncOvenToCalibrationTable() {
         <td><input type="text" class="lab-input-cell uncertainty" value="1.0" oninput="calculateConformity(this.closest('tr'))"></td>
         <td><input type="text" class="lab-input-cell ref-value" value="${avgVal}" oninput="calculateConformity(this.closest('tr'))"></td>
         <td><input type="text" class="lab-input-cell tolerance" value="± 3" style="font-weight:500;" oninput="calculateConformity(this.closest('tr'))"></td>
-        <td><input type="text" class="lab-input-cell conformity" value="A" style="font-weight:700;color:var(--accent);"></td>
+        <td><input type="text" class="lab-input-cell conformity" value="" style="font-weight:700;color:var(--accent);"></td>
       `;
 
       if (pos === 0) {
@@ -4765,7 +4741,7 @@ function recalcBalanceRepeatability() {
   data.repeatability.readings = readings;
   const values = readings.map(balanceParseNumber).filter(value => value !== null);
   let stdDev = null;
-  if (values.length >= 2) {
+  if (values.length >= 6) {
     const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
     stdDev = Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (values.length - 1));
   }
@@ -5934,28 +5910,40 @@ function buildOvenResultsTableHtml() {
       <tbody>
   `;
 
+  const ovenResultPoints = collectCalibrationResults();
+  let ovenPointIndex = 0;
+  const parseOvenResultNumber = value => {
+    const text = String(value ?? '').trim().replace(',', '.');
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) return null;
+    const number = Number(text);
+    return Number.isFinite(number) ? number : null;
+  };
   ovenData.tables.forEach(tbl => {
-    const sp = tbl.setPoint;
-    const avg1 = parseFloat(String(tbl.avg[0] || sp).replace(',', '.'));
-    const spNum = parseFloat(sp);
-    const correction = (!isNaN(avg1) && !isNaN(spNum)) ? (Math.round((avg1 - spNum) * 10) / 10).toFixed(1) : '0.0';
+    const sp = String(tbl.setPoint ?? '');
+    const spNum = parseOvenResultNumber(sp);
 
     for (let pos = 0; pos < 9; pos++) {
       h += '<tr>';
-      if (pos === 0) {
-        h += `<td rowspan="9" style="text-align:center;font-weight:bold;">${sp}</td>`;
-        h += `<td rowspan="9" style="text-align:center;">${sp}</td>`;
-      }
+      const point = ovenResultPoints[ovenPointIndex++] || {};
+      const reference = parseOvenResultNumber(point.refValue) ?? parseOvenResultNumber((tbl.avg || [])[pos]);
+      const foundValues = String(point.found || '').split('/').map(parseOvenResultNumber).filter(value => value !== null);
+      const indication = parseOvenResultNumber(point.foundAvg) ?? (foundValues.length
+        ? foundValues.reduce((sum, value) => sum + value, 0) / foundValues.length
+        : spNum);
+      const correction = reference !== null && indication !== null ? reference - indication : null;
+      const correctionText = correction === null ? '' : (Math.round(correction * 10) / 10).toFixed(1);
+      if (pos === 0) h += `<td rowspan="9" style="text-align:center;font-weight:bold;">${escHtml(sp)}</td>`;
+      h += `<td style="text-align:center;">${indication === null ? '' : escHtml(indication.toFixed(1))}</td>`;
       h += `<td style="text-align:center;">${pos + 1}</td>`;
-      h += `<td style="text-align:center;">${tbl.avg[pos] || '--'}</td>`;
+      h += `<td style="text-align:center;">${reference === null ? '' : escHtml(reference.toFixed(1))}</td>`;
       if (pos === 0) {
-        h += `<td rowspan="9" style="text-align:center;">${correction}</td>`;
-        h += `<td rowspan="9" style="text-align:center;">${tbl.gradient || '--'}</td>`;
-        h += `<td rowspan="9" style="text-align:center;">${tbl.fluctuation || '--'}</td>`;
-        h += `<td rowspan="9" style="text-align:center;">1.0</td>`;
-        h += `<td rowspan="9" style="text-align:center;">± 3</td>`;
-        h += `<td rowspan="9" style="text-align:center;font-weight:bold;color:var(--accent);">A</td>`;
+        h += `<td rowspan="9" style="text-align:center;">${escHtml(correctionText)}</td>`;
+        h += `<td rowspan="9" style="text-align:center;">${escHtml(tbl.gradient || '')}</td>`;
+        h += `<td rowspan="9" style="text-align:center;">${escHtml(tbl.fluctuation || '')}</td>`;
       }
+      h += `<td style="text-align:center;">${escHtml(point.unc || '')}</td>`;
+      h += `<td style="text-align:center;">${escHtml(point.tol || '')}</td>`;
+      h += `<td style="text-align:center;font-weight:bold;color:var(--accent);">${escHtml(point.conf || '')}</td>`;
       h += '</tr>';
     }
   });

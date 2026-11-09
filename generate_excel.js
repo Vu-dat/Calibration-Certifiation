@@ -149,9 +149,172 @@ function mapDataToStandards(standards) {
     }));
 }
 
+function getBalanceRawData(data, cert) {
+    const candidates = [data && data.balanceRawData, data && data.raw_data, cert && cert.RAW_DATA, cert && cert.raw_data];
+    for (const candidate of candidates) {
+        if (!candidate) continue;
+        try {
+            const parsed = typeof candidate === 'string' ? JSON.parse(candidate) : candidate;
+            if (parsed && parsed.division && Array.isArray(parsed.indication)) return parsed;
+        } catch (_) { /* Ignore non-Balance raw data, such as oven data. */ }
+    }
+    return null;
+}
+
+function excelNumber(value) {
+    if (value === null || value === undefined || String(value).trim() === '') return null;
+    const number = Number(String(value).trim().replace(',', '.'));
+    return Number.isFinite(number) ? number : null;
+}
+
+function symmetricTolerance(value) {
+    const matches = String(value ?? '').replace(',', '.').match(/\d+(?:\.\d+)?/g) || [];
+    return matches.length === 1 ? Math.abs(Number(matches[0])) : null;
+}
+
+function balanceConformity(error, uncertainty, tolerance, toleranceText) {
+    if (error === null) return '';
+    if (!String(toleranceText ?? '').trim()) return 'D';
+    if (tolerance === null) return '';
+    const e = Math.abs(error);
+    const u = uncertainty === null ? null : Math.abs(uncertainty);
+    if (u === null) return e <= tolerance + 1e-12 ? 'A' : 'B';
+    if (e + u <= tolerance + 1e-12) return 'A';
+    if (e - u > tolerance + 1e-12) return 'B';
+    return 'C';
+}
+
+function addBalanceWorksheet(workbook, balance) {
+    const ws = workbook.addWorksheet('Balance Calibration');
+    const divisionDecimals = Math.max((String(balance.division || '').match(/\.(\d+)/) || [])[1]?.length || 0, 1);
+    const measurementNumFmt = divisionDecimals ? `0.${'0'.repeat(divisionDecimals)}` : '0';
+    const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightBg } };
+    const styleHeader = cell => {
+        cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: primaryColor } };
+        cell.fill = headerFill;
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border = defaultBorder();
+    };
+    const styleBody = (cell, align = 'center') => {
+        cell.font = { name: 'Arial', size: 10, color: { argb: '1a1917' } };
+        cell.alignment = { horizontal: align, vertical: 'middle', wrapText: true };
+        cell.border = defaultBorder();
+    };
+
+    ws.mergeCells('A1:G1');
+    ws.getCell('A1').value = 'BALANCE — CALIBRATION RESULTS';
+    ws.getCell('A1').font = { name: 'Arial', size: 14, bold: true, color: { argb: primaryColor } };
+    ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 26;
+    ws.getCell('A3').value = 'Division'; ws.getCell('B3').value = balance.division || '';
+    ws.getCell('D3').value = 'Capacity'; ws.getCell('E3').value = balance.maxLabel || balance.maxNumeric || '';
+    ws.getCell('F3').value = 'Unit'; ws.getCell('G3').value = balance.unit || 'g';
+
+    // Indication error and decision rule: e=|load-indication|; A if e+U<=T,
+    // B if e-U>T, C otherwise. D means no tolerance is stated.
+    ws.mergeCells('A5:G5');
+    ws.getCell('A5').value = '1. Difference of Indication';
+    ws.getCell('A5').font = { name: 'Arial', size: 11, bold: true };
+    const indicationHeaders = ['Load', 'Indication', 'Expanded uncertainty U', 'Correction (load − indication)', 'Tolerance', 'Tolerance T (numeric)', 'Conclusion'];
+    indicationHeaders.forEach((label, i) => { const cell = ws.getCell(7, i + 1); cell.value = label; styleHeader(cell); });
+    const indication = Array.isArray(balance.indication) ? balance.indication : [];
+    indication.forEach((item, i) => {
+        const row = 8 + i;
+        const load = excelNumber(item.load);
+        const indicated = excelNumber(item.indicated);
+        const uncertainty = excelNumber(item.uncertainty);
+        const toleranceText = item.tolerance || '';
+        const tolerance = symmetricTolerance(toleranceText);
+        const error = load !== null && indicated !== null ? load - indicated : null;
+        [load, indicated, uncertainty, null, toleranceText, tolerance, null].forEach((value, j) => {
+            const cell = ws.getCell(row, j + 1);
+            cell.value = value === null ? '' : value;
+            styleBody(cell);
+        });
+        const correctionCell = ws.getCell(row, 4);
+        correctionCell.value = { formula: `IF(OR(A${row}="",B${row}=""),"",A${row}-B${row})`, result: error ?? '' };
+        const conclusion = balanceConformity(error, uncertainty, tolerance, toleranceText);
+        ws.getCell(row, 7).value = {
+            formula: `IF(OR(A${row}="",B${row}=""),"",IF(E${row}="","D",IF(F${row}="","",IF(C${row}="",IF(ABS(D${row})<=F${row}+1E-12,"A","B"),IF(ABS(D${row})+ABS(C${row})<=F${row}+1E-12,"A",IF(ABS(D${row})-ABS(C${row})>F${row}+1E-12,"B","C"))))))`,
+            result: conclusion
+        };
+        styleBody(correctionCell); styleBody(ws.getCell(row, 7));
+        correctionCell.numFmt = measurementNumFmt;
+        ws.getCell(row, 2).numFmt = measurementNumFmt;
+        ws.getCell(row, 3).numFmt = measurementNumFmt;
+        ws.getCell(row, 6).numFmt = measurementNumFmt;
+    });
+
+    const repeatTitleRow = 10 + indication.length;
+    ws.mergeCells(`A${repeatTitleRow}:K${repeatTitleRow}`);
+    ws.getCell(`A${repeatTitleRow}`).value = '2. Repeatability — sample standard deviation (Bessel, STDEV.S)';
+    ws.getCell(`A${repeatTitleRow}`).font = { name: 'Arial', size: 11, bold: true };
+    const repeatHeaderRow = repeatTitleRow + 2;
+    ['Load', ...Array.from({ length: 10 }, (_, i) => `Reading ${i + 1}`), 'Count', 'Standard deviation s'].forEach((label, i) => {
+        const cell = ws.getCell(repeatHeaderRow, i + 1); cell.value = label; styleHeader(cell);
+    });
+    const repeatRow = repeatHeaderRow + 1;
+    const repeatability = balance.repeatability || {};
+    const readings = Array.isArray(repeatability.readings) ? repeatability.readings.slice(0, 10) : [];
+    while (readings.length < 10) readings.push('');
+    const repeatLoad = excelNumber(repeatability.load ?? balance.repeatabilityLoad);
+    ws.getCell(repeatRow, 1).value = repeatLoad ?? '';
+    readings.forEach((reading, i) => { ws.getCell(repeatRow, i + 2).value = excelNumber(reading) ?? ''; });
+    const readingRange = `B${repeatRow}:K${repeatRow}`;
+    const validReadings = readings.map(excelNumber).filter(value => value !== null);
+    const countCell = ws.getCell(repeatRow, 12);
+    countCell.value = { formula: `COUNT(${readingRange})`, result: validReadings.length };
+    const stdDev = validReadings.length >= 6
+        ? Math.sqrt(validReadings.reduce((sum, value) => sum + (value - validReadings.reduce((a, b) => a + b, 0) / validReadings.length) ** 2, 0) / (validReadings.length - 1))
+        : null;
+    const stdCell = ws.getCell(repeatRow, 13);
+    stdCell.value = { formula: `IF(L${repeatRow}>=6,STDEV.S(${readingRange}),"")`, result: stdDev ?? '' };
+    for (let col = 1; col <= 13; col++) styleBody(ws.getCell(repeatRow, col));
+    stdCell.numFmt = measurementNumFmt;
+
+    const eccTitleRow = repeatRow + 3;
+    ws.mergeCells(`A${eccTitleRow}:G${eccTitleRow}`);
+    ws.getCell(`A${eccTitleRow}`).value = '3. Eccentricity — absolute difference from center';
+    ws.getCell(`A${eccTitleRow}`).font = { name: 'Arial', size: 11, bold: true };
+    const eccHeaderRow = eccTitleRow + 2;
+    ['Position', 'Center (0)', 'Left (1)', 'Front (2)', 'Right (3)', 'Back (4)', 'Max difference'].forEach((label, i) => {
+        const cell = ws.getCell(eccHeaderRow, i + 1); cell.value = label; styleHeader(cell);
+    });
+    const eccRow = eccHeaderRow + 1;
+    const ecc = balance.eccentricity || {};
+    const values = Array.isArray(ecc.values) ? ecc.values.slice(0, 5) : [];
+    while (values.length < 5) values.push('');
+    values.forEach((value, i) => { ws.getCell(eccRow, i + 2).value = excelNumber(value) ?? ''; });
+    ws.getCell(eccRow, 1).value = ecc.load ?? balance.eccentricityLoad ?? '';
+    for (let i = 0; i < 4; i++) {
+        const col = i + 3;
+        const cell = ws.getCell(eccRow + 1, col);
+        const centerValue = excelNumber(values[0]);
+        const pointValue = excelNumber(values[i + 1]);
+        const point = centerValue !== null && pointValue !== null ? Math.abs(pointValue - centerValue) : '';
+        cell.value = { formula: `IF(OR(${String.fromCharCode(64 + col)}${eccRow}="",B${eccRow}=""),"",ABS(${String.fromCharCode(64 + col)}${eccRow}-B${eccRow}))`, result: point };
+    }
+    ws.getCell(eccRow + 1, 1).value = 'Difference';
+    ws.getCell(eccRow + 1, 2).value = { formula: '0', result: 0 };
+    const validEcc = values.map(excelNumber);
+    const center = validEcc[0];
+    const diffs = validEcc.slice(1).map(value => value !== null && center !== null ? Math.abs(value - center) : null);
+    const maxDiff = diffs.filter(value => value !== null).length ? Math.max(...diffs.filter(value => value !== null)) : null;
+    ws.getCell(eccRow + 1, 7).value = { formula: `IF(COUNT(C${eccRow + 1}:F${eccRow + 1})=0,"",MAX(C${eccRow + 1}:F${eccRow + 1}))`, result: maxDiff ?? '' };
+    for (let col = 1; col <= 7; col++) styleBody(ws.getCell(eccRow + 1, col));
+    for (let col = 2; col <= 7; col++) {
+        ws.getCell(eccRow, col).numFmt = measurementNumFmt;
+        ws.getCell(eccRow + 1, col).numFmt = measurementNumFmt;
+    }
+
+    [22, 16, 15, 17, 17, 15, 18, 15, 15, 15, 15, 12, 24].forEach((width, i) => { ws.getColumn(i + 1).width = width; });
+    ws.views = [{ state: 'frozen', ySplit: 7 }];
+}
+
         let cert = null;
         let points = [];
         let standards = [];
+        let balanceData = null;
 
         if (opts && opts.data) {
             cert = mapDataToCert(opts.data, cNo);
@@ -172,9 +335,12 @@ function mapDataToStandards(standards) {
             standards = toUpperKeys(await dbAll('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [compositeCNo]));
         }
 
+        balanceData = getBalanceRawData(opts && opts.data, cert);
+
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'LabMaster Enterprise';
         workbook.created = new Date();
+        workbook.calcProperties = { fullCalcOnLoad: true, forceFullCalc: true, calcMode: 'auto' };
 
         // ===== SHEET 1: CHUNG NHAN HIEU CHUAN =====
         const ws = workbook.addWorksheet('Giấy Chứng Nhận', {
@@ -237,6 +403,8 @@ function mapDataToStandards(standards) {
 
         // --- RESULTS TABLE ---
 
+        const sigRow = r + 2;
+
         for (var is = 0; is < 3; is++) {
             ws.getRow(sigRow + is).height = 28;
         }
@@ -294,6 +462,8 @@ function mapDataToStandards(standards) {
         for (var ic = 1; ic <= 8; ic++) {
             ws2.getColumn(ic).width = 18;
         }
+
+        if (balanceData) addBalanceWorksheet(workbook, balanceData);
 
         // ===== SHEET 3: THAM CHÍ DỮ LIỆU (sourceMatrix) =====
         // Dành cho các mảnh dữ liệu khác nhau (tỷ lệ dung sai chung) đã trích xuất
