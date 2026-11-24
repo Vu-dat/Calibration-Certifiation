@@ -30,6 +30,7 @@
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/auth.js"></script>
 </head>
 <body>
 
@@ -304,9 +305,15 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch(e) { /* Lỗi parse JSON, coi như chưa đăng nhập */ }
 });
 
-function handleLogoutIndex() {
-    localStorage.removeItem('labmaster_user');
-    window.location.href = 'login.html';
+async function handleLogoutIndex() {
+    try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+        console.warn('Không thể gửi yêu cầu đăng xuất:', error);
+    } finally {
+        localStorage.removeItem('labmaster_user');
+        window.location.replace('/login.html');
+    }
 }
 // Thống kê trang chủ được nạp trực tiếp từ API đọc Supabase.
 let projectStatusChart = null;

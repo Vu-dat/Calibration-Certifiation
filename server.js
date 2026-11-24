@@ -45,6 +45,7 @@ const sessionFallbackMaterial = process.env.SUPABASE_PASSWORD
     || process.env.SUPABASE_DB_URL
     || process.env.DATABASE_URL
     || process.env.POSTGRES_URL
+    || process.env.POSTGRES_PRISMA_URL
     || '';
 const SESSION_SECRET = configuredSessionSecret.length >= 32
     ? configuredSessionSecret
@@ -52,7 +53,7 @@ const SESSION_SECRET = configuredSessionSecret.length >= 32
         ? crypto.createHmac('sha256', 'labmaster-session-key-v1').update(sessionFallbackMaterial).digest('hex')
         : (IS_PRODUCTION ? '' : 'local-development-only-session-secret'));
 if (IS_PRODUCTION && !configuredSessionSecret && SESSION_SECRET) {
-    console.warn('SESSION_SECRET is not configured; a stable signing key is derived from the database credential. Set a dedicated SESSION_SECRET in Vercel to avoid session invalidation when rotating database credentials.');
+    console.warn('SESSION_SECRET is not configured; a stable signing key is derived from the database credential. Set a dedicated SESSION_SECRET in Vercel.');
 }
 if (IS_PRODUCTION && !SESSION_SECRET) {
     console.error('SESSION_SECRET and database signing material are missing; login is disabled until secrets are configured.');
@@ -61,20 +62,22 @@ const SESSION_COOKIE = 'labmaster_session';
 const SESSION_MAX_AGE = 8 * 60 * 60;
 
 function signSession(username, expiresAt) {
+    if (!SESSION_SECRET) throw new Error('SESSION_SECRET is not configured. Set a secret of at least 32 characters in Vercel Project Settings.');
     const payload = Buffer.from(JSON.stringify({ username, expiresAt })).toString('base64url');
     const signature = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
     return `${payload}.${signature}`;
 }
 
 function readSession(req) {
+    if (!SESSION_SECRET) return null;
     const raw = (req.headers.cookie || '').split(';').map(part => part.trim()).find(part => part.startsWith(`${SESSION_COOKIE}=`));
     if (!raw) return null;
-    const [payload, signature] = decodeURIComponent(raw.slice(SESSION_COOKIE.length + 1)).split('.');
-    if (!payload || !signature) return null;
-    const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest();
-    const actual = Buffer.from(signature, 'base64url');
-    if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return null;
     try {
+        const [payload, signature] = decodeURIComponent(raw.slice(SESSION_COOKIE.length + 1)).split('.');
+        if (!payload || !signature) return null;
+        const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest();
+        const actual = Buffer.from(signature, 'base64url');
+        if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return null;
         const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
         return data.username && data.expiresAt > Date.now() ? data : null;
     } catch (_) { return null; }
@@ -148,16 +151,31 @@ async function persistExport(buffer, filename, contentType) {
     return result.publicUrl;
 }
 
-const allowedOrigins = (process.env.APP_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean);
-app.use(cors({
+function normalizeOrigin(value) {
+    if (!value) return null;
+    try {
+        const candidate = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+        return new URL(candidate).origin;
+    } catch (_) {
+        return null;
+    }
+}
+const allowedOrigins = [
+    ...(process.env.APP_ORIGINS || '').split(',').map(value => normalizeOrigin(value.trim())),
+    normalizeOrigin(process.env.VERCEL_URL),
+    normalizeOrigin(process.env.PUBLIC_URL),
+].filter(Boolean);
+app.use((req, res, next) => cors({
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
-            return callback(null, true);
-        }
-        return callback(null, false);
+        if (!origin) return callback(null, true);
+        const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+        const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+        const requestOrigin = normalizeOrigin(`${proto}://${host}`);
+        const normalizedOrigin = normalizeOrigin(origin);
+        callback(null, !!normalizedOrigin && (allowedOrigins.includes(normalizedOrigin) || normalizedOrigin === requestOrigin));
     },
-    credentials: true
-}));
+    credentials: true,
+})(req, res, next));
 app.use(express.json({ limit: '10mb' }));
 
 // Static file handler tùy chỉnh — serve từ cả public/ và static/ với Content-Disposition cho file export
@@ -169,7 +187,8 @@ app.use((req, res, next) => {
     
     // Map request path → thư mục gốc
     let rootDir = null;
-    if (reqPath === '/' || reqPath.startsWith('/api/')) {
+    let safeFile, filePath;
+    if (reqPath === '/' || reqPath === '/api' || reqPath.startsWith('/api/')) {
         // API requests — không xử lý ở đây
         return next();
     }
@@ -591,8 +610,10 @@ app.get('/api/balance-lookup', (req, res) => {
 // ensureDbInitialized() đã được chạy khi server start (local), middleware này đảm bảo init cả trên Vercel serverless
 app.use('/api', async (req, res, next) => {
     try {
+        if (req.path === '/auth/logout') return next();
         await ensureDbInitialized();
-        if (req.path === '/auth/login' || req.path === '/auth/register') return next();
+        if (req.path === '/debug/health') return next();
+        if (req.path === '/auth/login' || req.path === '/auth/register' || req.path === '/auth/logout') return next();
         if (!IS_PRODUCTION) {
             req.user = { username: 'local-dev', fullName: 'Local Developer', role: 'admin' };
             return next();
@@ -664,6 +685,9 @@ app.get('/api/static/:filename', (req, res) => {
 app.get('/api/init', async (req, res) => {
     try {
         res.setHeader('Cache-Control', 'private, no-store');
+        if (serverCache.init) {
+            return res.json(serverCache.init);
+        }
         const [projectsResult, certCountResult, templatesResult, clockResult, allPointsResult] = await Promise.all([
             sql`SELECT COUNT(*) as total,
                        COUNT(*) FILTER (WHERE status = 'In Progress') as progress,
@@ -755,15 +779,21 @@ app.get('/api/init', async (req, res) => {
 app.get('/api/debug/health', async (req, res) => {
     try {
         await sql`SELECT 1`;
-        res.json({ status: 'ok' });
+        await ensureCustomersSchema();
+        await sql`SELECT ID FROM CUSTOMERS LIMIT 0`;
+        res.json({ status: 'ok', database: 'connected', customers: 'ready' });
     } catch (err) {
-        res.status(503).json({ status: 'unavailable' });
+        console.error('Database health check failed:', err.message);
+        res.status(503).json({ status: 'unavailable', database: 'unavailable', customers: 'unavailable' });
     }
 });
 
 // ================= API CRUD CHO BẢNG CLOCK =================
 
 async function getOrLoadClockCache() {
+    if (serverCache.clock && Array.isArray(serverCache.clock) && serverCache.clock.length > 0) {
+        return serverCache.clock;
+    }
     try {
         const rowsDb = await sql`SELECT * FROM CLOCK ORDER BY ID ASC`;
         const rows = rowsDb.map(r => ({
@@ -784,8 +814,8 @@ async function getOrLoadClockCache() {
         serverCache.clock = rows;
         return serverCache.clock;
     } catch (err) {
-        console.error('Lỗi load clock từ Supabase:', err);
-        throw err;
+        console.error('Lỗi load clock cache từ DB:', err);
+        return serverCache.clock || [];
     }
 }
 
@@ -1012,6 +1042,10 @@ app.get('/api/projects', async (req, res) => {
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
         const cacheKey = `${page}_${limit}`;
+        if (serverCache.projects[cacheKey]) {
+            return res.json(serverCache.projects[cacheKey]);
+        }
+
         const [rowsDb, statsResult] = await Promise.all([
             sql`SELECT * FROM PROJECTS ORDER BY CREATED_AT DESC LIMIT ${limit} OFFSET ${offset}`,
             sql`
@@ -1193,6 +1227,10 @@ app.get('/api/calibration/:certNo', async (req, res) => {
     const compositeCertNo = eqName ? `${certNo}_${eqName}` : certNo;
 
     const cacheKey = `${certNo}_${eqName}`;
+    if (serverCache.calibrations[cacheKey]) {
+        return res.json(serverCache.calibrations[cacheKey]);
+    }
+
     try {
         const certRows = await sql`
             SELECT * FROM CERTIFICATES 
@@ -1298,14 +1336,20 @@ app.post('/api/calibration/save', async (req, res) => {
 
     try {
         await saveCalibrationDataToDBHelper(data, data.certNo);
-        delete serverCache.calibrations[cacheKey];
+        serverCache.calibrations[cacheKey] = {
+            success: true,
+            dataExists: true,
+            cert: certObj,
+            points: pointsArr,
+            standards: standardsArr
+        };
         serverCache.projects = {};
         serverCache.statsSummary = null;
-        logActivity(currentWorker, "UPDATE", "CERTIFICATES", data.certNo, `Cập nhật số liệu kết quả đo cho thiết bị ${data.instrumentName || ''} (Mã chuẩn: ${data.equipmentId || ''})`).catch(e => console.warn('Lỗi log:', e.message));
-        res.json({ success: true, message: "Dữ liệu hiệu chuẩn đã được lưu vào Supabase." });
+        await logActivity(currentWorker, "UPDATE", "CERTIFICATES", data.certNo, `Cập nhật số liệu kết quả đo cho thiết bị ${data.instrumentName || ''} (Mã chuẩn: ${data.equipmentId || ''})`);
+        res.json({ success: true, message: "Dữ liệu hiệu chuẩn đã được ghi nhận vào SQL ổn định!" });
     } catch (err) {
         console.error("❌ Lỗi lưu dữ liệu hiệu chuẩn:", err.message);
-        res.status(500).json({ success: false, error: err.message || "Không thể lưu dữ liệu hiệu chuẩn vào Supabase." });
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
@@ -1316,6 +1360,10 @@ async function getEquipmentTemplatesHelper(req, res) {
         res.setHeader('Cache-Control', 'private, no-store');
         const searchTerm = req.query.q ? `%${req.query.q.toLowerCase()}%` : null;
         const cacheKey = searchTerm || 'all';
+        if (serverCache.equipmentTemplates[cacheKey]) {
+            return res.json(serverCache.equipmentTemplates[cacheKey]);
+        }
+
         const whereClause = searchTerm 
             ? sql`WHERE LOWER(name) LIKE ${searchTerm} OR LOWER(equipment_id) LIKE ${searchTerm} OR LOWER(manufacturer) LIKE ${searchTerm}`
             : sql``;
@@ -1391,6 +1439,7 @@ app.get('/api/equipment', async (req, res) => {
 });
 
 app.post('/api/equipment', async (req, res) => {
+    invalidateServerCache();
     try {
         const { equipment_id, standard_name, manufacturer, due_date, procedure, ref_standard, points, model, serial_number, model_serial, manufacturer_id, spec_range, spec_resolution, standards_used, name_vi, name_en, nameEn, instrumentNameEn } = req.body;
 
@@ -1400,50 +1449,47 @@ app.post('/api/equipment', async (req, res) => {
 
         const englishName = name_en || nameEn || instrumentNameEn || '';
 
-        await sql.begin(async tx => {
-            await tx`
-                INSERT INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID, PROCEDURE, REF_STANDARD, MODEL, SERIAL_NUMBER, MODEL_SERIAL, MANUFACTURER_ID, SPEC_RANGE, SPEC_RESOLUTION, STANDARDS_USED, NAME_VI, NAME_EN)
-                VALUES (${standard_name}, ${manufacturer || ''}, ${due_date || ''}, ${equipment_id}, ${procedure || ''}, ${ref_standard || ''}, ${model || ''}, ${serial_number || ''}, ${model_serial || ''}, ${manufacturer_id || ''}, ${spec_range || ''}, ${spec_resolution || ''}, ${standards_used || ''}, ${name_vi || ''}, ${englishName})
-                ON CONFLICT (NAME) DO UPDATE SET
-                    MANUFACTURER = EXCLUDED.MANUFACTURER,
-                    NEXT_DUE = EXCLUDED.NEXT_DUE,
-                    EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID,
-                    PROCEDURE = EXCLUDED.PROCEDURE,
-                    REF_STANDARD = EXCLUDED.REF_STANDARD,
-                    MODEL = EXCLUDED.MODEL,
-                    SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER,
-                    MODEL_SERIAL = EXCLUDED.MODEL_SERIAL,
-                    MANUFACTURER_ID = EXCLUDED.MANUFACTURER_ID,
-                    SPEC_RANGE = EXCLUDED.SPEC_RANGE,
-                    SPEC_RESOLUTION = EXCLUDED.SPEC_RESOLUTION,
-                    STANDARDS_USED = EXCLUDED.STANDARDS_USED,
-                    NAME_VI = EXCLUDED.NAME_VI,
-                    NAME_EN = COALESCE(NULLIF(EXCLUDED.NAME_EN, ''), EQUIPMENT_TEMPLATES.NAME_EN)
+        await sql`
+            INSERT INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID, PROCEDURE, REF_STANDARD, MODEL, SERIAL_NUMBER, MODEL_SERIAL, MANUFACTURER_ID, SPEC_RANGE, SPEC_RESOLUTION, STANDARDS_USED, NAME_VI, NAME_EN)
+            VALUES (${standard_name}, ${manufacturer || ''}, ${due_date || ''}, ${equipment_id}, ${procedure || ''}, ${ref_standard || ''}, ${model || ''}, ${serial_number || ''}, ${model_serial || ''}, ${manufacturer_id || ''}, ${spec_range || ''}, ${spec_resolution || ''}, ${standards_used || ''}, ${name_vi || ''}, ${englishName})
+            ON CONFLICT (NAME) DO UPDATE SET 
+                MANUFACTURER = EXCLUDED.MANUFACTURER, 
+                NEXT_DUE = EXCLUDED.NEXT_DUE, 
+                EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID, 
+                PROCEDURE = EXCLUDED.PROCEDURE, 
+                REF_STANDARD = EXCLUDED.REF_STANDARD,
+                MODEL = EXCLUDED.MODEL,
+                SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER,
+                MODEL_SERIAL = EXCLUDED.MODEL_SERIAL,
+                MANUFACTURER_ID = EXCLUDED.MANUFACTURER_ID,
+                SPEC_RANGE = EXCLUDED.SPEC_RANGE,
+                SPEC_RESOLUTION = EXCLUDED.SPEC_RESOLUTION,
+                STANDARDS_USED = EXCLUDED.STANDARDS_USED,
+                NAME_VI = EXCLUDED.NAME_VI,
+                NAME_EN = COALESCE(NULLIF(EXCLUDED.NAME_EN, ''), EQUIPMENT_TEMPLATES.NAME_EN)
+        `;
+
+        await sql`DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ${standard_name}`;
+
+        if (points && points.length > 0) {
+            const ptRows = points.map(p => ({
+                template_name: standard_name,
+                parameter_name: p.parameter || p.parameterName || '',
+                cal_point: p.value || p.calPoint || '',
+                as_found_value: p.asFoundValue || '',
+                reference_value: p.referenceValue || p.refValue || '',
+                uncertainty: p.uncertainty || '',
+                tolerance: p.tolerance || '',
+                conformity: p.conformity || '',
+                standard_equipment: p.standardEquipment || ''
+            }));
+            await sql`
+                INSERT INTO TEMPLATE_POINTS ${
+                    sql(ptRows, 'template_name', 'parameter_name', 'cal_point', 'as_found_value', 'reference_value', 'uncertainty', 'tolerance', 'conformity', 'standard_equipment')
+                }
             `;
+        }
 
-            await tx`DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ${standard_name}`;
-
-            if (Array.isArray(points) && points.length > 0) {
-                const ptRows = points.map(p => ({
-                    template_name: standard_name,
-                    parameter_name: p.parameter || p.parameterName || '',
-                    cal_point: p.value || p.calPoint || '',
-                    as_found_value: p.asFoundValue || '',
-                    reference_value: p.referenceValue || p.refValue || '',
-                    uncertainty: p.uncertainty || '',
-                    tolerance: p.tolerance || '',
-                    conformity: p.conformity || '',
-                    standard_equipment: p.standardEquipment || ''
-                }));
-                await tx`
-                    INSERT INTO TEMPLATE_POINTS ${
-                        tx(ptRows, 'template_name', 'parameter_name', 'cal_point', 'as_found_value', 'reference_value', 'uncertainty', 'tolerance', 'conformity', 'standard_equipment')
-                    }
-                `;
-            }
-        });
-
-        invalidateServerCache();
         logActivity("Hệ thống / KTV", "UPDATE", "EQUIPMENT_TEMPLATES", equipment_id, `Lưu mẫu thiết bị: ${standard_name}`).catch(e => console.warn('Lỗi log:', e.message));
         return res.json({ success: true, message: `Thiết bị chuẩn "${standard_name}" đã được lưu thành công!` });
     } catch (err) {
@@ -1466,8 +1512,44 @@ app.delete('/api/equipment-templates/:name', async (req, res) => {
 
 // ================= API QUẢN LÝ KHÁCH HÀNG =================
 
+let customersSchemaPromise = null;
+function ensureCustomersSchema() {
+    if (!customersSchemaPromise) {
+        customersSchemaPromise = (async () => {
+            await sql`CREATE TABLE IF NOT EXISTS CUSTOMERS (
+                ID TEXT PRIMARY KEY,
+                NAME TEXT,
+                COMPANY TEXT,
+                PHONE TEXT,
+                TAX TEXT,
+                EMAIL TEXT,
+                ADDRESS TEXT,
+                BILLING_ADDRESS TEXT,
+                CONTACT TEXT,
+                NOTE TEXT
+            )`;
+            await sql.unsafe(`
+                ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS NAME TEXT;
+                ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS COMPANY TEXT;
+                ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS PHONE TEXT;
+                ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS TAX TEXT;
+                ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS EMAIL TEXT;
+                ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS ADDRESS TEXT;
+                ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS BILLING_ADDRESS TEXT;
+                ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS CONTACT TEXT;
+                ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS NOTE TEXT;
+            `);
+        })().catch(err => {
+            customersSchemaPromise = null;
+            throw err;
+        });
+    }
+    return customersSchemaPromise;
+}
+
 app.get('/api/customers', async (req, res) => {
     try {
+        await ensureCustomersSchema();
         res.setHeader('Cache-Control', 'private, no-store');
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 15;
@@ -1521,6 +1603,7 @@ app.post('/api/customers', async (req, res) => {
     }
 
     try {
+        await ensureCustomersSchema();
         let finalId = id;
         if (!finalId) {
             const lastRow = await sql`SELECT ID FROM CUSTOMERS WHERE ID LIKE 'CUST-%' ORDER BY ID DESC LIMIT 1`;
@@ -1553,6 +1636,7 @@ app.delete('/api/customers/:id', async (req, res) => {
     invalidateServerCache();
     const id = req.params.id;
     try {
+        await ensureCustomersSchema();
         const row = await sql`SELECT NAME, COMPANY FROM CUSTOMERS WHERE ID = ${id}`;
         const info = row.length > 0 ? `${row[0].name || ''} - ${row[0].company || ''}` : id;
 
@@ -1568,14 +1652,16 @@ app.delete('/api/customers/:id', async (req, res) => {
 
 app.get('/api/customers/search', async (req, res) => {
     const q = (req.query.q || '').toString().trim().toLowerCase();
+    if (!q) {
+        // Return top 10 recently added customers if no query
+        const rowsDb = await sql`SELECT * FROM CUSTOMERS ORDER BY ID DESC LIMIT 10`;
+        const rows = rowsDb.map(r => ({
+            ID: r.id, NAME: r.name, COMPANY: r.company, PHONE: r.phone, TAX: r.tax, EMAIL: r.email, ADDRESS: r.address, BILLING_ADDRESS: r.billing_address, CONTACT: r.contact, NOTE: r.note
+        }));
+        return res.json(rows);
+    }
+
     try {
-        res.setHeader('Cache-Control', 'private, no-store');
-        if (!q) {
-            const rowsDb = await sql`SELECT * FROM CUSTOMERS ORDER BY ID DESC LIMIT 10`;
-            return res.json(rowsDb.map(r => ({
-                ID: r.id, NAME: r.name, COMPANY: r.company, PHONE: r.phone, TAX: r.tax, EMAIL: r.email, ADDRESS: r.address, BILLING_ADDRESS: r.billing_address, CONTACT: r.contact, NOTE: r.note
-            })));
-        }
         const queryStr = `%${q}%`;
         const rowsDb = await sql`
             SELECT *,
@@ -1589,14 +1675,12 @@ app.get('/api/customers/search', async (req, res) => {
                OR LOWER(NAME) LIKE ${queryStr}
                OR LOWER(COMPANY) LIKE ${queryStr}
                OR LOWER(PHONE) LIKE ${queryStr}
-               OR LOWER(TAX) LIKE ${queryStr}
             ORDER BY RELEVANCE ASC, NAME ASC
             LIMIT 15
         `;
         const rows = rowsDb.map(r => ({ ID: r.id, NAME: r.name, COMPANY: r.company, PHONE: r.phone, TAX: r.tax, EMAIL: r.email, ADDRESS: r.address, BILLING_ADDRESS: r.billing_address, CONTACT: r.contact, NOTE: r.note }));
         res.json(rows);
     } catch (err) {
-        console.error('CUSTOMER SEARCH ERROR:', err.stack || err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -1623,7 +1707,11 @@ app.get('/api/audit-logs', async (req, res) => {
 
 app.get('/api/stats/summary', async (req, res) => {
     try {
+        await ensureCustomersSchema();
         res.setHeader('Cache-Control', 'private, no-store');
+        if (serverCache.statsSummary) {
+            return res.json(serverCache.statsSummary);
+        }
         const row = await sql`SELECT COUNT(*) as cert_count FROM CERTIFICATES`;
         serverCache.statsSummary = { certCount: parseInt(row[0].cert_count) || 0 };
         res.json(serverCache.statsSummary);
@@ -1742,7 +1830,7 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
         if (!isPreview && isConfigured()) fileUrl = await persistExport(pdfBuffer, fileName, 'application/pdf');
 
         // Hỗ trợ trả về nhị phân trực tiếp (Blob Stream) cho browser - cực nhanh, không qua Base64
-        if (String(req.headers.accept || '').includes('application/pdf') || req.query.format === 'blob') {
+        if (req.headers.accept === 'application/pdf' || req.query.format === 'blob') {
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
             return res.send(pdfBuffer);
@@ -1771,7 +1859,7 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
         });
     } catch (err) {
         console.error('EXPORT-PDF ERROR STACK:', err.stack);
-        res.status(500).json({ success: false, error: 'Không thể tạo PDF xem trước.', details: isPreview ? err.message : undefined });
+        res.status(500).json({ success: false, error: 'Không thể xuất PDF. Vui lòng thử lại hoặc liên hệ quản trị viên.' });
     }
 });
 
@@ -1920,6 +2008,7 @@ app.get('/api/server/info', (req, res) => {
 
 app.post('/api/auth/register', async (req, res) => {
     let { username, password } = req.body;
+    if (IS_PRODUCTION) return res.status(403).json({ success: false, message: 'Tài khoản production do quản trị viên tạo.' });
     if (!username || !password) {
         return res.status(400).json({ success: false, message: "Vui lòng nhập tên đăng nhập và mật khẩu!" });
     }
@@ -1946,18 +2035,18 @@ app.post('/api/auth/register', async (req, res) => {
         logActivity(username, "REGISTER", "USERS", username, `Tài khoản mới đăng ký: ${username}`);
         res.json({ success: true, message: "Đăng ký tài khoản thành công!" });
     } catch (err) {
-        if (err.code === '23505') {
-            return res.status(409).json({ success: false, message: 'Tên đăng nhập đã tồn tại!' });
-        }
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
 app.post('/api/auth/login', async (req, res) => {
-    if (IS_PRODUCTION && !SESSION_SECRET) {
-        return res.status(503).json({ success: false, message: 'Máy chủ chưa cấu hình khóa phiên đăng nhập. Vui lòng cấu hình SESSION_SECRET trên Vercel.' });
-    }
     let { username, password } = req.body;
+    if (!SESSION_SECRET) {
+        return res.status(503).json({
+            success: false,
+            message: 'Cấu hình phiên đăng nhập chưa hoàn tất. Hãy đặt SESSION_SECRET (ít nhất 32 ký tự) hoặc cấu hình biến kết nối PostgreSQL trên Vercel.',
+        });
+    }
     if (!username || !password) {
         return res.status(400).json({ success: false, message: "Vui lòng nhập tên đăng nhập và mật khẩu!" });
     }
@@ -1982,6 +2071,11 @@ app.post('/api/auth/login', async (req, res) => {
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+    res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${IS_PRODUCTION ? '; Secure' : ''}`);
+    res.json({ success: true });
 });
 
 // ================= AUTH — USER MANAGEMENT (ADMIN ONLY) =================
@@ -2152,6 +2246,9 @@ app.get('/api/projects/:id', async (req, res) => {
 app.get('/api/projects/:id/machines', async (req, res) => {
     res.setHeader('Cache-Control', 'private, no-store');
     const projectId = req.params.id;
+    if (serverCache.machines[projectId]) {
+        return res.json(serverCache.machines[projectId]);
+    }
     const certNo = projectId.replace('PRJ-', '');
     try {
         const [certRows, pointRows] = await Promise.all([

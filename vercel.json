@@ -9,7 +9,8 @@
         "includeFiles": [
           "fonts/**",
           "public/img/**",
-          "public/data/balance_matrix.json"
+          "public/data/balance_matrix.json",
+          "seed_clock_data.json"
         ]
       }
     },
@@ -19,7 +20,9 @@
     }
   ],
   "routes": [
+    { "src": "/api", "dest": "api/index.js" },
     { "src": "/api/(.*)", "dest": "api/index.js" },
+    { "src": "/", "dest": "/public/login.html" },
     {
       "src": "/static/(.*)",
       "dest": "/static/$1",

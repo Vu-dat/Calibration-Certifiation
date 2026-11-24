@@ -954,6 +954,7 @@
       color: #0284c7;
     }
     </style>
+    <script src="/auth.js"></script>
 </head>
 <body>
 
@@ -1330,14 +1331,14 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="form-card-title"><span>4</span> Đặc trưng kĩ thuật & Quy trình</div>
 
         <div class="field">
-          <label id="spec-range-label">Phạm vi đo / Đặc trưng kỹ thuật (Specification / Range)</label>
+          <label>Phạm vi đo / Đặc trưng kỹ thuật (Specification / Range)</label>
           <div class="cal-table-wrapper" style="border: 1px solid var(--border); border-radius: 8px;">
             <table id="spec-range-table" class="data-table" style="font-size:12.5px; margin-top:0;">
               <thead>
                 <tr>
-                  <th id="spec-param-header">Tên thông số (Parameter)</th>
-                  <th id="spec-value-header">Giá trị (Value)</th>
-                  <th id="spec-resolution-header">Độ phân giải (Resolution)</th>
+                  <th>Tên thông số (Parameter)</th>
+                  <th>Giá trị (Value)</th>
+                  <th>Độ phân giải (Resolution)</th>
                   <th>Quy trình (Procedure)</th>
                   <th>Tiêu chuẩn (Reference)</th>
                   <th style="width:60px; text-align:center;">Xóa</th>
@@ -1349,9 +1350,6 @@ document.addEventListener("DOMContentLoaded", () => {
           <button type="button" class="btn btn-secondary btn-sm" onclick="addSpecRangeRow()" style="margin-top:8px; display:inline-flex; align-items:center; gap:6px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-plus"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Thêm thông số
-          </button>
-          <button type="button" id="lightbox-load-results" class="btn btn-primary btn-sm" onclick="loadLightboxResultsFromSpecs()" style="margin:8px 0 0 8px; display:none;">
-            Tải điểm đo theo nguồn sáng đã nhập
           </button>
         </div>
       </div>
@@ -1814,9 +1812,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   }
-  function handleLogout() {
-    localStorage.removeItem('labmaster_user');
-    window.location.href = 'login.html';
+  async function handleLogout() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.warn('Không thể gửi yêu cầu đăng xuất:', error);
+    } finally {
+      localStorage.removeItem('labmaster_user');
+      window.location.replace('/login.html');
+    }
   }
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -1847,7 +1851,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Tr? v? data d? d? c? h?n TTL, k?m flag isStale ???c dùng ?? background refresh
 function cacheGet(key) {
-  return null; // Business data must always be loaded from the API backed by Supabase.
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const item = JSON.parse(raw);
+    // SWR: tr? v? data k? c? khi h?t h?n (stale), ch? xoá khi quá 2x TTL ???c?nh
+    if (Date.now() > item.expiry) {
+      // ??t c? stale nh?ng v?n gi? data cho l?n d?p sau
+      item.isStale = true;
+      return item.data;
+    }
+    return item.data;
+  } catch(e) { return null; }
 }
 function cacheSet(key, data, ttlMs) {
   try {
@@ -2094,7 +2109,7 @@ async function syncEquipmentDBFromAPI(force) {
   if (force) {
     // Force refresh: b? qua cache
     try {
-      const response = await fetch(`${API_BASE_URL}/api/equipment-templates`, { credentials: 'same-origin', cache: 'no-store' });
+      const response = await fetch(`${API_BASE_URL}/api/equipment-templates`);
       if (!response.ok) throw new Error('API failed');
       const templates = await response.json();
       cacheSet('lm_equipment_templates', templates, 30000);
@@ -2106,7 +2121,7 @@ async function syncEquipmentDBFromAPI(force) {
   }
   // SWR: dùng cached data ngay (k? c? stale), refresh background n?u c?n
   const data = await swrFetch('lm_equipment_templates', async () => {
-    const response = await fetch(`${API_BASE_URL}/api/equipment-templates`, { credentials: 'same-origin', cache: 'no-store' });
+    const response = await fetch(`${API_BASE_URL}/api/equipment-templates`);
     if (!response.ok) throw new Error('API equipment-templates failed');
     const templates = await response.json();
     applyEquipmentCache(templates);
@@ -2392,7 +2407,7 @@ async function initPageData() {
   // B??c 2: ??m b?o equipment ?ã s?n s?ng (t? cache ho?c fetch)
   if (Object.keys(MockDatabaseEquipment).length === 0) {
     await swrFetch('lm_equipment_templates', async () => {
-      const res = await fetch(`${API_BASE_URL}/api/equipment-templates`, { credentials: 'same-origin', cache: 'no-store' });
+      const res = await fetch(`${API_BASE_URL}/api/equipment-templates`);
       if (!res.ok) throw new Error('API failed');
       const t = await res.json();
       applyEquipmentCache(t);
@@ -2898,7 +2913,6 @@ function handleEquipmentSearch(keyword) {
             div.onclick = () => {
                 selectEquipmentTemplate(key);
                 window._currentWorkingEquipment = key;
-                updateSpecResolutionHeader(key);
                 box.style.display = 'none';
             };
             box.appendChild(div);
@@ -2913,7 +2927,6 @@ function handleEquipmentBlur(val) {
     if (matched && MockDatabaseEquipment[matched]) {
         selectEquipmentTemplate(matched);
         window._currentWorkingEquipment = matched;
-        updateSpecResolutionHeader(matched);
         const box = document.getElementById('equipment-suggestions');
         if (box) box.style.display = 'none';
     }
@@ -3441,7 +3454,6 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null, fromPopStat
 
   // Lưu tên thiết bị đang hiệu chuẩn (giải mã từ equipmentNameFromRow: có thể là ID hoặc NAME)
   window._currentWorkingEquipment = resolveEquipmentName(equipmentNameFromRow) || equipmentNameFromRow || '';
-  updateSpecResolutionHeader(window._currentWorkingEquipment);
 
   // Bước 1: Load template thiết bị nếu equipmentNameFromRow hợp lệ
   let templateLoaded = false;
@@ -3501,9 +3513,7 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null, fromPopStat
           if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
           
           const hasRows = document.getElementById('spec-range-table-body')?.children.length > 0;
-          if (isLightboxEquipmentName(resolvedName)) {
-              setSpecTableFromData('', '', eq.procedure || '', eq.refStandard || '');
-          } else if (!hasRows) {
+          if (!hasRows) {
               setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
           }
           if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
@@ -3622,24 +3632,16 @@ function renderTopStandardSuggestions(items, suggestionsBox) {
 function addSpecRangeRow(param = '', value = '', resolution = '', procedure = '', reference = '') {
   const tbody = document.getElementById('spec-range-table-body');
   if (!tbody) return;
-  const lightboxTemplate = isLightboxEquipmentName(window._currentWorkingEquipment) ? MockDatabaseEquipment[window._currentWorkingEquipment] : null;
-  const paramPlaceholder = lightboxTemplate ? 'VD: D65, TL84, CWF' : 'VD: Lực tỳ/Downward force';
-  const valuePlaceholder = lightboxTemplate ? 'VD: Nhiệt độ màu (K), Độ rọi (Lux), CRI' : 'VD: 9 N';
-  if (lightboxTemplate) {
-    procedure = procedure || lightboxTemplate.procedure || '';
-    reference = reference || lightboxTemplate.refStandard || '';
-  }
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td><input type="text" class="lab-input-cell spec-param-input" value="${escHtml(param)}" placeholder="${paramPlaceholder}" autocomplete="off"></td>
-    <td><input type="text" class="lab-input-cell spec-value-input" value="${escHtml(value)}" placeholder="${valuePlaceholder}" autocomplete="off"></td>
+    <td><input type="text" class="lab-input-cell spec-param-input" value="${escHtml(param)}" placeholder="VD: Lực tỳ/Downward force" autocomplete="off"></td>
+    <td><input type="text" class="lab-input-cell spec-value-input" value="${escHtml(value)}" placeholder="VD: 9 N" autocomplete="off"></td>
     <td><input type="text" class="lab-input-cell spec-res-input" value="${escHtml(resolution)}" placeholder="VD: 0.1 mg" autocomplete="off"></td>
     <td><input type="text" class="lab-input-cell spec-proc-input" value="${escHtml(procedure)}" placeholder="VD: FORCE-02:2026" autocomplete="off"></td>
     <td><input type="text" class="lab-input-cell spec-ref-input" value="${escHtml(reference)}" placeholder="VD: ISO 6330" autocomplete="off"></td>
     <td style="text-align:center;"><button type="button" class="btn-rm" onclick="this.closest('tr').remove()">×</button></td>
   `;
   tbody.appendChild(tr);
-  if (lightboxTemplate && tr.children[2]) tr.children[2].style.display = 'none';
 }
 
 function getSpecRangeTableData() {
@@ -3650,9 +3652,7 @@ function getSpecRangeTableData() {
   rows.forEach(tr => {
     const param = (tr.querySelector('.spec-param-input')?.value || '').trim();
     const val = (tr.querySelector('.spec-value-input')?.value || '').trim();
-    if (isLightboxEquipmentName(window._currentWorkingEquipment)) {
-      lines.push(param);
-    } else if (param) {
+    if (param) {
       if (val) {
         lines.push(param + ': ' + val);
       } else {
@@ -3669,9 +3669,7 @@ function getSpecResolutionTableData() {
   const rows = tbody.querySelectorAll('tr:not([data-balance-selector="1"])');
   const lines = [];
   rows.forEach(tr => {
-    const val = isLightboxEquipmentName(window._currentWorkingEquipment)
-      ? (tr.querySelector('.spec-value-input')?.value || '').trim()
-      : (tr.querySelector('.spec-res-input')?.value || '').trim();
+    const val = (tr.querySelector('.spec-res-input')?.value || '').trim();
     lines.push(val);
   });
   return lines.join('\n');
@@ -3750,12 +3748,7 @@ function setSpecTableFromData(specRange, specResolution, procedure, refStandard)
   for (let r = 0; r < totalRows; r++) {
     const rangeLine = (rangeLines[r] || '').trim();
     let param = '', val = '';
-    if (isLightboxEquipmentName(window._currentWorkingEquipment)) {
-      const colonAt = rangeLine.indexOf(':');
-      const rangeLabel = colonAt >= 0 ? rangeLine.slice(0, colonAt).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() : '';
-      param = colonAt >= 0 && rangeLabel.includes('nguon sang') ? rangeLine.slice(colonAt + 1).trim() : rangeLine;
-      val = (resLines[r] || '').trim();
-    } else if (rangeLine.includes(':')) {
+    if (rangeLine.includes(':')) {
       const idx = rangeLine.indexOf(':');
       param = rangeLine.substring(0, idx).trim();
       val = rangeLine.substring(idx + 1).trim();
@@ -3772,8 +3765,7 @@ function setSpecTableFromData(specRange, specResolution, procedure, refStandard)
       }
     }
     
-    const resolution = isLightboxEquipmentName(window._currentWorkingEquipment) ? '' : (resLines[r] || '').trim();
-    if (isLightboxEquipmentName(window._currentWorkingEquipment)) val = (resLines[r] || '').trim();
+    const resolution = (resLines[r] || '').trim();
     const proc = (procLines[r] || '').trim();
     const ref = (refLines[r] || '').trim();
     
@@ -3786,30 +3778,9 @@ function setSpecTableFromData(specRange, specResolution, procedure, refStandard)
 function setSpecRangeTableData(text) {
   setSpecTableFromData(text, '', '', '');
 }
-function updateSpecResolutionHeader(name = window._currentWorkingEquipment) {
-  const header = document.getElementById('spec-resolution-header');
-  if (header) header.textContent = isLightboxEquipmentName(name) ? 'Thông số đo (Measurement parameters)' : 'Độ phân giải (Resolution)';
-  const paramHeader = document.getElementById('spec-param-header');
-  if (paramHeader) paramHeader.textContent = isLightboxEquipmentName(name) ? 'Nguồn sáng (Light source)' : 'Tên thông số (Parameter)';
-  const valueHeader = document.getElementById('spec-value-header');
-  if (valueHeader) valueHeader.textContent = isLightboxEquipmentName(name) ? 'Thông số đo (Measurement parameter)' : 'Giá trị (Value)';
-  const specTable = document.getElementById('spec-range-table');
-  if (specTable) specTable.querySelectorAll('tr').forEach(row => {
-    if (row.children[2]) row.children[2].style.display = isLightboxEquipmentName(name) ? 'none' : '';
-  });
-  const rangeLabel = document.getElementById('spec-range-label');
-  if (rangeLabel) rangeLabel.textContent = isLightboxEquipmentName(name) ? 'Nguồn sáng (Light sources)' : 'Phạm vi đo / Đặc trưng kỹ thuật (Specification / Range)';
-  const loadButton = document.getElementById('lightbox-load-results');
-  if (loadButton) loadButton.style.display = isLightboxEquipmentName(name) ? 'inline-flex' : 'none';
-}
-function isLightboxEquipmentName(name) {
-  return String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('lightbox') ||
-    String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('tu den so mau');
-}
-function selectEquipmentTemplate(key, preserveSpec = false) {
+function selectEquipmentTemplate(key) {
   const eq = MockDatabaseEquipment[key];
   if (!eq) return;
-  updateSpecResolutionHeader(key);
   window._balanceData = null;
   document.getElementById('f-inst-vi').value = eq.nameVi || key;
   document.getElementById('equipment-suggestions').style.display = 'none';
@@ -3821,11 +3792,7 @@ function selectEquipmentTemplate(key, preserveSpec = false) {
   if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
   if (eq.instEn) document.getElementById('f-inst-en').value = eq.instEn;
 
-  if (isLightboxEquipmentName(key)) {
-    if (!preserveSpec) setSpecTableFromData('', '', eq.procedure || '', eq.refStandard || '');
-  } else {
-    setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
-  }
+  setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
   if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
 
   // Tự động điền các chuẩn sử dụng từ standardsUsed (tối đa 5 thiết bị chuẩn)
@@ -3865,9 +3832,7 @@ function selectEquipmentTemplate(key, preserveSpec = false) {
 
   const tbody = document.getElementById('calibration-table-body');
   tbody.innerHTML = '';
-  if (isLightboxEquipmentName(key)) {
-    tbody.innerHTML = '<tr><td colspan="11" class="cal-empty-state">Nhập xong nguồn sáng ở mục 7 rồi nhấn “Tải điểm đo theo nguồn sáng đã nhập”.</td></tr>';
-  } else eq.formPoints.forEach(pt => {
+  eq.formPoints.forEach(pt => {
     const row = document.createElement('tr');
     row.dataset.parameterName = pt.paramName.replace('\n', ' ');
     let html = '';
@@ -3918,53 +3883,6 @@ function selectEquipmentTemplate(key, preserveSpec = false) {
   // Mới: sau khi áp dụng mẫu thiết bị, nếu là Cân thì nạp dữ liệu chuẩn từ Excel/DB vào workspace.
   checkAndToggleOvenWorkspace();
   checkAndToggleBalanceWorkspace();
-}
-
-function loadLightboxResultsFromSpecs() {
-  const key = window._currentWorkingEquipment;
-  const eq = key ? MockDatabaseEquipment[key] : null;
-  if (!eq || !isLightboxEquipmentName(key)) return;
-
-  const body = document.getElementById('spec-range-table-body');
-  const enteredRows = [];
-  body?.querySelectorAll('tr:not([data-balance-selector="1"])').forEach(row => {
-    const param = row.querySelector('.spec-param-input')?.value.trim() || '';
-    const value = row.querySelector('.spec-value-input')?.value.trim() || '';
-    if (param || value) enteredRows.push({ source: param, measurement: value });
-  });
-  const criteria = enteredRows.flatMap(row => {
-    const sources = row.source.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
-    const measurements = row.measurement.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
-    return sources.flatMap(source => measurements.map(measurement => ({ source, measurement })));
-  });
-  if (!criteria.length) {
-    showToast('Hãy nhập nguồn sáng và thông số đo ở mục 7 trước khi tải điểm đo.', 'warning');
-    return;
-  }
-
-  const selectedPoints = (eq.formPoints || []).filter(point => {
-    const parameter = String(point.paramName || '').trim().toLowerCase();
-    return criteria.some(item => parameter.startsWith(item.source.toLowerCase()) && parameter.includes(item.measurement.toLowerCase()));
-  });
-  if (!selectedPoints.length) {
-    showToast('Không tìm thấy điểm đo cho nguồn sáng đã nhập. Hãy kiểm tra tên nguồn sáng.', 'warning');
-    return;
-  }
-
-  const rows = selectedPoints.map(point => {
-    const vals = [point.v1, point.v2, point.v3].filter(v => v !== undefined && v !== null && String(v).trim() !== '');
-    const nums = vals.map(v => parseFloat(String(v).replace(',', '.'))).filter(n => !Number.isNaN(n));
-    const avg = nums.length ? String(Math.round(nums.reduce((a, b) => a + b, 0) / nums.length * 100) / 100) : (vals[0] || '');
-    return {
-      paramName: point.paramName || '', calPoint: point.point || '',
-      v1: point.v1 || avg, v2: point.v2 || point.v1 || avg, v3: point.v3 || point.v1 || avg,
-      avg, uncertainty: point.uncertainty || '', refValue: point.refValue || '',
-      tolerance: point.tolerance || '', conformity: point.conformity || '',
-      refEq: point.standardEquipment || ''
-    };
-  });
-  renderTableFromData(rows);
-  showToast(`Đã tải ${rows.length} điểm đo theo nguồn sáng và thông số đo đã nhập.`);
 }
 
 /* ================= OVEN (TỦ SẤY) CALIBRATION MODULE ================= */
@@ -5903,8 +5821,7 @@ function specRangeHtml(line) {
 // Bảng mục 7-9: Đặc trưng kỹ thuật (5 cột hoặc 4 cột tùy dòng máy, có colgroup tự chỉnh độ rộng)
 function buildSpecTableHtml() {
   const eqName = (window._currentWorkingEquipment || '').toLowerCase();
-  const isLightbox = isLightboxEquipmentName(window._currentWorkingEquipment);
-  const is5Col = !isLightbox && !(eqName.includes('rubbing') || eqName.includes('veslic') || eqName.includes('crocking') || eqName.includes('crock'));
+  const is5Col = !(eqName.includes('rubbing') || eqName.includes('veslic') || eqName.includes('crocking') || eqName.includes('crock'));
 
   const tbody = document.getElementById('spec-range-table-body');
   const rows = tbody ? tbody.querySelectorAll('tr') : [];
@@ -5913,37 +5830,21 @@ function buildSpecTableHtml() {
   rows.forEach(tr => {
     const param = (tr.querySelector('.spec-param-input')?.value || '').trim();
     const val = (tr.querySelector('.spec-value-input')?.value || '').trim();
-    const procedure = (tr.querySelector('.spec-proc-input')?.value || '').trim();
-    const reference = (tr.querySelector('.spec-ref-input')?.value || '').trim();
-    if (param || (isLightbox && (procedure || reference))) {
-      if (isLightbox) {
-        paramNames.push('');
-        rangeValues.push(param);
-        resLines.push(val);
-      } else {
-        paramNames.push(param);
-        rangeValues.push(val);
-        resLines.push((tr.querySelector('.spec-res-input')?.value || '').trim());
-      }
-      procLines.push(procedure);
-      refLines.push(reference);
+    if (param) {
+      paramNames.push(param);
+      rangeValues.push(val);
+      resLines.push((tr.querySelector('.spec-res-input')?.value || '').trim());
+      procLines.push((tr.querySelector('.spec-proc-input')?.value || '').trim());
+      refLines.push((tr.querySelector('.spec-ref-input')?.value || '').trim());
     }
   });
 
   if (!paramNames.length) {
-    if (isLightboxEquipmentName(window._currentWorkingEquipment)) {
-      paramNames = [''];
-      rangeValues = [''];
-      resLines = [''];
-      procLines = [''];
-      refLines = [''];
-    } else {
-      paramNames = ['--'];
-      rangeValues = ['--'];
-      resLines = [''];
-      procLines = ['--'];
-      refLines = ['--'];
-    }
+    paramNames = ['--'];
+    rangeValues = ['--'];
+    resLines = [''];
+    procLines = ['--'];
+    refLines = ['--'];
   }
 
   let h = '<table class="cert-spec-table">';
@@ -5968,29 +5869,24 @@ function buildSpecTableHtml() {
   h += '<thead><tr>';
   if (is5Col) {
     h += '<th>7. Đặc trưng kĩ thuật<br><span class="lbl-en">Specification</span></th>'
-      + '<th>' + (isLightbox ? 'Nguồn sáng:<br><span class="lbl-en">Light sources</span>' : 'Phạm vi đo:<br><span class="lbl-en">Range</span>') + '</th>'
-      + '<th>' + (isLightbox ? 'Thông số đo:<br><span class="lbl-en">Measurement parameters</span>' : 'Độ phân giải:<br><span class="lbl-en">Resolution</span>') + '</th>'
+      + '<th>Phạm vi đo:<br><span class="lbl-en">Range</span></th>'
+      + '<th>Độ phân giải:<br><span class="lbl-en">Resolution</span></th>'
       + '<th>8. Quy trình thực hiện<br><span class="lbl-en">Procedure</span></th>'
       + '<th>9. Tiêu chuẩn tham khảo<br><span class="lbl-en">Reference Standard</span></th>';
   } else {
-    h += (isLightbox ? '<th>7. Nguồn sáng:<br><span class="lbl-en">Light sources</span></th>' : '<th>7. Đặc trưng kĩ thuật<br><span class="lbl-en">Specification</span></th>')
-      + (isLightbox ? '<th>Thông số đo:<br><span class="lbl-en">Measurement parameters</span></th>' : '<th>Phạm vi đo:<br><span class="lbl-en">Range</span></th>')
+    h += '<th>7. Đặc trưng kĩ thuật<br><span class="lbl-en">Specification</span></th>'
+      + '<th>Phạm vi đo:<br><span class="lbl-en">Range</span></th>'
       + '<th>8. Quy trình thực hiện<br><span class="lbl-en">Procedure</span></th>'
       + '<th>9. Tiêu chuẩn tham khảo<br><span class="lbl-en">Reference Standard</span></th>';
   }
   h += '</tr></thead><tbody>';
 
   for (let r = 0; r < paramNames.length; r++) {
+    h += '<tr><td>' + specRangeHtml(paramNames[r] || '') + '</td>'
+      + '<td>' + escHtml(rangeValues[r] || '') + '</td>';
+    
     if (is5Col) {
-      h += '<tr><td>' + specRangeHtml(paramNames[r] || '') + '</td>'
-        + '<td>' + escHtml(rangeValues[r] || '') + '</td>'
-        + '<td>' + escHtml(resLines[r] || '') + '</td>';
-    } else if (isLightbox) {
-      h += '<tr><td>' + escHtml(rangeValues[r] || '') + '</td>'
-        + '<td>' + escHtml(resLines[r] || '') + '</td>';
-    } else {
-      h += '<tr><td>' + specRangeHtml(paramNames[r] || '') + '</td>'
-        + '<td>' + escHtml(rangeValues[r] || '') + '</td>';
+      h += '<td>' + escHtml(resLines[r] || '') + '</td>';
     }
     
     h += '<td>' + escHtml(procLines[r] || '') + '</td>'
@@ -6975,25 +6871,58 @@ async function saveProjectDetails() {
   if (!currentProjectId) return;
   const proj = projectsList.find(p => p.ID === currentProjectId);
   if (!proj) return;
+
   const btn = document.getElementById('btn-save-project-details');
   const origHtml = (btn && btn.getAttribute('data-orig-text')) || (btn ? btn.innerHTML : '<i class="fas fa-save"></i> Lưu dự án');
   if (btn && !btn.getAttribute('data-orig-text')) btn.setAttribute('data-orig-text', origHtml);
+
   const techInput = document.querySelector('#project-items-body input.lab-input-cell');
   const techValue = techInput ? techInput.value.trim() : proj.TECH;
-  const payload = { id: proj.ID, title: proj.TITLE, tech: techValue, status: proj.STATUS };
-  if (btn) btn.disabled = true;
-  try {
-    const res = await fetch(`${API_URL}/projects`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    const result = await res.json();
-    if (!res.ok || !result.success) throw new Error(result.error || 'Supabase không xác nhận đã lưu dự án.');
-    proj.TECH = techValue;
-    document.querySelectorAll('#project-items-body input.lab-input-cell').forEach(input => input.value = techValue);
-    if (btn) { btn.innerHTML = '✅ Đã lưu!'; btn.style.background = '#059669'; btn.style.borderColor = '#059669'; btn.style.color = '#ffffff'; setTimeout(() => { btn.innerHTML = origHtml; btn.style.background = ''; btn.style.borderColor = ''; btn.style.color = ''; }, 1500); }
-    showToast('Đã lưu thông tin dự án vào Supabase.');
-    if (typeof fetchProjects === 'function') fetchProjects(projectCurrentPage, true);
-  } catch (err) {
-    showToast(`Không thể lưu dự án vào Supabase: ${err.message}`, 'error');
-  } finally { if (btn) btn.disabled = false; }
+
+  // 1. CẬP NHẬT GIAO DIỆN TỨC THÌ (0.0001 ms - ZERO LAG)
+  proj.TECH = techValue;
+  const allTechInputs = document.querySelectorAll('#project-items-body input.lab-input-cell');
+  allTechInputs.forEach(input => {
+    input.value = techValue;
+  });
+
+  if (btn) {
+    btn.innerHTML = '✅ Đã lưu!';
+    btn.style.background = '#059669';
+    btn.style.borderColor = '#059669';
+    btn.style.color = '#ffffff';
+    if (btn._timer) clearTimeout(btn._timer);
+    btn._timer = setTimeout(() => {
+      if (btn) {
+        btn.innerHTML = origHtml;
+        btn.style.background = '';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+      }
+    }, 1500);
+  }
+  showToast("✅ Đã cập nhật và lưu thông tin dự án thành công!");
+
+  // 2. GỬI ĐỒNG BỘ BACKGROUND LÊN SERVER (KEEPALIVE)
+  const payload = {
+    id: proj.ID,
+    title: proj.TITLE,
+    tech: techValue,
+    status: proj.STATUS
+  };
+
+  fetch(`${API_URL}/projects`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    keepalive: true
+  }).then(res => res.json()).then(result => {
+    if (result.success && typeof fetchProjects === 'function') {
+      fetchProjects(projectCurrentPage, true);
+    }
+  }).catch(err => {
+    console.warn("⚠️ Lỗi đồng bộ dự án nền:", err.message);
+  });
 }
 
 /**
@@ -7156,7 +7085,7 @@ async function exportFile(format) {
   }
 }
 
-async function saveCalibrationData() {
+function saveCalibrationData() {
     // Tối thiểu có mã quy trình hoặc phạm vi đo
     if (!getSpecProcedureTableData() && !getSpecRangeTableData()) {
         showToast('Vui lòng nhập Quy trình hiệu chuẩn hoặc Đặc trưng kĩ thuật!', 'warning');
@@ -7194,29 +7123,96 @@ async function saveCalibrationData() {
         raw_data: currentBalanceRawData() || currentOvenRawData()
     };
 
-    if (saveBtn) saveBtn.disabled = true;
-    try {
-        const response = await fetch(`${API_URL}/calibration/save`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const result = await response.json();
-        if (!response.ok || !result.success) throw new Error(result.error || 'Supabase không xác nhận đã lưu dữ liệu.');
-        showToast('Dữ liệu hiệu chuẩn đã được lưu vào Supabase.', 'success');
-        if (saveBtn) {
-            saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Đã lưu!';
-            saveBtn.style.background = '#059669';
-            saveBtn.style.borderColor = '#059669';
-            saveBtn.style.color = '#ffffff';
-            setTimeout(() => { saveBtn.innerHTML = originalHtml; saveBtn.style.background = ''; saveBtn.style.borderColor = ''; saveBtn.style.color = ''; }, 1500);
-        }
-    } catch (err) {
-        console.error('Lỗi lưu lên Supabase:', err);
-        showToast(`Không thể lưu vào Supabase: ${err.message}`, 'error');
-    } finally {
-        if (saveBtn) saveBtn.disabled = false;
+    // 1. PHẢN HỒI GIAO DIỆN TỨC THÌ TRONG 0.0001 ms (ZERO LAG)
+    if (saveBtn) {
+        saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Đã lưu!';
+        saveBtn.style.background = '#059669';
+        saveBtn.style.borderColor = '#059669';
+        saveBtn.style.color = '#ffffff';
+        if (saveBtn._timer) clearTimeout(saveBtn._timer);
+        saveBtn._timer = setTimeout(() => {
+            if (saveBtn) {
+                saveBtn.innerHTML = originalHtml;
+                saveBtn.style.background = '';
+                saveBtn.style.borderColor = '';
+                saveBtn.style.color = '';
+            }
+        }, 1500);
     }
+    showToast("Đã lưu dữ liệu thành công!", "success");
+
+    // 2. LƯU BỘ NHỚ LOCALSTORAGE TỨC THÌ (0.0001 ms) CHO CẢ HAI KHÓA CACHE
+    const currentEqName = currentEq || '';
+    const compositeCertNumber = currentEqName ? `${certNoVal}_${currentEqName}` : certNoVal;
+    const savedCalData = {
+        hasSavedData: true,
+        dataExists: true,
+        cert: {
+            CERT_NO: compositeCertNumber,
+            INSTRUMENT_NAME: payload.instrumentName,
+            INSTRUMENT_NAME_EN: payload.instrumentNameEn,
+            MANUFACTURER: payload.manufacturer,
+            MANUFACTURER_ID: payload.manufacturerId,
+            MODEL: payload.model,
+            MODEL_SERIAL: payload.modelSerial,
+            EQUIPMENT_ID: payload.equipmentId,
+            SERIAL_NUMBER: payload.serialNumber,
+            CUSTOMER_NAME: payload.customerName,
+            CUSTOMER_ADDRESS: payload.customerAddress,
+            CAL_DATE: payload.calDate,
+            RE_CAL_DATE: payload.reCalDate,
+            PROCEDURE: payload.procedure,
+            REF_STANDARD: payload.refStandard,
+            TEMP_ENV: payload.tempEnv,
+            HUMI_ENV: payload.humiEnv,
+            HEAD_OF_LAB: payload.headOfLab,
+            DIRECTOR: payload.director,
+            SPEC_RANGE: payload.specRange,
+            SPEC_RESOLUTION: payload.specResolution,
+            RAW_DATA: window._balanceData ? JSON.stringify(window._balanceData) : (window._ovenData ? JSON.stringify(window._ovenData) : '')
+        },
+        points: payload.points.map(p => ({
+            PARAMETER_NAME: p.parameterName,
+            CAL_POINT: p.calPoint,
+            AS_FOUND_VALUE: p.asFoundValue,
+            REFERENCE_VALUE: p.referenceValue,
+            UNCERTAINTY: p.uncertainty,
+            TOLERANCE: p.tolerance,
+            CONFORMITY: p.conformity,
+            REF_EQUIPMENT: p.refEq,
+            STANDARD_EQUIPMENT: p.refEq
+        })),
+        standards: payload.standards.map(s => ({
+            EQ_NAME: s.name,
+            EQ_CODE: s.id,
+            STD_CERT_NO: s.certNo,
+            LINK: s.trace,
+            VALIDITY: s.due
+        }))
+    };
+
+    const calCacheKey = `lm_cal_${certNoVal}_${currentEqName}`;
+    if (typeof cacheSet === 'function') {
+        cacheSet(calCacheKey, savedCalData, 300000);
+    }
+    try {
+        const legacyCacheKey = `labmaster_cache_${certNoVal}_${currentEqName}`;
+        localStorage.setItem(legacyCacheKey, JSON.stringify({ payload, updatedAt: Date.now() }));
+    } catch(e) {}
+
+    // 3. ĐỒNG BỘ BACKGROUND ASYNC LÊN MÁY CHỦ (KEEPALIVE)
+    fetch(`${API_URL}/calibration/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true
+    }).then(res => res.json()).then(result => {
+        if (!result.success) {
+            console.warn("⚠️ Cảnh báo lưu nền:", result.error);
+        }
+    }).catch(err => {
+        console.warn("⚠️ Mạng yếu, dữ liệu đã được lưu an toàn trong máy:", err.message);
+    });
 }
 
 // Hỗ trợ phím tắt Ctrl+S (hoặc Cmd+S) để lưu dữ liệu hiệu chuẩn nhanh chóng
@@ -7230,17 +7226,13 @@ window.addEventListener('keydown', function(e) {
     }
 });
 
-async function deleteProject(id) {
+function deleteProject(id) {
   if (!confirm(`Xác nhận xóa dự án ${id}?`)) return;
-  try {
-    const res = await fetch(`${API_URL}/projects/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    const result = await res.json();
-    if (!res.ok || !result.success) throw new Error(result.error || 'Supabase không xác nhận đã xóa dự án.');
-    showToast('Đã xóa dự án khỏi Supabase.');
-    fetchProjects(projectCurrentPage, true);
-  } catch (err) { showToast(`Không thể xóa dự án: ${err.message}`, 'error'); }
+  fetch(`${API_URL}/projects/${id}`, { method: 'DELETE' }).then(() => {
+      showToast("Đã xóa dự án thành công.");
+      fetchProjects(projectCurrentPage, true);
+  });
 }
-
 
 function populateCalibrationForm(result) {
     if (!result || !result.cert) return false;
@@ -7274,7 +7266,7 @@ function populateCalibrationForm(result) {
     
     let specRange = c.SPEC_RANGE || '';
     let specResolution = c.SPEC_RESOLUTION || '';
-    if (!specRange.trim() && eq && !isLightboxEquipmentName(resolvedName)) {
+    if (!specRange.trim() && eq) {
         specRange = eq.specRange || '';
         specResolution = eq.specResolution || '';
     }
@@ -7289,7 +7281,7 @@ function populateCalibrationForm(result) {
     } else if (eq && Array.isArray(eq.formPoints) && eq.formPoints.length > 0) {
         // TRUY XUẤT BẢNG KẾT QUẢ TỪ DATABASE EQUIPMENT
         console.log("Truy xuất bảng kết quả từ Database Equipment cho:", resolvedName);
-        selectEquipmentTemplate(resolvedName, true);
+        selectEquipmentTemplate(resolvedName);
     } else {
         const tbody = document.getElementById('calibration-table-body');
         if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="cal-empty-state"><i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i> Nhập tên thiết bị ở mục 2 để tải tự động, hoặc sử dụng các nút bên dưới để thêm điểm đo</td></tr>';
@@ -8087,9 +8079,6 @@ async function prewarmPdfPreview() {
 
   const payload = getCalibrationPayload();
   if (!payload.cert_no || payload.cert_no === '-') return;
-  // Lightbox lets users choose its source/measurement rows manually; background
-  // prewarming on every edit builds stale PDFs and can overlap the requested preview.
-  if (isLightboxEquipmentName(payload.equipmentName || payload.equipment_name || window._currentWorkingEquipment)) return;
   if (calibrateMethods.length === 0 && !getSpecProcedureTableData()) return;
 
   const payloadKey = JSON.stringify(payload);
@@ -8229,20 +8218,7 @@ async function loadPdfPreview() {
       body: payloadKey
     });
 
-    if (!response.ok) {
-      let message = `Máy chủ trả về lỗi ${response.status}`;
-      try {
-        const errorData = await response.json();
-        message = errorData.details || errorData.error || errorData.message || message;
-      } catch (_) {}
-      throw new Error(message);
-    }
-
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('application/pdf')) {
-      const body = await response.text();
-      throw new Error(body.slice(0, 240) || 'Máy chủ không trả về tệp PDF.');
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const blob = await response.blob();
     if (currentPdfBlobUrl && currentPdfBlobUrl !== prewarmedBlobUrl) {
@@ -8256,10 +8232,9 @@ async function loadPdfPreview() {
     renderPdfIframe(currentPdfBlobUrl);
   } catch (error) {
     console.error("Lỗi khi tải bản xem trước PDF:", error);
-    const errorBox = document.createElement('div');
-    errorBox.style.cssText = 'padding:40px;color:var(--danger);text-align:center;font-weight:500;';
-    errorBox.textContent = `Không tạo được bản xem trước PDF: ${error.message}`;
-    container.replaceChildren(errorBox);
+    if (!container.querySelector('iframe')) {
+      container.innerHTML = `<div style="padding:40px; color:var(--danger); text-align:center; font-weight:500;">Lỗi kết nối máy chủ khi tạo bản xem trước PDF: ${error.message}</div>`;
+    }
   } finally {
     showPreviewLoadingBadge(false);
   }

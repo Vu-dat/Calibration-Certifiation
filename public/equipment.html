@@ -424,6 +424,7 @@
             100% { background-position: 468px 0; }
         }
     </style>
+    <script src="/auth.js"></script>
 </head>
 <body>
 <header class="header">
@@ -685,7 +686,13 @@ document.addEventListener("DOMContentLoaded", () => {
 <script>
 /* ====== SWR CACHE HELPERS ====== */
 function cacheGet(key) {
-  return null; // Business data must always be loaded from the API backed by Supabase.
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const item = JSON.parse(raw);
+    if (Date.now() > item.expiry) return item.data; // tr? data d? c? khi stale
+    return item.data;
+  } catch(e) { return null; }
 }
 function cacheSet(key, data, ttlMs) {
   try { localStorage.setItem(key, JSON.stringify({ data, expiry: Date.now() + (ttlMs || 30000), isStale: false })); }
@@ -719,9 +726,15 @@ function swrFetch(key, fetcher, ttlMs) {
     const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname)
         ? 'http://localhost:18080' : window.location.origin;
 
-    function handleLogout() {
-        localStorage.removeItem('labmaster_user');
-        window.location.href = 'login.html';
+    async function handleLogout() {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+        } catch (error) {
+            console.warn('Không thể gửi yêu cầu đăng xuất:', error);
+        } finally {
+            localStorage.removeItem('labmaster_user');
+            window.location.replace('/login.html');
+        }
     }
 
     document.addEventListener("DOMContentLoaded", () => {
