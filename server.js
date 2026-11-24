@@ -40,8 +40,23 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production'
     || process.env.VERCEL_ENV === 'production'
     || process.env.VERCEL_ENV === 'preview'
     || (!!process.env.VERCEL && !process.env.VERCEL_ENV);
-const SESSION_SECRET = process.env.SESSION_SECRET || (IS_PRODUCTION ? '' : 'local-development-only-session-secret');
-if (IS_PRODUCTION && SESSION_SECRET.length < 32) throw new Error('SESSION_SECRET must be set to a random value of at least 32 characters in production.');
+const configuredSessionSecret = process.env.SESSION_SECRET || '';
+const sessionFallbackMaterial = process.env.SUPABASE_PASSWORD
+    || process.env.SUPABASE_DB_URL
+    || process.env.DATABASE_URL
+    || process.env.POSTGRES_URL
+    || '';
+const SESSION_SECRET = configuredSessionSecret.length >= 32
+    ? configuredSessionSecret
+    : (IS_PRODUCTION && sessionFallbackMaterial
+        ? crypto.createHmac('sha256', 'labmaster-session-key-v1').update(sessionFallbackMaterial).digest('hex')
+        : (IS_PRODUCTION ? '' : 'local-development-only-session-secret'));
+if (IS_PRODUCTION && !configuredSessionSecret && SESSION_SECRET) {
+    console.warn('SESSION_SECRET is not configured; a stable signing key is derived from the database credential. Set a dedicated SESSION_SECRET in Vercel to avoid session invalidation when rotating database credentials.');
+}
+if (IS_PRODUCTION && !SESSION_SECRET) {
+    console.error('SESSION_SECRET and database signing material are missing; login is disabled until secrets are configured.');
+}
 const SESSION_COOKIE = 'labmaster_session';
 const SESSION_MAX_AGE = 8 * 60 * 60;
 
@@ -1939,6 +1954,9 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
+    if (IS_PRODUCTION && !SESSION_SECRET) {
+        return res.status(503).json({ success: false, message: 'Máy chủ chưa cấu hình khóa phiên đăng nhập. Vui lòng cấu hình SESSION_SECRET trên Vercel.' });
+    }
     let { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ success: false, message: "Vui lòng nhập tên đăng nhập và mật khẩu!" });
