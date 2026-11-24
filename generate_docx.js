@@ -28,7 +28,7 @@ async function dbAll(query, params) {
 const {
     Document, Packer, Paragraph, TextRun, Table, TableRow: DocxTableRow, TableCell,
     AlignmentType, WidthType, BorderStyle, PageBorders, PageNumber, PageBreak,
-    Header, Footer, ImageRun, VerticalMergeType, HeightRule, XmlComponent, XmlAttributeComponent, Run
+    Header, Footer, ImageRun, VerticalMergeType, HeightRule, XmlComponent, XmlAttributeComponent, Run, Tab
 } = require('docx');
 
 // Low-level XML components to support native MS Word field codes (e.g. PAGE, NUMPAGES)
@@ -206,6 +206,7 @@ function para(text, opts = {}) {
         alignment: opts.alignment || AlignmentType.LEFT,
         spacing: opts.spacing || { before: 0, after: 0, line: 276, lineRule: 'auto' },
         keepNext: opts.keepNext || false,
+        tabStops: opts.tabStops,
     });
 }
 
@@ -1281,6 +1282,7 @@ async function main(opts) {
 
         // Determine instDisplay early for dynamic line estimation
         let instVi = cert.INSTRUMENT_NAME || (tpl && tpl.NAME_VI) || '–';
+        if (tpl && tpl.NAME === 'Auto Crocking Meter' && !/tự động|tu dong/i.test(instVi)) instVi += ' – Tự động';
         let instEn = cert.INSTRUMENT_NAME_EN || '';
         if (!instEn && tpl) {
             instEn = tpl.NAME_EN || tpl.name_en || (tpl.NAME ? tpl.NAME.replace(/^\d+\.\d*\s*/, '').trim() : '');
@@ -1453,8 +1455,14 @@ async function main(opts) {
                 } else {
                     rangeRuns.push({ text: labelPart + ': ', fontSize: 10 });
                 }
-                rangeRuns.push({ text: valuePart.replace(/\s+/g, ' '), fontSize: 10 });
-                rangeParas.push(para(rangeRuns, { fontSize: 10, alignment: AlignmentType.LEFT }));
+                rangeRuns.push(new Tab());
+                rangeRuns.push(txtRun(valuePart.replace(/\s+/g, ' '), { fontSize: 10 }));
+                rangeParas.push(new Paragraph({
+                    children: rangeRuns.map(run => run.text !== undefined ? txtRun(run.text, run) : run),
+                    alignment: AlignmentType.LEFT,
+                    tabStops: [{ type: 'left', position: hideResolutionColumn ? 2500 : 1450 }],
+                    spacing: { before: 0, after: 0, line: 276, lineRule: 'auto' }
+                }));
             } else {
                 const isEn = /^[A-Za-z\s\(\)]+$/.test(lineStr);
                 rangeParas.push(para(lineStr, { fontSize: 10, italics: isEn, alignment: AlignmentType.LEFT }));
@@ -1489,7 +1497,7 @@ async function main(opts) {
             // Resolution values often contain long unit/range strings. Add Word
             // break opportunities around separators so they wrap inside their cell.
             const breakableLine = trimLine.replace(/\s*([/;])\s*/g, '$1\u200B ');
-            return para((trimLine === '--------' || !trimLine) ? '' : breakableLine, { fontSize: 8 });
+            return para((trimLine === '--------' || !trimLine) ? '' : breakableLine, { fontSize: 10, alignment: AlignmentType.LEFT });
         });
 
         t1Rows.push(new TableRow({

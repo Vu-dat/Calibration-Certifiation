@@ -1208,7 +1208,7 @@ document.addEventListener("DOMContentLoaded", () => {
             Thực hiện quy trình kiểm tra hiệu chuẩn theo tiêu chuẩn ISO/IEC 17025:2017.
           </p>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="addMachineToProjectList()"><i class="fa-solid fa-plus"></i> Thêm thiết bị mới</button>
+        <button class="btn btn-secondary btn-sm" onclick="addMachineToProjectList(); persistProjectMachines()"><i class="fa-solid fa-plus"></i> Thêm thiết bị mới</button>
       </div>
 
       <!-- BẢNG DANH SÁCH THIẾT BỊ -->
@@ -2182,7 +2182,9 @@ function applyEquipmentCache(templates) {
       model: t.MODEL || '',
       instEn: englishName,
       nameEn: englishName,
-      nameVi: t.NAME === 'Auto Crocking Meter' ? (t.NAME_VI || 'Máy thử bền màu ma sát - Tự động') : (t.NAME_VI || ''),
+      nameVi: t.NAME === 'Auto Crocking Meter'
+        ? (/tự động|tu dong/i.test(t.NAME_VI || '') ? t.NAME_VI : `${t.NAME_VI || 'Máy thử bền màu ma sát'} – Tự động`)
+        : (t.NAME_VI || ''),
       equipmentId: t.EQUIPMENT_ID || '',
       serialNumber: t.SERIAL_NUMBER || '',
       modelSerial: t.MODEL_SERIAL || '',
@@ -2929,8 +2931,15 @@ async function persistProjectMachines() {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ machines })
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
+    if (!result?.success) throw new Error(result?.error || 'Máy chủ không xác nhận lưu thiết bị.');
     if (typeof cacheSet === 'function') cacheSet(`lm_machines_${currentProjectId}`, machines, 300000);
-  } catch (error) { console.error('Không lưu được danh sách máy dự án:', error); }
+    return true;
+  } catch (error) {
+    console.error('Không lưu được danh sách máy dự án:', error);
+    showToast(`Không lưu được danh sách thiết bị: ${error.message}`, 'danger');
+    return false;
+  }
 }
 
 /* ====== SMART SEARCH: TÊN THIẾT BỊ (f-inst-vi) ====== */
@@ -2989,7 +2998,7 @@ function handleEquipmentSearch(keyword) {
                     ${eq.equipmentId ? ` | ID: <span style="color: var(--teal); font-weight: 500;">${eq.equipmentId}</span>` : ''}
                 </div>
             `;
-            div.onclick = () => {
+            div.onclick = async () => {
                 selectEquipmentTemplate(key);
                 window._currentWorkingEquipment = key;
                 box.style.display = 'none';
@@ -3066,7 +3075,7 @@ function handleDeviceSearch(input) {
                     ${eq.equipmentId ? ` | ID: <span style="color: var(--teal); font-weight: 500;">${eq.equipmentId}</span>` : ''}
                 </div>
             `;
-            div.onclick = () => {
+            div.onclick = async () => {
                 input.value = eq.nameVi ? `${eq.nameVi} (${eq.instEn || key})` : key;
                 box.style.display = 'none';
                 const tr = input.closest('tr');
@@ -3083,7 +3092,7 @@ function handleDeviceSearch(input) {
                             </div>
                         `;
                     }
-                    persistProjectMachines();
+                    await persistProjectMachines();
                 } else {
                     selectEquipmentTemplate(key);
                 }

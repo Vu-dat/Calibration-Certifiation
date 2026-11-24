@@ -361,6 +361,7 @@ function drawPage1Body(doc, cert, pts, stds, accM, tpl) {
   var name = (cert.CUSTOMER_NAME && cert.CUSTOMER_NAME !== 'null') ? cert.CUSTOMER_NAME : '';
   var addr = (cert.CUSTOMER_ADDRESS && cert.CUSTOMER_ADDRESS !== 'null') ? cert.CUSTOMER_ADDRESS : '';
   var inst = (cert.INSTRUMENT_NAME && cert.INSTRUMENT_NAME !== 'null') ? cert.INSTRUMENT_NAME : ((tpl && tpl.NAME_VI) ? tpl.NAME_VI : '');
+  if (tpl && tpl.NAME === 'Auto Crocking Meter' && !/tự động|tu dong/i.test(inst)) inst += ' – Tự động';
   var instEn = (cert.INSTRUMENT_NAME_EN && cert.INSTRUMENT_NAME_EN !== 'null') ? cert.INSTRUMENT_NAME_EN : '';
   if (!instEn && tpl) {
     instEn = tpl.NAME_EN || tpl.name_en || (tpl.NAME ? tpl.NAME.replace(/^\d+\.\d*\s*/, '').trim() : '');
@@ -595,7 +596,8 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     var rangeColumnW = SPEC_X[2] - SPEC_X[1] - 5;
     var compactRange = colon > 0 ? labelPart + ': ' + valPart : '';
     sf(doc, false); doc.fontSize(10);
-    var compactRangeFits = colon > 0 && doc.widthOfString(compactRange) <= rangeColumnW;
+    // Keep range values in a fixed second column even when the full line could fit inline.
+    var compactRangeFits = false;
 
     // Calculate dynamic height for this row (AFTER labelPart is defined)
     sf(doc, false); doc.fontSize(10);
