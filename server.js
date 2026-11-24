@@ -87,6 +87,23 @@ function readSession(req) {
 const sql = require('./db');
 const balanceLookup = require('./public/data/balance_matrix.json');
 
+function summarizeStartupError(error) {
+    const pending = [error];
+    const seen = new Set();
+    const parts = [];
+    while (pending.length) {
+        const current = pending.shift();
+        if (!current || seen.has(current)) continue;
+        seen.add(current);
+        if (Array.isArray(current.errors)) pending.push(...current.errors);
+        if (current.cause) pending.push(current.cause);
+        const code = current.code ? ` [${current.code}]` : '';
+        const message = String(current.message || '').replace(/postgres(?:ql)?:\/\/[^\s"'`]+/gi, 'postgresql://[redacted]');
+        if (code || message) parts.push(`${code}${message}`.trim());
+    }
+    return [...new Set(parts)].join(' | ') || `Unknown database startup error (${error?.name || 'Error'})`;
+}
+
 let projectMachinesSchemaPromise = null;
 async function ensureProjectMachinesSchema() {
     if (!projectMachinesSchemaPromise) {
@@ -2540,7 +2557,7 @@ async function startServer() {
         // Tải trước và làm nóng toàn bộ Cache vào RAM để phản hồi tức thì 0ms cho mọi request đầu tiên
         prewarmServerCache().catch(err => console.warn('Cache prewarm failed:', err.message));
     } catch (err) {
-        console.error('❌ Database init at startup failed:', err.message);
+        console.error('❌ Database init at startup failed:', summarizeStartupError(err));
         // Không throw - để middleware fallback xử lý
     }
     
