@@ -26,7 +26,7 @@ const templates = [
     "manufacturer_id": "EQ-000002",
     "spec_range": "Lực tỳ/Downward force: 9 N\nHành trình/Stroke: 104 mm\nĐường kính đầu ma sát / Finger Diameter: 16 mm",
     "spec_resolution": "--------\n--------\n--------",
-    "standards_used": "[]",
+    "standards_used": "[\"LAB-BALANCE.01\", \"LAB-CALIPER.01\", \"LAB-TACHO.01\"]",
     "name_vi": "Máy thử bền màu ma sát",
     "name_en": "Crocking meter",
     "points": []
@@ -44,9 +44,9 @@ const templates = [
     "manufacturer_id": "EQ-000003",
     "spec_range": "Lực tỳ/Downward force: 9 N\nHành trình/Stroke: 104 mm\nĐường kính đầu ma sát / Finger Diameter: 16 mm\nTốc độ/Speed: 60 rpm",
     "spec_resolution": "--------\n--------\n--------\n--------",
-    "standards_used": "[]",
-    "name_vi": "Máy thử bền màu ma sát",
-    "name_en": "Crocking meter",
+    "standards_used": "[\"LAB-BALANCE.01\", \"LAB-CALIPER.01\", \"LAB-TACHO.01\"]",
+    "name_vi": "Máy thử bền màu ma sát - Tự động",
+    "name_en": "Auto Crocking Meter",
     "points": [
       {
         "parameter": "Lực tỳ lên mẫu (M) Downward Force (N)",
@@ -8258,6 +8258,11 @@ const templates = [
   }
 ];
 const dryRun = process.argv.includes('--dry-run');
+
+// The manual and automatic Crocking models share the force/stroke/finger measurement set.
+const manualCrocking = templates.find(item => item.name === 'Crocking meter');
+const autoCrocking = templates.find(item => item.name === 'Auto Crocking Meter');
+if (manualCrocking && autoCrocking) manualCrocking.points = autoCrocking.points.map(point => ({ ...point }));
 
 function validateTemplates(items) {
   const names = new Set();

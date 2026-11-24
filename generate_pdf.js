@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
@@ -522,8 +522,8 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
 
   var splitRef = function(str) {
     if (!str) return [];
-    if (str.indexOf('\n') >= 0) return trimTrailingEmptyLines(str.split(/\r?\n/).map(function(s) { return s.trim(); }));
-    return str.split(/[;]+/).map(function(s){return s.trim();}).filter(Boolean);
+    var lines = str.indexOf('\n') >= 0 ? str.split(/\r?\n/).map(function(s) { return s.trim(); }) : str.split(/[;]+/).map(function(s){return s.trim();});
+    return lines.filter(function(s) { return !!s && !/^[-–—]+$/.test(s); });
   };
 
   // Data rows: range column = 'VN/EN: value' mixed style; proc/ref lines
@@ -537,7 +537,7 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     procLines = splitMulti(proc);
     resLines = splitResolution(cert.SPEC_RESOLUTION);
   } else if (accM && accM.length && !isLightbox) {
-    procSize = 9;
+    procSize = 10;
     for (var ai = 0; ai < accM.length && ai < 4; ai++) {
       var m = accM[ai] || {};
       var rngVal = m.phamViDo || m.pham_vi_do || '--';
@@ -594,23 +594,23 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     }
     var rangeColumnW = SPEC_X[2] - SPEC_X[1] - 5;
     var compactRange = colon > 0 ? labelPart + ': ' + valPart : '';
-    sf(doc, false); doc.fontSize(7.5);
+    sf(doc, false); doc.fontSize(10);
     var compactRangeFits = colon > 0 && doc.widthOfString(compactRange) <= rangeColumnW;
 
     // Calculate dynamic height for this row (AFTER labelPart is defined)
-    sf(doc, false); doc.fontSize(9);
+    sf(doc, false); doc.fontSize(10);
     var hRange = Y1.specRowSp;
     var rangeValW = is5Col ? SPEC_X[2] - valX - 5 : SPEC_X[2] - valX - 5;
     // Calculate label text height within the label column width
     var lblW = valX - SPEC_X[1] - 5;
     if (compactRangeFits) {
-      sf(doc, false); doc.fontSize(7.5);
+      sf(doc, false); doc.fontSize(10);
       hRange = Math.max(hRange, doc.heightOfString(compactRange, { width: rangeColumnW, lineGap: 0 }));
     } else if (colon > 0) {
-      sf(doc, false); doc.fontSize(9);
+      sf(doc, false); doc.fontSize(10);
       var hLbl = doc.heightOfString(labelPart + ':', { width: lblW, lineGap: 0 });
       hRange = Math.max(hRange, hLbl);
-      sf(doc, false); doc.fontSize(9);
+      sf(doc, false); doc.fontSize(10);
       var hVal = doc.heightOfString(valPart, { width: rangeValW, lineGap: 0 });
       hRange = Math.max(hRange, hVal);
     }
@@ -621,7 +621,7 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     sf(doc, false); doc.fontSize(10);
     var hRef = rfl ? doc.heightOfString(rfl, { width: CONTENT_R - (is5Col ? SPEC_X[4] : SPEC_X[3]) - 5, lineGap: 0 }) : 0;
 
-    sf(doc, false); doc.fontSize(9);
+    sf(doc, false); doc.fontSize(10);
     var hRes = resVal ? doc.heightOfString(resVal, { 
       width: (isLightbox ? SPEC_X[2] - SPEC_X[1] : SPEC_X[3] - SPEC_X[2]) - 5, lineGap: 0
     }) : 0;
@@ -630,33 +630,33 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
 
     // Keep short bilingual labels and their values together on one line when they fit.
     if (isLightbox) {
-      sf(doc, false); doc.fontSize(9).fillColor('#000000');
+      sf(doc, false); doc.fontSize(10).fillColor('#000000');
       drawTextWithDegree(doc, rl, SPEC_X[0], y, { width: SPEC_X[1] - SPEC_X[0] - 5, lineGap: 0 });
       drawTextWithDegree(doc, resVal, SPEC_X[1], y, { width: SPEC_X[2] - SPEC_X[1] - 5, lineGap: 0 });
     } else if (compactRangeFits) {
-      sf(doc, false); doc.fontSize(7.5).fillColor('#000000');
+      sf(doc, false); doc.fontSize(10).fillColor('#000000');
       drawTextWithDegree(doc, compactRange, SPEC_X[1], y, { width: rangeColumnW, lineGap: 0 });
     } else if (colon > 0) {
       var slash = labelPart.indexOf('/');
-      sf(doc, false); doc.fontSize(9).fillColor('#000000');
+      sf(doc, false); doc.fontSize(10).fillColor('#000000');
       if (slash > 0) {
         var vnPart = labelPart.substring(0, slash + 1);
         var enPart = labelPart.substring(slash + 1);
         doc.text(vnPart, SPEC_X[1], y, { width: lblW, continued: true, lineGap: 0 });
-        sf(doc, false, true); doc.fontSize(9);
+        sf(doc, false, true); doc.fontSize(10);
         doc.text(enPart, { width: lblW, continued: true, lineGap: 0 });
-        sf(doc, false); doc.fontSize(9);
+        sf(doc, false); doc.fontSize(10);
         doc.text(':', { lineGap: 0 });
       } else {
         doc.text(labelPart + ':', SPEC_X[1], y, { width: lblW, lineGap: 0 });
       }
-      sf(doc, false); doc.fontSize(9);
+      sf(doc, false); doc.fontSize(10);
       drawTextWithDegree(doc, valPart, valX, y, { width: rangeValW, lineGap: 0 });
     } else {
-      sf(doc, false); doc.fontSize(9).fillColor('#000000');
+      sf(doc, false); doc.fontSize(10).fillColor('#000000');
       var isEnOnly = /^[A-Za-z\s\(\)]+$/.test(rl);
       if (isEnOnly) {
-        sf(doc, false, true); doc.fontSize(9);
+        sf(doc, false, true); doc.fontSize(10);
         doc.text(rl, SPEC_X[1], y, { lineGap: 0 });
       } else {
         drawTextWithDegree(doc, rl, SPEC_X[1], y, { lineGap: 0 });
@@ -664,7 +664,7 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     }
 
     if (is5Col) {
-      sf(doc, false); doc.fontSize(9).fillColor('#000000');
+      sf(doc, false); doc.fontSize(10).fillColor('#000000');
       doc.text(resVal, SPEC_X[2], y, { 
         width: SPEC_X[3] - SPEC_X[2] - 5, 
         lineGap: 0 
@@ -864,10 +864,10 @@ function getGroupRowHeights(doc, grp, tpl) {
     }
   } else {
     var rowH = 16;
-    if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 50.0;
-    else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 44.4;
-    else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 44.2;
-    else rowH = 44.0;
+    if (grp.name.includes('Tốc độ') || grp.name.includes('Speed')) rowH = 34.0;
+    else if (grp.name.includes('Hành trình') || grp.name.includes('Stroke')) rowH = 32.0;
+    else if (grp.name.includes('Đường kính') || grp.name.includes('Finger')) rowH = 32.0;
+    else rowH = 30.0;
 
     var testTxt = cleanParamName(grp.name);
     if (testTxt && !testTxt.includes('\n')) {
@@ -1029,10 +1029,11 @@ function drawResultsTable(doc, pts, pageContext) {
       if (pointTxt.indexOf('\n') >= 0 && (pointTxt.toLowerCase().includes('begin') || pointTxt.toLowerCase().includes('middle') || pointTxt.toLowerCase().includes('end'))) {
         pointTxt = 'BEGIN';
       }
-      var foundTxt = (r.AS_FOUND_VALUE !== null && r.AS_FOUND_VALUE !== undefined && r.AS_FOUND_VALUE !== '') ? String(r.AS_FOUND_VALUE) : '';
-      var uncTxt = (r.UNCERTAINTY !== null && r.UNCERTAINTY !== undefined && r.UNCERTAINTY !== '') ? String(r.UNCERTAINTY) : '--';
-      var refTxt = (r.REFERENCE_VALUE !== null && r.REFERENCE_VALUE !== undefined && r.REFERENCE_VALUE !== '') ? String(r.REFERENCE_VALUE) : '';
-      var tolTxt = (r.TOLERANCE !== null && r.TOLERANCE !== undefined && r.TOLERANCE !== '') ? String(r.TOLERANCE) : '';
+      var formatMeasure = function(v) { return String(v == null ? '' : v).replace(/([+-]?\d+)\.(\d+)/g, '$1,$2'); };
+      var foundTxt = (r.AS_FOUND_VALUE !== null && r.AS_FOUND_VALUE !== undefined && r.AS_FOUND_VALUE !== '') ? formatMeasure(r.AS_FOUND_VALUE) : '';
+      var uncTxt = (r.UNCERTAINTY !== null && r.UNCERTAINTY !== undefined && r.UNCERTAINTY !== '') ? formatMeasure(r.UNCERTAINTY) : '--';
+      var refTxt = (r.REFERENCE_VALUE !== null && r.REFERENCE_VALUE !== undefined && r.REFERENCE_VALUE !== '') ? formatMeasure(r.REFERENCE_VALUE) : '';
+      var tolTxt = (r.TOLERANCE !== null && r.TOLERANCE !== undefined && r.TOLERANCE !== '') ? formatMeasure(r.TOLERANCE) : '';
       var confTxt = (r.CONFORMITY !== null && r.CONFORMITY !== undefined && r.CONFORMITY !== '') ? String(r.CONFORMITY) : '--';
       
       sf(doc, false); doc.fontSize(10).fillColor('#000000');

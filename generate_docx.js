@@ -232,7 +232,7 @@ function t2Cell(children, width, colSpan = 1, opts = {}) {
         width: { size: width, type: WidthType.DXA },
         verticalAlign: opts.vAlign || 'center',
         verticalMerge: opts.verticalMerge,
-        margins: opts.margins || { top: 130, bottom: 130, left: 150, right: 150 },
+        margins: opts.margins || { top: 45, bottom: 45, left: 100, right: 100 },
         borders: opts.borders || {
             top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID
         },
@@ -248,6 +248,10 @@ function isBalanceName(name) {
         || normalized.includes('can phan tich')
         || normalized.includes('can ky thuat')
         || /\bcan\b/.test(normalized);
+}
+
+function formatMeasurementDecimals(value) {
+    return String(value ?? '').replace(/([+-]?\d+)\.(\d+)/g, '$1,$2');
 }
 
 function parseBalanceRaw(cert, optsData) {
@@ -1396,6 +1400,7 @@ async function main(opts) {
             ]
         }));
 
+        const hideResolutionColumn = /crock|rubbing|veslic/i.test(String(tpl?.NAME || cert.INSTRUMENT_NAME || ''));
         // Row 5: Specifications Headers
         t1Rows.push(new TableRow({
             height: { value: 510, rule: HeightRule.AT_LEAST },
@@ -1409,11 +1414,11 @@ async function main(opts) {
                         { text: 'Phạm vi đo: ', fontSize: 10 },
                         { text: 'Range', fontSize: 10, italics: true },
                     ]),
-                ], 2835, 3),
-                t1Cell([
+                ], hideResolutionColumn ? 4253 : 2835, hideResolutionColumn ? 5 : 3),
+                ...(hideResolutionColumn ? [] : [t1Cell([
                     para('Độ phân giải:', { fontSize: 10 }),
                     para('Resolution', { fontSize: 10, italics: true }),
-                ], 1418, 2),
+                ], 1418, 2)]),
                 t1Cell([
                     para('8. Quy trình thực hiện', { fontSize: 10 }),
                     para('Procedure', { fontSize: 10, italics: true }),
@@ -1441,18 +1446,18 @@ async function main(opts) {
                 if (labelPart.includes('/')) {
                     const parts = labelPart.split('/');
                     rangeRuns.push(
-                        { text: parts[0] + '/', fontSize: 8 },
-                        { text: parts[1], fontSize: 8, italics: true },
-                        { text: ': ', fontSize: 8 }
+                        { text: parts[0] + '/', fontSize: 10 },
+                        { text: parts[1], fontSize: 10, italics: true },
+                        { text: ': ', fontSize: 10 }
                     );
                 } else {
-                    rangeRuns.push({ text: labelPart + ': ', fontSize: 8 });
+                    rangeRuns.push({ text: labelPart + ': ', fontSize: 10 });
                 }
-                rangeRuns.push({ text: valuePart.replace(/\s+/g, ' '), fontSize: 8 });
-                rangeParas.push(para(rangeRuns));
+                rangeRuns.push({ text: valuePart.replace(/\s+/g, ' '), fontSize: 10 });
+                rangeParas.push(para(rangeRuns, { fontSize: 10, alignment: AlignmentType.LEFT }));
             } else {
                 const isEn = /^[A-Za-z\s\(\)]+$/.test(lineStr);
-                rangeParas.push(para(lineStr, { fontSize: 9, italics: isEn }));
+                rangeParas.push(para(lineStr, { fontSize: 10, italics: isEn, alignment: AlignmentType.LEFT }));
             }
         });
         
@@ -1460,19 +1465,19 @@ async function main(opts) {
         if (accMethods && accMethods.length) {
             procParas = accMethods.map(m => para(
                 (m.stt != null ? m.stt + '. ' : '') + (m.tenVn || '') + (m.tenEn ? ' (' + m.tenEn + ')' : '') + (m.quyTrinh ? ' — QT: ' + m.quyTrinh : ''),
-                { fontSize: 9 }
+                { fontSize: 10, alignment: AlignmentType.LEFT }
             ));
         } else {
             const procLines = (displayProcedure || '').indexOf('\n') >= 0 
                 ? (displayProcedure || '').split('\n')
                 : (displayProcedure || '–').split(/[,;]+/);
-            procParas = procLines.map(line => para(line.trim() || '–', { fontSize: 9 }));
+            procParas = procLines.map(line => para(line.trim() || '–', { fontSize: 10, alignment: AlignmentType.LEFT }));
         }
 
         const refLines = (displayRefStandard || '').indexOf('\n') >= 0 
             ? (displayRefStandard || '').split('\n')
             : (displayRefStandard || '–').split(/[;]+/);
-        const refParas = refLines.map(line => para(line.trim() || '–', { fontSize: 10 }));
+        const refParas = refLines.map(line => line.trim()).filter(line => line && !/^[-–—]+$/.test(line)).map(line => para(line, { fontSize: 10, alignment: AlignmentType.LEFT }));
 
         // Commas may be decimal marks (for example 0,1 °C), so only use line
         // breaks and semicolons to separate multiple resolution values.
@@ -1494,10 +1499,10 @@ async function main(opts) {
                 t1Cell([], 2132, 2), // spacer
                 // Keep each range label and its value in the same paragraph/cell so units
                 // such as "(37~250) °C" do not wrap into an awkward second line.
-                t1Cell(rangeParas, 2835, 3, { margins: { top: 0, bottom: 0, left: 108, right: 60 } }),
-                t1Cell(resolutionParas, 1418, 2, { margins: { top: 0, bottom: 0, left: 60, right: 60 } }),
-                t1Cell(procParas, 2268, 4),
-                t1Cell(refParas, 2551, 4),
+                t1Cell(rangeParas, hideResolutionColumn ? 4253 : 2835, hideResolutionColumn ? 5 : 3, { vAlign: 'top', margins: { top: 0, bottom: 0, left: 108, right: 60 } }),
+                ...(hideResolutionColumn ? [] : [t1Cell(resolutionParas, 1418, 2, { margins: { top: 0, bottom: 0, left: 60, right: 60 } })]),
+                t1Cell(procParas, 2268, 4, { vAlign: 'top' }),
+                t1Cell(refParas, 2551, 4, { vAlign: 'top' }),
             ]
         }));
 
@@ -1643,7 +1648,7 @@ async function main(opts) {
 
         // Row 19: Signature Spacing (Compact)
         t1Rows.push(new TableRow({
-            height: { value: 1500, rule: HeightRule.AT_LEAST },
+            height: { value: 1900, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 289, 1),
                 t1Cell([
@@ -1848,10 +1853,10 @@ async function main(opts) {
                 grp.rows.forEach((p, ri) => {
                     const paramName = p.PARAMETER_NAME || '–';
                     const calPt = String(p.CAL_POINT || '–');
-                    const asFound = String(p.AS_FOUND_VALUE || '–');
-                    const unc = String(p.UNCERTAINTY || '–');
-                    const refVal = String(p.REFERENCE_VALUE || '–');
-                    const tol = String(p.TOLERANCE || '–');
+                    const asFound = formatMeasurementDecimals(p.AS_FOUND_VALUE || '–');
+                    const unc = formatMeasurementDecimals(p.UNCERTAINTY || '–');
+                    const refVal = formatMeasurementDecimals(p.REFERENCE_VALUE || '–');
+                    const tol = formatMeasurementDecimals(p.TOLERANCE || '–');
                     const conformity = String(p.CONFORMITY || '–');
                     const exactHeight = getRowHeightForParam(paramName, tpl && tpl.NAME);
                     const pageBreakBefore = false;

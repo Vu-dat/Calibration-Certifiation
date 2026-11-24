@@ -414,6 +414,15 @@ async function initDatabaseSchema() {
             STANDARD_EQUIPMENT TEXT
         )`;
 
+        await sql`CREATE TABLE IF NOT EXISTS PROJECT_MACHINES (
+            PROJECT_ID TEXT NOT NULL,
+            EQUIPMENT_NAME TEXT NOT NULL,
+            EQUIPMENT_ID TEXT,
+            TECH TEXT,
+            SORT_ORDER INTEGER DEFAULT 0,
+            PRIMARY KEY (PROJECT_ID, EQUIPMENT_NAME)
+        )`;
+
         console.log("✅ Hệ thống bảng Supabase khởi tạo/đồng bộ cấu trúc thành công.");
 
         // Thêm cột STD_CERT_NO nếu chưa có (dành cho DB cũ)
@@ -2306,31 +2315,57 @@ app.get('/api/projects/:id/machines', async (req, res) => {
     const certNo = projectId.startsWith('PRJ-') ? projectId.slice(4) : projectId;
     try {
         const rows = await sql`
-            SELECT DISTINCT machine_name
+            SELECT machine_name, equipment_id, tech
             FROM (
+                SELECT EQUIPMENT_NAME AS machine_name, EQUIPMENT_ID AS equipment_id, TECH AS tech, SORT_ORDER AS sort_order
+                FROM PROJECT_MACHINES WHERE PROJECT_ID = ${projectId}
+                UNION
                 SELECT CASE
                     WHEN POSITION('_' IN CERT_NO) > 0
                         THEN SUBSTRING(CERT_NO FROM POSITION('_' IN CERT_NO) + 1)
                     ELSE INSTRUMENT_NAME
-                END AS machine_name
+                END AS machine_name, NULL::TEXT AS equipment_id, NULL::TEXT AS tech, 999999 AS sort_order
                 FROM CERTIFICATES
                 WHERE CERT_NO = ${certNo}
                    OR LEFT(CERT_NO, LENGTH(${certNo}) + 1) = ${certNo + '_'}
                 UNION ALL
-                SELECT EQUIPMENT_NAME AS machine_name
+                SELECT EQUIPMENT_NAME AS machine_name, NULL::TEXT AS equipment_id, NULL::TEXT AS tech, 999999 AS sort_order
                 FROM CALIBRATION_POINTS
                 WHERE CERT_NO = ${certNo}
                    OR LEFT(CERT_NO, LENGTH(${certNo}) + 1) = ${certNo + '_'}
             ) AS project_machines
             WHERE machine_name IS NOT NULL AND BTRIM(machine_name) <> ''
-            ORDER BY machine_name
+            ORDER BY sort_order, machine_name
         `;
-        const machineNames = rows.map(row => row.machine_name);
+        const machineNames = [...new Map(rows.map(row => [row.machine_name, { name: row.machine_name, equipmentId: row.equipment_id || '', tech: row.tech || '' }])).values()];
         serverCache.machines[projectId] = { success: true, machines: machineNames };
         res.json(serverCache.machines[projectId]);
     } catch (err) {
         console.error(`Failed to load machines for project ${projectId}:`, err.message);
         res.status(500).json({ success: false, machines: [], error: err.message });
+    }
+});
+
+app.post('/api/projects/:id/machines', async (req, res) => {
+    const projectId = req.params.id;
+    const machines = Array.isArray(req.body?.machines) ? req.body.machines : [];
+    try {
+        await sql.begin(async tx => {
+            await tx`DELETE FROM PROJECT_MACHINES WHERE PROJECT_ID = ${projectId}`;
+            for (let i = 0; i < machines.length; i++) {
+                const item = typeof machines[i] === 'string' ? { name: machines[i] } : machines[i];
+                const name = String(item?.name || '').trim();
+                if (!name) continue;
+                await tx`INSERT INTO PROJECT_MACHINES (PROJECT_ID, EQUIPMENT_NAME, EQUIPMENT_ID, TECH, SORT_ORDER)
+                    VALUES (${projectId}, ${name}, ${String(item.equipmentId || '')}, ${String(item.tech || '')}, ${i})
+                    ON CONFLICT (PROJECT_ID, EQUIPMENT_NAME) DO UPDATE SET EQUIPMENT_ID=EXCLUDED.EQUIPMENT_ID, TECH=EXCLUDED.TECH, SORT_ORDER=EXCLUDED.SORT_ORDER`;
+            }
+        });
+        delete serverCache.machines[projectId];
+        res.json({ success: true, count: machines.length });
+    } catch (err) {
+        console.error(`Failed to save machines for project ${projectId}:`, err.message);
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 

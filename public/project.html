@@ -1310,8 +1310,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="field"><label>Số chứng nhận (Cert No.)</label><input id="f-certno" autocomplete="off"></div>
         </div>
         <div class="field-row">
-          <div class="field"><label>Mã nhà sản xuất (Mfr ID)</label><input id="f-mfr-id" placeholder="VD: QV0388113" autocomplete="off"></div>
-          <div class="field"><label>Số Serial Model (Model SN)</label><input id="f-model-sn" placeholder="VD: TM092026" autocomplete="off"></div>
+          <input type="hidden" id="f-mfr-id"><input type="hidden" id="f-model-sn">
         </div>
         <div class="field-row">
           <div class="field"><label>Ngày hiệu chuẩn</label><input type="date" id="f-caldate" autocomplete="off"></div>
@@ -2144,7 +2143,8 @@ function applyEquipmentCache(templates) {
     }
     const englishName = (t.NAME_EN || t.name_en || '').trim() || (function() {
       const name = t.NAME.replace(/^\d+\.\d*\s*/, '').trim();
-      if (name === 'Manual Crocking Meter' || name === 'JIS Rubbing Tester' || name === 'Auto Crocking Meter' || name === 'ref_crocking' || name === 'Crocking meter') return 'Crocking meter';
+      if (name === 'Auto Crocking Meter') return 'Auto Crocking Meter';
+      if (name === 'Manual Crocking Meter' || name === 'JIS Rubbing Tester' || name === 'ref_crocking' || name === 'Crocking meter') return 'Crocking meter';
       if (name === 'Rotary Crocking Meter') return 'Rotary crocking meter';
       if (name === 'Veslic Rubbing Tester') return 'Veslic Rub Fastness Tester';
       if (name === 'Random Tumble Pilling Tester - 2' || name === 'Random Tumble Pilling Tester - 4') return 'Random Tumble Pilling Tester';
@@ -2182,12 +2182,12 @@ function applyEquipmentCache(templates) {
       model: t.MODEL || '',
       instEn: englishName,
       nameEn: englishName,
-      nameVi: t.NAME_VI || '',
+      nameVi: t.NAME === 'Auto Crocking Meter' ? (t.NAME_VI || 'Máy thử bền màu ma sát - Tự động') : (t.NAME_VI || ''),
       equipmentId: t.EQUIPMENT_ID || '',
       serialNumber: t.SERIAL_NUMBER || '',
       modelSerial: t.MODEL_SERIAL || '',
       manufacturerId: t.MANUFACTURER_ID || '',
-      standardsUsed: Array.isArray(stds) ? stds : [],
+      standardsUsed: /^(Auto Crocking Meter|Crocking meter)$/i.test(t.NAME) ? ['LAB-BALANCE.01', 'LAB-CALIPER.01', 'LAB-TACHO.01'] : (Array.isArray(stds) ? stds : []),
       procedure: t.PROCEDURE || t.procedure || '',
       refStandard: t.REF_STANDARD || t.ref_standard || '',
       specRange: t.SPEC_RANGE || t.spec_range || '',
@@ -2198,6 +2198,9 @@ function applyEquipmentCache(templates) {
     liveDbEquipmentKeys.add(t.NAME);
     if (t.EQUIPMENT_ID) freshIdMap[t.EQUIPMENT_ID] = t.NAME;
   });
+  if (freshDB['Crocking meter'] && !freshDB['Crocking meter'].formPoints.length && freshDB['Auto Crocking Meter']) {
+    freshDB['Crocking meter'].formPoints = freshDB['Auto Crocking Meter'].formPoints;
+  }
   MockDatabaseEquipment = freshDB;
   window._equipmentById = freshIdMap;
 }
@@ -2749,8 +2752,9 @@ async function viewProjectDetail(id, fromPopState = false) {
   const cachedMachines = (typeof cacheGet === 'function') ? cacheGet(cachedMachinesKey) : null;
   if (Array.isArray(cachedMachines)) {
     resetMachineList();
-    cachedMachines.forEach((eqName, idx) => {
-      addMachineToProjectList(proj, eqName, idx + 1);
+    cachedMachines.forEach((machine, idx) => {
+      const entry = typeof machine === 'string' ? { name: machine } : machine;
+      addMachineToProjectList(proj, entry.name, idx + 1, entry.tech);
     });
     if (cachedMachines.length === 0) renderMachineListMessage(proj, 'Chưa có thiết bị/task nào trong dự án này.', false);
   } else {
@@ -2835,8 +2839,8 @@ async function loadProjectMachines(proj, showLoading = false) {
       renderMachineListMessage(proj, 'Chưa có thiết bị/task nào trong dự án này.', false);
       return;
     }
-    machineNames.sort((a, b) => a.localeCompare(b));
-    machineNames.forEach((eqName, idx) => addMachineToProjectList(proj, eqName, idx + 1));
+    machineNames.sort((a, b) => String(typeof a === 'string' ? a : a.name).localeCompare(String(typeof b === 'string' ? b : b.name)));
+    machineNames.forEach((machine, idx) => addMachineToProjectList(proj, typeof machine === 'string' ? machine : machine.name, idx + 1, typeof machine === 'string' ? '' : machine.tech));
   } catch (error) {
     if (currentProjectId !== proj.ID) return;
     const message = timedOut ? 'Tải thiết bị quá lâu. Vui lòng thử lại.' : (error.message || 'Không thể tải thiết bị của dự án.');
@@ -2852,7 +2856,7 @@ function resetMachineList() {
   if (tbody) tbody.innerHTML = '';
 }
 
-function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum = null) {
+function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum = null, savedTech = '') {
     const tbody = document.getElementById('project-items-body');
     if (!tbody) return;
 
@@ -2878,7 +2882,7 @@ function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum
           <td style="font-weight:600; color:var(--accent); text-align:center;">${rowCount}</td>
           <td style="font-weight:600;"><i class="fa-solid fa-microchip" style="color:var(--primary);margin-right:6px;"></i> ${displayName}${eq.manufacturer ? `<br><span style="font-size:12px;color:var(--text-muted);font-weight:400;margin-left:20px;">Hãng SX: ${eq.manufacturer}</span>` : ''}</td>
           <td><span class="badge badge-${statusClass}">${statusText}</span></td>
-          <td><input type="text" class="lab-input-cell" placeholder="Nhập người phụ trách..." value="${currentProj?.TECH || ''}" style="min-width:140px;"></td>
+          <td><input type="text" class="lab-input-cell" placeholder="Nhập người phụ trách..." value="${savedTech || currentProj?.TECH || ''}" style="min-width:140px;" onchange="persistProjectMachines()"></td>
           <td>${calDate}</td>
           <td>
               <div style="display:flex; gap:6px; justify-content:center;">
@@ -2899,7 +2903,7 @@ function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum
               </div>
           </td>
           <td><span class="badge badge-${statusClass}">${statusText}</span></td>
-          <td><input type="text" class="lab-input-cell" placeholder="Nhập người phụ trách..." value="${currentProj?.TECH || ''}" style="min-width:140px;"></td>
+          <td><input type="text" class="lab-input-cell" placeholder="Nhập người phụ trách..." value="${currentProj?.TECH || ''}" style="min-width:140px;" onchange="persistProjectMachines()"></td>
           <td>${calDate}</td>
           <td>
               <div style="display:flex; gap:6px; justify-content:center;">
@@ -2912,6 +2916,21 @@ function addMachineToProjectList(proj = null, equipmentName = null, forcedRowNum
     }
     
     tbody.appendChild(tr);
+}
+
+async function persistProjectMachines() {
+  if (!currentProjectId) return;
+  const machines = [...document.querySelectorAll('#project-items-body tr[data-equipment-name]')].map(tr => ({
+    name: tr.dataset.equipmentName, equipmentId: tr.dataset.equipmentId || '',
+    tech: tr.querySelector('td:nth-child(4) input')?.value || ''
+  }));
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(currentProjectId)}/machines`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ machines })
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (typeof cacheSet === 'function') cacheSet(`lm_machines_${currentProjectId}`, machines, 300000);
+  } catch (error) { console.error('Không lưu được danh sách máy dự án:', error); }
 }
 
 /* ====== SMART SEARCH: TÊN THIẾT BỊ (f-inst-vi) ====== */
@@ -3064,6 +3083,7 @@ function handleDeviceSearch(input) {
                             </div>
                         `;
                     }
+                    persistProjectMachines();
                 } else {
                     selectEquipmentTemplate(key);
                 }
@@ -3079,6 +3099,7 @@ function resetSearchRow(btn) {
     if (!tr) return;
     delete tr.dataset.equipmentName;
     delete tr.dataset.equipmentId;
+    persistProjectMachines();
     const tdName = btn.closest('td');
     if (tdName) {
         tdName.innerHTML = `
@@ -3437,6 +3458,7 @@ async function deleteMachineFromRow(btn) {
     const tr = btn.closest('tr');
     if (!tr) return;
     const equipmentName = tr.dataset.equipmentName || tr.querySelector('.device-search-input')?.value || '';
+    if (!equipmentName) { tr.remove(); persistProjectMachines(); showToast('Đã xóa dòng trống!'); return; }
     
     if (!equipmentName) {
         tr.remove();
@@ -3453,6 +3475,7 @@ async function deleteMachineFromRow(btn) {
         const response = await fetch(`${API_BASE_URL}/api/calibration/${certNo}?equipment_name=${encodeURIComponent(equipmentName)}`, {
             method: 'DELETE'
         });
+        await response;
         
         if (response.status === 404) {
             showToast('⚠️ Vui lòng TẮT và KHỞI ĐỘNG LẠI Server Node (chạy lại node server.js hoặc npm run dev) để cập nhật API Xóa mới!', 'danger', 10000);
@@ -3464,6 +3487,7 @@ async function deleteMachineFromRow(btn) {
             const result = await response.json();
             if (result.success) {
                 tr.remove();
+                await persistProjectMachines();
                 showToast('✅ Đã xóa thiết bị khỏi dự án thành công!', 'success');
             } else {
                 showToast('Lỗi khi xóa thiết bị: ' + result.error, 'danger');
@@ -3853,20 +3877,19 @@ function selectEquipmentTemplate(key) {
   if (eq.instEn) document.getElementById('f-inst-en').value = eq.instEn;
 
   setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
-  if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
 
   // Tự động điền các chuẩn sử dụng từ standardsUsed (tối đa 5 thiết bị chuẩn)
   if (Array.isArray(eq.standardsUsed) && eq.standardsUsed.length > 0) {
     standards = [];
     eq.standardsUsed.slice(0, 5).forEach(stdId => {
-      const matched = (liveStandardsDB || []).find(s => s.ID === stdId || s.id === stdId || s.EQUIPMENT_ID === stdId || s.key_field === stdId);
+      const matched = (liveStandardsDB || []).find(s => [s.ID, s.id, s.EQUIPMENT_ID, s.key_field].some(v => String(v || '').toUpperCase() === String(stdId).toUpperCase()));
       if (matched) {
         standards.push({
           name: matched.NAME || matched.name || '',
           id: matched.ID || matched.id || matched.EQUIPMENT_ID || '',
           certNo: matched.GCN || matched.gcn || '',
-          trace: matched.MANUFACTURER || matched.manufacturer || matched.LINK || matched.link || '',
-          due: matched.VALIDITY || matched.validity || matched.NEXT_DUE || matched.next_due || ''
+          trace: matched.LINK || matched.link || '',
+          due: (/^(1900|0000)/.test(String(matched.VALIDITY || matched.validity || '')) ? '' : (matched.VALIDITY || matched.validity || ''))
         });
       } else {
         standards.push({
@@ -3886,9 +3909,10 @@ function selectEquipmentTemplate(key) {
 
   // Tự động điền Ngày hiệu chuẩn = hôm nay nếu chưa có
   if (!document.getElementById('f-caldate').value) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
     document.getElementById('f-caldate').value = today;
   }
+  document.getElementById('f-recaldate').value = addTwelveMonths(document.getElementById('f-caldate').value);
 
   const tbody = document.getElementById('calibration-table-body');
   tbody.innerHTML = '';
@@ -3944,6 +3968,18 @@ function selectEquipmentTemplate(key) {
   checkAndToggleOvenWorkspace();
   checkAndToggleBalanceWorkspace();
 }
+
+function addTwelveMonths(dateValue) {
+  if (!dateValue) return '';
+  const [year, month, day] = dateValue.split('-').map(Number);
+  const nextYear = year + 1;
+  const lastDay = new Date(nextYear, month, 0).getDate();
+  return `${nextYear}-${String(month).padStart(2, '0')}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
+}
+document.getElementById('f-caldate')?.addEventListener('change', event => {
+  const due = document.getElementById('f-recaldate');
+  if (due && event.target.value) due.value = addTwelveMonths(event.target.value);
+});
 
 /* ================= OVEN (TỦ SẤY) CALIBRATION MODULE ================= */
 window._ovenData = null;
@@ -6987,7 +7023,6 @@ async function saveProjectDetails() {
   if (!currentProjectId) return;
   const proj = projectsList.find(p => p.ID === currentProjectId);
   if (!proj) return;
-
   const btn = document.getElementById('btn-save-project-details');
   const origHtml = (btn && btn.getAttribute('data-orig-text')) || (btn ? btn.innerHTML : '<i class="fas fa-save"></i> Lưu dự án');
   if (btn && !btn.getAttribute('data-orig-text')) btn.setAttribute('data-orig-text', origHtml);
@@ -7001,6 +7036,7 @@ async function saveProjectDetails() {
   allTechInputs.forEach(input => {
     input.value = techValue;
   });
+  await persistProjectMachines();
 
   if (btn) {
     btn.innerHTML = '✅ Đã lưu!';
