@@ -1215,8 +1215,15 @@ async function loadCustomers(page = 1, searchQuery = '', force = false) {
         if (force) url.searchParams.append('_t', Date.now());
         
         const data = await swrFetch(cacheKey, async () => {
-            const res = await fetch(url.toString());
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const res = await fetch(url.toString(), { credentials: 'same-origin', cache: 'no-store' });
+            if (!res.ok) {
+                let message = `API khách hàng trả về lỗi ${res.status}`;
+                try {
+                    const errorData = await res.json();
+                    message = errorData.message || errorData.error || message;
+                } catch (_) {}
+                throw new Error(message);
+            }
             const freshData = await res.json();
             
             if (currentPage === page) {
@@ -1247,7 +1254,7 @@ async function loadCustomers(page = 1, searchQuery = '', force = false) {
                 <td colspan="6" class="empty-state">
                     <i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>
                     <p>Lỗi kết nối: ${sanitize(err.message)}</p>
-                    <small>Kiểm tra server đang chạy tại cổng 18080</small>
+                    <small>Kiểm tra phiên đăng nhập và cấu hình kết nối cơ sở dữ liệu trên Vercel.</small>
                 </td>
             </tr>`;
     }
@@ -1563,6 +1570,7 @@ async function submitNewCustomer() {
     try {
         const res = await fetch(`${API_BASE_URL}/api/customers`, {
             method:  'POST',
+            credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify(fields),
         });
@@ -1609,6 +1617,7 @@ async function saveCustomerEdit() {
     try {
         const res = await fetch(`${API_BASE_URL}/api/customers`, {
             method:  'POST',
+            credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify(payload),
         });
@@ -1685,6 +1694,7 @@ async function executeConfirmedDeletion() {
     try {
         const res = await fetch(`${API_BASE_URL}/api/customers/${encodeURIComponent(idToDelete)}`, {
             method: 'DELETE',
+            credentials: 'same-origin',
         });
 
         const result = await res.json();

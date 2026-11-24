@@ -517,6 +517,21 @@ async function ensureDbInitialized() {
                 
                 const exists = checkTable[0] && checkTable[0].exists;
                 if (exists) {
+                    // Existing deployments may have USERS but predate the customer table.
+                    // Ensure the customer API schema is ready before serving the first request.
+                    await sql`CREATE TABLE IF NOT EXISTS CUSTOMERS (
+                        ID TEXT PRIMARY KEY, NAME TEXT, COMPANY TEXT, PHONE TEXT, TAX TEXT,
+                        EMAIL TEXT, ADDRESS TEXT, BILLING_ADDRESS TEXT, CONTACT TEXT, NOTE TEXT
+                    )`;
+                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS NAME TEXT`;
+                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS COMPANY TEXT`;
+                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS PHONE TEXT`;
+                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS TAX TEXT`;
+                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS EMAIL TEXT`;
+                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS ADDRESS TEXT`;
+                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS BILLING_ADDRESS TEXT`;
+                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS CONTACT TEXT`;
+                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS NOTE TEXT`;
                     global._dbInitialized = true;
                     console.log("✅ Supabase đã được khởi tạo trước đó. Chạy migrations cột mới (nếu có) trong background...");
                     // Chạy migrations trong background để tránh block request đầu tiên/cold start
