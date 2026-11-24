@@ -87,6 +87,26 @@ function readSession(req) {
 const sql = require('./db');
 const balanceLookup = require('./public/data/balance_matrix.json');
 
+let projectMachinesSchemaPromise = null;
+async function ensureProjectMachinesSchema() {
+    if (!projectMachinesSchemaPromise) {
+        projectMachinesSchemaPromise = sql`CREATE TABLE IF NOT EXISTS PROJECT_MACHINES (
+            PROJECT_ID TEXT NOT NULL,
+            EQUIPMENT_NAME TEXT NOT NULL,
+            EQUIPMENT_ID TEXT,
+            TECH TEXT,
+            SORT_ORDER INTEGER DEFAULT 0,
+            PRIMARY KEY (PROJECT_ID, EQUIPMENT_NAME)
+        )`;
+    }
+    try {
+        await projectMachinesSchemaPromise;
+    } catch (error) {
+        projectMachinesSchemaPromise = null;
+        throw error;
+    }
+}
+
 // Server-side memory cache for read-heavy APIs to eliminate latency bottlenecks
 let serverCache = {
     init: null,
@@ -2314,6 +2334,7 @@ app.get('/api/projects/:id/machines', async (req, res) => {
     }
     const certNo = projectId.startsWith('PRJ-') ? projectId.slice(4) : projectId;
     try {
+        await ensureProjectMachinesSchema();
         const rows = await sql`
             SELECT machine_name, equipment_id, tech
             FROM (
@@ -2350,6 +2371,7 @@ app.post('/api/projects/:id/machines', async (req, res) => {
     const projectId = req.params.id;
     const machines = Array.isArray(req.body?.machines) ? req.body.machines : [];
     try {
+        await ensureProjectMachinesSchema();
         await sql.begin(async tx => {
             await tx`DELETE FROM PROJECT_MACHINES WHERE PROJECT_ID = ${projectId}`;
             for (let i = 0; i < machines.length; i++) {
