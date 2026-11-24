@@ -7133,7 +7133,7 @@ const templates = [
     "serial_number": "TM092026",
     "model_serial": "TM092026",
     "manufacturer_id": "QV0388113",
-    "spec_range": "Nguồn sáng theo bảng Excel (K / dung sai K / độ rọi Lux / CRI):\nD65: 6500 / ±200 hoặc ±300 / ≥1075 / ≥95\nD75: 7500 / ±200 hoặc ±300 / ≥1075 / ≥95\nD50: 5000 / ±200 hoặc ±300 / ≥1075 / ≥95\nTL84: 4000 / ±200 hoặc ±300 / ≥1075 / ≥80\nTL83: 3000 / ±200 hoặc ±300 / ≥1075 / ≥80\nCWF: 4150 / ±200 hoặc ±300 / ≥1075 / ≥60\nU35: 3500 / ±200 hoặc ±300 / ≥1075 / ≥80\nU30: 3000 / ±200 hoặc ±300 / ≥1075 / ≥80\nHZ: 2300 / ±200 hoặc ±300 / ≥1075 / ≥95\nA: 2856 / ±200 hoặc ±300 / ≥1075 / ≥95\nF: 2500 / ±200 hoặc ±300 / ≥1075 / ≥95\nLED D50: 5000 / ±200 hoặc ±300 / ≥1075 / ≥95\nLED D65: 6500 / ±200 hoặc ±300 / ≥1075 / ≥95\nLED3000K: 3000 / ±200 hoặc ±300 / ≥1075 / ≥80\nLED3500K: 3500 / ±200 hoặc ±300 / ≥1075 / ≥80\nLED4000K: 4000 / ±200 hoặc ±300 / ≥1075 / ≥80\nLED A: 2856 / ±200 hoặc ±300 / ≥1075 / ≥95\nCWF LED: 4150 / ±200 hoặc ±300 / ≥1075 / ≥95\nTL84 LED: 4000 / ±200 hoặc ±300 / ≥1075 / ≥80\nU30 LED: 3000 / ±200 hoặc ±300 / ≥1075 / ≥80\nU35 LED: 3500 / ±200 hoặc ±300 / ≥1075 / ≥80",
+    "spec_range": "Nguồn sáng/Light sources:",
     "spec_resolution": "--",
     "standards_used": "[\"LAB-LIGHT.01\"]",
     "name_vi": "Tủ đèn so màu",

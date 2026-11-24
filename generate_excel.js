@@ -95,7 +95,9 @@ async function main(opts) {
         const STATIC_DIR = process.env.VERCEL ? require('os').tmpdir() : path.join(BASE_DIR, 'static');
         if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
         const SAFE_NAME = compositeCNo.replace(/[^a-zA-Z0-9]/g, '_');
-        const OUTPUT_FILE = path.join(STATIC_DIR, `GCN_${SAFE_NAME}.xlsx`);
+        const outputName = opts && typeof opts.filename === 'string' ? path.basename(opts.filename) : `GCN_${SAFE_NAME}.xlsx`;
+        if (!outputName.toLowerCase().endsWith('.xlsx')) throw new Error('Invalid Excel output filename.');
+        const OUTPUT_FILE = path.join(STATIC_DIR, outputName);
 
 function mapDataToCert(data, cNo) {
     return {

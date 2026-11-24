@@ -728,8 +728,8 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast('Tên đăng nhập phải có ít nhất 3 ký tự!', 'danger');
             return;
         }
-        if (!isEdit && password.length < 4) {
-            showToast('Mật khẩu phải có ít nhất 4 ký tự!', 'danger');
+        if (!isEdit && password.length < 12) {
+            showToast('Mật khẩu phải có ít nhất 12 ký tự!', 'danger');
             return;
         }
 

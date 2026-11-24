@@ -246,8 +246,8 @@
                 errBox.style.display = 'block';
                 return;
             }
-            if (password.length < 4) {
-                errBox.textContent = 'Mật khẩu phải có ít nhất 4 ký tự!';
+            if (password.length < 12) {
+                errBox.textContent = 'Mật khẩu phải có ít nhất 12 ký tự!';
                 errBox.style.display = 'block';
                 return;
             }
@@ -290,20 +290,6 @@
             }
         }
 
-        // Auto-fill username from register
-        document.addEventListener('DOMContentLoaded', function() {
-            // Check if user is already logged in
-            const saved = localStorage.getItem('labmaster_user');
-            if (saved) {
-                try {
-                    const user = JSON.parse(saved);
-                    if (user && user.username) {
-                        window.location.href = '/index.html';
-                        return;
-                    }
-                } catch(e) {}
-            }
-        });
     </script>
 </body>
 </html>

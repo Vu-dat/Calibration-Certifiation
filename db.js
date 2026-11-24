@@ -1,4 +1,4 @@
-require('dotenv').config({ override: true });
+require('dotenv').config();
 const postgres = require('postgres');
 
 const SUPABASE_HOST = process.env.SUPABASE_HOST;
@@ -7,6 +7,9 @@ const SUPABASE_DB   = process.env.SUPABASE_DB || 'postgres';
 const SUPABASE_USER = process.env.SUPABASE_USER;
 const SUPABASE_PASSWORD = process.env.SUPABASE_PASSWORD;
 const SUPABASE_SSL  = process.env.SUPABASE_SSL || 'require';
+const SUPABASE_DB_CA = process.env.SUPABASE_DB_CA
+  ? process.env.SUPABASE_DB_CA.replace(/\\n/g, '\n').trim()
+  : undefined;
 
 let sql;
 
@@ -31,7 +34,9 @@ if (!SUPABASE_HOST || !SUPABASE_USER || !SUPABASE_PASSWORD) {
       database: SUPABASE_DB,
       username: SUPABASE_USER,
       password: SUPABASE_PASSWORD,
-      ssl: { rejectUnauthorized: false },
+      ssl: SUPABASE_DB_CA
+        ? { rejectUnauthorized: true, ca: SUPABASE_DB_CA }
+        : { rejectUnauthorized: false },
       prepare: false,
       max: process.env.VERCEL ? 3 : 10,
       idle_timeout: 20,

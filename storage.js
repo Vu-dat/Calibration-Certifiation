@@ -3,15 +3,14 @@
 /**
  * storage.js — Supabase Storage client helper
  * 
- * Upload file PDF/DOCX/XLSX lên Supabase Storage bucket "certificates"
- * và trả về public URL để dùng trong QR code.
+ * Upload export vào bucket đã được provision sẵn.
  * 
  * Yêu cầu biến môi trường:
  *   SUPABASE_URL      — Ví dụ: https://jvlkfunovqujjwfpmnau.supabase.co
  *   SUPABASE_SERVICE_KEY — Service role key (có quyền upload)
  */
 
-require('dotenv').config({ override: true });
+require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
 // Export hằng để server.js dùng mà không cần require lại module này
@@ -49,8 +48,8 @@ function getPublicUrl(filename) {
     const supabase = getSupabase();
     if (!supabase) return null;
     const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filename);
-    // Thêm ?download=1 để trình duyệt tự động tải file thay vì hiển thị
-    return data.publicUrl + '?download=1';
+    // Let browsers render PDF files inline; DOCX/XLSX still download by MIME handling.
+    return data.publicUrl;
 }
 
 /**
@@ -80,42 +79,14 @@ async function uploadToSupabase(buffer, filename, contentType) {
             .from(BUCKET_NAME)
             .upload(filename, buffer, {
                 contentType: contentType,
-                upsert: true,     // Ghi đè nếu file đã tồn tại
+                upsert: false,
             });
-
-        // Nếu bucket chưa tồn tại → tạo mới rồi upload lại
-        if (uploadError && (
-            uploadError.message?.toLowerCase().includes('bucket') ||
-            uploadError.message?.toLowerCase().includes('not found')
-        )) {
-            console.log(`📦 [Supabase Storage] Tạo bucket "${BUCKET_NAME}"...`);
-            const { error: createError } = await supabase.storage.createBucket(BUCKET_NAME, {
-                public: true,     // Bucket public để ai cũng tải được file
-                allowedMimeTypes: [
-                    'application/pdf',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                ],
-            });
-            if (createError) {
-                throw new Error(`Không thể tạo bucket: ${createError.message}`);
-            }
-            // Retry upload
-            const { error: retryError } = await supabase.storage
-                .from(BUCKET_NAME)
-                .upload(filename, buffer, {
-                    contentType: contentType,
-                    upsert: true,
-                });
-            if (retryError) throw retryError;
-        } else if (uploadError) {
-            throw uploadError;
-        }
+        if (uploadError) throw uploadError;
 
         // Lấy public URL
         const publicUrl = getPublicUrl(filename);
         console.log(`✅ [Supabase Storage] Upload thành công: ${filename} → ${publicUrl}`);
-        return { success: true, publicUrl };
+        return { success: true, publicUrl, path: filename };
     } catch (err) {
         console.error('❌ [Supabase Storage] Upload thất bại:', err.message);
         return { success: false, reason: 'upload_error', error: err.message };

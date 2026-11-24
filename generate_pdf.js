@@ -472,21 +472,26 @@ function splitLines(doc, text, width, size) {
 
 function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
   var is5Col = true;
+  var normalizedEqName = String((tpl && tpl.NAME) || (cert && cert.INSTRUMENT_NAME) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  var isLightbox = normalizedEqName.indexOf('lightbox') >= 0 || normalizedEqName.indexOf('tu den so mau') >= 0;
   var nameLower = (tpl && tpl.NAME || '').toLowerCase();
   if (nameLower.includes('rubbing') || nameLower.includes('veslic') || nameLower.includes('crocking') || nameLower.includes('crock')) {
     is5Col = false;
   }
+  if (isLightbox) is5Col = false;
 
   var SPEC_X, H1, H2, sizes;
   if (is5Col) {
     SPEC_X = [27.0, 133.6, 275.3, 346.3, 459.7];
     H1 = [VN.sec7, VN.sec7Range, VN.sec7Res, VN.sec8, VN.sec9];
     H2 = [VN.sec7En, VN.sec7RangeEn, VN.sec7ResEn, VN.sec8En, VN.sec9En];
+    if (isLightbox) { H1[1] = 'Nguồn sáng:'; H2[1] = 'Light sources'; H1[2] = 'Thông số đo:'; H2[2] = 'Measurement parameters'; }
     sizes = [10, 9, 9, 10, 10];
   } else {
     SPEC_X = [27.0, 133.6, 290.0, 410.0];
     H1 = [VN.sec7, VN.sec7Range, VN.sec8, VN.sec9];
     H2 = [VN.sec7En, VN.sec7RangeEn, VN.sec8En, VN.sec9En];
+    if (isLightbox) { H1[0] = '7. Nguồn sáng:'; H2[0] = 'Light sources'; H1[1] = 'Thông số đo:'; H2[1] = 'Measurement parameters'; }
     sizes = [10, 9, 10, 10];
   }
 
@@ -500,20 +505,24 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
   }
 
   // Data rows: range column = 'VN/EN: value' mixed style; proc/ref lines
+  var trimTrailingEmptyLines = function(lines) {
+    while (lines.length && !String(lines[lines.length - 1] || '').trim()) lines.pop();
+    return lines;
+  };
   var splitMulti = function(str) {
     if (!str) return [];
-    if (str.indexOf('\n') >= 0) return str.split('\n');
+    if (str.indexOf('\n') >= 0) return trimTrailingEmptyLines(str.split(/\r?\n/).map(function(s) { return s.trim(); }));
     return str.split(/[,;]+/).map(function(s){return s.trim();}).filter(Boolean);
   };
   var splitResolution = function(str) {
     if (!str) return [];
-    if (str.indexOf('\n') >= 0) return str.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+    if (str.indexOf('\n') >= 0) return trimTrailingEmptyLines(str.split(/\r?\n/).map(function(s){return s.trim();}));
     return str.split(/[;]+/).map(function(s){return s.trim();}).filter(Boolean);
   };
 
   var splitRef = function(str) {
     if (!str) return [];
-    if (str.indexOf('\n') >= 0) return str.split('\n');
+    if (str.indexOf('\n') >= 0) return trimTrailingEmptyLines(str.split(/\r?\n/).map(function(s) { return s.trim(); }));
     return str.split(/[;]+/).map(function(s){return s.trim();}).filter(Boolean);
   };
 
@@ -522,10 +531,12 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
   var procLines = [], procSize = 10;
   var resLines = [];
   if (cert && cert.SPEC_RANGE) {
-    rangeLines = cert.SPEC_RANGE.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+    rangeLines = isLightbox
+      ? trimTrailingEmptyLines(cert.SPEC_RANGE.split(/\r?\n/).map(function(s){return s.trim();}))
+      : cert.SPEC_RANGE.split('\n').map(function(s){return s.trim();}).filter(Boolean);
     procLines = splitMulti(proc);
     resLines = splitResolution(cert.SPEC_RESOLUTION);
-  } else if (accM && accM.length) {
+  } else if (accM && accM.length && !isLightbox) {
     procSize = 9;
     for (var ai = 0; ai < accM.length && ai < 4; ai++) {
       var m = accM[ai] || {};
@@ -536,9 +547,9 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     }
     resLines = splitResolution(cert && cert.SPEC_RESOLUTION || tpl && tpl.SPEC_RESOLUTION);
   } else {
-    if (tpl && tpl.SPEC_RANGE) {
+    if (!isLightbox && tpl && tpl.SPEC_RANGE) {
       rangeLines = tpl.SPEC_RANGE.split('\n').map(function(s){return s.trim();}).filter(Boolean);
-    } else if (pts && pts.length) {
+    } else if (!isLightbox && pts && pts.length) {
       var seen = {};
       for (var pi = 0; pi < pts.length; pi++) {
         var pp = pts[pi];
@@ -555,12 +566,13 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
         }
       }
     }
-    if (rangeLines.length === 0) rangeLines = ['--'];
+    if (rangeLines.length === 0 && !isLightbox) rangeLines = ['--'];
     procLines = splitMulti(proc);
     resLines = splitResolution(cert && cert.SPEC_RESOLUTION || tpl && tpl.SPEC_RESOLUTION);
   }
   var refLines = splitRef(refStd);
   var rows = Math.max(rangeLines.length, procLines.length, refLines.length, resLines.length);
+  if (rows === 0) rows = 1;
   if (accM && accM.length && rows > 7) rows = 7; // cùng giới hạn an toàn cho mọi cột khi có accM
   var y = Y1.specRow1;
   for (var r = 0; r < rows; r++) {
@@ -568,9 +580,9 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
     var pl = procLines[r] || '';
     var rfl = refLines[r] || '';
     var resVal = '';
-    if (is5Col) {
+    if (is5Col || isLightbox) {
       resVal = resLines[r] || '';
-      if (!resVal && r === 0) resVal = '--------';
+      if (!resVal && r === 0 && !isLightbox) resVal = '--------';
     }
 
     // Draw Range column (col 2)
@@ -611,13 +623,17 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
 
     sf(doc, false); doc.fontSize(9);
     var hRes = resVal ? doc.heightOfString(resVal, { 
-      width: SPEC_X[3] - SPEC_X[2] - 5, lineGap: 0 
+      width: (isLightbox ? SPEC_X[2] - SPEC_X[1] : SPEC_X[3] - SPEC_X[2]) - 5, lineGap: 0
     }) : 0;
 
     var rowHeight = Math.max(Y1.specRowSp, hRange, hProc, hRef, hRes);
 
     // Keep short bilingual labels and their values together on one line when they fit.
-    if (compactRangeFits) {
+    if (isLightbox) {
+      sf(doc, false); doc.fontSize(9).fillColor('#000000');
+      drawTextWithDegree(doc, rl, SPEC_X[0], y, { width: SPEC_X[1] - SPEC_X[0] - 5, lineGap: 0 });
+      drawTextWithDegree(doc, resVal, SPEC_X[1], y, { width: SPEC_X[2] - SPEC_X[1] - 5, lineGap: 0 });
+    } else if (compactRangeFits) {
       sf(doc, false); doc.fontSize(7.5).fillColor('#000000');
       drawTextWithDegree(doc, compactRange, SPEC_X[1], y, { width: rangeColumnW, lineGap: 0 });
     } else if (colon > 0) {
@@ -1717,12 +1733,16 @@ async function getCachedTemplate(eqName, cert) {
   }
 
   let tpl = null;
-  if (eqName) {
-    tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ?", [eqName, eqName]);
-  }
-  if (!tpl && cert) {
-    var cleanName = (cert.INSTRUMENT_NAME || '').replace(/[\s_]+/g, ' ').replace(/ thử/gi, '').replace(/mater/gi, 'meter').trim();
-    tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ? OR NAME = ? OR REPLACE(NAME_VI, ' thử', '') = ? OR REPLACE(NAME, 'mater', 'meter') = ?", [cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME_EN, cleanName, cleanName]);
+  try {
+    if (eqName) {
+      tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ?", [eqName, eqName]);
+    }
+    if (!tpl && cert) {
+      var cleanName = (cert.INSTRUMENT_NAME || '').replace(/[\s_]+/g, ' ').replace(/ thử/gi, '').replace(/mater/gi, 'meter').trim();
+      tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ? OR NAME = ? OR REPLACE(NAME_VI, ' thử', '') = ? OR REPLACE(NAME, 'mater', 'meter') = ?", [cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME, cert.INSTRUMENT_NAME_EN, cleanName, cleanName]);
+    }
+  } catch (err) {
+    console.warn("⚠️ getCachedTemplate query fallback:", err.message);
   }
   if (tpl) tpl = toUpperKeys(tpl);
   templateCache.set(key, tpl);
@@ -1949,7 +1969,7 @@ async function main(opts) {
     drawPage1Body(doc, cert, pts, stds, accM, tpl);
     drawFooter(doc, 1, totalPages);
 
-    // ═══ PAGE 2 ═══
+    // ═══ RESULTS PAGE ═══
     doc.addPage();
     drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
     

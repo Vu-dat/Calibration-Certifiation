@@ -1,8 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const os = require('os');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 // Lazy-load generator modules on demand to eliminate cold-start latency on Vercel
 function getGeneratePDF() {
     return require('./generate_pdf').generatePDF;
@@ -34,6 +36,34 @@ const app = express();
 const port = process.env.PORT || 18080;
 
 const SALT_ROUNDS = 10;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production'
+    || process.env.VERCEL_ENV === 'production'
+    || process.env.VERCEL_ENV === 'preview'
+    || (!!process.env.VERCEL && !process.env.VERCEL_ENV);
+const SESSION_SECRET = process.env.SESSION_SECRET || (IS_PRODUCTION ? '' : 'local-development-only-session-secret');
+if (IS_PRODUCTION && SESSION_SECRET.length < 32) throw new Error('SESSION_SECRET must be set to a random value of at least 32 characters in production.');
+const SESSION_COOKIE = 'labmaster_session';
+const SESSION_MAX_AGE = 8 * 60 * 60;
+
+function signSession(username, expiresAt) {
+    const payload = Buffer.from(JSON.stringify({ username, expiresAt })).toString('base64url');
+    const signature = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+    return `${payload}.${signature}`;
+}
+
+function readSession(req) {
+    const raw = (req.headers.cookie || '').split(';').map(part => part.trim()).find(part => part.startsWith(`${SESSION_COOKIE}=`));
+    if (!raw) return null;
+    const [payload, signature] = decodeURIComponent(raw.slice(SESSION_COOKIE.length + 1)).split('.');
+    if (!payload || !signature) return null;
+    const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest();
+    const actual = Buffer.from(signature, 'base64url');
+    if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return null;
+    try {
+        const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+        return data.username && data.expiresAt > Date.now() ? data : null;
+    } catch (_) { return null; }
+}
 
 // Database connection (centralized) - Gọi file db.js mới của bạn
 const sql = require('./db');
@@ -83,8 +113,37 @@ function getBaseUrl() {
     return LAN_IP ? `http://${LAN_IP}:${port}` : `http://localhost:${port}`;
 }
 
-app.use(cors());
-app.use(express.json());
+function createExportFilename(certNo, extension) {
+    const safeCertNo = String(certNo || 'certificate').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 100);
+    return `GCN_${safeCertNo}_${Date.now()}_${crypto.randomBytes(12).toString('hex')}.${extension}`;
+}
+
+function requireProductionStorage(res) {
+    if (IS_PRODUCTION && !isConfigured()) {
+        res.status(503).json({ success: false, message: 'Chưa cấu hình Supabase Storage; không thể lưu chứng từ an toàn.' });
+        return false;
+    }
+    return true;
+}
+
+async function persistExport(buffer, filename, contentType) {
+    if (!isConfigured()) return null;
+    const result = await uploadToSupabase(buffer, filename, contentType);
+    if (!result.success) throw new Error(result.error || 'Không thể lưu chứng từ vào Supabase Storage.');
+    return result.publicUrl;
+}
+
+const allowedOrigins = (process.env.APP_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean);
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+            return callback(null, true);
+        }
+        return callback(null, false);
+    },
+    credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
 
 // Static file handler tùy chỉnh — serve từ cả public/ và static/ với Content-Disposition cho file export
 app.use((req, res, next) => {
@@ -150,7 +209,9 @@ app.use((req, res, next) => {
         'Content-Length': buf.length,
         'Access-Control-Allow-Origin': '*'
     };
-    if (ext === '.docx' || ext === '.pdf' || ext === '.xlsx') {
+    if (ext === '.pdf') {
+        headers['Content-Disposition'] = 'inline; filename="' + safeFile + '"';
+    } else if (ext === '.docx' || ext === '.xlsx') {
         headers['Content-Disposition'] = 'attachment; filename="' + safeFile + '"';
     }
     
@@ -351,11 +412,6 @@ async function migrateOrphanCalibrationPoints() {
                     SET EQUIPMENT_NAME = ${instrName} 
                     WHERE CERT_NO = ${certNo} AND (EQUIPMENT_NAME IS NULL OR EQUIPMENT_NAME = '')
                 `;
-            } else {
-                await sql`
-                    DELETE FROM CALIBRATION_POINTS 
-                    WHERE CERT_NO = ${certNo} AND (EQUIPMENT_NAME IS NULL OR EQUIPMENT_NAME = '')
-                `;
             }
         }
         console.log('✅ Hoàn tất đồng bộ dữ liệu mồ côi trên Cloud.');
@@ -379,21 +435,21 @@ async function logActivity(userName, actionType, targetTable, targetId, descript
 // Seed user admin mặc định nếu USERS trống
 async function seedDefaultUsers() {
     try {
-        // Always ensure admin account exists (re-hash if necessary)
+        // Never reset an existing admin password during startup.
         const adminExists = await sql`SELECT USERNAME FROM USERS WHERE USERNAME = 'admin'`;
-        if (adminExists.length > 0) {
-            // Re-hash admin password on every startup for migration from plaintext
-            const hashedPw = await bcrypt.hash('admin', SALT_ROUNDS);
-            await sql`UPDATE USERS SET PASSWORD = ${hashedPw}, FULL_NAME = 'Quản trị viên', ROLE = 'admin' WHERE USERNAME = 'admin'`;
-            console.log('✅ Đã cập nhật mật khẩu admin');
-        } else {
-            const hashedPassword = await bcrypt.hash('admin', SALT_ROUNDS);
+        if (adminExists.length > 0) return;
+        const initialPassword = process.env.INITIAL_ADMIN_PASSWORD;
+        if (!initialPassword || initialPassword.length < 12) {
+            throw new Error('Set INITIAL_ADMIN_PASSWORD (at least 12 characters) to provision the first admin account.');
+        }
+        {
+            const hashedPassword = await bcrypt.hash(initialPassword, SALT_ROUNDS);
             await sql`
                 INSERT INTO USERS (USERNAME, PASSWORD, FULL_NAME, ROLE)
                 VALUES ('admin', ${hashedPassword}, 'Quản trị viên', 'admin')
                 ON CONFLICT (USERNAME) DO NOTHING
             `;
-            console.log("✅ Đã tạo tài khoản admin mặc định (admin/admin)");
+            console.log('Created initial admin account from INITIAL_ADMIN_PASSWORD. Remove that environment variable after provisioning.');
         }
     } catch (err) {
         console.error("❌ Lỗi seed user mặc định:", err.message);
@@ -521,6 +577,16 @@ app.get('/api/balance-lookup', (req, res) => {
 app.use('/api', async (req, res, next) => {
     try {
         await ensureDbInitialized();
+        if (req.path === '/auth/login' || req.path === '/auth/register') return next();
+        if (!IS_PRODUCTION) {
+            req.user = { username: 'local-dev', fullName: 'Local Developer', role: 'admin' };
+            return next();
+        }
+        const session = readSession(req);
+        if (!session) return res.status(401).json({ success: false, message: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' });
+        const users = await sql`SELECT USERNAME, FULL_NAME, ROLE FROM USERS WHERE USERNAME = ${session.username}`;
+        if (!users.length) return res.status(401).json({ success: false, message: 'Tài khoản không còn tồn tại.' });
+        req.user = { username: users[0].username, fullName: users[0].full_name, role: users[0].role };
         next();
     } catch (err) {
         console.error("❌ Lỗi khởi tạo cơ sở dữ liệu:", err);
@@ -553,7 +619,15 @@ app.get('/api/static/:filename', (req, res) => {
     };
     const contentType = mimeMap[ext] || 'application/octet-stream';
     
-    if (ext === '.docx' || ext === '.pdf' || ext === '.xlsx') {
+    if (ext === '.pdf') {
+        res.writeHead(200, {
+            'Content-Disposition': 'inline; filename="' + safeFilename + '"',
+            'Content-Type': contentType,
+            'Content-Length': buf.length,
+        });
+        return res.end(buf);
+    }
+    if (ext === '.docx' || ext === '.xlsx') {
         res.writeHead(200, {
             'Content-Disposition': 'attachment; filename="' + safeFilename + '"',
             'Content-Type': contentType,
@@ -574,7 +648,7 @@ app.get('/api/static/:filename', (req, res) => {
 // Combined /api/init endpoint — trả về tất cả dữ liệu cần thiết cho frontend trong 1 request
 app.get('/api/init', async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+        res.setHeader('Cache-Control', 'private, no-store');
         if (serverCache.init) {
             return res.json(serverCache.init);
         }
@@ -667,24 +741,12 @@ app.get('/api/init', async (req, res) => {
 });
 
 app.get('/api/debug/health', async (req, res) => {
-    const info = {
-        env_check: {
-            SUPABASE_HOST: process.env.SUPABASE_HOST ? '✅ set' : '❌ missing',
-            SUPABASE_PORT: process.env.SUPABASE_PORT || '(default)',
-            SUPABASE_DB: process.env.SUPABASE_DB || '(default)',
-            SUPABASE_USER: process.env.SUPABASE_USER ? '✅ set' : '❌ missing',
-            SUPABASE_PASSWORD: process.env.SUPABASE_PASSWORD ? '✅ set (' + process.env.SUPABASE_PASSWORD.length + ' chars)' : '❌ missing',
-            SUPABASE_SSL: process.env.SUPABASE_SSL || '(default)',
-        },
-        db_test: null
-    };
     try {
-        const result = await sql`SELECT 1 as ok`;
-        info.db_test = '✅ Connected successfully';
+        await sql`SELECT 1`;
+        res.json({ status: 'ok' });
     } catch (err) {
-        info.db_test = '❌ ' + err.message;
+        res.status(503).json({ status: 'unavailable' });
     }
-    res.json(info);
 });
 
 // ================= API CRUD CHO BẢNG CLOCK =================
@@ -720,7 +782,7 @@ async function getOrLoadClockCache() {
 
 app.get('/api/clock', async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+        res.setHeader('Cache-Control', 'private, no-store');
         const rows = await getOrLoadClockCache();
         res.json(rows);
     } catch (err) {
@@ -729,7 +791,7 @@ app.get('/api/clock', async (req, res) => {
 });
 
 app.get('/api/clock/search', async (req, res) => {
-    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=120');
+    res.setHeader('Cache-Control', 'private, no-store');
     const q = (req.query.q || '').toString().trim();
     try {
         const allClocks = await getOrLoadClockCache();
@@ -936,7 +998,7 @@ app.get('/api/calibrate-method/search', async (req, res) => {
 
 app.get('/api/projects', async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
+        res.setHeader('Cache-Control', 'private, no-store');
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
@@ -1132,7 +1194,7 @@ app.post('/api/calibration/clone/:srcCertNo/:destCertNo', async (req, res) => {
 });
 
 app.get('/api/calibration/:certNo', async (req, res) => {
-    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', 'private, no-store');
     const certNo = req.params.certNo;
     const eqName = req.query.equipment_name || '';
     const compositeCertNo = eqName ? `${certNo}_${eqName}` : certNo;
@@ -1273,7 +1335,7 @@ app.post('/api/calibration/save', async (req, res) => {
 
 async function getEquipmentTemplatesHelper(req, res) {
     try {
-        res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+        res.setHeader('Cache-Control', 'private, no-store');
         const searchTerm = req.query.q ? `%${req.query.q.toLowerCase()}%` : null;
         const cacheKey = searchTerm || 'all';
         if (serverCache.equipmentTemplates[cacheKey]) {
@@ -1430,7 +1492,7 @@ app.delete('/api/equipment-templates/:name', async (req, res) => {
 
 app.get('/api/customers', async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
+        res.setHeader('Cache-Control', 'private, no-store');
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 15;
         const offset = (page - 1) * limit;
@@ -1530,16 +1592,14 @@ app.delete('/api/customers/:id', async (req, res) => {
 
 app.get('/api/customers/search', async (req, res) => {
     const q = (req.query.q || '').toString().trim().toLowerCase();
-    if (!q) {
-        // Return top 10 recently added customers if no query
-        const rowsDb = await sql`SELECT * FROM CUSTOMERS ORDER BY ID DESC LIMIT 10`;
-        const rows = rowsDb.map(r => ({
-            ID: r.id, NAME: r.name, COMPANY: r.company, PHONE: r.phone, TAX: r.tax, EMAIL: r.email, ADDRESS: r.address, BILLING_ADDRESS: r.billing_address, CONTACT: r.contact, NOTE: r.note
-        }));
-        return res.json(rows);
-    }
-
     try {
+        res.setHeader('Cache-Control', 'private, no-store');
+        if (!q) {
+            const rowsDb = await sql`SELECT * FROM CUSTOMERS ORDER BY ID DESC LIMIT 10`;
+            return res.json(rowsDb.map(r => ({
+                ID: r.id, NAME: r.name, COMPANY: r.company, PHONE: r.phone, TAX: r.tax, EMAIL: r.email, ADDRESS: r.address, BILLING_ADDRESS: r.billing_address, CONTACT: r.contact, NOTE: r.note
+            })));
+        }
         const queryStr = `%${q}%`;
         const rowsDb = await sql`
             SELECT *,
@@ -1553,12 +1613,14 @@ app.get('/api/customers/search', async (req, res) => {
                OR LOWER(NAME) LIKE ${queryStr}
                OR LOWER(COMPANY) LIKE ${queryStr}
                OR LOWER(PHONE) LIKE ${queryStr}
+               OR LOWER(TAX) LIKE ${queryStr}
             ORDER BY RELEVANCE ASC, NAME ASC
             LIMIT 15
         `;
         const rows = rowsDb.map(r => ({ ID: r.id, NAME: r.name, COMPANY: r.company, PHONE: r.phone, TAX: r.tax, EMAIL: r.email, ADDRESS: r.address, BILLING_ADDRESS: r.billing_address, CONTACT: r.contact, NOTE: r.note }));
         res.json(rows);
     } catch (err) {
+        console.error('CUSTOMER SEARCH ERROR:', err.stack || err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -1585,7 +1647,7 @@ app.get('/api/audit-logs', async (req, res) => {
 
 app.get('/api/stats/summary', async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
+        res.setHeader('Cache-Control', 'private, no-store');
         if (serverCache.statsSummary) {
             return res.json(serverCache.statsSummary);
         }
@@ -1681,7 +1743,8 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
     try {
         const eqName = data.equipmentName || data.equipment_name || '';
         const compositeCertNo = eqName ? `${cert_no}_${eqName}` : cert_no;
-        const fileName = `GCN_${compositeCertNo.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+        if (!isPreview && !requireProductionStorage(res)) return;
+        const fileName = isConfigured() ? createExportFilename(compositeCertNo, 'pdf') : `GCN_${compositeCertNo.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
         
         // Ưu tiên Supabase Storage URL cho QR code (nếu đã cấu hình)
         const supabaseUrl = getPublicUrl(fileName);
@@ -1690,11 +1753,7 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
         const downloadUrl = supabaseUrl || localUrl;
 
         // Nếu là xuất file chính thức thì mới lưu DB & upload Supabase, xem trước thì không cần block DB
-        if (!isPreview) {
-            saveCalibrationDataToDBHelper(data, cert_no).catch(err => {
-                console.error('⚠️ Lỗi lưu dữ liệu trong background khi xuất PDF:', err.message);
-            });
-        }
+        if (!isPreview) await saveCalibrationDataToDBHelper(data, cert_no);
 
         const generatePDF = getGeneratePDF();
         const pdfBuffer = await generatePDF({ 
@@ -1703,11 +1762,14 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
             equipmentName: eqName, 
             accreditedMethods: data.accreditedMethods || [],
             data: data,
-            saveToFile: !isPreview
+            saveToFile: !isPreview && !isConfigured()
         });
 
+        let fileUrl = null;
+        if (!isPreview && isConfigured()) fileUrl = await persistExport(pdfBuffer, fileName, 'application/pdf');
+
         // Hỗ trợ trả về nhị phân trực tiếp (Blob Stream) cho browser - cực nhanh, không qua Base64
-        if (req.headers.accept === 'application/pdf' || req.query.format === 'blob') {
+        if (String(req.headers.accept || '').includes('application/pdf') || req.query.format === 'blob') {
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
             return res.send(pdfBuffer);
@@ -1716,25 +1778,7 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
         const base64 = pdfBuffer.toString('base64');
         
         // Lấy public URL của Supabase trước (tính toán offline nhanh chóng)
-        let fileUrl = isConfigured() ? getPublicUrl(fileName) : null;
         
-        // Upload lên Supabase Storage trong background (không await để tránh block request)
-        if (isConfigured()) {
-            console.log(`🔍 DEBUG: Starting background uploadToSupabase for ${fileName} (${(pdfBuffer.length / 1024).toFixed(1)} KB)`);
-            uploadToSupabase(pdfBuffer, fileName, 'application/pdf')
-                .then(uploadResult => {
-                    if (uploadResult.success) {
-                        console.log(`☁️ PDF uploaded to Supabase in background: ${uploadResult.publicUrl}`);
-                    } else {
-                        console.warn('⚠️ PDF upload background thất bại. Chi tiết:', uploadResult.error || uploadResult);
-                    }
-                })
-                .catch(err => {
-                    console.error('❌ PDF background upload error:', err.message);
-                });
-        } else {
-            console.log(`🔍 DEBUG: isConfigured() = false, skipping Supabase upload. downloadUrl used for QR: ${downloadUrl}`);
-        }
         
         // Fallback: dùng local URL nếu chưa/không cấu hình Supabase
         if (!fileUrl) {
@@ -1754,7 +1798,7 @@ app.post('/api/calibration/export-pdf', async (req, res) => {
         });
     } catch (err) {
         console.error('EXPORT-PDF ERROR STACK:', err.stack);
-        res.status(500).json({ success: false, error: err.message, stack: err.stack });
+        res.status(500).json({ success: false, error: 'Không thể tạo PDF xem trước.', details: isPreview ? err.message : undefined });
     }
 });
 
@@ -1762,7 +1806,8 @@ app.get('/api/calibration/export-pdf/:certNo', async (req, res) => {
     const cert_no = req.params.certNo;
     const eqName = req.query.equipment_name || '';
     const compositeCertNo = eqName ? `${cert_no}_${eqName}` : cert_no;
-    const fileName = `GCN_${compositeCertNo.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+    if (!requireProductionStorage(res)) return;
+    const fileName = isConfigured() ? createExportFilename(compositeCertNo, 'pdf') : `GCN_${compositeCertNo.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
 
     try {
         const supabaseUrl = getPublicUrl(fileName);
@@ -1773,7 +1818,7 @@ app.get('/api/calibration/export-pdf/:certNo', async (req, res) => {
         const generatePDF = getGeneratePDF();
         const pdfBuffer = await generatePDF({ certNo: compositeCertNo, downloadUrl, equipmentName: eqName });
         const base64 = pdfBuffer.toString('base64');
-        let fileUrl = isConfigured() ? getPublicUrl(fileName) : null;
+        let fileUrl = isConfigured() ? await persistExport(pdfBuffer, fileName, 'application/pdf') : null;
         if (!fileUrl) {
             const requestBaseUrl = req.protocol + '://' + req.get('host');
             const fileUrlPath = process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`;
@@ -1781,7 +1826,7 @@ app.get('/api/calibration/export-pdf/:certNo', async (req, res) => {
         }
         res.json({
             success: true,
-            pdf_url: process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`,
+            pdf_url: fileUrl || (process.env.VERCEL ? `/api/static/${fileName}` : `/static/${fileName}`),
             file_url: fileUrl,
             base64: base64,
             filename: fileName,
@@ -1802,39 +1847,24 @@ app.post('/api/calibration/export-excel', async (req, res) => {
     try {
         const eqName = data.equipmentName || data.equipment_name || '';
         const compositeCertNo = eqName ? `${cert_no}_${eqName}` : cert_no;
-        const fileName = `GCN_${compositeCertNo.replace(/[^a-zA-Z0-9]/g, "_")}.xlsx`;
+        if (!requireProductionStorage(res)) return;
+        const fileName = isConfigured() ? createExportFilename(compositeCertNo, 'xlsx') : `GCN_${compositeCertNo.replace(/[^a-zA-Z0-9]/g, "_")}.xlsx`;
 
-        saveCalibrationDataToDBHelper(data, cert_no).catch(err => {
-            console.error('⚠️ Lỗi lưu dữ liệu trong background khi xuất Excel:', err.message);
-        });
+        await saveCalibrationDataToDBHelper(data, cert_no);
 
         const generateExcel = getGenerateExcel();
-        await generateExcel({ certNo: compositeCertNo, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [], data: data });
+        await generateExcel({ certNo: compositeCertNo, filename: fileName, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [], data: data });
 
         const outputDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, 'static');
         const filePath = path.join(outputDir, fileName);
         let base64 = null;
-        let fileUrl = isConfigured() ? getPublicUrl(fileName) : null;
-        
-        if (fs.existsSync(filePath)) {
+        let fileUrl = null;
+        if (!fs.existsSync(filePath)) throw new Error('Excel generator did not create the export file.');
+        {
             const buf = fs.readFileSync(filePath);
             base64 = buf.toString('base64');
             
-            // Upload lên Supabase Storage (nếu cấu hình) trong background
-            if (isConfigured()) {
-                console.log(`🔍 DEBUG: Starting background uploadToSupabase for ${fileName} (${(buf ? buf.length : 0)} bytes)`);
-                uploadToSupabase(buf, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-                    .then(uploadResult => {
-                        if (uploadResult.success) {
-                            console.log(`☁️ Excel uploaded to Supabase in background: ${uploadResult.publicUrl}`);
-                        } else {
-                            console.warn('⚠️ Excel upload background thất bại:', uploadResult.error || uploadResult);
-                        }
-                    })
-                    .catch(err => {
-                        console.error('❌ Excel background upload error:', err.message);
-                    });
-            }
+            if (isConfigured()) fileUrl = await persistExport(buf, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         }
         
         // Fallback: dùng local URL nếu chưa/không cấu hình Supabase
@@ -1867,7 +1897,8 @@ app.post('/api/calibration/export-docx', async (req, res) => {
     try {
         const eqName = data.equipmentName || data.equipment_name || '';
         const compositeCertNo = eqName ? `${cert_no}_${eqName}` : cert_no;
-        const fileName = `GCN_${compositeCertNo.replace(/[^a-zA-Z0-9]/g, "_")}.docx`;
+        if (!requireProductionStorage(res)) return;
+        const fileName = isConfigured() ? createExportFilename(compositeCertNo, 'docx') : `GCN_${compositeCertNo.replace(/[^a-zA-Z0-9]/g, "_")}.docx`;
 
         // Ưu tiên Supabase Storage URL cho QR code (nếu đã cấu hình)
         // Vì QR in trên giấy, khách hàng quét từ bất kỳ đâu (khác mạng, ngoài LAN)
@@ -1876,34 +1907,14 @@ app.post('/api/calibration/export-docx', async (req, res) => {
         const localUrl = `${publicBaseUrl}${process.env.VERCEL ? '/api/static/' : '/static/'}${fileName}`;
         const downloadUrl = supabaseUrl || localUrl;
 
-        saveCalibrationDataToDBHelper(data, cert_no).catch(err => {
-            console.error('⚠️ Lỗi lưu dữ liệu trong background khi xuất Word:', err.message);
-        });
+        await saveCalibrationDataToDBHelper(data, cert_no);
 
         const generateDocx = getGenerateDocx();
-        const docxBuffer = await generateDocx({ certNo: compositeCertNo, downloadUrl, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [], data: data });
+        const docxBuffer = await generateDocx({ certNo: compositeCertNo, filename: fileName, downloadUrl, equipmentName: eqName, accreditedMethods: data.accreditedMethods || [], data: data });
         const base64 = docxBuffer.toString('base64');
-        
-        // Lấy public URL của Supabase trước (tính toán offline nhanh chóng)
-        let fileUrl = isConfigured() ? getPublicUrl(fileName) : null;
-        
-        // Upload lên Supabase Storage (nếu cấu hình) trong background
-        if (isConfigured()) {
-            console.log(`🔍 DEBUG: Starting background uploadToSupabase for ${fileName} (${(docxBuffer.length / 1024).toFixed(1)} KB)`);
-            uploadToSupabase(docxBuffer, fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-                .then(uploadResult => {
-                    if (uploadResult.success) {
-                        console.log(`☁️ DOCX uploaded to Supabase in background: ${uploadResult.publicUrl}`);
-                    } else {
-                        console.warn('⚠️ DOCX upload background thất bại:', uploadResult.error || uploadResult);
-                    }
-                })
-                .catch(err => {
-                    console.error('❌ DOCX background upload error:', err.message);
-                });
-        } else {
-            console.log(`🔍 DEBUG: isConfigured() = false, skipping Supabase upload. downloadUrl used for QR: ${downloadUrl}`);
-        }
+        let fileUrl = isConfigured()
+            ? await persistExport(docxBuffer, fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            : null;
         
         // Fallback: dùng local URL nếu chưa/không cấu hình Supabase
         if (!fileUrl) {
@@ -1946,8 +1957,8 @@ app.post('/api/auth/register', async (req, res) => {
     if (!/^[a-zA-Z0-9_.-]+$/.test(username)) {
         return res.status(400).json({ success: false, message: "Tên đăng nhập chỉ được chứa chữ cái, số, dấu gạch dưới và dấu gạch ngang!" });
     }
-    if (password.length < 4) {
-        return res.status(400).json({ success: false, message: "Mật khẩu phải có ít nhất 4 ký tự!" });
+    if (typeof password !== 'string' || password.length < 12) {
+        return res.status(400).json({ success: false, message: "Mật khẩu phải có ít nhất 12 ký tự!" });
     }
     try {
         const existing = await sql`SELECT USERNAME FROM USERS WHERE USERNAME = ${username}`;
@@ -1962,6 +1973,9 @@ app.post('/api/auth/register', async (req, res) => {
         logActivity(username, "REGISTER", "USERS", username, `Tài khoản mới đăng ký: ${username}`);
         res.json({ success: true, message: "Đăng ký tài khoản thành công!" });
     } catch (err) {
+        if (err.code === '23505') {
+            return res.status(409).json({ success: false, message: 'Tên đăng nhập đã tồn tại!' });
+        }
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -1972,6 +1986,9 @@ app.post('/api/auth/login', async (req, res) => {
         return res.status(400).json({ success: false, message: "Vui lòng nhập tên đăng nhập và mật khẩu!" });
     }
     username = username.trim().toLowerCase();
+    if (IS_PRODUCTION && username === 'admin' && password === 'admin') {
+        return res.status(401).json({ success: false, message: 'Tài khoản admin đang dùng mật khẩu mặc định. Hãy đổi mật khẩu trước khi đăng nhập production.' });
+    }
     try {
         const rows = await sql`SELECT * FROM USERS WHERE USERNAME = ${username}`;
         if (rows.length === 0) {
@@ -1982,6 +1999,8 @@ app.post('/api/auth/login', async (req, res) => {
         if (!passwordMatch) {
             return res.status(401).json({ success: false, message: "Tài khoản hoặc mật khẩu không chính xác!" });
         }
+        const expiresAt = Date.now() + SESSION_MAX_AGE * 1000;
+        res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(signSession(user.username, expiresAt))}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${SESSION_MAX_AGE}${IS_PRODUCTION ? '; Secure' : ''}`);
         logActivity(user.full_name || username, "LOGIN", "USERS", username, `Đăng nhập hệ thống`);
         res.json({ success: true, user: { username: user.username, fullName: user.full_name, role: user.role } });
     } catch (err) {
@@ -1991,15 +2010,13 @@ app.post('/api/auth/login', async (req, res) => {
 
 // ================= AUTH — USER MANAGEMENT (ADMIN ONLY) =================
 
-// Helper: kiểm tra quyền admin từ header x-auth-username
+// Admin permissions are derived from the verified server-side session.
 async function requireAdmin(req, res) {
-    const authUser = req.headers['x-auth-username'];
-    if (!authUser) {
+    if (!req.user) {
         res.status(401).json({ success: false, message: "Thiếu thông tin xác thực!" });
         return null;
     }
-    const rows = await sql`SELECT ROLE FROM USERS WHERE USERNAME = ${authUser.trim().toLowerCase()}`;
-    if (rows.length === 0 || rows[0].role !== 'admin') {
+    if (req.user.role !== 'admin') {
         res.status(403).json({ success: false, message: "Bạn không có quyền thực hiện thao tác này!" });
         return null;
     }
@@ -2036,8 +2053,8 @@ app.post('/api/auth/users', async (req, res) => {
     if (username.length < 3) {
         return res.status(400).json({ success: false, message: "Tên đăng nhập phải có ít nhất 3 ký tự!" });
     }
-    if (password.length < 4) {
-        return res.status(400).json({ success: false, message: "Mật khẩu phải có ít nhất 4 ký tự!" });
+    if (typeof password !== 'string' || password.length < 12) {
+        return res.status(400).json({ success: false, message: "Mật khẩu must be at least 12 characters." });
     }
     try {
         const existing = await sql`SELECT USERNAME FROM USERS WHERE USERNAME = ${username}`;
@@ -2052,7 +2069,7 @@ app.post('/api/auth/users', async (req, res) => {
             VALUES (${username}, ${hashedPassword}, ${displayName}, ${safeRole})
             RETURNING ID
         `;
-        logActivity(req.headers['x-auth-username'] || 'admin', "CREATE", "USERS", result[0]?.id?.toString() || username, `Admin tạo tài khoản: ${username} (${safeRole})`);
+        logActivity(req.user.username, "CREATE", "USERS", result[0]?.id?.toString() || username, `Admin tạo tài khoản: ${username} (${safeRole})`);
         res.json({ success: true, message: `Tạo tài khoản ${username} thành công!` });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -2088,7 +2105,10 @@ app.put('/api/auth/users/:id', async (req, res) => {
             updateFields.push(`ROLE = $${idx++}`);
             updateValues.push(role);
         }
-        if (password) {
+        if (password !== undefined && password !== '') {
+            if (typeof password !== 'string' || password.length < 12) {
+                return res.status(400).json({ success: false, message: 'Password must be at least 12 characters.' });
+            }
             const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
             updateFields.push(`PASSWORD = $${idx++}`);
             updateValues.push(hashedPassword);
@@ -2100,7 +2120,7 @@ app.put('/api/auth/users/:id', async (req, res) => {
             await sql.unsafe(query, updateValues);
         }
 
-        logActivity(req.headers['x-auth-username'] || 'admin', "UPDATE", "USERS", userId, `Cập nhật thông tin user: ${username}`);
+        logActivity(req.user.username, "UPDATE", "USERS", userId, `Cập nhật thông tin user: ${username}`);
         res.json({ success: true, message: `Cập nhật user ${username} thành công!` });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -2121,7 +2141,7 @@ app.delete('/api/auth/users/:id', async (req, res) => {
             return res.status(403).json({ success: false, message: "Không thể xóa tài khoản admin mặc định!" });
         }
         await sql`DELETE FROM USERS WHERE ID = ${userId}`;
-        logActivity(req.headers['x-auth-username'] || 'admin', "DELETE", "USERS", userId, `Đã xóa người dùng: ${target[0].username}`);
+        logActivity(req.user.username, "DELETE", "USERS", userId, `Đã xóa người dùng: ${target[0].username}`);
         res.json({ success: true, message: `Đã xóa người dùng ${target[0].username} thành công!` });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -2154,7 +2174,7 @@ app.get('/api/projects/:id', async (req, res) => {
 });
 
 app.get('/api/projects/:id/machines', async (req, res) => {
-    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', 'private, no-store');
     const projectId = req.params.id;
     if (serverCache.machines[projectId]) {
         return res.json(serverCache.machines[projectId]);

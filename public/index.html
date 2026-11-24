@@ -424,6 +424,7 @@ function initProjectChart() {
 }
 
 async function submitCalibrationFormAndPrint() {
+    const pdfWindow = window.open('about:blank', '_blank');
     // 1. Thu thập trọn bộ thông tin theo cấu trúc file mẫu của sếp bạn
     const fullPayload = {
         certNo: "328344",
@@ -468,10 +469,17 @@ async function submitCalibrationFormAndPrint() {
             
             if(pdfResult.success) {
                 // Mở chứng nhận PDF chuyên nghiệp lên màn hình để sếp ký duyệt
-                window.open(`${API_BASE_URL}${pdfResult.pdf_url}`, '_blank');
+                const pdfUrl = pdfResult.file_url || `${API_BASE_URL}${pdfResult.pdf_url}`;
+                if (pdfWindow) pdfWindow.location.href = pdfUrl;
+                else window.location.href = pdfUrl;
+            } else if (pdfWindow) {
+                pdfWindow.close();
             }
+        } else if (pdfWindow) {
+            pdfWindow.close();
         }
     } catch (err) {
+        if (pdfWindow) pdfWindow.close();
         console.error("Lỗi đồng bộ hệ thống: ", err);
     }
 }

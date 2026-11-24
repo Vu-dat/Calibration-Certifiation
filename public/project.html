@@ -1330,14 +1330,14 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="form-card-title"><span>4</span> Đặc trưng kĩ thuật & Quy trình</div>
 
         <div class="field">
-          <label>Phạm vi đo / Đặc trưng kỹ thuật (Specification / Range)</label>
+          <label id="spec-range-label">Phạm vi đo / Đặc trưng kỹ thuật (Specification / Range)</label>
           <div class="cal-table-wrapper" style="border: 1px solid var(--border); border-radius: 8px;">
             <table id="spec-range-table" class="data-table" style="font-size:12.5px; margin-top:0;">
               <thead>
                 <tr>
-                  <th>Tên thông số (Parameter)</th>
-                  <th>Giá trị (Value)</th>
-                  <th>Độ phân giải (Resolution)</th>
+                  <th id="spec-param-header">Tên thông số (Parameter)</th>
+                  <th id="spec-value-header">Giá trị (Value)</th>
+                  <th id="spec-resolution-header">Độ phân giải (Resolution)</th>
                   <th>Quy trình (Procedure)</th>
                   <th>Tiêu chuẩn (Reference)</th>
                   <th style="width:60px; text-align:center;">Xóa</th>
@@ -1349,6 +1349,9 @@ document.addEventListener("DOMContentLoaded", () => {
           <button type="button" class="btn btn-secondary btn-sm" onclick="addSpecRangeRow()" style="margin-top:8px; display:inline-flex; align-items:center; gap:6px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-plus"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Thêm thông số
+          </button>
+          <button type="button" id="lightbox-load-results" class="btn btn-primary btn-sm" onclick="loadLightboxResultsFromSpecs()" style="margin:8px 0 0 8px; display:none;">
+            Tải điểm đo theo nguồn sáng đã nhập
           </button>
         </div>
       </div>
@@ -2906,6 +2909,7 @@ function handleEquipmentSearch(keyword) {
             div.onclick = () => {
                 selectEquipmentTemplate(key);
                 window._currentWorkingEquipment = key;
+                updateSpecResolutionHeader(key);
                 box.style.display = 'none';
             };
             box.appendChild(div);
@@ -2920,6 +2924,7 @@ function handleEquipmentBlur(val) {
     if (matched && MockDatabaseEquipment[matched]) {
         selectEquipmentTemplate(matched);
         window._currentWorkingEquipment = matched;
+        updateSpecResolutionHeader(matched);
         const box = document.getElementById('equipment-suggestions');
         if (box) box.style.display = 'none';
     }
@@ -3447,6 +3452,7 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null, fromPopStat
 
   // Lưu tên thiết bị đang hiệu chuẩn (giải mã từ equipmentNameFromRow: có thể là ID hoặc NAME)
   window._currentWorkingEquipment = resolveEquipmentName(equipmentNameFromRow) || equipmentNameFromRow || '';
+  updateSpecResolutionHeader(window._currentWorkingEquipment);
 
   // Bước 1: Load template thiết bị nếu equipmentNameFromRow hợp lệ
   let templateLoaded = false;
@@ -3506,7 +3512,9 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null, fromPopStat
           if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
           
           const hasRows = document.getElementById('spec-range-table-body')?.children.length > 0;
-          if (!hasRows) {
+          if (isLightboxEquipmentName(resolvedName)) {
+              setSpecTableFromData('', '', eq.procedure || '', eq.refStandard || '');
+          } else if (!hasRows) {
               setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
           }
           if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
@@ -3625,16 +3633,24 @@ function renderTopStandardSuggestions(items, suggestionsBox) {
 function addSpecRangeRow(param = '', value = '', resolution = '', procedure = '', reference = '') {
   const tbody = document.getElementById('spec-range-table-body');
   if (!tbody) return;
+  const lightboxTemplate = isLightboxEquipmentName(window._currentWorkingEquipment) ? MockDatabaseEquipment[window._currentWorkingEquipment] : null;
+  const paramPlaceholder = lightboxTemplate ? 'VD: D65, TL84, CWF' : 'VD: Lực tỳ/Downward force';
+  const valuePlaceholder = lightboxTemplate ? 'VD: Nhiệt độ màu (K), Độ rọi (Lux), CRI' : 'VD: 9 N';
+  if (lightboxTemplate) {
+    procedure = procedure || lightboxTemplate.procedure || '';
+    reference = reference || lightboxTemplate.refStandard || '';
+  }
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td><input type="text" class="lab-input-cell spec-param-input" value="${escHtml(param)}" placeholder="VD: Lực tỳ/Downward force" autocomplete="off"></td>
-    <td><input type="text" class="lab-input-cell spec-value-input" value="${escHtml(value)}" placeholder="VD: 9 N" autocomplete="off"></td>
+    <td><input type="text" class="lab-input-cell spec-param-input" value="${escHtml(param)}" placeholder="${paramPlaceholder}" autocomplete="off"></td>
+    <td><input type="text" class="lab-input-cell spec-value-input" value="${escHtml(value)}" placeholder="${valuePlaceholder}" autocomplete="off"></td>
     <td><input type="text" class="lab-input-cell spec-res-input" value="${escHtml(resolution)}" placeholder="VD: 0.1 mg" autocomplete="off"></td>
     <td><input type="text" class="lab-input-cell spec-proc-input" value="${escHtml(procedure)}" placeholder="VD: FORCE-02:2026" autocomplete="off"></td>
     <td><input type="text" class="lab-input-cell spec-ref-input" value="${escHtml(reference)}" placeholder="VD: ISO 6330" autocomplete="off"></td>
     <td style="text-align:center;"><button type="button" class="btn-rm" onclick="this.closest('tr').remove()">×</button></td>
   `;
   tbody.appendChild(tr);
+  if (lightboxTemplate && tr.children[2]) tr.children[2].style.display = 'none';
 }
 
 function getSpecRangeTableData() {
@@ -3645,7 +3661,9 @@ function getSpecRangeTableData() {
   rows.forEach(tr => {
     const param = (tr.querySelector('.spec-param-input')?.value || '').trim();
     const val = (tr.querySelector('.spec-value-input')?.value || '').trim();
-    if (param) {
+    if (isLightboxEquipmentName(window._currentWorkingEquipment)) {
+      lines.push(param);
+    } else if (param) {
       if (val) {
         lines.push(param + ': ' + val);
       } else {
@@ -3662,7 +3680,9 @@ function getSpecResolutionTableData() {
   const rows = tbody.querySelectorAll('tr:not([data-balance-selector="1"])');
   const lines = [];
   rows.forEach(tr => {
-    const val = (tr.querySelector('.spec-res-input')?.value || '').trim();
+    const val = isLightboxEquipmentName(window._currentWorkingEquipment)
+      ? (tr.querySelector('.spec-value-input')?.value || '').trim()
+      : (tr.querySelector('.spec-res-input')?.value || '').trim();
     lines.push(val);
   });
   return lines.join('\n');
@@ -3741,7 +3761,12 @@ function setSpecTableFromData(specRange, specResolution, procedure, refStandard)
   for (let r = 0; r < totalRows; r++) {
     const rangeLine = (rangeLines[r] || '').trim();
     let param = '', val = '';
-    if (rangeLine.includes(':')) {
+    if (isLightboxEquipmentName(window._currentWorkingEquipment)) {
+      const colonAt = rangeLine.indexOf(':');
+      const rangeLabel = colonAt >= 0 ? rangeLine.slice(0, colonAt).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() : '';
+      param = colonAt >= 0 && rangeLabel.includes('nguon sang') ? rangeLine.slice(colonAt + 1).trim() : rangeLine;
+      val = (resLines[r] || '').trim();
+    } else if (rangeLine.includes(':')) {
       const idx = rangeLine.indexOf(':');
       param = rangeLine.substring(0, idx).trim();
       val = rangeLine.substring(idx + 1).trim();
@@ -3758,7 +3783,8 @@ function setSpecTableFromData(specRange, specResolution, procedure, refStandard)
       }
     }
     
-    const resolution = (resLines[r] || '').trim();
+    const resolution = isLightboxEquipmentName(window._currentWorkingEquipment) ? '' : (resLines[r] || '').trim();
+    if (isLightboxEquipmentName(window._currentWorkingEquipment)) val = (resLines[r] || '').trim();
     const proc = (procLines[r] || '').trim();
     const ref = (refLines[r] || '').trim();
     
@@ -3771,9 +3797,30 @@ function setSpecTableFromData(specRange, specResolution, procedure, refStandard)
 function setSpecRangeTableData(text) {
   setSpecTableFromData(text, '', '', '');
 }
-function selectEquipmentTemplate(key) {
+function updateSpecResolutionHeader(name = window._currentWorkingEquipment) {
+  const header = document.getElementById('spec-resolution-header');
+  if (header) header.textContent = isLightboxEquipmentName(name) ? 'Thông số đo (Measurement parameters)' : 'Độ phân giải (Resolution)';
+  const paramHeader = document.getElementById('spec-param-header');
+  if (paramHeader) paramHeader.textContent = isLightboxEquipmentName(name) ? 'Nguồn sáng (Light source)' : 'Tên thông số (Parameter)';
+  const valueHeader = document.getElementById('spec-value-header');
+  if (valueHeader) valueHeader.textContent = isLightboxEquipmentName(name) ? 'Thông số đo (Measurement parameter)' : 'Giá trị (Value)';
+  const specTable = document.getElementById('spec-range-table');
+  if (specTable) specTable.querySelectorAll('tr').forEach(row => {
+    if (row.children[2]) row.children[2].style.display = isLightboxEquipmentName(name) ? 'none' : '';
+  });
+  const rangeLabel = document.getElementById('spec-range-label');
+  if (rangeLabel) rangeLabel.textContent = isLightboxEquipmentName(name) ? 'Nguồn sáng (Light sources)' : 'Phạm vi đo / Đặc trưng kỹ thuật (Specification / Range)';
+  const loadButton = document.getElementById('lightbox-load-results');
+  if (loadButton) loadButton.style.display = isLightboxEquipmentName(name) ? 'inline-flex' : 'none';
+}
+function isLightboxEquipmentName(name) {
+  return String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('lightbox') ||
+    String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('tu den so mau');
+}
+function selectEquipmentTemplate(key, preserveSpec = false) {
   const eq = MockDatabaseEquipment[key];
   if (!eq) return;
+  updateSpecResolutionHeader(key);
   window._balanceData = null;
   document.getElementById('f-inst-vi').value = eq.nameVi || key;
   document.getElementById('equipment-suggestions').style.display = 'none';
@@ -3785,7 +3832,11 @@ function selectEquipmentTemplate(key) {
   if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
   if (eq.instEn) document.getElementById('f-inst-en').value = eq.instEn;
 
-  setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
+  if (isLightboxEquipmentName(key)) {
+    if (!preserveSpec) setSpecTableFromData('', '', eq.procedure || '', eq.refStandard || '');
+  } else {
+    setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
+  }
   if (eq.nextDue) document.getElementById('f-recaldate').value = eq.nextDue;
 
   // Tự động điền các chuẩn sử dụng từ standardsUsed (tối đa 5 thiết bị chuẩn)
@@ -3825,7 +3876,9 @@ function selectEquipmentTemplate(key) {
 
   const tbody = document.getElementById('calibration-table-body');
   tbody.innerHTML = '';
-  eq.formPoints.forEach(pt => {
+  if (isLightboxEquipmentName(key)) {
+    tbody.innerHTML = '<tr><td colspan="11" class="cal-empty-state">Nhập xong nguồn sáng ở mục 7 rồi nhấn “Tải điểm đo theo nguồn sáng đã nhập”.</td></tr>';
+  } else eq.formPoints.forEach(pt => {
     const row = document.createElement('tr');
     row.dataset.parameterName = pt.paramName.replace('\n', ' ');
     let html = '';
@@ -3876,6 +3929,53 @@ function selectEquipmentTemplate(key) {
   // Mới: sau khi áp dụng mẫu thiết bị, nếu là Cân thì nạp dữ liệu chuẩn từ Excel/DB vào workspace.
   checkAndToggleOvenWorkspace();
   checkAndToggleBalanceWorkspace();
+}
+
+function loadLightboxResultsFromSpecs() {
+  const key = window._currentWorkingEquipment;
+  const eq = key ? MockDatabaseEquipment[key] : null;
+  if (!eq || !isLightboxEquipmentName(key)) return;
+
+  const body = document.getElementById('spec-range-table-body');
+  const enteredRows = [];
+  body?.querySelectorAll('tr:not([data-balance-selector="1"])').forEach(row => {
+    const param = row.querySelector('.spec-param-input')?.value.trim() || '';
+    const value = row.querySelector('.spec-value-input')?.value.trim() || '';
+    if (param || value) enteredRows.push({ source: param, measurement: value });
+  });
+  const criteria = enteredRows.flatMap(row => {
+    const sources = row.source.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+    const measurements = row.measurement.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+    return sources.flatMap(source => measurements.map(measurement => ({ source, measurement })));
+  });
+  if (!criteria.length) {
+    showToast('Hãy nhập nguồn sáng và thông số đo ở mục 7 trước khi tải điểm đo.', 'warning');
+    return;
+  }
+
+  const selectedPoints = (eq.formPoints || []).filter(point => {
+    const parameter = String(point.paramName || '').trim().toLowerCase();
+    return criteria.some(item => parameter.startsWith(item.source.toLowerCase()) && parameter.includes(item.measurement.toLowerCase()));
+  });
+  if (!selectedPoints.length) {
+    showToast('Không tìm thấy điểm đo cho nguồn sáng đã nhập. Hãy kiểm tra tên nguồn sáng.', 'warning');
+    return;
+  }
+
+  const rows = selectedPoints.map(point => {
+    const vals = [point.v1, point.v2, point.v3].filter(v => v !== undefined && v !== null && String(v).trim() !== '');
+    const nums = vals.map(v => parseFloat(String(v).replace(',', '.'))).filter(n => !Number.isNaN(n));
+    const avg = nums.length ? String(Math.round(nums.reduce((a, b) => a + b, 0) / nums.length * 100) / 100) : (vals[0] || '');
+    return {
+      paramName: point.paramName || '', calPoint: point.point || '',
+      v1: point.v1 || avg, v2: point.v2 || point.v1 || avg, v3: point.v3 || point.v1 || avg,
+      avg, uncertainty: point.uncertainty || '', refValue: point.refValue || '',
+      tolerance: point.tolerance || '', conformity: point.conformity || '',
+      refEq: point.standardEquipment || ''
+    };
+  });
+  renderTableFromData(rows);
+  showToast(`Đã tải ${rows.length} điểm đo theo nguồn sáng và thông số đo đã nhập.`);
 }
 
 /* ================= OVEN (TỦ SẤY) CALIBRATION MODULE ================= */
@@ -5814,7 +5914,8 @@ function specRangeHtml(line) {
 // Bảng mục 7-9: Đặc trưng kỹ thuật (5 cột hoặc 4 cột tùy dòng máy, có colgroup tự chỉnh độ rộng)
 function buildSpecTableHtml() {
   const eqName = (window._currentWorkingEquipment || '').toLowerCase();
-  const is5Col = !(eqName.includes('rubbing') || eqName.includes('veslic') || eqName.includes('crocking') || eqName.includes('crock'));
+  const isLightbox = isLightboxEquipmentName(window._currentWorkingEquipment);
+  const is5Col = !isLightbox && !(eqName.includes('rubbing') || eqName.includes('veslic') || eqName.includes('crocking') || eqName.includes('crock'));
 
   const tbody = document.getElementById('spec-range-table-body');
   const rows = tbody ? tbody.querySelectorAll('tr') : [];
@@ -5823,21 +5924,37 @@ function buildSpecTableHtml() {
   rows.forEach(tr => {
     const param = (tr.querySelector('.spec-param-input')?.value || '').trim();
     const val = (tr.querySelector('.spec-value-input')?.value || '').trim();
-    if (param) {
-      paramNames.push(param);
-      rangeValues.push(val);
-      resLines.push((tr.querySelector('.spec-res-input')?.value || '').trim());
-      procLines.push((tr.querySelector('.spec-proc-input')?.value || '').trim());
-      refLines.push((tr.querySelector('.spec-ref-input')?.value || '').trim());
+    const procedure = (tr.querySelector('.spec-proc-input')?.value || '').trim();
+    const reference = (tr.querySelector('.spec-ref-input')?.value || '').trim();
+    if (param || (isLightbox && (procedure || reference))) {
+      if (isLightbox) {
+        paramNames.push('');
+        rangeValues.push(param);
+        resLines.push(val);
+      } else {
+        paramNames.push(param);
+        rangeValues.push(val);
+        resLines.push((tr.querySelector('.spec-res-input')?.value || '').trim());
+      }
+      procLines.push(procedure);
+      refLines.push(reference);
     }
   });
 
   if (!paramNames.length) {
-    paramNames = ['--'];
-    rangeValues = ['--'];
-    resLines = [''];
-    procLines = ['--'];
-    refLines = ['--'];
+    if (isLightboxEquipmentName(window._currentWorkingEquipment)) {
+      paramNames = [''];
+      rangeValues = [''];
+      resLines = [''];
+      procLines = [''];
+      refLines = [''];
+    } else {
+      paramNames = ['--'];
+      rangeValues = ['--'];
+      resLines = [''];
+      procLines = ['--'];
+      refLines = ['--'];
+    }
   }
 
   let h = '<table class="cert-spec-table">';
@@ -5862,24 +5979,29 @@ function buildSpecTableHtml() {
   h += '<thead><tr>';
   if (is5Col) {
     h += '<th>7. Đặc trưng kĩ thuật<br><span class="lbl-en">Specification</span></th>'
-      + '<th>Phạm vi đo:<br><span class="lbl-en">Range</span></th>'
-      + '<th>Độ phân giải:<br><span class="lbl-en">Resolution</span></th>'
+      + '<th>' + (isLightbox ? 'Nguồn sáng:<br><span class="lbl-en">Light sources</span>' : 'Phạm vi đo:<br><span class="lbl-en">Range</span>') + '</th>'
+      + '<th>' + (isLightbox ? 'Thông số đo:<br><span class="lbl-en">Measurement parameters</span>' : 'Độ phân giải:<br><span class="lbl-en">Resolution</span>') + '</th>'
       + '<th>8. Quy trình thực hiện<br><span class="lbl-en">Procedure</span></th>'
       + '<th>9. Tiêu chuẩn tham khảo<br><span class="lbl-en">Reference Standard</span></th>';
   } else {
-    h += '<th>7. Đặc trưng kĩ thuật<br><span class="lbl-en">Specification</span></th>'
-      + '<th>Phạm vi đo:<br><span class="lbl-en">Range</span></th>'
+    h += (isLightbox ? '<th>7. Nguồn sáng:<br><span class="lbl-en">Light sources</span></th>' : '<th>7. Đặc trưng kĩ thuật<br><span class="lbl-en">Specification</span></th>')
+      + (isLightbox ? '<th>Thông số đo:<br><span class="lbl-en">Measurement parameters</span></th>' : '<th>Phạm vi đo:<br><span class="lbl-en">Range</span></th>')
       + '<th>8. Quy trình thực hiện<br><span class="lbl-en">Procedure</span></th>'
       + '<th>9. Tiêu chuẩn tham khảo<br><span class="lbl-en">Reference Standard</span></th>';
   }
   h += '</tr></thead><tbody>';
 
   for (let r = 0; r < paramNames.length; r++) {
-    h += '<tr><td>' + specRangeHtml(paramNames[r] || '') + '</td>'
-      + '<td>' + escHtml(rangeValues[r] || '') + '</td>';
-    
     if (is5Col) {
-      h += '<td>' + escHtml(resLines[r] || '') + '</td>';
+      h += '<tr><td>' + specRangeHtml(paramNames[r] || '') + '</td>'
+        + '<td>' + escHtml(rangeValues[r] || '') + '</td>'
+        + '<td>' + escHtml(resLines[r] || '') + '</td>';
+    } else if (isLightbox) {
+      h += '<tr><td>' + escHtml(rangeValues[r] || '') + '</td>'
+        + '<td>' + escHtml(resLines[r] || '') + '</td>';
+    } else {
+      h += '<tr><td>' + specRangeHtml(paramNames[r] || '') + '</td>'
+        + '<td>' + escHtml(rangeValues[r] || '') + '</td>';
     }
     
     h += '<td>' + escHtml(procLines[r] || '') + '</td>'
@@ -7259,7 +7381,7 @@ function populateCalibrationForm(result) {
     
     let specRange = c.SPEC_RANGE || '';
     let specResolution = c.SPEC_RESOLUTION || '';
-    if (!specRange.trim() && eq) {
+    if (!specRange.trim() && eq && !isLightboxEquipmentName(resolvedName)) {
         specRange = eq.specRange || '';
         specResolution = eq.specResolution || '';
     }
@@ -7274,7 +7396,7 @@ function populateCalibrationForm(result) {
     } else if (eq && Array.isArray(eq.formPoints) && eq.formPoints.length > 0) {
         // TRUY XUẤT BẢNG KẾT QUẢ TỪ DATABASE EQUIPMENT
         console.log("Truy xuất bảng kết quả từ Database Equipment cho:", resolvedName);
-        selectEquipmentTemplate(resolvedName);
+        selectEquipmentTemplate(resolvedName, true);
     } else {
         const tbody = document.getElementById('calibration-table-body');
         if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="cal-empty-state"><i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i> Nhập tên thiết bị ở mục 2 để tải tự động, hoặc sử dụng các nút bên dưới để thêm điểm đo</td></tr>';
@@ -8072,6 +8194,9 @@ async function prewarmPdfPreview() {
 
   const payload = getCalibrationPayload();
   if (!payload.cert_no || payload.cert_no === '-') return;
+  // Lightbox lets users choose its source/measurement rows manually; background
+  // prewarming on every edit builds stale PDFs and can overlap the requested preview.
+  if (isLightboxEquipmentName(payload.equipmentName || payload.equipment_name || window._currentWorkingEquipment)) return;
   if (calibrateMethods.length === 0 && !getSpecProcedureTableData()) return;
 
   const payloadKey = JSON.stringify(payload);
@@ -8211,7 +8336,20 @@ async function loadPdfPreview() {
       body: payloadKey
     });
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      let message = `Máy chủ trả về lỗi ${response.status}`;
+      try {
+        const errorData = await response.json();
+        message = errorData.details || errorData.error || errorData.message || message;
+      } catch (_) {}
+      throw new Error(message);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/pdf')) {
+      const body = await response.text();
+      throw new Error(body.slice(0, 240) || 'Máy chủ không trả về tệp PDF.');
+    }
 
     const blob = await response.blob();
     if (currentPdfBlobUrl && currentPdfBlobUrl !== prewarmedBlobUrl) {
@@ -8225,9 +8363,10 @@ async function loadPdfPreview() {
     renderPdfIframe(currentPdfBlobUrl);
   } catch (error) {
     console.error("Lỗi khi tải bản xem trước PDF:", error);
-    if (!container.querySelector('iframe')) {
-      container.innerHTML = `<div style="padding:40px; color:var(--danger); text-align:center; font-weight:500;">Lỗi kết nối máy chủ khi tạo bản xem trước PDF: ${error.message}</div>`;
-    }
+    const errorBox = document.createElement('div');
+    errorBox.style.cssText = 'padding:40px;color:var(--danger);text-align:center;font-weight:500;';
+    errorBox.textContent = `Không tạo được bản xem trước PDF: ${error.message}`;
+    container.replaceChildren(errorBox);
   } finally {
     showPreviewLoadingBadge(false);
   }
