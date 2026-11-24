@@ -517,21 +517,6 @@ async function ensureDbInitialized() {
                 
                 const exists = checkTable[0] && checkTable[0].exists;
                 if (exists) {
-                    // Existing deployments may have USERS but predate the customer table.
-                    // Ensure the customer API schema is ready before serving the first request.
-                    await sql`CREATE TABLE IF NOT EXISTS CUSTOMERS (
-                        ID TEXT PRIMARY KEY, NAME TEXT, COMPANY TEXT, PHONE TEXT, TAX TEXT,
-                        EMAIL TEXT, ADDRESS TEXT, BILLING_ADDRESS TEXT, CONTACT TEXT, NOTE TEXT
-                    )`;
-                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS NAME TEXT`;
-                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS COMPANY TEXT`;
-                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS PHONE TEXT`;
-                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS TAX TEXT`;
-                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS EMAIL TEXT`;
-                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS ADDRESS TEXT`;
-                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS BILLING_ADDRESS TEXT`;
-                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS CONTACT TEXT`;
-                    await sql`ALTER TABLE CUSTOMERS ADD COLUMN IF NOT EXISTS NOTE TEXT`;
                     global._dbInitialized = true;
                     console.log("✅ Supabase đã được khởi tạo trước đó. Chạy migrations cột mới (nếu có) trong background...");
                     // Chạy migrations trong background để tránh block request đầu tiên/cold start
@@ -664,9 +649,6 @@ app.get('/api/static/:filename', (req, res) => {
 app.get('/api/init', async (req, res) => {
     try {
         res.setHeader('Cache-Control', 'private, no-store');
-        if (serverCache.init) {
-            return res.json(serverCache.init);
-        }
         const [projectsResult, certCountResult, templatesResult, clockResult, allPointsResult] = await Promise.all([
             sql`SELECT COUNT(*) as total,
                        COUNT(*) FILTER (WHERE status = 'In Progress') as progress,
@@ -767,9 +749,6 @@ app.get('/api/debug/health', async (req, res) => {
 // ================= API CRUD CHO BẢNG CLOCK =================
 
 async function getOrLoadClockCache() {
-    if (serverCache.clock && Array.isArray(serverCache.clock) && serverCache.clock.length > 0) {
-        return serverCache.clock;
-    }
     try {
         const rowsDb = await sql`SELECT * FROM CLOCK ORDER BY ID ASC`;
         const rows = rowsDb.map(r => ({
@@ -790,8 +769,8 @@ async function getOrLoadClockCache() {
         serverCache.clock = rows;
         return serverCache.clock;
     } catch (err) {
-        console.error('Lỗi load clock cache từ DB:', err);
-        return serverCache.clock || [];
+        console.error('Lỗi load clock từ Supabase:', err);
+        throw err;
     }
 }
 
@@ -1018,10 +997,6 @@ app.get('/api/projects', async (req, res) => {
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
         const cacheKey = `${page}_${limit}`;
-        if (serverCache.projects[cacheKey]) {
-            return res.json(serverCache.projects[cacheKey]);
-        }
-
         const [rowsDb, statsResult] = await Promise.all([
             sql`SELECT * FROM PROJECTS ORDER BY CREATED_AT DESC LIMIT ${limit} OFFSET ${offset}`,
             sql`
@@ -1075,18 +1050,6 @@ app.post('/api/projects', async (req, res) => {
 
         const action = isNew ? "CREATE" : "UPDATE";
         const desc = isNew ? `Tạo mới dự án: "${title}"` : `Cập nhật trạng thái dự án "${title}" thành [${status}]`;
-
-        if (!isNew) {
-            res.json({ success: true, ID: finalId });
-            sql`
-                INSERT INTO PROJECTS (ID, TITLE, TECH, STATUS) 
-                VALUES (${finalId}, ${title}, ${tech}, ${status})
-                ON CONFLICT (ID) DO UPDATE SET TITLE = EXCLUDED.TITLE, TECH = EXCLUDED.TECH, STATUS = EXCLUDED.STATUS
-            `.then(() => {
-                logActivity(tech || "Hệ thống / KTV", action, "PROJECTS", finalId, desc).catch(e => console.warn('Lỗi log:', e.message));
-            }).catch(e => console.error("Lỗi cập nhật dự án nền:", e.message));
-            return;
-        }
 
         await sql`
             INSERT INTO PROJECTS (ID, TITLE, TECH, STATUS) 
@@ -1215,10 +1178,6 @@ app.get('/api/calibration/:certNo', async (req, res) => {
     const compositeCertNo = eqName ? `${certNo}_${eqName}` : certNo;
 
     const cacheKey = `${certNo}_${eqName}`;
-    if (serverCache.calibrations[cacheKey]) {
-        return res.json(serverCache.calibrations[cacheKey]);
-    }
-
     try {
         const certRows = await sql`
             SELECT * FROM CERTIFICATES 
@@ -1322,28 +1281,17 @@ app.post('/api/calibration/save', async (req, res) => {
         VALIDITY: s.due || s.validity || s.VALIDITY || ''
     }));
 
-    serverCache.calibrations[cacheKey] = {
-        success: true,
-        dataExists: true,
-        cert: certObj,
-        points: pointsArr,
-        standards: standardsArr
-    };
-
-    serverCache.projects = {};
-    serverCache.statsSummary = null;
-
-    // Phản hồi siêu tốc tức thì cho Client (0ms latency)
-    res.json({ success: true, message: "Dữ liệu hiệu chuẩn đã được ghi nhận vào SQL ổn định!" });
-
-    // Tiếp tục lưu xuống Supabase Database trong background worker
-    saveCalibrationDataToDBHelper(data, data.certNo)
-        .then(() => {
-            logActivity(currentWorker, "UPDATE", "CERTIFICATES", data.certNo, `Cập nhật số liệu kết quả đo cho thiết bị ${data.instrumentName || ''} (Mã chuẩn: ${data.equipmentId || ''})`).catch(e => console.warn('Lỗi log:', e.message));
-        })
-        .catch(err => {
-            console.error("❌ Lỗi lưu dữ liệu hiệu chuẩn nền:", err.message);
-        });
+    try {
+        await saveCalibrationDataToDBHelper(data, data.certNo);
+        delete serverCache.calibrations[cacheKey];
+        serverCache.projects = {};
+        serverCache.statsSummary = null;
+        logActivity(currentWorker, "UPDATE", "CERTIFICATES", data.certNo, `Cập nhật số liệu kết quả đo cho thiết bị ${data.instrumentName || ''} (Mã chuẩn: ${data.equipmentId || ''})`).catch(e => console.warn('Lỗi log:', e.message));
+        res.json({ success: true, message: "Dữ liệu hiệu chuẩn đã được lưu vào Supabase." });
+    } catch (err) {
+        console.error("❌ Lỗi lưu dữ liệu hiệu chuẩn:", err.message);
+        res.status(500).json({ success: false, error: err.message || "Không thể lưu dữ liệu hiệu chuẩn vào Supabase." });
+    }
 });
 
 // ================= API MẪU THIẾT BỊ =================
@@ -1353,10 +1301,6 @@ async function getEquipmentTemplatesHelper(req, res) {
         res.setHeader('Cache-Control', 'private, no-store');
         const searchTerm = req.query.q ? `%${req.query.q.toLowerCase()}%` : null;
         const cacheKey = searchTerm || 'all';
-        if (serverCache.equipmentTemplates[cacheKey]) {
-            return res.json(serverCache.equipmentTemplates[cacheKey]);
-        }
-
         const whereClause = searchTerm 
             ? sql`WHERE LOWER(name) LIKE ${searchTerm} OR LOWER(equipment_id) LIKE ${searchTerm} OR LOWER(manufacturer) LIKE ${searchTerm}`
             : sql``;
@@ -1432,7 +1376,6 @@ app.get('/api/equipment', async (req, res) => {
 });
 
 app.post('/api/equipment', async (req, res) => {
-    invalidateServerCache();
     try {
         const { equipment_id, standard_name, manufacturer, due_date, procedure, ref_standard, points, model, serial_number, model_serial, manufacturer_id, spec_range, spec_resolution, standards_used, name_vi, name_en, nameEn, instrumentNameEn } = req.body;
 
@@ -1442,47 +1385,50 @@ app.post('/api/equipment', async (req, res) => {
 
         const englishName = name_en || nameEn || instrumentNameEn || '';
 
-        await sql`
-            INSERT INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID, PROCEDURE, REF_STANDARD, MODEL, SERIAL_NUMBER, MODEL_SERIAL, MANUFACTURER_ID, SPEC_RANGE, SPEC_RESOLUTION, STANDARDS_USED, NAME_VI, NAME_EN)
-            VALUES (${standard_name}, ${manufacturer || ''}, ${due_date || ''}, ${equipment_id}, ${procedure || ''}, ${ref_standard || ''}, ${model || ''}, ${serial_number || ''}, ${model_serial || ''}, ${manufacturer_id || ''}, ${spec_range || ''}, ${spec_resolution || ''}, ${standards_used || ''}, ${name_vi || ''}, ${englishName})
-            ON CONFLICT (NAME) DO UPDATE SET 
-                MANUFACTURER = EXCLUDED.MANUFACTURER, 
-                NEXT_DUE = EXCLUDED.NEXT_DUE, 
-                EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID, 
-                PROCEDURE = EXCLUDED.PROCEDURE, 
-                REF_STANDARD = EXCLUDED.REF_STANDARD,
-                MODEL = EXCLUDED.MODEL,
-                SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER,
-                MODEL_SERIAL = EXCLUDED.MODEL_SERIAL,
-                MANUFACTURER_ID = EXCLUDED.MANUFACTURER_ID,
-                SPEC_RANGE = EXCLUDED.SPEC_RANGE,
-                SPEC_RESOLUTION = EXCLUDED.SPEC_RESOLUTION,
-                STANDARDS_USED = EXCLUDED.STANDARDS_USED,
-                NAME_VI = EXCLUDED.NAME_VI,
-                NAME_EN = COALESCE(NULLIF(EXCLUDED.NAME_EN, ''), EQUIPMENT_TEMPLATES.NAME_EN)
-        `;
-
-        await sql`DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ${standard_name}`;
-
-        if (points && points.length > 0) {
-            const ptRows = points.map(p => ({
-                template_name: standard_name,
-                parameter_name: p.parameter || p.parameterName || '',
-                cal_point: p.value || p.calPoint || '',
-                as_found_value: p.asFoundValue || '',
-                reference_value: p.referenceValue || p.refValue || '',
-                uncertainty: p.uncertainty || '',
-                tolerance: p.tolerance || '',
-                conformity: p.conformity || '',
-                standard_equipment: p.standardEquipment || ''
-            }));
-            await sql`
-                INSERT INTO TEMPLATE_POINTS ${
-                    sql(ptRows, 'template_name', 'parameter_name', 'cal_point', 'as_found_value', 'reference_value', 'uncertainty', 'tolerance', 'conformity', 'standard_equipment')
-                }
+        await sql.begin(async tx => {
+            await tx`
+                INSERT INTO EQUIPMENT_TEMPLATES (NAME, MANUFACTURER, NEXT_DUE, EQUIPMENT_ID, PROCEDURE, REF_STANDARD, MODEL, SERIAL_NUMBER, MODEL_SERIAL, MANUFACTURER_ID, SPEC_RANGE, SPEC_RESOLUTION, STANDARDS_USED, NAME_VI, NAME_EN)
+                VALUES (${standard_name}, ${manufacturer || ''}, ${due_date || ''}, ${equipment_id}, ${procedure || ''}, ${ref_standard || ''}, ${model || ''}, ${serial_number || ''}, ${model_serial || ''}, ${manufacturer_id || ''}, ${spec_range || ''}, ${spec_resolution || ''}, ${standards_used || ''}, ${name_vi || ''}, ${englishName})
+                ON CONFLICT (NAME) DO UPDATE SET
+                    MANUFACTURER = EXCLUDED.MANUFACTURER,
+                    NEXT_DUE = EXCLUDED.NEXT_DUE,
+                    EQUIPMENT_ID = EXCLUDED.EQUIPMENT_ID,
+                    PROCEDURE = EXCLUDED.PROCEDURE,
+                    REF_STANDARD = EXCLUDED.REF_STANDARD,
+                    MODEL = EXCLUDED.MODEL,
+                    SERIAL_NUMBER = EXCLUDED.SERIAL_NUMBER,
+                    MODEL_SERIAL = EXCLUDED.MODEL_SERIAL,
+                    MANUFACTURER_ID = EXCLUDED.MANUFACTURER_ID,
+                    SPEC_RANGE = EXCLUDED.SPEC_RANGE,
+                    SPEC_RESOLUTION = EXCLUDED.SPEC_RESOLUTION,
+                    STANDARDS_USED = EXCLUDED.STANDARDS_USED,
+                    NAME_VI = EXCLUDED.NAME_VI,
+                    NAME_EN = COALESCE(NULLIF(EXCLUDED.NAME_EN, ''), EQUIPMENT_TEMPLATES.NAME_EN)
             `;
-        }
 
+            await tx`DELETE FROM TEMPLATE_POINTS WHERE TEMPLATE_NAME = ${standard_name}`;
+
+            if (Array.isArray(points) && points.length > 0) {
+                const ptRows = points.map(p => ({
+                    template_name: standard_name,
+                    parameter_name: p.parameter || p.parameterName || '',
+                    cal_point: p.value || p.calPoint || '',
+                    as_found_value: p.asFoundValue || '',
+                    reference_value: p.referenceValue || p.refValue || '',
+                    uncertainty: p.uncertainty || '',
+                    tolerance: p.tolerance || '',
+                    conformity: p.conformity || '',
+                    standard_equipment: p.standardEquipment || ''
+                }));
+                await tx`
+                    INSERT INTO TEMPLATE_POINTS ${
+                        tx(ptRows, 'template_name', 'parameter_name', 'cal_point', 'as_found_value', 'reference_value', 'uncertainty', 'tolerance', 'conformity', 'standard_equipment')
+                    }
+                `;
+            }
+        });
+
+        invalidateServerCache();
         logActivity("Hệ thống / KTV", "UPDATE", "EQUIPMENT_TEMPLATES", equipment_id, `Lưu mẫu thiết bị: ${standard_name}`).catch(e => console.warn('Lỗi log:', e.message));
         return res.json({ success: true, message: `Thiết bị chuẩn "${standard_name}" đã được lưu thành công!` });
     } catch (err) {
@@ -1663,9 +1609,6 @@ app.get('/api/audit-logs', async (req, res) => {
 app.get('/api/stats/summary', async (req, res) => {
     try {
         res.setHeader('Cache-Control', 'private, no-store');
-        if (serverCache.statsSummary) {
-            return res.json(serverCache.statsSummary);
-        }
         const row = await sql`SELECT COUNT(*) as cert_count FROM CERTIFICATES`;
         serverCache.statsSummary = { certCount: parseInt(row[0].cert_count) || 0 };
         res.json(serverCache.statsSummary);
@@ -2191,9 +2134,6 @@ app.get('/api/projects/:id', async (req, res) => {
 app.get('/api/projects/:id/machines', async (req, res) => {
     res.setHeader('Cache-Control', 'private, no-store');
     const projectId = req.params.id;
-    if (serverCache.machines[projectId]) {
-        return res.json(serverCache.machines[projectId]);
-    }
     const certNo = projectId.replace('PRJ-', '');
     try {
         const [certRows, pointRows] = await Promise.all([

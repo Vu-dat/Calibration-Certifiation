@@ -160,11 +160,11 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
             <div class="hero-stats-mini" style="opacity: 0; animation: fadeInUp 0.6s ease 1.0s forwards;">
                 <div class="mini-stat">
-                    <span class="val count-up" data-target="98">0%</span>
+                    <span class="val count-up" data-target="0">—</span>
                     <span class="lbl">Compliance</span>
                 </div>
                 <div class="mini-stat">
-                    <span class="val count-up" data-target="1200">0</span>
+                    <span class="val count-up" data-target="0">—</span>
                     <span class="lbl">Certificates</span>
                 </div>
             </div>
@@ -186,7 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <h3>Quản lý Dự án</h3>
             <p>Theo dõi tiến độ hiệu chuẩn thời gian thực.</p>
             <div class="card-footer-stats">
-                <span class="main-val">24</span>
+                <span class="main-val">—</span>
                 <span class="sub-lbl">Đang thực hiện</span>
             </div>
         </div>
@@ -199,7 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <h3>Cơ sở Khách hàng</h3>
             <p>Quản lý quan hệ và lịch sử kiểm định khách hàng.</p>
             <div class="card-footer-stats">
-                <span class="main-val">152</span>
+                <span class="main-val">—</span>
                 <span class="sub-lbl">Đối tác tin cậy</span>
             </div>
         </div>
@@ -212,7 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <h3>Thiết bị chuẩn</h3>
             <p>Kiểm soát hạn hiệu chuẩn và liên kết chuẩn.</p>
             <div class="card-footer-stats">
-                <span class="main-val" style="color: #e53e3e;">05</span>
+                <span class="main-val" style="color: #e53e3e;">—</span>
                 <span class="sub-lbl">Sắp hết hạn</span>
             </div>
         </div>
@@ -234,18 +234,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <h3 style="border-bottom: 1px solid #edf2f7; padding-bottom: 15px; margin-bottom: 20px; display:flex; align-items:center; gap:8px;">
                 <i class="fa-solid fa-clock-rotate-left" style="color:var(--primary);"></i> Hoạt động gần đây
             </h3>
-            <div class="activity-list">
-                <div class="activity-item" style="display: flex; gap: 15px; padding: 10px 0; border-bottom: 1px dashed #f0f0f0;">
-                    <span style="color: #008080; font-weight: bold;">[PJ-328344]</span>
-                    <span>KTV. Nguyễn Văn A đã hoàn thành báo cáo hiệu chuẩn Wascator.</span>
-                    <span style="margin-left: auto; color: #a0aec0; font-size: 0.85rem;">2 giờ trước</span>
-                </div>
-                <div class="activity-item" style="display: flex; gap: 15px; padding: 10px 0; border-bottom: 1px dashed #f0f0f0;">
-                    <span style="color: #dd6b20; font-weight: bold;">[CẢNH BÁO]</span>
-                    <span>Thiết bị LAB-TIMER.01 sắp hết hạn hiệu chuẩn trong 15 ngày tới.</span>
-                    <span style="margin-left: auto; color: #a0aec0; font-size: 0.85rem;">6 giờ trước</span>
-                </div>
-            </div>
+            <div class="activity-list" id="dashboard-data-status" role="status">Hoạt động gần đây sẽ hiển thị sau khi truy xuất từ máy chủ.</div>
         </div>
     </div>
 </main>
@@ -319,20 +308,34 @@ function handleLogoutIndex() {
     localStorage.removeItem('labmaster_user');
     window.location.href = 'login.html';
 }
-// Dữ liệu dự án thực tế (Đồng bộ cấu trúc với trang project.html)
-const projectData = {
-    'PRJ-328344': { id: 'PRJ-328344', title: 'Hiệu chuẩn hệ thống Wascator', status: 'In Progress' },
-    'PRJ-552104': { id: 'PRJ-552104', title: 'Kiểm định lò sấy Whirlpool', status: 'In Progress' },
-    'PRJ-882931': { id: 'PRJ-882931', title: 'Hiệu chuẩn tủ lạnh Samsung', status: 'Finished' },
-    'PRJ-112233': { id: 'PRJ-112233', title: 'Thử nghiệm độ bền Poly', status: 'In Progress' },
-    'PRJ-999001': { id: 'PRJ-999001', title: 'Bảo trì thiết bị đo lực', status: 'To Do' }
-};
-
-// Hàm cập nhật các con số thống kê trên Dashboard
-function updateDashboardStats() {
-    const projects = Object.values(projectData);
-    const inProgressCount = projects.filter(p => p.status === 'In Progress').length;
-    document.querySelector('.info-card.stat-main .main-val').textContent = inProgressCount;
+// Thống kê trang chủ được nạp trực tiếp từ API đọc Supabase.
+let projectStatusChart = null;
+async function updateDashboardStats() {
+    const cards = document.querySelectorAll('.dashboard-grid .info-card.stat-main');
+    const setCard = (index, value) => { const el = cards[index]?.querySelector('.main-val'); if (el) el.textContent = String(value); };
+    setCard(0, '—'); setCard(1, '—'); setCard(2, '—');
+    try {
+        const [initRes, customersRes, clockRes] = await Promise.all([
+            fetch(`${API_BASE_URL}/api/init`, { cache: 'no-store' }),
+            fetch(`${API_BASE_URL}/api/customers?page=1&limit=1`, { cache: 'no-store' }),
+            fetch(`${API_BASE_URL}/api/clock`, { cache: 'no-store' })
+        ]);
+        if (!initRes.ok || !customersRes.ok || !clockRes.ok) throw new Error('Không thể tải thống kê từ Supabase.');
+        const [init, customers, standards] = await Promise.all([initRes.json(), customersRes.json(), clockRes.json()]);
+        if (init.success === false || customers.success === false || !Array.isArray(standards)) throw new Error(init.error || customers.error || 'Phản hồi dữ liệu không hợp lệ.');
+        setCard(0, init.projects?.progress ?? 0);
+        setCard(1, customers.total ?? 0);
+        const now = new Date(); const horizon = new Date(); horizon.setDate(now.getDate() + 30);
+        const expiring = standards.filter(row => { const raw = row.NEXT_DUE || row.next_due || row.VALIDITY || row.validity; if (!raw) return false; const d = new Date(raw); return !Number.isNaN(d.getTime()) && d >= now && d <= horizon; }).length;
+        setCard(2, expiring);
+        const certValue = Array.from(document.querySelectorAll('.mini-stat')).find(el => el.querySelector('.lbl')?.textContent.trim() === 'Certificates')?.querySelector('.val');
+        if (certValue) certValue.textContent = String(init.certCount ?? 0);
+        const chart = projectStatusChart && Chart.getChart('projectStatusChart');
+        if (chart) { chart.data.datasets[0].data = [init.projects?.progress ?? 0, init.projects?.finished ?? 0, Math.max(0, (init.projects?.total ?? 0) - (init.projects?.progress ?? 0) - (init.projects?.finished ?? 0))]; chart.update(); }
+    } catch (err) {
+        console.error('Không tải được dữ liệu dashboard từ Supabase:', err);
+        const status = document.getElementById('dashboard-data-status'); if (status) status.textContent = 'Không tải được dữ liệu từ máy chủ Supabase.';
+    }
 }
 
    function navigate(page) {
@@ -382,106 +385,13 @@ function animateChart(ctx) {
 
 // Khởi tạo Biểu đồ Dự án
 function initProjectChart() {
-    const ctx = document.getElementById('projectStatusChart').getContext('2d');
-    
-    // 1. Tính toán số liệu thực tế từ biến projectData
-    const projects = Object.values(projectData);
-    const inProgress = projects.filter(p => p.status === 'In Progress').length;
-    const finished = projects.filter(p => p.status === 'Finished').length;
-    const todo = projects.filter(p => p.status === 'To Do').length;
-
-    new Chart(ctx, {
-        type: 'doughnut', // Sử dụng doughnut cho cảm giác hiện đại hơn Pie truyền thống
-        data: {
-            labels: ['Đang thực hiện', 'Hoàn thành', 'Chưa bắt đầu'],
-            datasets: [{
-                data: [inProgress, finished, todo],
-                backgroundColor: [
-                    '#ffc107', // Vàng (Warning)
-                    '#28a745', // Xanh lá (Success)
-                    '#17a2b8'  // Xanh dương (Info)
-                ],
-                hoverOffset: 10,
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        padding: 20,
-                        usePointStyle: true,
-                        font: { size: 12, family: "'Roboto', sans-serif" }
-                    }
-                }
-            },
-            cutout: '70%' // Tạo độ rỗng ở giữa để chuyên nghiệp hơn
-        }
+    const ctx = document.getElementById('projectStatusChart')?.getContext('2d');
+    if (!ctx) return;
+    projectStatusChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: ['Đang thực hiện', 'Hoàn thành', 'Chưa bắt đầu'], datasets: [{ data: [0, 0, 0], backgroundColor: ['#ffc107', '#28a745', '#17a2b8'], hoverOffset: 10, borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true, font: { size: 12, family: "'Roboto', sans-serif" } } } }, cutout: '70%' }
     });
-}
-
-async function submitCalibrationFormAndPrint() {
-    const pdfWindow = window.open('about:blank', '_blank');
-    // 1. Thu thập trọn bộ thông tin theo cấu trúc file mẫu của sếp bạn
-    const fullPayload = {
-        certNo: "328344",
-        instrumentName: "Máy giặt wascator",
-        manufacturer: "Electrolux",
-        model: "FOM 71CLS",
-        equipmentId: "241211",
-        serialNumber: "00522/0539752",
-        customerName: "CÔNG TY TNHH PAIHONG VIỆT NAM",
-        calDate: "21.04.2026",
-        reCalDate: "21.04.2027",
-        procedure: "LAB-F-01, LAB-T-02",
-        refStandard: "ISO 6330",
-        tempEnv: "[25 ± 2] ⁰C",
-        humiEnv: "[63 ± 5] %RH",
-        headOfLab: "Lê Cảnh Nhật Quang",
-        director: "Lưu Ngọc Thống",
-        // Mảng danh sách các điểm đo được nhập từ bảng trên giao diện web
-        points: [
-            { parameterName: "Nhiệt độ", calPoint: 30, asFoundValue: 30.2, uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
-            { parameterName: "Nhiệt độ", calPoint: 40, asFoundValue: 39.5, uncertainty: 0.3, tolerance: "± 3", conformity: "A" },
-            { parameterName: "Tốc độ giặt", calPoint: 52, asFoundValue: 52.6, uncertainty: 0.8, tolerance: "± 2", conformity: "A" },
-            { parameterName: "Thời gian", calPoint: 100, asFoundValue: 100.0, uncertainty: 0.1, tolerance: "--", conformity: "--" }
-        ]
-    };
-
-    try {
-        // Gửi thông tin sang Backend C++ lưu trữ vào SQLite chuyên sâu
-        const saveRes = await fetch(`${API_BASE_URL}/api/calibration/save-full`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(fullPayload)
-        });
-        const saveResult = await saveRes.json();
-
-        if (saveResult.success) {
-            alert("Lưu trữ hồ sơ lên hệ thống thành công! Bắt đầu in Giấy Chứng Nhận...");
-            
-            // Kích hoạt sinh PDF ngay lập tức
-            const pdfRes = await fetch(`${API_BASE_URL}/api/calibration/export-pdf/${fullPayload.certNo}`);
-            const pdfResult = await pdfRes.json();
-            
-            if(pdfResult.success) {
-                // Mở chứng nhận PDF chuyên nghiệp lên màn hình để sếp ký duyệt
-                const pdfUrl = pdfResult.file_url || `${API_BASE_URL}${pdfResult.pdf_url}`;
-                if (pdfWindow) pdfWindow.location.href = pdfUrl;
-                else window.location.href = pdfUrl;
-            } else if (pdfWindow) {
-                pdfWindow.close();
-            }
-        } else if (pdfWindow) {
-            pdfWindow.close();
-        }
-    } catch (err) {
-        if (pdfWindow) pdfWindow.close();
-        console.error("Lỗi đồng bộ hệ thống: ", err);
-    }
 }
 
 // ─── Scroll Reveal using IntersectionObserver ───

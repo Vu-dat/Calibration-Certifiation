@@ -768,13 +768,7 @@ document.addEventListener("DOMContentLoaded", () => {
 <script>
 /* ====== SWR CACHE HELPERS ====== */
 function cacheGet(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const item = JSON.parse(raw);
-    if (Date.now() > item.expiry) return item.data; // tr? data d? c? khi stale
-    return item.data;
-  } catch(e) { return null; }
+  return null; // Business data must always be loaded from the API backed by Supabase.
 }
 function cacheSet(key, data, ttlMs) {
   try { localStorage.setItem(key, JSON.stringify({ data, expiry: Date.now() + (ttlMs || 30000), isStale: false })); }
@@ -1294,34 +1288,30 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         const cacheKey = 'lm_equipment_templates' + (searchQuery ? '_q_' + searchQuery : '');
         
         try {
-            // Kiểm tra cache trước, nếu chưa có thì fetch trực tiếp từ API
-            let data = cacheGet(cacheKey);
-            if (!data) {
-                const url = new URL(`${TARGET_URL}/api/equipment-templates`);
-                if (searchQuery) url.searchParams.append('q', searchQuery);
-                const res = await fetch(url.toString());
-                if (!res.ok) throw new Error('API failed');
-                data = await res.json();
-                cacheSet(cacheKey, data, 60000); // Extended cache to 60s
-            } else if (cacheIsStale(cacheKey)) {
-                // Background refresh nếu stale
-                const url = new URL(`${TARGET_URL}/api/equipment-templates`);
-                if (searchQuery) url.searchParams.append('q', searchQuery);
-                fetch(url.toString())
-                    .then(r => r.json())
-                    .then(fresh => {
-                        cacheSet(cacheKey, fresh, 60000);
-                        fetchedEquipments = fresh || [];
-                        renderTable(fetchedEquipments, true);
-                    })
-                    .catch(() => {});
+            const url = new URL(`${TARGET_URL}/api/equipment-templates`);
+            if (searchQuery) url.searchParams.append('q', searchQuery);
+            const res = await fetch(url.toString(), {
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+            if (!res.ok) {
+                let message = `API trả về lỗi ${res.status}`;
+                try {
+                    const errorData = await res.json();
+                    message = errorData.message || errorData.error || message;
+                } catch (_) {}
+                throw new Error(message);
             }
-            
+            const data = await res.json();
+            cacheSet(cacheKey, data, 60000);
             fetchedEquipments = data || [];
             renderTable(fetchedEquipments, true);
         } catch (error) {
             console.error("Lỗi khi tải danh sách thiết bị từ Database API:", error);
-            renderFallbackLocalStorage();
+            fetchedEquipments = [];
+            renderTable([], true);
+            const cell = document.querySelector('#eq-body td');
+            if (cell) cell.textContent = `Không tải được mẫu từ Supabase: ${error.message}`;
         }
         return fetchedEquipments;
     }
@@ -1824,6 +1814,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         try {
             const response = await fetch(`${TARGET_URL}/api/equipment`, {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
@@ -1837,30 +1828,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
             showView('list-view');
         } catch (error) {
             console.error("Lỗi khi lưu thiết bị:", error);
-
-            // Fallback: lưu tạm vào localStorage
-            let db = {};
-            try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
-
-            db[name] = {
-                manufacturer: manufacturer,
-                nextDue: nextDue,
-                formPoints: points.map(p => ({
-                    PARAMETER_NAME: p.parameterName,
-                    CAL_POINT: p.calPoint,
-                    AS_FOUND_VALUE: p.asFoundValue,
-                    REFERENCE_VALUE: p.referenceValue,
-                    UNCERTAINTY: p.uncertainty,
-                    TOLERANCE: p.tolerance,
-                    CONFORMITY: p.conformity,
-                    STANDARD_EQUIPMENT: p.standardEquipment
-                }))
-            };
-            localStorage.setItem('labmaster_equipment_db', JSON.stringify(db));
-
-            alert('Mất kết nối API Server. Dữ liệu đã được lưu tạm vào LocalStorage!');
-            fetchEquipmentTemplates();
-            showView('list-view');
+            alert(`Không thể lưu mẫu thiết bị lên Supabase: ${error.message}`);
         }
     }
 
@@ -1886,7 +1854,8 @@ async function fetchEquipmentTemplates(searchQuery = '') {
 
         try {
             const response = await fetch(`${TARGET_URL}/api/equipment-templates/${encodeURIComponent(templateName)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                credentials: 'same-origin'
             });
 
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -1996,6 +1965,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
         try {
             const response = await fetch(`${TARGET_URL}/api/equipment`, {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
@@ -2008,14 +1978,7 @@ async function fetchEquipmentTemplates(searchQuery = '') {
             fetchEquipmentTemplates(); 
         } catch (error) {
             console.error("Lỗi kịch bản executeCreateEquipment:", error);
-            let db = {};
-            try { db = JSON.parse(localStorage.getItem('labmaster_equipment_db') || '{}'); } catch(e) {}
-            db[name] = { manufacturer: manu, nextDue: due, formPoints: points };
-            localStorage.setItem('labmaster_equipment_db', JSON.stringify(db));
-            
-            alert('Mất kết nối API Server. Thiết bị đã được lưu tạm vào LocalStorage!');
-            closeEquipmentModal();
-            fetchEquipmentTemplates();
+            alert(`Không thể lưu mẫu thiết bị lên Supabase: ${error.message}`);
         }
     }
 
