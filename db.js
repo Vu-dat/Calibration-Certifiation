@@ -32,9 +32,9 @@ if (!sql) {
   const options = {
     ssl: sslOption(),
     prepare: false,
-    max: process.env.VERCEL ? 3 : 10,
+    max: process.env.VERCEL ? 5 : 10,
     idle_timeout: 20,
-    connect_timeout: Number(process.env.SUPABASE_CONNECT_TIMEOUT || 15),
+    connect_timeout: Number(process.env.SUPABASE_CONNECT_TIMEOUT || 10),
   };
 
   if (connectionUrl) {

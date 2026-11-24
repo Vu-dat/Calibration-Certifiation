@@ -97,6 +97,50 @@ let serverCache = {
     statsSummary: null,
     clock: null
 };
+const USER_PROFILE_CACHE_TTL_MS = 60 * 1000;
+const userProfileCache = new Map();
+let certCountPromise = null;
+
+async function getCertCount() {
+    if (serverCache.statsSummary) return serverCache.statsSummary.certCount;
+    if (!certCountPromise) {
+        certCountPromise = sql`SELECT COUNT(*) as cert_count FROM CERTIFICATES`
+            .then(rows => {
+                const certCount = parseInt(rows[0]?.cert_count, 10) || 0;
+                serverCache.statsSummary = { certCount };
+                return certCount;
+            })
+            .finally(() => { certCountPromise = null; });
+    }
+    return certCountPromise;
+}
+
+async function getSessionUser(username) {
+    const now = Date.now();
+    const cached = userProfileCache.get(username);
+    if (cached && cached.expiresAt > now) {
+        return cached.promise || cached.user;
+    }
+
+    const promise = sql`SELECT USERNAME, FULL_NAME, ROLE FROM USERS WHERE USERNAME = ${username}`
+        .then(rows => rows.length ? {
+            username: rows[0].username,
+            fullName: rows[0].full_name,
+            role: rows[0].role,
+        } : null)
+        .then(user => {
+            if (user) userProfileCache.set(username, { user, expiresAt: Date.now() + USER_PROFILE_CACHE_TTL_MS });
+            else userProfileCache.delete(username);
+            return user;
+        })
+        .catch(error => {
+            userProfileCache.delete(username);
+            throw error;
+        });
+    // Store the in-flight query immediately so parallel requests share it.
+    userProfileCache.set(username, { promise, expiresAt: Number.POSITIVE_INFINITY });
+    return promise;
+}
 
 function invalidateServerCache() {
     serverCache.init = null;
@@ -620,9 +664,9 @@ app.use('/api', async (req, res, next) => {
         }
         const session = readSession(req);
         if (!session) return res.status(401).json({ success: false, message: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' });
-        const users = await sql`SELECT USERNAME, FULL_NAME, ROLE FROM USERS WHERE USERNAME = ${session.username}`;
-        if (!users.length) return res.status(401).json({ success: false, message: 'Tài khoản không còn tồn tại.' });
-        req.user = { username: users[0].username, fullName: users[0].full_name, role: users[0].role };
+        const user = await getSessionUser(session.username);
+        if (!user) return res.status(401).json({ success: false, message: 'Tài khoản không còn tồn tại.' });
+        req.user = user;
         next();
     } catch (err) {
         console.error("❌ Lỗi khởi tạo cơ sở dữ liệu:", err);
@@ -769,6 +813,7 @@ app.get('/api/init', async (req, res) => {
             templates: templates,
             standards: clockData
         };
+        serverCache.statsSummary = { certCount: parseInt(certCountResult[0].cert_count) || 0 };
         res.json(serverCache.init);
     } catch (err) {
         console.error('❌ /api/init error:', err.message);
@@ -1043,10 +1088,14 @@ app.get('/api/projects', async (req, res) => {
         const offset = (page - 1) * limit;
         const cacheKey = `${page}_${limit}`;
         if (serverCache.projects[cacheKey]) {
-            return res.json(serverCache.projects[cacheKey]);
+            const cachedProjects = serverCache.projects[cacheKey];
+            if (cachedProjects.certCount !== undefined) return res.json(cachedProjects);
+            // Older in-process prewarm payloads may not include the combined count.
+            cachedProjects.certCount = await getCertCount();
+            return res.json(cachedProjects);
         }
 
-        const [rowsDb, statsResult] = await Promise.all([
+        const [rowsDb, statsResult, certCount] = await Promise.all([
             sql`SELECT * FROM PROJECTS ORDER BY CREATED_AT DESC LIMIT ${limit} OFFSET ${offset}`,
             sql`
                 SELECT 
@@ -1054,7 +1103,8 @@ app.get('/api/projects', async (req, res) => {
                     COUNT(*) FILTER (WHERE status = 'In Progress') as progress,
                     COUNT(*) FILTER (WHERE status = 'Finished') as finished
                 FROM PROJECTS
-            `
+            `,
+            getCertCount()
         ]);
 
         const rows = rowsDb.map(r => ({
@@ -1064,11 +1114,12 @@ app.get('/api/projects', async (req, res) => {
             STATUS: r.status,
             CREATED_AT: r.created_at
         }));
-        serverCache.projects[cacheKey] = { 
+        serverCache.projects[cacheKey] = {
             data: rows, 
             total: parseInt(statsResult[0].total),
             progress: parseInt(statsResult[0].progress),
             finished: parseInt(statsResult[0].finished),
+            certCount,
             page: page, 
             limit: limit 
         };
@@ -1707,13 +1758,11 @@ app.get('/api/audit-logs', async (req, res) => {
 
 app.get('/api/stats/summary', async (req, res) => {
     try {
-        await ensureCustomersSchema();
         res.setHeader('Cache-Control', 'private, no-store');
         if (serverCache.statsSummary) {
             return res.json(serverCache.statsSummary);
         }
-        const row = await sql`SELECT COUNT(*) as cert_count FROM CERTIFICATES`;
-        serverCache.statsSummary = { certCount: parseInt(row[0].cert_count) || 0 };
+        serverCache.statsSummary = { certCount: await getCertCount() };
         res.json(serverCache.statsSummary);
     } catch (err) {
         res.status(500).json({ success: false });
@@ -1790,6 +1839,9 @@ async function saveCalibrationDataToDBHelper(data, cert_no) {
     })();
 
     await Promise.all([certPromise, replacePointsPromise, replaceStdsPromise]);
+    serverCache.projects = {};
+    serverCache.machines = {};
+    serverCache.statsSummary = null;
 }
 
 // ================= EXPORT CHỨNG NHẬN =================
@@ -2188,6 +2240,7 @@ app.put('/api/auth/users/:id', async (req, res) => {
             const query = `UPDATE USERS SET ${updateFields.join(', ')} WHERE ID = $${idx}`;
             updateValues.push(userId);
             await sql.unsafe(query, updateValues);
+            userProfileCache.delete(username);
         }
 
         logActivity(req.user.username, "UPDATE", "USERS", userId, `Cập nhật thông tin user: ${username}`);
@@ -2211,6 +2264,7 @@ app.delete('/api/auth/users/:id', async (req, res) => {
             return res.status(403).json({ success: false, message: "Không thể xóa tài khoản admin mặc định!" });
         }
         await sql`DELETE FROM USERS WHERE ID = ${userId}`;
+        userProfileCache.delete(target[0].username);
         logActivity(req.user.username, "DELETE", "USERS", userId, `Đã xóa người dùng: ${target[0].username}`);
         res.json({ success: true, message: `Đã xóa người dùng ${target[0].username} thành công!` });
     } catch (err) {
@@ -2249,30 +2303,34 @@ app.get('/api/projects/:id/machines', async (req, res) => {
     if (serverCache.machines[projectId]) {
         return res.json(serverCache.machines[projectId]);
     }
-    const certNo = projectId.replace('PRJ-', '');
+    const certNo = projectId.startsWith('PRJ-') ? projectId.slice(4) : projectId;
     try {
-        const [certRows, pointRows] = await Promise.all([
-            sql`SELECT CERT_NO, INSTRUMENT_NAME FROM CERTIFICATES WHERE CERT_NO = ${certNo} OR CERT_NO LIKE ${certNo + '_%'}`,
-            sql`SELECT DISTINCT equipment_name FROM CALIBRATION_POINTS WHERE CERT_NO = ${certNo} OR CERT_NO LIKE ${certNo + '_%'}`
-        ]);
-        
-        const namesSet = new Set();
-        certRows.forEach(c => {
-            if (c.cert_no.includes('_')) {
-                namesSet.add(c.cert_no.substring(c.cert_no.indexOf('_') + 1));
-            } else if (c.instrument_name) {
-                namesSet.add(c.instrument_name);
-            }
-        });
-        pointRows.forEach(p => {
-            if (p.equipment_name) namesSet.add(p.equipment_name);
-        });
-        
-        const machineNames = Array.from(namesSet);
+        const rows = await sql`
+            SELECT DISTINCT machine_name
+            FROM (
+                SELECT CASE
+                    WHEN POSITION('_' IN CERT_NO) > 0
+                        THEN SUBSTRING(CERT_NO FROM POSITION('_' IN CERT_NO) + 1)
+                    ELSE INSTRUMENT_NAME
+                END AS machine_name
+                FROM CERTIFICATES
+                WHERE CERT_NO = ${certNo}
+                   OR LEFT(CERT_NO, LENGTH(${certNo}) + 1) = ${certNo + '_'}
+                UNION ALL
+                SELECT EQUIPMENT_NAME AS machine_name
+                FROM CALIBRATION_POINTS
+                WHERE CERT_NO = ${certNo}
+                   OR LEFT(CERT_NO, LENGTH(${certNo}) + 1) = ${certNo + '_'}
+            ) AS project_machines
+            WHERE machine_name IS NOT NULL AND BTRIM(machine_name) <> ''
+            ORDER BY machine_name
+        `;
+        const machineNames = rows.map(row => row.machine_name);
         serverCache.machines[projectId] = { success: true, machines: machineNames };
         res.json(serverCache.machines[projectId]);
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error(`Failed to load machines for project ${projectId}:`, err.message);
+        res.status(500).json({ success: false, machines: [], error: err.message });
     }
 });
 
@@ -2365,12 +2423,14 @@ async function prewarmServerCache() {
         const totalProjects = parseInt(statsResult[0].total) || 0;
         const progressCount = parseInt(statsResult[0].progress) || 0;
         const finishedCount = parseInt(statsResult[0].finished) || 0;
+        serverCache.statsSummary = { certCount: parseInt(certCountResult[0].cert_count) || 0 };
 
         serverCache.projects['1_15'] = {
             data: rows15,
             total: totalProjects,
             progress: progressCount,
             finished: finishedCount,
+            certCount: parseInt(certCountResult[0].cert_count) || 0,
             page: 1,
             limit: 15
         };
@@ -2379,6 +2439,7 @@ async function prewarmServerCache() {
             total: totalProjects,
             progress: progressCount,
             finished: finishedCount,
+            certCount: parseInt(certCountResult[0].cert_count) || 0,
             page: 1,
             limit: 10
         };

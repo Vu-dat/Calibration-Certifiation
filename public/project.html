@@ -2382,30 +2382,34 @@ function resolveEquipmentName(idOrName) {
 // L?n sau: cached c? -> hi?n th? ngay, refresh background.
 let pageDataInitialized = false;
 async function initPageData() {
+  if (pageDataInitialized) return;
+  let initProvidedTemplates = false;
   // B??c 1: Dùng SWR ?? th? /api/init tr??c
   try {
-    await swrFetch('lm_init_data', async () => {
+    const initData = await swrFetch('lm_init_data', async () => {
       const res = await fetch(`${API_BASE_URL}/api/init`);
       if (!res.ok) throw new Error('Init API failed');
-      const d = await res.json();
-      if (d.templates) {
-        const oldTtl = cacheIsStale('lm_equipment_templates') ? 0 : 30000;
-        cacheSet('lm_equipment_templates', d.templates, oldTtl);
-        applyEquipmentCache(d.templates);
-      }
-      if (d.standards) {
-        const oldTtl2 = cacheIsStale('lm_clock_standards') ? 0 : 30000;
-        cacheSet('lm_clock_standards', d.standards, oldTtl2);
-        liveStandardsDB = d.standards;
-      }
-      window._initProjectsStats = d.projects;
-      window._initCertCount = d.certCount;
-      return d;
+      return res.json();
     }, 30000);
+    if (initData && Array.isArray(initData.templates)) {
+      initProvidedTemplates = true;
+      const oldTtl = cacheIsStale('lm_equipment_templates') ? 0 : 30000;
+      cacheSet('lm_equipment_templates', initData.templates, oldTtl);
+      applyEquipmentCache(initData.templates);
+    }
+    if (initData && Array.isArray(initData.standards)) {
+      const oldTtl = cacheIsStale('lm_clock_standards') ? 0 : 30000;
+      cacheSet('lm_clock_standards', initData.standards, oldTtl);
+      liveStandardsDB = initData.standards;
+    }
+    if (initData) {
+      window._initProjectsStats = initData.projects;
+      window._initCertCount = initData.certCount;
+    }
   } catch(e) { /* fallback */ }
   
   // B??c 2: ??m b?o equipment ?ã s?n s?ng (t? cache ho?c fetch)
-  if (Object.keys(MockDatabaseEquipment).length === 0) {
+  if (!initProvidedTemplates && Object.keys(MockDatabaseEquipment).length === 0) {
     await swrFetch('lm_equipment_templates', async () => {
       const res = await fetch(`${API_BASE_URL}/api/equipment-templates`);
       if (!res.ok) throw new Error('API failed');
@@ -2419,12 +2423,6 @@ async function initPageData() {
 }
 
 // Trì hoãn nạp dữ liệu cấu hình mẫu & chuẩn để ưu tiên hiển thị ngay danh sách dự án (0ms)
-if ('requestIdleCallback' in window) {
-  requestIdleCallback(() => initPageData(), { timeout: 1500 });
-} else {
-  setTimeout(initPageData, 800);
-}
-
 function showDbSyncBadge() {
   let b = document.getElementById('db-sync-badge');
   if (!b) {
@@ -2586,6 +2584,7 @@ function applyCustomerToWorkspace(cust) {
 
 /* ====== PROJECT DATA ====== */
 let projectsList = [];
+let lastProjectCertCount = null;
 let currentActiveCertNo = null; 
 let currentProjectId = null;
 let currentTitle = '';
@@ -2673,14 +2672,6 @@ async function viewProjectDetail(id, fromPopState = false) {
   if(!proj) return;
 
   // Đảm bảo cache thiết bị mẫu (MockDatabaseEquipment) đã sẵn sàng để hiển thị danh sách máy
-  if (Object.keys(MockDatabaseEquipment).length === 0) {
-    try {
-      await syncEquipmentDBFromAPI();
-    } catch (e) {
-      console.warn("Không đồng bộ được danh sách thiết bị mẫu khi vào dự án:", e.message);
-    }
-  }
-
   currentTitle = proj.TITLE;
 
   // --- Tự động nhận diện thiết bị từ tên dự án qua resolveEquipmentName ---
@@ -2756,35 +2747,104 @@ async function viewProjectDetail(id, fromPopState = false) {
   // TỨC THÌ (0ms): Dùng cache danh sách máy nếu có sẵn
   const cachedMachinesKey = `lm_machines_${proj.ID}`;
   const cachedMachines = (typeof cacheGet === 'function') ? cacheGet(cachedMachinesKey) : null;
-  if (cachedMachines && Array.isArray(cachedMachines) && cachedMachines.length > 0) {
+  if (Array.isArray(cachedMachines)) {
     resetMachineList();
     cachedMachines.forEach((eqName, idx) => {
       addMachineToProjectList(proj, eqName, idx + 1);
     });
+    if (cachedMachines.length === 0) renderMachineListMessage(proj, 'Chưa có thiết bị/task nào trong dự án này.', false);
   } else {
-    const tbody = document.getElementById('project-items-body');
-    if (tbody) {
-      tbody.innerHTML = `<tr class="skeleton-row"><td colspan="7" style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;"><i class="fas fa-circle-notch fa-spin" style="margin-right:8px;color:var(--primary);"></i>Đang tải danh sách thiết bị/task...</td></tr>`;
-    }
+    renderMachineListLoading();
   }
+  loadProjectMachines(proj, !Array.isArray(cachedMachines));
+}
 
-  fetch(`${API_BASE_URL}/api/projects/${proj.ID}/machines`)
-    .then(res => res.json())
-    .then(resData => {
-      if (resData.success && resData.machines) {
-        if (typeof cacheSet === 'function') cacheSet(cachedMachinesKey, resData.machines, 300000);
-        resetMachineList();
-        if (resData.machines.length > 0) {
-          resData.machines.sort((a, b) => a.localeCompare(b));
-          resData.machines.forEach((eqName, idx) => {
-            addMachineToProjectList(proj, eqName, idx + 1);
-          });
-        }
-      }
-    })
-    .catch(err => {
-      console.error("Lỗi khi tải danh sách thiết bị của dự án:", err);
+function renderMachineListLoading() {
+  const tbody = document.getElementById('project-items-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr class="skeleton-row"><td colspan="7" style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;"><i class="fas fa-circle-notch fa-spin" style="margin-right:8px;color:var(--primary);"></i>Đang tải danh sách thiết bị/task...</td></tr>';
+}
+
+function renderMachineListMessage(proj, message, canRetry = true) {
+  const tbody = document.getElementById('project-items-body');
+  if (!tbody || currentProjectId !== proj.ID) return;
+  tbody.innerHTML = '';
+  const row = document.createElement('tr');
+  const cell = document.createElement('td');
+  cell.colSpan = 7;
+  cell.style.cssText = 'padding:20px;text-align:center;color:var(--text-muted);';
+  const label = document.createElement('span');
+  label.textContent = message;
+  cell.appendChild(label);
+  if (canRetry) {
+    const retry = document.createElement('button');
+    retry.className = 'btn btn-secondary btn-sm';
+    retry.style.marginLeft = '12px';
+    retry.textContent = 'Thử lại';
+    retry.addEventListener('click', () => loadProjectMachines(proj, true));
+    cell.appendChild(retry);
+  }
+  row.appendChild(cell);
+  tbody.appendChild(row);
+}
+
+async function loadProjectMachines(proj, showLoading = false) {
+  if (showLoading) renderMachineListLoading();
+  const controller = new AbortController();
+  let timedOut = false;
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+      reject(new Error('Quá thời gian tải thiết bị của dự án.'));
+    }, 15000);
+  });
+
+  const loadPromise = (async () => {
+    const templateSync = Object.keys(MockDatabaseEquipment).length === 0
+      ? syncEquipmentDBFromAPI().catch(error => {
+          console.warn('Không đồng bộ được danh sách mẫu thiết bị:', error.message);
+        })
+      : Promise.resolve();
+    const responsePromise = fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(proj.ID)}/machines`, {
+      signal: controller.signal,
     });
+    const [response] = await Promise.all([responsePromise, templateSync]);
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const body = await response.json();
+        detail = body.message || body.error || '';
+      } catch (_) { /* response may not be JSON */ }
+      throw new Error(detail || `Không tải được thiết bị (HTTP ${response.status}).`);
+    }
+    const resData = await response.json();
+    if (!resData || resData.success !== true || !Array.isArray(resData.machines)) {
+      throw new Error(resData?.error || 'Máy chủ trả về danh sách thiết bị không hợp lệ.');
+    }
+    return resData.machines;
+  })();
+
+  try {
+    const machineNames = await Promise.race([loadPromise, timeoutPromise]);
+    if (currentProjectId !== proj.ID) return;
+    if (typeof cacheSet === 'function') cacheSet(`lm_machines_${proj.ID}`, machineNames, 300000);
+    resetMachineList();
+    if (machineNames.length === 0) {
+      renderMachineListMessage(proj, 'Chưa có thiết bị/task nào trong dự án này.', false);
+      return;
+    }
+    machineNames.sort((a, b) => a.localeCompare(b));
+    machineNames.forEach((eqName, idx) => addMachineToProjectList(proj, eqName, idx + 1));
+  } catch (error) {
+    if (currentProjectId !== proj.ID) return;
+    const message = timedOut ? 'Tải thiết bị quá lâu. Vui lòng thử lại.' : (error.message || 'Không thể tải thiết bị của dự án.');
+    console.error('Lỗi khi tải danh sách thiết bị của dự án:', error);
+    renderMachineListMessage(proj, message, true);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function resetMachineList() {
@@ -6722,12 +6782,9 @@ function closeModal(id) { document.getElementById(id).style.display='none'; }
 
 /* ====== PROJECT MANAGEMENT ====== */
 async function updateStats() {
-  // This function is now updated to take stats from the paginated API response.
-  // The certCount part remains a separate call.
-
-  const res = await fetch(`${API_URL}/stats/summary`);
-  const summary = await res.json();
-  document.getElementById('stat-certs').textContent = summary.certCount || 0;
+  const certCount = lastProjectCertCount ?? window._initCertCount;
+  const target = document.getElementById('stat-certs');
+  if (target && certCount !== undefined && certCount !== null) target.textContent = certCount;
 }
 
 function renderProjectPagination(totalItems, currentPage, limit) {
@@ -6774,6 +6831,33 @@ function renderProjectSkeleton(count) {
     ].join('\n');
     tbody.appendChild(tr);
   }
+}
+
+function renderProjectLoadMessage(message, canRetry = true) {
+  const tbody = document.getElementById('project-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const row = document.createElement('tr');
+  const cell = document.createElement('td');
+  cell.colSpan = 6;
+  cell.style.cssText = 'padding:24px;text-align:center;color:var(--text-muted);';
+  const text = document.createElement('div');
+  text.textContent = message;
+  cell.appendChild(text);
+  if (canRetry) {
+    const button = document.createElement('button');
+    button.className = 'btn btn-secondary btn-sm';
+    button.style.marginTop = '12px';
+    button.textContent = 'Thử lại';
+    button.addEventListener('click', () => fetchProjects(projectCurrentPage, true));
+    cell.appendChild(button);
+  }
+  row.appendChild(cell);
+  tbody.appendChild(row);
+}
+
+function renderProjectEmptyState() {
+  renderProjectLoadMessage('Chưa có dự án nào.', false);
 }
 
 function renderProjectsTableRows(list) {
@@ -6824,9 +6908,19 @@ async function fetchProjects(page = 1, force = false) {
     cached = cacheGet('lm_projects_fast_cache');
   }
 
-  if (cached && cached.data && cached.data.length > 0) {
+  const hasCachedProjects = !!(cached && Array.isArray(cached.data));
+  if (hasCachedProjects && cached.data.length > 0) {
     projectsList = cached.data;
     renderProjectsTableRows(projectsList);
+    renderProjectStatsData(cached);
+    renderProjectPagination(cached.total, page, projectLimit);
+    if (cached.certCount !== undefined) {
+      lastProjectCertCount = cached.certCount;
+      document.getElementById('stat-certs').textContent = cached.certCount;
+    }
+  } else if (hasCachedProjects) {
+    projectsList = [];
+    renderProjectEmptyState();
     renderProjectStatsData(cached);
     renderProjectPagination(cached.total, page, projectLimit);
   } else {
@@ -6838,32 +6932,54 @@ async function fetchProjects(page = 1, force = false) {
   url.searchParams.append('limit', projectLimit);
   if (force) url.searchParams.append('_t', Date.now());
 
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 15000);
+
   try {
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), { signal: controller.signal });
+    if (!res.ok) {
+      let detail = '';
+      try {
+        const body = await res.json();
+        detail = body.message || body.error || '';
+      } catch (_) { /* response may not be JSON */ }
+      throw new Error(detail || `Tải danh sách dự án thất bại (HTTP ${res.status}).`);
+    }
     const result = await res.json();
-    if (result && result.data) {
+    if (result && Array.isArray(result.data)) {
       projectsList = result.data;
       if (typeof cacheSet === 'function') {
         cacheSet(cacheKey, result, 120000);
         if (page === 1) cacheSet('lm_projects_fast_cache', result, 600000);
       }
       renderProjectsTableRows(projectsList);
+      if (projectsList.length === 0) renderProjectEmptyState();
       renderProjectStatsData(result);
       renderProjectPagination(result.total, page, projectLimit);
-    }
 
-    if (window._initCertCount !== undefined && window._initCertCount !== null) {
-        document.getElementById('stat-certs').textContent = window._initCertCount;
-        window._initCertCount = null;
+      if (result.certCount !== undefined && result.certCount !== null) {
+        lastProjectCertCount = Number(result.certCount) || 0;
+        const certCountElement = document.getElementById('stat-certs');
+        if (certCountElement) certCountElement.textContent = lastProjectCertCount;
+      } else if (window._initCertCount !== undefined && window._initCertCount !== null) {
+        lastProjectCertCount = Number(window._initCertCount) || 0;
+        const certCountElement = document.getElementById('stat-certs');
+        if (certCountElement) certCountElement.textContent = lastProjectCertCount;
+      }
     } else {
-        fetch(`${API_URL}/stats/summary`).then(r => r.json()).then(summary => {
-            if (document.getElementById('stat-certs')) {
-                document.getElementById('stat-certs').textContent = summary.certCount || 0;
-            }
-        }).catch(() => {});
+      throw new Error('Máy chủ trả về dữ liệu danh sách dự án không hợp lệ.');
     }
   } catch (err) {
-    console.error("Lỗi khi tải dự án:", err);
+    const message = timedOut ? 'Tải danh sách dự án quá lâu. Vui lòng thử lại.' : (err.message || 'Không thể tải danh sách dự án.');
+    console.error('Lỗi khi tải dự án:', err);
+    if (!hasCachedProjects) renderProjectLoadMessage(message);
+    else showToast(message, 'warning');
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -7762,7 +7878,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ====== INIT ====== */
-fetchProjects();
+fetchProjects(1).finally(() => {
+  initPageData().catch(error => console.warn('Không tải được dữ liệu mẫu sau danh sách dự án:', error));
+});
 
 const userSession = localStorage.getItem('labmaster_user');
 if (!userSession) { window.location.href = 'login.html'; } 
