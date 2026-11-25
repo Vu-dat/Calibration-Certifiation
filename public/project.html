@@ -1331,6 +1331,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <div class="field">
           <label>Phạm vi đo / Đặc trưng kỹ thuật (Specification / Range)</label>
+          <div id="caliper-range-control" style="display:none; margin:0 0 10px; max-width:260px;">
+            <label for="caliper-range-select" style="display:block; margin-bottom:4px;">Chọn phạm vi đo</label>
+            <select id="caliper-range-select" class="lab-input-cell" onchange="changeCaliperRange(this.value)">
+              <option value="150">0–150 mm</option>
+              <option value="200">0–200 mm</option>
+            </select>
+          </div>
           <div class="cal-table-wrapper" style="border: 1px solid var(--border); border-radius: 8px;">
             <table id="spec-range-table" class="data-table" style="font-size:12.5px; margin-top:0;">
               <thead>
@@ -3871,6 +3878,14 @@ function setSpecTableFromData(specRange, specResolution, procedure, refStandard)
 function setSpecRangeTableData(text) {
   setSpecTableFromData(text, '', '', '');
 }
+function isCaliperEquipment(key, eq) {
+  return /caliper|thước\s*cặp/i.test(`${key || ''} ${eq?.nameVi || ''} ${eq?.instEn || ''}`);
+}
+function changeCaliperRange(maxRange) {
+  window._caliperMaxRange = Number(maxRange) === 200 ? 200 : 150;
+  const key = window._currentWorkingEquipment;
+  if (key && MockDatabaseEquipment[key]) selectEquipmentTemplate(key);
+}
 function selectEquipmentTemplate(key) {
   const eq = MockDatabaseEquipment[key];
   if (!eq) return;
@@ -3885,7 +3900,17 @@ function selectEquipmentTemplate(key) {
   if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
   if (eq.instEn) document.getElementById('f-inst-en').value = eq.instEn;
 
-  setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
+  const isCaliper = isCaliperEquipment(key, eq);
+  const rangeControl = document.getElementById('caliper-range-control');
+  if (rangeControl) rangeControl.style.display = isCaliper ? 'block' : 'none';
+  if (isCaliper) {
+    const rangeSelect = document.getElementById('caliper-range-select');
+    if (!window._caliperMaxRange) window._caliperMaxRange = 150;
+    if (rangeSelect) rangeSelect.value = String(window._caliperMaxRange);
+    setSpecTableFromData(`Phạm vi đo/Measurement range: 0–${window._caliperMaxRange} mm`, eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
+  } else {
+    setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
+  }
 
   // Tự động điền các chuẩn sử dụng từ standardsUsed (tối đa 5 thiết bị chuẩn)
   if (Array.isArray(eq.standardsUsed) && eq.standardsUsed.length > 0) {
@@ -3925,7 +3950,19 @@ function selectEquipmentTemplate(key) {
 
   const tbody = document.getElementById('calibration-table-body');
   tbody.innerHTML = '';
-  eq.formPoints.forEach(pt => {
+  const resultPoints = isCaliper
+    ? eq.formPoints.filter(pt => {
+        const pointValue = Number(String(pt.point || '').replace(',', '.').match(/-?\d+(?:\.\d+)?/)?.[0]);
+        return !Number.isFinite(pointValue) || pointValue <= window._caliperMaxRange;
+      }).map((pt, index, points) => {
+        const startsGroup = index === 0 || points[index - 1].paramName !== pt.paramName;
+        if (!startsGroup) return { ...pt, rowspan: 0 };
+        let count = 1;
+        while (index + count < points.length && points[index + count].paramName === pt.paramName) count++;
+        return { ...pt, rowspan: count };
+      })
+    : eq.formPoints;
+  resultPoints.forEach(pt => {
     const row = document.createElement('tr');
     row.dataset.parameterName = pt.paramName.replace('\n', ' ');
     let html = '';
@@ -7430,6 +7467,16 @@ function populateCalibrationForm(result) {
     if (!specRange.trim() && eq) {
         specRange = eq.specRange || '';
         specResolution = eq.specResolution || '';
+    }
+    const caliperRangeControl = document.getElementById('caliper-range-control');
+    if (caliperRangeControl && eq && isCaliperEquipment(resolvedName, eq)) {
+        caliperRangeControl.style.display = 'block';
+        const savedRange = String(c.SPEC_RANGE || specRange || '');
+        window._caliperMaxRange = /200\s*mm/i.test(savedRange) ? 200 : 150;
+        const rangeSelect = document.getElementById('caliper-range-select');
+        if (rangeSelect) rangeSelect.value = String(window._caliperMaxRange);
+    } else if (caliperRangeControl) {
+        caliperRangeControl.style.display = 'none';
     }
     setSpecTableFromData(specRange, specResolution, c.PROCEDURE || (eq ? eq.procedure : ''), c.REF_STANDARD || (eq ? eq.refStandard : ''));
     setVal('f-temp',      c.TEMP_ENV);
