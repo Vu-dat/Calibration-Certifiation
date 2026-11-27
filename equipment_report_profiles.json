@@ -1,0 +1,1289 @@
+{
+  "Fabric Inspection Machine": {
+    "blankSpecLabels": [
+      "Nguồn sáng/Lighting",
+      "Nguồn sáng/Light sources"
+    ],
+    "legacySpecValues": [
+      "D65, TL84, CWF, U35, TL84, A, HZ (người dùng nhập)"
+    ],
+    "tables": [
+      {
+        "parameters": [
+          "Chiều dài/Length"
+        ],
+        "standard": "LAB-TACHO.01",
+        "unit": {
+          "default": "m",
+          "label": "Đơn vị chiều dài"
+        },
+        "pointFrom": "refValue",
+        "legacyReference": "point",
+        "averageLegacyReadings": true,
+        "defaults": [
+          {
+            "refValue": "50,0",
+            "unc": "0,25",
+            "tol": "± 1,0"
+          },
+          {
+            "refValue": "100,0",
+            "unc": "0,25",
+            "tol": "± 1,0"
+          },
+          {
+            "refValue": "200,0",
+            "unc": "0,25",
+            "tol": "± 1,0"
+          },
+          {
+            "refValue": "300,0",
+            "unc": "0,25",
+            "tol": "± 1,0"
+          }
+        ],
+        "columns": [
+          {
+            "field": "refValue",
+            "label": [
+              "Giá trị chuẩn",
+              "Standard Values"
+            ],
+            "width": 18,
+            "unit": "$unit",
+            "format": "decimal"
+          },
+          {
+            "field": "found",
+            "label": [
+              "Giá trị hiển thị",
+              "Indication Values"
+            ],
+            "width": 20,
+            "unit": "$unit",
+            "format": "decimal"
+          },
+          {
+            "formula": "difference",
+            "label": [
+              "Số hiệu chính",
+              "Correction"
+            ],
+            "width": 16,
+            "unit": "$unit"
+          },
+          {
+            "field": "unc",
+            "label": [
+              "ĐKĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 16,
+            "unit": "%",
+            "format": "decimal-input"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 15,
+            "unit": "$unit"
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 15
+          }
+        ]
+      },
+      {
+        "parameters": [
+          "Nhiệt độ màu/Color temperature (K)",
+          "Độ rọi/Illuminance (Lux)"
+        ],
+        "standard": "LAB-LIGHT.01",
+        "groupBy": "point",
+        "addGroupLabel": "Thêm nguồn sáng",
+        "removeGroupLabel": "Xóa nguồn sáng",
+        "legacyReference": "found",
+        "defaults": [
+          {
+            "param": "Nhiệt độ màu/Color temperature (K)",
+            "point": "D65",
+            "unc": "60",
+            "tol": "± 300"
+          },
+          {
+            "param": "Độ rọi/Illuminance (Lux)",
+            "point": "D65",
+            "unc": "100",
+            "tol": "≥ 1000"
+          }
+        ],
+        "columns": [
+          {
+            "field": "point",
+            "label": [
+              "Loại nguồn sáng",
+              "Light source"
+            ],
+            "width": 16
+          },
+          {
+            "field": "param",
+            "label": [
+              "Thông số đo",
+              "Parameter"
+            ],
+            "width": 27,
+            "format": "bilingual"
+          },
+          {
+            "field": "refValue",
+            "label": [
+              "Giá trị chuẩn",
+              "Standard Values"
+            ],
+            "width": 17,
+            "format": "decimal-input"
+          },
+          {
+            "field": "unc",
+            "label": [
+              "ĐKĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 14,
+            "format": "decimal-input"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 14
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 12
+          }
+        ]
+      }
+    ]
+  },
+  "Length Counter": {
+    "tables": [
+      {
+        "parameters": [
+          "Chiều dài/Length"
+        ],
+        "standard": "LAB-TACHO.01",
+        "unit": {
+          "default": "m",
+          "label": "Đơn vị chiều dài"
+        },
+        "pointFrom": "refValue",
+        "legacyReference": "point",
+        "averageLegacyReadings": true,
+        "defaults": [
+          {
+            "refValue": "50,0",
+            "unc": "0,25",
+            "tol": "± 1,0"
+          },
+          {
+            "refValue": "100,0",
+            "unc": "0,25",
+            "tol": "± 1,0"
+          },
+          {
+            "refValue": "200,0",
+            "unc": "0,25",
+            "tol": "± 1,0"
+          },
+          {
+            "refValue": "300,0",
+            "unc": "0,25",
+            "tol": "± 1,0"
+          }
+        ],
+        "columns": [
+          {
+            "field": "refValue",
+            "label": [
+              "Giá trị chuẩn",
+              "Standard Values"
+            ],
+            "width": 18,
+            "unit": "$unit",
+            "format": "decimal"
+          },
+          {
+            "field": "found",
+            "label": [
+              "Giá trị hiển thị",
+              "Indication Values"
+            ],
+            "width": 20,
+            "unit": "$unit",
+            "format": "decimal"
+          },
+          {
+            "formula": "difference",
+            "label": [
+              "Số hiệu chính",
+              "Correction"
+            ],
+            "width": 16,
+            "unit": "$unit"
+          },
+          {
+            "field": "unc",
+            "label": [
+              "ĐKĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 16,
+            "unit": "%",
+            "format": "decimal-input"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 15,
+            "unit": "$unit"
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 15
+          }
+        ]
+      }
+    ]
+  },
+  "Fabric Relaxing Machine": {
+    "tables": [
+      {
+        "parameters": [
+          "Chiều dài/Length"
+        ],
+        "standard": "LAB-TACHO.01",
+        "unit": {
+          "default": "m",
+          "label": "Đơn vị chiều dài"
+        },
+        "pointFrom": "refValue",
+        "legacyReference": "point",
+        "averageLegacyReadings": true,
+        "defaults": [
+          {
+            "refValue": "50,0",
+            "unc": "0,25",
+            "tol": "± 1,0"
+          },
+          {
+            "refValue": "100,0",
+            "unc": "0,25",
+            "tol": "± 1,0"
+          },
+          {
+            "refValue": "200,0",
+            "unc": "0,25",
+            "tol": "± 1,0"
+          },
+          {
+            "refValue": "300,0",
+            "unc": "0,25",
+            "tol": "± 1,0"
+          }
+        ],
+        "columns": [
+          {
+            "field": "refValue",
+            "label": [
+              "Giá trị chuẩn",
+              "Standard Values"
+            ],
+            "width": 18,
+            "unit": "$unit",
+            "format": "decimal"
+          },
+          {
+            "field": "found",
+            "label": [
+              "Giá trị hiển thị",
+              "Indication Values"
+            ],
+            "width": 20,
+            "unit": "$unit",
+            "format": "decimal"
+          },
+          {
+            "formula": "difference",
+            "label": [
+              "Số hiệu chính",
+              "Correction"
+            ],
+            "width": 16,
+            "unit": "$unit"
+          },
+          {
+            "field": "unc",
+            "label": [
+              "ĐKĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 16,
+            "unit": "%",
+            "format": "decimal-input"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 15,
+            "unit": "$unit"
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 15
+          }
+        ]
+      }
+    ]
+  },
+  "Loading weight": {
+    "tables": [
+      {
+        "parameters": [
+          "Khối lượng danh nghĩa / Conventional mass (g)"
+        ],
+        "standard": "LAB-BALANCE.01",
+        "columns": [
+          {
+            "field": "refValue",
+            "label": [
+              "Khối lượng danh nghĩa",
+              "Nominal mass"
+            ],
+            "width": 24,
+            "unit": "(g)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "found",
+            "label": [
+              "Khối lượng quy ước",
+              "Conventional mass"
+            ],
+            "width": 26,
+            "unit": "(g)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "unc",
+            "label": [
+              "Độ KĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 20,
+            "unit": "(g)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 16,
+            "unit": "(g)"
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 14
+          }
+        ],
+        "averageLegacyReadings": true,
+        "defaults": [
+          {
+            "unc": "1,0",
+            "tol": "--",
+            "conf": "--"
+          }
+        ]
+      }
+    ]
+  },
+  "Lightbox": {
+    "tables": [
+      {
+        "parameters": [
+          "Nhiệt độ màu (K)"
+        ],
+        "standard": "LAB-LIGHT.01",
+        "columns": [
+          {
+            "field": "point",
+            "label": [
+              "Nguồn sáng",
+              "Light sources"
+            ],
+            "width": 17
+          },
+          {
+            "field": "refValue",
+            "label": [
+              "Giá trị danh định",
+              "Nominal Value"
+            ],
+            "width": 20,
+            "unit": "(K)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "found",
+            "label": [
+              "Giá trị chuẩn",
+              "Standard Value"
+            ],
+            "width": 20,
+            "unit": "(K)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "unc",
+            "label": [
+              "Độ KĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 17,
+            "unit": "(K)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 15,
+            "unit": "(K)"
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 11
+          }
+        ],
+        "averageLegacyReadings": true,
+        "heading": "Nhiệt độ màu / Color temperature",
+        "legacyPointPrefix": " - ",
+        "sharedChoice": {
+          "field": "tol",
+          "label": "Dung sai nhiệt độ màu (K)",
+          "options": [
+            "± 200",
+            "± 300"
+          ]
+        },
+        "catalogColumn": 0,
+        "defaultUncertainty": "60"
+      },
+      {
+        "parameters": [
+          "Độ rọi (Lux)"
+        ],
+        "standard": "LAB-LIGHT.01",
+        "columns": [
+          {
+            "field": "point",
+            "label": [
+              "Nguồn sáng",
+              "Light sources"
+            ],
+            "width": 17
+          },
+          {
+            "field": "refValue",
+            "label": [
+              "Giá trị danh định",
+              "Nominal Value"
+            ],
+            "width": 20,
+            "unit": "(lux)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "found",
+            "label": [
+              "Giá trị chuẩn",
+              "Standard Value"
+            ],
+            "width": 20,
+            "unit": "(lux)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "unc",
+            "label": [
+              "Độ KĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 17,
+            "unit": "(lux)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 15,
+            "unit": "(lux)"
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 11
+          }
+        ],
+        "averageLegacyReadings": true,
+        "heading": "Độ rọi / Illuminance",
+        "legacyPointPrefix": " - ",
+        "catalogColumn": 1,
+        "defaultUncertainty": "100"
+      },
+      {
+        "parameters": [
+          "CRI"
+        ],
+        "standard": "LAB-LIGHT.01",
+        "columns": [
+          {
+            "field": "point",
+            "label": [
+              "Nguồn sáng",
+              "Light sources"
+            ],
+            "width": 17
+          },
+          {
+            "field": "refValue",
+            "label": [
+              "Giá trị danh định",
+              "Nominal Value"
+            ],
+            "width": 20,
+            "format": "decimal-input"
+          },
+          {
+            "field": "found",
+            "label": [
+              "Giá trị chuẩn",
+              "Standard Value"
+            ],
+            "width": 20,
+            "format": "decimal-input"
+          },
+          {
+            "field": "unc",
+            "label": [
+              "Độ KĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 17,
+            "format": "decimal-input"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 15
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 11
+          }
+        ],
+        "averageLegacyReadings": true,
+        "heading": "Chỉ số hoàn màu / Colour rendering index",
+        "legacyPointPrefix": " - ",
+        "catalogColumn": 2,
+        "defaultUncertainty": "100"
+      }
+    ],
+    "catalog": {
+      "label": "Nguồn sáng",
+      "min": 3,
+      "max": 6,
+      "entries": {
+        "Nguồn sáng": [
+          "Nhiệt độ màu",
+          "Độ rọi",
+          "CRI"
+        ],
+        "D65": [
+          "6500",
+          "≥ 1075",
+          "≥ 95"
+        ],
+        "D75": [
+          "7500",
+          "≥ 1075",
+          "≥ 95"
+        ],
+        "D50": [
+          "5000",
+          "≥ 1075",
+          "≥ 95"
+        ],
+        "TL84": [
+          "4000",
+          "≥ 1075",
+          "≥ 80"
+        ],
+        "TL83": [
+          "3000",
+          "≥ 1075",
+          "≥ 80"
+        ],
+        "CWF": [
+          "4150",
+          "≥ 1075",
+          "≥ 60"
+        ],
+        "U35": [
+          "3500",
+          "≥ 1075",
+          "≥ 80"
+        ],
+        "U30": [
+          "3000",
+          "≥ 1075",
+          "≥ 80"
+        ],
+        "HZ": [
+          "2300",
+          "≥ 1075",
+          "≥ 95"
+        ],
+        "A": [
+          "2856",
+          "≥ 1075",
+          "≥ 95"
+        ],
+        "F": [
+          "2500",
+          "≥ 1075",
+          "≥ 95"
+        ],
+        "LED D50": [
+          "5000",
+          "≥ 1075",
+          "≥ 95"
+        ],
+        "LED D65": [
+          "6500",
+          "≥ 1075",
+          "≥ 95"
+        ],
+        "LED A": [
+          "2856",
+          "≥ 1075",
+          "≥ 95"
+        ],
+        "CWF LED": [
+          "4150",
+          "≥ 1075",
+          "≥ 95"
+        ],
+        "TL84 LED": [
+          "4000",
+          "≥ 1075",
+          "≥ 80"
+        ],
+        "U30 LED": [
+          "3000",
+          "≥ 1075",
+          "≥ 80"
+        ],
+        "U35 LED": [
+          "3500",
+          "≥ 1075",
+          "≥ 80"
+        ],
+        "LED-B2 3000K": [
+          "3000",
+          "≥ 1075",
+          "≥ 80"
+        ],
+        "LED 3500K": [
+          "3500",
+          "≥ 1075",
+          "≥ 80"
+        ],
+        "LED-B3 4000K": [
+          "4000",
+          "≥ 1075",
+          "≥ 80"
+        ],
+        "UV": []
+      },
+      "aliases": {
+        "LED3000K": "LED-B2 3000K",
+        "LED3500K": "LED 3500K",
+        "LED4000K": "LED-B3 4000K"
+      },
+      "defaults": [
+        "D65",
+        "TL84",
+        "CWF",
+        "U30",
+        "HZ",
+        "A"
+      ],
+      "specLabel": "Nguồn sáng/Light sources"
+    }
+  },
+  "Ruler": {
+    "tables": [
+      {
+        "parameters": [
+          "Độ dài/Length (mm)"
+        ],
+        "standard": "LAB-LENGTH.02",
+        "columns": [
+          {
+            "field": "refValue",
+            "label": [
+              "Giá trị chuẩn",
+              "Standard Value"
+            ],
+            "width": 20,
+            "unit": "(mm)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "found",
+            "label": [
+              "Giá trị chỉ thị",
+              "Indication Value"
+            ],
+            "width": 20,
+            "unit": "(mm)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "unc",
+            "label": [
+              "Độ KĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 17,
+            "unit": "(mm)",
+            "format": "decimal-input"
+          },
+          {
+            "label": [
+              "Sai số",
+              "Error"
+            ],
+            "width": 14,
+            "unit": "(mm)",
+            "formula": "indicationMinusReference"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 16,
+            "unit": "(mm)"
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 13
+          }
+        ],
+        "averageLegacyReadings": true,
+        "scale": {
+          "label": "Giới hạn đo (mm)",
+          "options": [
+            200,
+            300,
+            500,
+            600,
+            1000,
+            1500,
+            2000,
+            3000
+          ],
+          "divisions": 10,
+          "tolerances": [
+            [
+              0,
+              300,
+              "± 0,15"
+            ],
+            [
+              500,
+              1000,
+              "± 0,20"
+            ],
+            [
+              1000,
+              1500,
+              "± 0,25"
+            ],
+            [
+              1500,
+              2000,
+              "± 0,35"
+            ]
+          ],
+          "specLabel": "Phạm vi đo/Measurement range",
+          "specUnit": "mm"
+        },
+        "defaults": [
+          {
+            "unc": "0,08"
+          },
+          {
+            "unc": "0,08"
+          },
+          {
+            "unc": "0,08"
+          },
+          {
+            "unc": "0,08"
+          },
+          {
+            "unc": "0,08"
+          },
+          {
+            "unc": "0,08"
+          },
+          {
+            "unc": "0,08"
+          },
+          {
+            "unc": "0,08"
+          },
+          {
+            "unc": "0,08"
+          },
+          {
+            "unc": "0,08"
+          }
+        ]
+      }
+    ]
+  },
+  "Calipers": {
+    "rangeLimit": { "default": 150, "options": [150, 200] },
+    "tables": [
+      {
+        "parameters": [
+          "Đo ngoài/Outside measurement (mm)"
+        ],
+        "standard": "LAB-GBLOCK.01",
+        "columns": [
+          {
+            "field": "refValue",
+            "label": [
+              "Giá trị chuẩn",
+              "Standard Value"
+            ],
+            "width": 20,
+            "unit": "(mm)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "found",
+            "label": [
+              "Giá trị chỉ thị",
+              "Indication Value"
+            ],
+            "width": 20,
+            "unit": "(mm)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "unc",
+            "label": [
+              "Độ KĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 17,
+            "unit": "(mm)",
+            "format": "decimal-input"
+          },
+          {
+            "label": [
+              "Sai số",
+              "Error"
+            ],
+            "width": 14,
+            "unit": "(mm)",
+            "formula": "indicationMinusReference"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 16,
+            "unit": "(mm)"
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 13
+          }
+        ],
+        "averageLegacyReadings": true,
+        "heading": "Đo ngoài / Outside measurement",
+        "legacyReference": "point"
+      },
+      {
+        "parameters": [
+          "Đo trong/Inside measurement (mm)"
+        ],
+        "standard": "LAB-PANME.01",
+        "columns": [
+          {
+            "field": "refValue",
+            "label": [
+              "Giá trị chuẩn",
+              "Standard Value"
+            ],
+            "width": 20,
+            "unit": "(mm)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "found",
+            "label": [
+              "Giá trị chỉ thị",
+              "Indication Value"
+            ],
+            "width": 20,
+            "unit": "(mm)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "unc",
+            "label": [
+              "Độ KĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 17,
+            "unit": "(mm)",
+            "format": "decimal-input"
+          },
+          {
+            "label": [
+              "Sai số",
+              "Error"
+            ],
+            "width": 14,
+            "unit": "(mm)",
+            "formula": "indicationMinusReference"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 16,
+            "unit": "(mm)"
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 13
+          }
+        ],
+        "averageLegacyReadings": true,
+        "heading": "Đo trong / Inside measurement",
+        "legacyReference": "point"
+      },
+      {
+        "parameters": [
+          "Đo bậc/Step measurement (mm)"
+        ],
+        "standard": "LAB-PINSET.01",
+        "columns": [
+          {
+            "field": "refValue",
+            "label": [
+              "Giá trị chuẩn",
+              "Standard Value"
+            ],
+            "width": 20,
+            "unit": "(mm)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "found",
+            "label": [
+              "Giá trị chỉ thị",
+              "Indication Value"
+            ],
+            "width": 20,
+            "unit": "(mm)",
+            "format": "decimal-input"
+          },
+          {
+            "field": "unc",
+            "label": [
+              "Độ KĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 17,
+            "unit": "(mm)",
+            "format": "decimal-input"
+          },
+          {
+            "label": [
+              "Sai số",
+              "Error"
+            ],
+            "width": 14,
+            "unit": "(mm)",
+            "formula": "indicationMinusReference"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 16,
+            "unit": "(mm)"
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 13
+          }
+        ],
+        "averageLegacyReadings": true,
+        "heading": "Đo bậc / Step measurement",
+        "legacyReference": "point"
+      }
+    ]
+  },
+  "Tensile Strength Tester": {
+    "tables": [
+      {
+        "parameters": [
+          "Kiểm tra lực kéo Pull force (N)",
+          "Tốc độ hành trình Crosshead speed (mm/min)",
+          "Hành trình di chuyển Crosshead  Displacement  (mm)"
+        ],
+        "standard": "",
+        "columns": [
+          {
+            "field": "param",
+            "label": [
+              "Thông số",
+              "Parameter"
+            ],
+            "width": 24
+          },
+          {
+            "field": "refValue",
+            "label": [
+              "Giá trị chuẩn",
+              "Standard value"
+            ],
+            "width": 14,
+            "format": "decimal-input"
+          },
+          {
+            "field": "found",
+            "label": [
+              "Giá trị hiển thị",
+              "Indicator value"
+            ],
+            "width": 14,
+            "format": "decimal-input"
+          },
+          {
+            "label": [
+              "Sai số",
+              "Error"
+            ],
+            "width": 14,
+            "formula": "indicationMinusReference"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 12
+          },
+          {
+            "field": "unc",
+            "label": [
+              "Độ KĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 12
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 10
+          }
+        ],
+        "averageLegacyReadings": true,
+        "groupBy": "param",
+        "annotations": {
+          "parameter": "Kiểm tra lực kéo Pull force (N)",
+          "labels": [
+            "Loadcell",
+            "S/N"
+          ]
+        },
+        "parameterStandards": {
+          "Kiểm tra lực kéo Pull force (N)": "LAB-FORCE.01",
+          "Tốc độ hành trình Crosshead speed (mm/min)": "LAB-TIMER.01",
+          "Hành trình di chuyển Crosshead  Displacement  (mm)": "LAB-LINEAR.01"
+        }
+      }
+    ]
+  },
+  "Sample Cutter": {
+    "tables": [
+      {
+        "parameters": [
+          "Đường kính mẫu cắt – D (mm)",
+          "Diện tích mẫu cắt – S (cm²)"
+        ],
+        "standard": "LAB-CALIPER.01",
+        "columns": [
+          {
+            "field": "param",
+            "label": [
+              "Thông số",
+              "Parameter"
+            ],
+            "width": 27
+          },
+          {
+            "field": "found",
+            "label": [
+              "Giá trị đo được",
+              "As found value"
+            ],
+            "width": 16,
+            "format": "decimal-input"
+          },
+          {
+            "field": "unc",
+            "label": [
+              "Độ KĐBĐ",
+              "Uncertainty"
+            ],
+            "width": 14
+          },
+          {
+            "field": "refValue",
+            "label": [
+              "Giá trị tham chiếu",
+              "Reference Value"
+            ],
+            "width": 17,
+            "format": "decimal-input"
+          },
+          {
+            "field": "tol",
+            "label": [
+              "Dung sai",
+              "Tolerance"
+            ],
+            "width": 14
+          },
+          {
+            "field": "conf",
+            "label": [
+              "Kết luận",
+              "Conclusion"
+            ],
+            "width": 12
+          }
+        ],
+        "averageLegacyReadings": true,
+        "derivedReading": {
+          "parameter": "Diện tích mẫu cắt – S (cm²)",
+          "source": "Đường kính mẫu cắt – D (mm)",
+          "formula": "areaFromDiameterMm"
+        }
+      }
+    ]
+  }
+}

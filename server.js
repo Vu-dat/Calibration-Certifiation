@@ -436,7 +436,8 @@ async function initDatabaseSchema() {
             SPEC_RESOLUTION TEXT,
             STANDARDS_USED TEXT,
             NAME_VI TEXT,
-            NAME_EN TEXT
+            NAME_EN TEXT,
+            REPORT_PROFILE JSONB
         )`;
 
         await sql`CREATE TABLE IF NOT EXISTS TEMPLATE_POINTS (
@@ -616,6 +617,7 @@ async function runColumnMigrations() {
             ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS MODEL_SERIAL TEXT;
             ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS SPEC_RANGE TEXT;
             ALTER TABLE CERTIFICATES ADD COLUMN IF NOT EXISTS SPEC_RESOLUTION TEXT;
+            ALTER TABLE IF EXISTS EQUIPMENT_TEMPLATES ADD COLUMN IF NOT EXISTS REPORT_PROFILE JSONB;
             
             CREATE TABLE IF NOT EXISTS CALIBRATE_METHOD (
                 ID SERIAL PRIMARY KEY,
@@ -855,6 +857,7 @@ app.get('/api/init', async (req, res) => {
                 SPEC_RANGE: t.spec_range,
                 SPEC_RESOLUTION: t.spec_resolution,
                 STANDARDS_USED: t.standards_used,
+                REPORT_PROFILE: t.report_profile ?? null,
                 formPoints: formPoints
             };
         });
@@ -1547,6 +1550,7 @@ async function getEquipmentTemplatesHelper(req, res) {
             template.SPEC_RANGE = template.spec_range;
             template.SPEC_RESOLUTION = template.spec_resolution;
             template.STANDARDS_USED = template.standards_used;
+            template.REPORT_PROFILE = template.report_profile ?? null;
             template.formPoints = formPoints;
         }
         serverCache.equipmentTemplates[cacheKey] = templates;
@@ -2491,6 +2495,7 @@ async function prewarmServerCache() {
             SPEC_RANGE: t.spec_range,
             SPEC_RESOLUTION: t.spec_resolution,
             STANDARDS_USED: t.standards_used,
+            REPORT_PROFILE: t.report_profile ?? null,
             formPoints: pointsByTemplate[t.name] || []
         }));
 

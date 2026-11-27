@@ -956,6 +956,7 @@
     </style>
     <script src="/auth.js"></script>
     <script src="./standard_report_fields.js"></script>
+    <script src="./measurement_report.js"></script>
 </head>
 <body>
 
@@ -1664,6 +1665,8 @@ document.addEventListener("DOMContentLoaded", () => {
           <span>7</span> Kết quả đo lường thực tế
           <span class="row-count" id="result-row-count">0</span>
         </div>
+        <div id="measurement-results-editor" hidden></div>
+        <div id="generic-results-editor">
         <div class="cal-table-wrapper">
           <table id="calibration-table">
             <thead>
@@ -1694,6 +1697,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <span class="btn-add-icon">◈</span> Thêm điểm đo
             <span class="btn-add-hint">(dưới thông số hiện tại)</span>
           </button>
+        </div>
         </div>
       </div>
 
@@ -2120,7 +2124,7 @@ async function syncEquipmentDBFromAPI(force) {
       const response = await fetch(`${API_BASE_URL}/api/equipment-templates`);
       if (!response.ok) throw new Error('API failed');
       const templates = await response.json();
-      cacheSet('lm_equipment_templates', templates, 30000);
+      cacheSet('lm_equipment_templates_v2', templates, 30000);
       applyEquipmentCache(templates);
     } catch (error) {
       console.error('L?i khi ??ng b? Database Equipment:', error);
@@ -2128,7 +2132,7 @@ async function syncEquipmentDBFromAPI(force) {
     return;
   }
   // SWR: dùng cached data ngay (k? c? stale), refresh background n?u c?n
-  const data = await swrFetch('lm_equipment_templates', async () => {
+  const data = await swrFetch('lm_equipment_templates_v2', async () => {
     const response = await fetch(`${API_BASE_URL}/api/equipment-templates`);
     if (!response.ok) throw new Error('API equipment-templates failed');
     const templates = await response.json();
@@ -2200,6 +2204,7 @@ function applyEquipmentCache(templates) {
       modelSerial: t.MODEL_SERIAL || '',
       manufacturerId: t.MANUFACTURER_ID || '',
       standardsUsed: Array.isArray(stds) ? stds : [],
+      reportProfile: measurementReport.profile(t.REPORT_PROFILE ?? t.report_profile),
       procedure: t.PROCEDURE || t.procedure || '',
       refStandard: t.REF_STANDARD || t.ref_standard || '',
       specRange: t.SPEC_RANGE || t.spec_range || '',
@@ -2219,7 +2224,7 @@ function applyEquipmentCache(templates) {
 
 // Khởi tạo tức thì (0ms) từ bộ nhớ LocalStorage nếu có sẵn
 try {
-  const cachedTpl = (typeof cacheGet === 'function') ? cacheGet('lm_equipment_templates') : null;
+  const cachedTpl = (typeof cacheGet === 'function') ? cacheGet('lm_equipment_templates_v2') : null;
   if (cachedTpl && Array.isArray(cachedTpl) && cachedTpl.length > 0) {
     applyEquipmentCache(cachedTpl);
   }
@@ -2228,7 +2233,7 @@ try {
 // Re-sync từ SQL khi tab được focus lại (SWR: chỉ background refresh nếu stale)
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'visible') {
-    if (cacheIsStale('lm_equipment_templates')) {
+    if (cacheIsStale('lm_equipment_templates_v2')) {
       // Background refresh - không await, không block UI
       syncEquipmentDBFromAPI().then(() => showDbSyncBadge());
     }
@@ -2401,15 +2406,15 @@ async function initPageData() {
   let initProvidedTemplates = false;
   // B??c 1: Dùng SWR ?? th? /api/init tr??c
   try {
-    const initData = await swrFetch('lm_init_data', async () => {
+    const initData = await swrFetch('lm_init_data_v2', async () => {
       const res = await fetch(`${API_BASE_URL}/api/init`);
       if (!res.ok) throw new Error('Init API failed');
       return res.json();
     }, 30000);
     if (initData && Array.isArray(initData.templates)) {
       initProvidedTemplates = true;
-      const oldTtl = cacheIsStale('lm_equipment_templates') ? 0 : 30000;
-      cacheSet('lm_equipment_templates', initData.templates, oldTtl);
+      const oldTtl = cacheIsStale('lm_equipment_templates_v2') ? 0 : 30000;
+      cacheSet('lm_equipment_templates_v2', initData.templates, oldTtl);
       applyEquipmentCache(initData.templates);
     }
     if (initData && Array.isArray(initData.standards)) {
@@ -2425,7 +2430,7 @@ async function initPageData() {
   
   // B??c 2: ??m b?o equipment ?ã s?n s?ng (t? cache ho?c fetch)
   if (!initProvidedTemplates && Object.keys(MockDatabaseEquipment).length === 0) {
-    await swrFetch('lm_equipment_templates', async () => {
+    await swrFetch('lm_equipment_templates_v2', async () => {
       const res = await fetch(`${API_BASE_URL}/api/equipment-templates`);
       if (!res.ok) throw new Error('API failed');
       const t = await res.json();
@@ -3763,7 +3768,8 @@ function getSpecRangeTableData() {
       }
     }
   });
-  return lines.join('\n');
+  const spec = lines.join('\n');
+  return measurementReport.normalizeSpecRange(activeMeasurementProfile, spec);
 }
 
 function getSpecResolutionTableData() {
@@ -3887,7 +3893,28 @@ function isCaliperEquipment(key, eq) {
 function changeCaliperRange(maxRange) {
   window._caliperMaxRange = Number(maxRange) === 200 ? 200 : 150;
   const key = window._currentWorkingEquipment;
-  if (key && MockDatabaseEquipment[key]) selectEquipmentTemplate(key);
+  const eq = MockDatabaseEquipment[key];
+  if (!eq) return;
+  if (!eq.reportProfile) {
+    selectEquipmentTemplate(key);
+    return;
+  }
+  const points = new Map(templateMeasurementPoints(eq.formPoints).map(point => [JSON.stringify([point.param, point.point]), point]));
+  for (const point of [...(window._caliperHiddenPoints || []), ...collectMeasurementResults()]) {
+    points.set(JSON.stringify([point.param, point.point]), point);
+  }
+  const inRange = point => Number(String(point.point).replace(',', '.')) <= window._caliperMaxRange;
+  window._caliperHiddenPoints = [...points.values()].filter(point => !inRange(point));
+  const range = document.querySelector('#spec-range-table-body .spec-value-input');
+  if (range) range.value = `0–${window._caliperMaxRange} mm`;
+  renderMeasurementEditor(eq.reportProfile, [...points.values()].filter(inRange));
+  updateRowCount();
+}
+function templateMeasurementPoints(points) {
+  return points.map(point => ({
+    param: point.paramName, point: point.point, refValue: point.refValue,
+    unc: point.uncertainty, tol: point.tolerance
+  }));
 }
 function selectEquipmentTemplate(key) {
   const eq = MockDatabaseEquipment[key];
@@ -3904,6 +3931,7 @@ function selectEquipmentTemplate(key) {
   if (eq.instEn) document.getElementById('f-inst-en').value = eq.instEn;
 
   const isCaliper = isCaliperEquipment(key, eq);
+  window._caliperHiddenPoints = [];
   const rangeControl = document.getElementById('caliper-range-control');
   if (rangeControl) rangeControl.style.display = isCaliper ? 'block' : 'none';
   if (isCaliper) {
@@ -3939,6 +3967,7 @@ function selectEquipmentTemplate(key) {
         return { ...pt, rowspan: count };
       })
     : eq.formPoints;
+  renderMeasurementEditor(eq.reportProfile, eq.reportProfile ? templateMeasurementPoints(resultPoints) : []);
   resultPoints.forEach(pt => {
     const row = document.createElement('tr');
     row.dataset.parameterName = pt.paramName.replace('\n', ' ');
@@ -4019,50 +4048,13 @@ function currentOvenRawData() {
 }
 
 function getDefaultOvenData() {
+  const setPoints = ['30.0', '37.0', '50.0', '70.0', '90.0'];
   return {
-    setPoints: ['30.0', '37.0', '50.0', '70.0', '90.0'],
-    tables: [
-      {
-        setPoint: '30.0',
-        max: ['31.8', '31.7', '31.4', '31.5', '31.2', '31.0', '30.5', '30.8', '31.5'],
-        min: ['31.4', '31.3', '31.0', '30.9', '30.8', '30.6', '29.9', '30.2', '30.9'],
-        avg: ['31.6', '31.5', '31.2', '31.2', '31.0', '30.8', '30.2', '30.5', '31.2'],
-        gradient: '1.9',
-        fluctuation: '0.6'
-      },
-      {
-        setPoint: '37.0',
-        max: ['37.1', '37.1', '37.1', '36.8', '36.8', '37.0', '37.3', '37.4', '36.8'],
-        min: ['36.7', '36.6', '36.6', '35.8', '35.9', '36.0', '36.4', '36.4', '36.0'],
-        avg: ['36.9', '36.9', '36.9', '36.4', '36.5', '36.6', '36.9', '37.0', '36.6'],
-        gradient: '1.6',
-        fluctuation: '1.0'
-      },
-      {
-        setPoint: '50.0',
-        max: ['50.2', '50.3', '50.3', '50.2', '50.5', '49.5', '49.8', '49.8', '49.3'],
-        min: ['49.4', '49.4', '49.2', '49.0', '49.6', '49.0', '49.4', '49.6', '48.9'],
-        avg: ['49.8', '49.9', '49.8', '49.6', '50.1', '49.3', '49.6', '49.7', '49.1'],
-        gradient: '1.6',
-        fluctuation: '1.1'
-      },
-      {
-        setPoint: '70.0',
-        max: ['70.7', '70.8', '70.9', '70.8', '70.8', '70.9', '70.8', '70.8', '70.7'],
-        min: ['70.5', '70.4', '70.5', '70.6', '70.4', '70.6', '70.4', '70.5', '70.5'],
-        avg: ['70.6', '70.6', '70.7', '70.7', '70.6', '70.8', '70.6', '70.7', '70.6'],
-        gradient: '0.5',
-        fluctuation: '0.4'
-      },
-      {
-        setPoint: '90.0',
-        max: ['90.5', '90.4', '91.0', '91.1', '90.4', '90.3', '91.4', '91.0', '91.4'],
-        min: ['90.1', '90.0', '90.9', '90.9', '91.0', '90.0', '90.1', '90.9', '91.0'],
-        avg: ['90.3', '90.2', '91.0', '91.0', '90.7', '90.2', '90.8', '91.0', '91.2'],
-        gradient: '1.4',
-        fluctuation: '1.3'
-      }
-    ]
+    setPoints,
+    tables: setPoints.map(setPoint => ({
+      setPoint, indication: '', max: Array(9).fill(''), min: Array(9).fill(''),
+      avg: Array(9).fill(''), gradient: '', fluctuation: ''
+    }))
   };
 }
 
@@ -4168,6 +4160,10 @@ function renderOvenWorkspace() {
           <span style="color:#16a34a; font-weight:800; font-size:15px; margin-left:6px;">Set point: ${tbl.setPoint} (⁰C)</span>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
+          <label>Chỉ thị (°C)
+            <input class="lab-input-cell" inputmode="decimal" value="${escHtml(tbl.indication || '')}"
+              oninput="setOvenIndication(${spIdx}, this.value)">
+          </label>
           <button type="button" class="btn btn-secondary btn-sm" onclick="removeOvenSetPoint(${spIdx})" style="color:#dc2626; padding:4px 10px; font-size:12px;">
             <i class="fa-solid fa-trash"></i> Xóa bảng này
           </button>
@@ -4395,10 +4391,22 @@ function resetOvenDefaultPoints() {
   showToast('Đã khôi phục 5 điểm nhiệt độ mẫu (30, 37, 50, 70, 90 °C).');
 }
 
+function setOvenIndication(index, value) {
+  const table = window._ovenData?.tables[index];
+  if (!table) return;
+  table.indication = value;
+  syncOvenToCalibrationTable();
+  schedulePdfPrewarm();
+}
+
 function syncOvenToCalibrationTable() {
   const tbody = document.getElementById('calibration-table-body');
   if (!tbody || !window._ovenData || !window._ovenData.tables) return;
 
+  const priorSettings = new Map([...tbody.querySelectorAll('tr[data-oven-set-point]')].map(row => [
+    JSON.stringify([row.dataset.ovenSetPoint, row.dataset.ovenPos]),
+    { unc: row.querySelector('.uncertainty')?.value, tol: row.querySelector('.tolerance')?.value }
+  ]));
   tbody.innerHTML = '';
 
   window._ovenData.tables.forEach(tbl => {
@@ -4406,6 +4414,8 @@ function syncOvenToCalibrationTable() {
     const paramName = `Nhiệt độ buồng sấy (${sp} °C) / Oven Temperature`;
 
     for (let pos = 0; pos < 9; pos++) {
+      const setting = priorSettings.get(JSON.stringify([sp, String(pos + 1)])) || tbl.pointSettings?.[pos];
+      const indication = escHtml(tbl.indication ?? '');
       const posLabel = `Vị trí ${pos + 1}`;
       const avgVal = tbl.avg[pos] || '';
       const row = document.createElement('tr');
@@ -4422,13 +4432,13 @@ function syncOvenToCalibrationTable() {
 
       html += `
         <td><textarea class="lab-input-cell cal-point" readonly style="font-weight:700;cursor:default;width:100%;height:32px;resize:none;border:none;background:transparent;text-align:center;padding:4px 0;line-height:1.2;font-family:inherit;">${posLabel}</textarea></td>
-        <td><input type="text" class="lab-input-cell measured-active as-found-1" value="${sp}" placeholder="Lần 1" oninput="calculateConformity(this.closest('tr'))"></td>
-        <td><input type="text" class="lab-input-cell as-found-2" value="${sp}" placeholder="Lần 2" oninput="calculateConformity(this.closest('tr'))"></td>
-        <td><input type="text" class="lab-input-cell as-found-3" value="${sp}" placeholder="Lần 3" oninput="calculateConformity(this.closest('tr'))"></td>
-        <td><input type="text" class="lab-input-cell avg-value" value="${sp}" placeholder="TB" oninput="handleAvgInput(this)" style="background:#f0fdf4;font-weight:700;color:#065f46;text-align:center;cursor:text;"></td>
-        <td><input type="text" class="lab-input-cell uncertainty" value="1.0" oninput="calculateConformity(this.closest('tr'))"></td>
-        <td><input type="text" class="lab-input-cell ref-value" value="${avgVal}" oninput="calculateConformity(this.closest('tr'))"></td>
-        <td><input type="text" class="lab-input-cell tolerance" value="± 3" style="font-weight:500;" oninput="calculateConformity(this.closest('tr'))"></td>
+        <td><input readonly class="lab-input-cell as-found-1" value="${indication}"></td>
+        <td><input readonly class="lab-input-cell as-found-2" value=""></td>
+        <td><input readonly class="lab-input-cell as-found-3" value=""></td>
+        <td><input readonly class="lab-input-cell avg-value" value="${indication}"></td>
+        <td><input type="text" class="lab-input-cell uncertainty" value="${escHtml(setting?.unc ?? '1.0')}" oninput="calculateConformity(this.closest('tr'))"></td>
+        <td><input readonly class="lab-input-cell ref-value" value="${avgVal}"></td>
+        <td><input type="text" class="lab-input-cell tolerance" value="${escHtml(setting?.tol ?? '± 3')}" style="font-weight:500;" oninput="calculateConformity(this.closest('tr'))"></td>
         <td><input type="text" class="lab-input-cell conformity" value="" style="font-weight:700;color:var(--accent);"></td>
       `;
 
@@ -5463,6 +5473,10 @@ function deleteCalRow(btn) {
 }
 
 function updateRowCount() {
+  if (!document.getElementById('measurement-results-editor').hidden) {
+    document.getElementById('result-row-count').textContent = document.querySelectorAll('#measurement-results-editor tr[data-measurement-row]').length;
+    return;
+  }
   const n = document.getElementById('calibration-table-body').querySelectorAll('tr:not(.cal-empty-state)').length;
   document.getElementById('result-row-count').textContent = n;
 }
@@ -5821,7 +5835,224 @@ function addResultRow() { results.push({param:'',point:'',found:'',found2:'',unc
 function txt(id) { const e=document.getElementById(id); return e?e.value:''; }
 function parseDate(d) { if(!d) return ''; const p=d.split('-'); return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:d; }
 
+let activeMeasurementProfile = null;
+
+function renderMeasurementEditor(config, points = []) {
+  activeMeasurementProfile = config;
+  const editor = document.getElementById('measurement-results-editor');
+  editor.hidden = !config;
+  document.getElementById('generic-results-editor').hidden = Boolean(config);
+  if (!config) {
+    editor.replaceChildren();
+    return false;
+  }
+
+  const tables = measurementReport.readTables(config, points);
+  const catalog = config.catalog;
+  const savedSources = catalog ? [...new Set(tables.flatMap(table => table.rows
+    .map(row => row.point && (catalog.aliases?.[row.point] || row.point)).filter(Boolean)))] : [];
+  const selectedSources = savedSources.length ? savedSources : catalog?.defaults || [];
+  if (catalog && !savedSources.length && selectedSources.length) {
+    return renderMeasurementEditor(config, measurementReport.catalogRows(config, selectedSources, []));
+  }
+  const sourceOptions = catalog ? [...new Set([...Object.keys(catalog.entries), ...selectedSources])] : [];
+  const input = (column, value) => `<input class="lab-input-cell" data-measurement-field="${column.field}"
+    aria-label="${escHtml(column.label[0])}" ${column.format?.startsWith('decimal') ? 'inputmode="decimal"' : ''}
+    value="${escHtml(value || '')}">`;
+  const sourceControls = catalog ? `<div class="field-row">
+    <div class="field"><label for="measurement-source-count">Số nguồn sáng</label>
+      <select id="measurement-source-count" data-measurement-source-count>
+        ${Array.from({ length: catalog.max - catalog.min + 1 }, (_, i) => catalog.min + i).map(count =>
+          `<option value="${count}" ${count === selectedSources.length ? 'selected' : ''}>${count}</option>`).join('')}
+      </select>
+    </div>
+    ${selectedSources.map((source, index) => `<div class="field">
+      <label for="measurement-source-${index}">${escHtml(catalog.label)} ${index + 1}</label>
+      <select id="measurement-source-${index}" data-measurement-source="${index}">
+        ${sourceOptions.map(option => `<option value="${escHtml(option)}" ${option === source ? 'selected' : ''}
+          ${option !== source && selectedSources.includes(option) ? 'disabled' : ''}>${escHtml(option)}</option>`).join('')}
+      </select>
+    </div>`).join('')}
+  </div>` : '';
+  editor.innerHTML = sourceControls + tables.map((table, index) => {
+    const groups = new Map();
+    const rows = table.rows.length ? table.rows : measurementReport.defaultRows(table);
+    rows.forEach(row => {
+      const group = table.groupBy ? row[table.groupBy] || '' : '';
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group).push(row);
+    });
+    const headers = measurementReport.headers(table);
+    const choice = table.sharedChoice;
+    const scale = table.scale;
+    const annotations = table.annotations;
+    const noteRow = annotations && rows.find(row => row.param === annotations.parameter);
+    const values = noteRow ? measurementReport.annotationText(table, noteRow).split('\n') : [];
+    const select = (kind, label, options, current) => `<div class="field" style="max-width:250px;">
+      <label for="measurement-${kind}-${index}">${escHtml(label)}</label>
+      <select id="measurement-${kind}-${index}" data-measurement-${kind}>
+        <option value="" disabled ${current ? '' : 'selected'}>Chọn…</option>
+        ${options.map(option => `<option value="${escHtml(option)}" ${String(option) === String(current) ? 'selected' : ''}>${escHtml(option)}</option>`).join('')}
+      </select>
+    </div>`;
+    const scaleMax = scale && scale.options.includes(Number(rows.at(-1)?.found)) ? Number(rows.at(-1).found) : '';
+    return `<div data-measurement-table="${index}" style="margin-bottom:16px;">
+      ${table.heading ? `<h4>${escHtml(table.heading)}</h4>` : ''}
+      ${choice ? select('choice', choice.label, choice.options, rows[0]?.[choice.field]) : ''}
+      ${scale ? select('scale', scale.label, scale.options, scaleMax) : ''}
+      ${annotations ? `<div class="field-row">${annotations.labels.map((label, i) => `<div class="field">
+        <label for="measurement-note-${index}-${i}">${escHtml(label)}</label>
+        <input id="measurement-note-${index}-${i}" data-measurement-note="${i}"
+          value="${escHtml(values.find(line => line.startsWith(label + ': '))?.slice(label.length + 2) || '')}">
+      </div>`).join('')}</div>` : ''}
+      ${table.unit ? `<div class="field" style="max-width:220px;">
+        <label for="measurement-unit-${index}">${escHtml(table.unit.label)}</label>
+        <input id="measurement-unit-${index}" data-measurement-unit value="${escHtml(table.unitValue)}" maxlength="12">
+      </div>` : ''}
+      <div class="cal-table-wrapper"><table>
+        <thead><tr>${headers.map(([vi, en, unit], col) => `<th>${escHtml(vi)}<br><i>${escHtml(en)}</i>${unit
+          ? `<br><span ${table.columns[col].unit === '$unit' ? 'data-measurement-unit-label' : ''}>${escHtml(unit)}</span>` : ''}</th>`).join('')}</tr></thead>
+        ${Array.from(groups.values(), group => `<tbody>${group.map((row, rowIndex) => `<tr data-measurement-row data-param="${escHtml(row.param)}" data-point="${escHtml(row.point || '')}">
+          ${table.columns.map((column, col) => {
+            const value = measurementReport.columnValue(column, row);
+            if (table.groupBy && column.field === table.groupBy) {
+              return rowIndex === 0 ? `<td rowspan="${group.length}">${column.field === 'param' ? escHtml(value) : input(column, value)}
+                ${groups.size > 1 && table.removeGroupLabel ? `<button type="button" class="btn-rm" data-measurement-remove aria-label="${escHtml(table.removeGroupLabel)}">×</button>` : ''}
+              </td>` : '';
+            }
+            if (column.formula) return `<td data-measurement-formula="${col}">${escHtml(value)}</td>`;
+            if (column.field === 'param') return `<td>${escHtml(value)}</td>`;
+            if (table.catalogColumn !== undefined && column.field === 'point') {
+              return `<td>${input(column, value).replace('<input ', '<input readonly ')}</td>`;
+            }
+            if (column.field === 'found' && table.derivedReading?.parameter === row.param) {
+              return `<td>${input(column, value).replace('<input ', '<input readonly ')}</td>`;
+            }
+            if (choice?.field === column.field || (scale && column.field === 'found')) {
+              return `<td>${input(column, value).replace('<input ', '<input readonly ')}</td>`;
+            }
+            if (scale && column.field === 'tol') {
+              const configured = scale.tolerances.some(([min, max]) => scaleMax >= min && scaleMax <= max);
+              const toleranceInput = input(column, scaleMax ? value : '');
+              return `<td>${configured ? toleranceInput.replace('<input ', '<input readonly ') : toleranceInput}</td>`;
+            }
+            return `<td>${input(column, value)}</td>`;
+          }).join('')}
+        </tr>`).join('')}</tbody>`).join('')}
+      </table></div>
+      ${table.groupBy && table.addGroupLabel ? `<button type="button" class="btn-add-row" data-measurement-add>+ ${escHtml(table.addGroupLabel)}</button>` : ''}
+    </div>`;
+  }).join('');
+
+  editor.oninput = event => {
+    const section = event.target.closest('[data-measurement-table]');
+    if (!section) return;
+    const table = tables[Number(section.dataset.measurementTable)];
+    if (event.target.hasAttribute('data-measurement-unit')) {
+      const unit = event.target.value.trim() || table.unit.default;
+      section.querySelectorAll('[data-measurement-unit-label]').forEach(label => { label.textContent = unit; });
+    }
+    const row = event.target.closest('[data-measurement-row]');
+    if (row && table.derivedReading) {
+      const rowElements = [...section.querySelectorAll('[data-measurement-row]')];
+      const values = measurementReport.prepareRows(table, rowElements.map(element => readMeasurementRow(element, table, section)));
+      rowElements.forEach((element, i) => {
+        if (values[i].param === table.derivedReading.parameter) element.querySelector('[data-measurement-field="found"]').value = values[i].found;
+      });
+    }
+    if (row) {
+      const values = readMeasurementRow(row, table, section);
+      row.querySelectorAll('[data-measurement-formula]').forEach(cell => {
+        cell.textContent = measurementReport.columnValue(table.columns[Number(cell.dataset.measurementFormula)], values);
+      });
+    }
+  };
+  editor.onchange = event => {
+    const target = event.target;
+    if (catalog && target.matches('[data-measurement-source-count], [data-measurement-source]')) {
+      let sources = [...editor.querySelectorAll('[data-measurement-source]')].map(input => input.value);
+      if (target.hasAttribute('data-measurement-source-count')) {
+        sources = [...sources, ...sourceOptions.filter(value => !sources.includes(value))].slice(0, Number(target.value));
+      }
+      const spec = document.querySelector('#spec-range-table-body .spec-value-input');
+      const label = document.querySelector('#spec-range-table-body .spec-param-input');
+      if (label && spec) {
+        label.value = catalog.specLabel;
+        spec.value = sources.join(', ');
+      }
+      renderMeasurementEditor(config, measurementReport.catalogRows(config, sources, collectMeasurementResults()));
+      updateRowCount();
+      return;
+    }
+    if (!target.matches('[data-measurement-scale], [data-measurement-choice]')) return;
+    const section = target.closest('[data-measurement-table]');
+    const index = Number(section.dataset.measurementTable);
+    const table = tables[index];
+    const rows = [...section.querySelectorAll('[data-measurement-row]')].map(row => readMeasurementRow(row, table, section));
+    const isScale = target.hasAttribute('data-measurement-scale');
+    const updated = isScale ? measurementReport.scaleRows(table, rows, target.value) : measurementReport.prepareRows(table, rows, target.value);
+    if (isScale) {
+      const spec = document.querySelector('#spec-range-table-body .spec-value-input');
+      const label = document.querySelector('#spec-range-table-body .spec-param-input');
+      if (spec && label) {
+        label.value = table.scale.specLabel;
+        spec.value = `0–${target.value} ${table.scale.specUnit}`;
+      }
+    }
+    const allRows = [...editor.querySelectorAll('[data-measurement-table]')].flatMap((item, i) => i === index ? updated :
+      [...item.querySelectorAll('[data-measurement-row]')].map(row => readMeasurementRow(row, tables[i], item)));
+    renderMeasurementEditor(config, allRows);
+    updateRowCount();
+  };
+  editor.onclick = event => {
+    const button = event.target.closest('[data-measurement-add], [data-measurement-remove]');
+    if (!button) return;
+    const section = button.closest('[data-measurement-table]');
+    const table = tables[Number(section.dataset.measurementTable)];
+    if (button.hasAttribute('data-measurement-remove')) {
+      button.closest('tbody').remove();
+      renderMeasurementEditor(config, collectMeasurementResults());
+    } else {
+      const selector = `[data-measurement-field="${table.groupBy}"]`;
+      if ([...section.querySelectorAll(selector)].every(field => field.value.trim())) {
+        renderMeasurementEditor(config, [...collectMeasurementResults(), ...measurementReport.defaultRows(table, '')]);
+      }
+      const current = editor.querySelector(`[data-measurement-table="${section.dataset.measurementTable}"]`);
+      [...current.querySelectorAll(selector)].find(field => !field.value.trim())?.focus();
+    }
+    updateRowCount();
+  };
+  return true;
+}
+
+function readMeasurementRow(row, table, section) {
+  const result = { param: row.dataset.param, point: row.dataset.point, found: '', refValue: '', unc: '', tol: '', conf: '', refEq: table.standard || '' };
+  row.querySelectorAll('[data-measurement-field]').forEach(input => {
+    result[input.dataset.measurementField] = input.value.trim();
+  });
+  if (table.groupBy && table.groupBy !== 'param') {
+    result[table.groupBy] = row.parentElement.querySelector(`[data-measurement-field="${table.groupBy}"]`)?.value.trim() || '';
+  }
+  if (table.unit) result.param = measurementReport.parameter(table, section.querySelector('[data-measurement-unit]').value.trim());
+  if (table.pointFrom) result.point = result[table.pointFrom];
+  if (table.parameterStandards?.[result.param]) result.refEq = table.parameterStandards[result.param];
+  if (result.param === table.annotations?.parameter) {
+    result.point = [...section.querySelectorAll('[data-measurement-note]')].map(input =>
+      input.value.trim() ? table.annotations.labels[Number(input.dataset.measurementNote)] + ': ' + input.value.trim() : ''
+    ).filter(Boolean).join('\n');
+  }
+  return { ...result, foundAvg: result.found };
+}
+
+function collectMeasurementResults() {
+  return [...document.querySelectorAll('#measurement-results-editor [data-measurement-table]')].flatMap(section => {
+    const table = activeMeasurementProfile.tables[Number(section.dataset.measurementTable)];
+    return [...section.querySelectorAll('[data-measurement-row]')].map(row => readMeasurementRow(row, table, section));
+  });
+}
+
 function collectCalibrationResults() {
+  if (!document.getElementById('measurement-results-editor').hidden) return collectMeasurementResults();
   const rows = document.querySelectorAll('#calibration-table-body tr');
   const res = [];
   rows.forEach(row => {
@@ -6010,68 +6241,14 @@ function buildSpecTableHtml() {
 }
 
 function buildOvenResultsTableHtml() {
-  const ovenData = window._ovenData || getDefaultOvenData();
-  let h = `
-    <table class="cert-results" style="font-size:8.5pt;">
-      <thead>
-        <tr>
-          <th style="width:10%;">Điểm đặt<br><i>Setting point<br>(⁰C)</i></th>
-          <th style="width:10%;">Giá trị chỉ thị<br><i>Indication Value<br>(⁰C)</i></th>
-          <th style="width:9%;">Vị trí đo<br><i>Measuring Pos.</i></th>
-          <th style="width:11%;">Giá trị chuẩn<br><i>Reference Value<br>(⁰C)</i></th>
-          <th style="width:10%;">Số hiệu chính<br><i>Correction<br>(⁰C)</i></th>
-          <th style="width:10%;">Độ đồng đều<br><i>Gradient<br>(⁰C)</i></th>
-          <th style="width:10%;">Độ ổn định<br><i>Fluctuation<br>(⁰C)</i></th>
-          <th style="width:10%;">Độ KĐBĐ<br><i>Uncertainty<br>(⁰C)</i></th>
-          <th style="width:10%;">Dung sai<br><i>Tolerance<br>(⁰C)</i></th>
-          <th style="width:10%;">Sự phù hợp<br><i>Conformity</i></th>
-        </tr>
-      </thead>
-      <tbody>
-  `;
+  const oven = window._ovenData || getDefaultOvenData();
+  return renderMeasurementPrintTable(measurementReport.ovenTable(oven, collectCalibrationResults())) + buildOvenRawHtml(oven.tables, true);
+}
 
-  const ovenResultPoints = collectCalibrationResults();
-  let ovenPointIndex = 0;
-  const parseOvenResultNumber = value => {
-    const text = String(value ?? '').trim().replace(',', '.');
-    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) return null;
-    const number = Number(text);
-    return Number.isFinite(number) ? number : null;
-  };
-  ovenData.tables.forEach(tbl => {
-    const sp = String(tbl.setPoint ?? '');
-    const spNum = parseOvenResultNumber(sp);
-
-    for (let pos = 0; pos < 9; pos++) {
-      h += '<tr>';
-      const point = ovenResultPoints[ovenPointIndex++] || {};
-      const reference = parseOvenResultNumber(point.refValue) ?? parseOvenResultNumber((tbl.avg || [])[pos]);
-      const foundValues = String(point.found || '').split('/').map(parseOvenResultNumber).filter(value => value !== null);
-      const indication = parseOvenResultNumber(point.foundAvg) ?? (foundValues.length
-        ? foundValues.reduce((sum, value) => sum + value, 0) / foundValues.length
-        : spNum);
-      const correction = reference !== null && indication !== null ? reference - indication : null;
-      const correctionText = correction === null ? '' : (Math.round(correction * 10) / 10).toFixed(1);
-      if (pos === 0) h += `<td rowspan="9" style="text-align:center;font-weight:bold;">${escHtml(sp)}</td>`;
-      h += `<td style="text-align:center;">${indication === null ? '' : escHtml(indication.toFixed(1))}</td>`;
-      h += `<td style="text-align:center;">${pos + 1}</td>`;
-      h += `<td style="text-align:center;">${reference === null ? '' : escHtml(reference.toFixed(1))}</td>`;
-      if (pos === 0) {
-        h += `<td rowspan="9" style="text-align:center;">${escHtml(correctionText)}</td>`;
-        h += `<td rowspan="9" style="text-align:center;">${escHtml(tbl.gradient || '')}</td>`;
-        h += `<td rowspan="9" style="text-align:center;">${escHtml(tbl.fluctuation || '')}</td>`;
-      }
-      h += `<td style="text-align:center;">${escHtml(point.unc || '')}</td>`;
-      h += `<td style="text-align:center;">${escHtml(point.tol || '')}</td>`;
-      h += `<td style="text-align:center;font-weight:bold;color:var(--accent);">${escHtml(point.conf || '')}</td>`;
-      h += '</tr>';
-    }
-  });
-
-  h += '</tbody></table>';
-
+function buildOvenRawHtml(tables, includeDiagram) {
+  let h = '';
   // Sơ đồ cảm biến
-  h += `
+  if (includeDiagram) h += `
     <div style="margin:20px 0 15px 0; text-align:center;">
       <div style="font-weight:700; font-size:10.5pt; color:#1e293b;">Bố trị các cảm biến trong tủ nhiệt (x1= x2= x3=50mm)</div>
       <div style="font-style:italic; font-size:9.5pt; color:#64748b; margin-bottom:8px;">Sensor Position</div>
@@ -6082,14 +6259,14 @@ function buildOvenResultsTableHtml() {
   // Các bảng số liệu thô (DATA TABLE)
   h += `<div style="text-align:center; font-weight:800; font-size:11.5pt; margin:16px 0 10px 0; color:#0f172a; letter-spacing:0.5px;">BẢNG SỐ LIỆU/ DATA TABLE</div>`;
 
-  ovenData.tables.forEach(tbl => {
+  tables.forEach(tbl => {
     h += `
       <table class="cert-results" style="margin-bottom:16px; font-size:8.5pt;">
         <thead>
           <tr>
             <th style="width:26%; text-align:left; padding-left:10px;">
               <div>Vị trí đo/ Sensor Pos.</div>
-              <div style="color:#008000; font-weight:bold;">Set point: ${tbl.setPoint} (⁰C)</div>
+              <div style="color:#008000; font-weight:bold;">Set point: ${escHtml(tbl.setPoint)} (⁰C)</div>
             </th>
             <th style="width:8.2%;">1</th>
             <th style="width:8.2%;">2</th>
@@ -6108,21 +6285,21 @@ function buildOvenResultsTableHtml() {
               <div>Giá trị trung bình</div>
               <div style="font-size:7.5pt; font-style:italic; font-weight:normal;">Average Value (⁰C)</div>
             </td>
-            ${[0,1,2,3,4,5,6,7,8].map(i => `<td style="color:#b45309; font-weight:bold;">${tbl.avg[i] || '--'}</td>`).join('')}
+            ${[0,1,2,3,4,5,6,7,8].map(i => `<td style="color:#b45309; font-weight:bold;">${escHtml(tbl.avg[i] || '--')}</td>`).join('')}
           </tr>
           <tr>
             <td style="text-align:left; padding-left:10px; font-weight:bold; color:#dc2626;">
               <div>Giá trị lớn nhất</div>
               <div style="font-size:7.5pt; font-style:italic; font-weight:normal;">Max. Value(⁰C)</div>
             </td>
-            ${[0,1,2,3,4,5,6,7,8].map(i => `<td style="color:#dc2626; font-weight:bold;">${tbl.max[i] || '--'}</td>`).join('')}
+            ${[0,1,2,3,4,5,6,7,8].map(i => `<td style="color:#dc2626; font-weight:bold;">${escHtml(tbl.max[i] || '--')}</td>`).join('')}
           </tr>
           <tr>
             <td style="text-align:left; padding-left:10px; font-weight:bold; color:#dc2626;">
               <div>Giá trị nhỏ nhất</div>
               <div style="font-size:7.5pt; font-style:italic; font-weight:normal;">Min. Value (⁰C)</div>
             </td>
-            ${[0,1,2,3,4,5,6,7,8].map(i => `<td style="color:#dc2626; font-weight:bold;">${tbl.min[i] || '--'}</td>`).join('')}
+            ${[0,1,2,3,4,5,6,7,8].map(i => `<td style="color:#dc2626; font-weight:bold;">${escHtml(tbl.min[i] || '--')}</td>`).join('')}
           </tr>
           <tr style="background:#f8fafc;">
             <td colspan="4" style="font-weight:bold; text-align:center;">
@@ -6135,8 +6312,8 @@ function buildOvenResultsTableHtml() {
             </td>
           </tr>
           <tr>
-            <td colspan="4" style="font-weight:bold; font-size:10.5pt; text-align:center;">${tbl.gradient || '--'}</td>
-            <td colspan="6" style="font-weight:bold; font-size:10.5pt; text-align:center; color:#0284c7;">${tbl.fluctuation || '--'}</td>
+            <td colspan="4" style="font-weight:bold; font-size:10.5pt; text-align:center;">${escHtml(tbl.gradient || '--')}</td>
+            <td colspan="6" style="font-weight:bold; font-size:10.5pt; text-align:center; color:#0284c7;">${escHtml(tbl.fluctuation || '--')}</td>
           </tr>
         </tbody>
       </table>
@@ -6420,6 +6597,16 @@ function buildSection17Html(hasMCMark) {
   `;
 }
 
+function renderMeasurementPrintTable(table) {
+  return `${table.heading ? `<b>${escHtml(table.heading)}</b>` : ''}<table class="cert-results" style="margin-bottom:12px;">
+        <thead><tr>${table.headers.map(([vi, en, unit], col) => `<th style="width:${table.weights[col]}%">${escHtml(vi)}<br><i>${escHtml(en)}</i>${unit ? '<br>' + escHtml(unit) : ''}</th>`).join('')}</tr></thead>
+        <tbody>${table.rows.map((row, rowIndex) => `<tr>${row.map((value, col) => {
+          const span = measurementReport.cellSpan(table, rowIndex, col);
+          return span ? `<td${span > 1 ? ` rowspan="${span}"` : ''}>${escHtml(value || '').replace(/\n/g, '<br>')}</td>` : '';
+        }).join('')}</tr>`).join('')}</tbody>
+      </table>`;
+}
+
 function buildPrintTemplateHtml() {
   const allStd = collectAllStandards();
   const allRes = collectCalibrationResults();
@@ -6451,7 +6638,21 @@ function buildPrintTemplateHtml() {
   const sec17EstH = estimateSec17HeightBrowser(allRes);
   
   // 2. Run pagination simulation
-  const { totalPages, groups } = estimatePrintPages(allRes, isSnagpod, isMartindale, sec17EstH);
+  const oven = currentOvenRawData();
+  const measurementPages = activeMeasurementProfile
+    ? measurementReport.pages(activeMeasurementProfile, allRes, sec17EstH)
+    : oven ? measurementReport.pagesFromTables([measurementReport.ovenTable(oven, allRes)], 0) : null;
+  if (oven && !activeMeasurementProfile) {
+    for (let index = 0; index < oven.tables.length;) {
+      const end = index + (index === 0 ? 2 : 3);
+      measurementPages.push({ tables: [], rawTables: oven.tables.slice(index, end), includeDiagram: index === 0 });
+      index = end;
+    }
+    measurementPages.push({ tables: [] });
+  }
+  const { totalPages, groups } = measurementPages
+    ? { totalPages: measurementPages.length + 1 }
+    : estimatePrintPages(allRes, isSnagpod, isMartindale, sec17EstH);
   
   let html = '';
   
@@ -6534,6 +6735,24 @@ function buildPrintTemplateHtml() {
   `;
   
   // ═══ RESULTS PAGES (Page 2, 3, etc.) ═══
+  if (measurementPages) {
+    measurementPages.forEach((page, index) => {
+      const tables = page.tables.map(renderMeasurementPrintTable).join('');
+      const rawTables = page.rawTables ? buildOvenRawHtml(page.rawTables, page.includeDiagram) : '';
+      html += `<div class="cert-page cert-page-results">
+        ${buildCertHeaderHtml(certNo, calDate)}
+        ${tables ? '<div class="cert-sec16-title">16. Kết quả / <i>Results:</i></div>' + tables : ''}
+        ${rawTables}
+        ${index === measurementPages.length - 1 ? buildSection17Html(hasMCMark) : ''}
+        <div class="cert-footer">
+          <span>www.labmaster.vn &nbsp;|&nbsp; Textile – Footwear – Leather - Children product Safety Tester</span>
+          <span class="cert-page-num">Trang/<i>Page</i>: ${index + 2}/${totalPages}</span>
+        </div>
+      </div>`;
+    });
+    document.getElementById('print-content').innerHTML = html;
+    return;
+  }
   const T = 160.3, TH = 38.8;
   let currentPage = 2;
   let y = T + TH;
@@ -7440,6 +7659,7 @@ function populateCalibrationForm(result) {
         specResolution = eq.specResolution || '';
     }
     const caliperRangeControl = document.getElementById('caliper-range-control');
+    window._caliperHiddenPoints = [];
     if (caliperRangeControl && eq && isCaliperEquipment(resolvedName, eq)) {
         caliperRangeControl.style.display = 'block';
         const savedRange = String(c.SPEC_RANGE || specRange || '');
@@ -7449,13 +7669,24 @@ function populateCalibrationForm(result) {
     } else if (caliperRangeControl) {
         caliperRangeControl.style.display = 'none';
     }
+    specRange = measurementReport.normalizeSpecRange(eq?.reportProfile, specRange);
     setSpecTableFromData(specRange, specResolution, c.PROCEDURE || (eq ? eq.procedure : ''), c.REF_STANDARD || (eq ? eq.refStandard : ''));
     setVal('f-temp',      c.TEMP_ENV);
     setVal('f-humi',      c.HUMI_ENV);
     setVal('f-sign1',     c.HEAD_OF_LAB);
     setVal('f-sign2',     c.DIRECTOR);
 
-    if (result.points && result.points.length > 0) {
+    const savedPoints = result.points || [];
+    const rangePoints = measurementReport.filterBySpecRange(eq?.reportProfile, savedPoints, specRange);
+    if (eq?.reportProfile?.rangeLimit && rangePoints.length < savedPoints.length) {
+        const visible = new Set(rangePoints);
+        window._caliperHiddenPoints = measurementReport.readTables(
+            eq.reportProfile, savedPoints.filter(point => !visible.has(point))
+        ).flatMap(table => table.rows);
+    }
+    if (renderMeasurementEditor(eq?.reportProfile, rangePoints)) {
+        updateRowCount();
+    } else if (result.points && result.points.length > 0) {
         fillCalibrationTableRows(result.points);
     } else if (eq && Array.isArray(eq.formPoints) && eq.formPoints.length > 0) {
         // TRUY XUẤT BẢNG KẾT QUẢ TỪ DATABASE EQUIPMENT
@@ -7479,6 +7710,13 @@ function populateCalibrationForm(result) {
             const rawObj = typeof c.RAW_DATA === 'string' ? JSON.parse(c.RAW_DATA) : c.RAW_DATA;
             if (rawObj && Array.isArray(rawObj.tables) && rawObj.tables.length > 0) {
                 window._ovenData = rawObj;
+                measurementReport.ovenGroups(rawObj, result.points || []).forEach(group => {
+                    if (group.table.indication === undefined) {
+                        group.table.indication = Number.isFinite(group.indication) ? String(group.indication) : '';
+                    }
+                    group.table.pointSettings = group.rows.map(row => ({ unc: row.unc, tol: row.tol }));
+                    calculateOvenTable(group.table);
+                });
             } else if (rawObj && rawObj.division && Array.isArray(rawObj.indication)) {
                 window._balanceData = normalizeBalanceData(rawObj);
             }

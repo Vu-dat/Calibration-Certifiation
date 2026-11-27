@@ -6,6 +6,7 @@ const fs = require('fs');
 const { Writable } = require('stream');
 
 const db = require('./db');
+const measurementReport = require('./public/measurement_report');
 const { displayStandardDueDate, standardCertificateNumber, resolveStoredStandards } = require('./public/standard_report_fields');
 
 async function g(query, params) {
@@ -903,6 +904,43 @@ function getGroupRowHeights(doc, grp, tpl) {
   return heights;
 }
 
+function drawConfiguredResultsPage(doc, page) {
+  if (!page.tables.length) return;
+  sf(doc, true); doc.fontSize(11).fillColor('#000000');
+  doc.text(VN.sec16, 36, 146.1);
+  sf(doc, true, true);
+  doc.text(VN.sec16En, 100.9, 146.1);
+  for (const table of page.tables) {
+    if (table.heading) {
+      sf(doc, true); doc.fontSize(9).text(table.heading, 28.7, table.headingY + 2, { width: 545.6 });
+    }
+    let x = 28.7;
+    table.headers.forEach(([vi, en, unit], col) => {
+      const width = table.weights[col] * 5.456;
+      const y = table.headerY;
+      doc.lineWidth(0.4).strokeColor('#000000').rect(x, y, width, 43).stroke();
+      sf(doc, true); doc.fontSize(9);
+      drawCell(doc, vi, x + 3, y + 3, width - 6, 13);
+      sf(doc, false, true);
+      drawCell(doc, en, x + 3, y + 15, width - 6, 13);
+      if (unit) {
+        sf(doc, false);
+        drawCell(doc, unit, x + 3, y + 27, width - 6, 13);
+      }
+      sf(doc, false);
+      table.rows.forEach((row, index) => {
+        const span = measurementReport.cellSpan(table, index, col);
+        if (!span) return;
+        const top = y + 43 + index * 32;
+        const height = 32 * span;
+        doc.rect(x, top, width, height).stroke();
+        drawCell(doc, String(row[col] ?? ''), x + 3, top, width - 6, height);
+      });
+      x += width;
+    });
+  }
+}
+
 function drawResultsTable(doc, pts, pageContext) {
   var logo = pageContext.logo;
   var cNo = pageContext.cNo;
@@ -1739,7 +1777,7 @@ async function getCachedTemplate(eqName, cert) {
   let tpl = null;
   try {
     if (eqName) {
-      tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ?", [eqName, eqName]);
+      tpl = await g("SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR NAME_VI = ? OR EQUIPMENT_ID = ?", [eqName, eqName, eqName]);
     }
     if (!tpl && cert) {
       var cleanName = (cert.INSTRUMENT_NAME || '').replace(/[\s_]+/g, ' ').replace(/ thử/gi, '').replace(/mater/gi, 'meter').trim();
@@ -1896,10 +1934,12 @@ async function main(opts) {
     // No re-sorting by template — the user's arrangement is preserved.
 
     // Pre-process and expand slash values in calibration points (matching generate_docx.js)
+    const reportProfile = measurementReport.profile(tpl?.REPORT_PROFILE);
+    if (reportProfile && cert.SPEC_RANGE) cert.SPEC_RANGE = measurementReport.normalizeSpecRange(reportProfile, cert.SPEC_RANGE);
     var expandedPoints = [];
     pts.forEach(function(p) {
       var asFound = String(p.AS_FOUND_VALUE || '');
-      if (asFound.indexOf('/') >= 0) {
+      if (!reportProfile && asFound.indexOf('/') >= 0) {
         var valParts = asFound.split('/');
         var count = valParts.length;
         var unc = String(p.UNCERTAINTY || '');
@@ -1954,16 +1994,27 @@ async function main(opts) {
     // Estimate heights to determine total pages dynamically
     var sec17EstH = estimateSection17Height(doc, pts);
     var totalPages;
-    if (balanceData) {
+    const measurementPages = reportProfile ? measurementReport.pages(
+      reportProfile, measurementReport.filterBySpecRange(reportProfile, pts, cert.SPEC_RANGE || tpl?.SPEC_RANGE), sec17EstH
+    ) : null;
+    const ovenPages = ovenData ? measurementReport.pagesFromTables([measurementReport.ovenTable(ovenData, pts)], 0) : null;
+    if (measurementPages) {
+      totalPages = measurementPages.length + 1;
+    } else if (balanceData) {
       var balEnd = 160.3 + estimateBalanceHeight(balanceData);
       totalPages = 2;
       while (balEnd > 790) { totalPages++; balEnd = 160.3 + (balEnd - 790); }
       if (balEnd + 8 + sec17EstH > 810) totalPages++;
-    } else if (ovenData) {
-      var ovenPointCount = (ovenData.tables || []).length * 9;
-      var ovenResultsHeight = 60 + ovenPointCount * 20;
-      var ovenRawHeight = 175 + (ovenData.tables || []).length * 112;
-      totalPages = 1 + Math.ceil((ovenResultsHeight + ovenRawHeight + sec17EstH + 24) / 629);
+    } else if (ovenPages) {
+      totalPages = ovenPages.length + 1;
+      let rawEnd = ovenPages.at(-1).end + 12;
+      if (rawEnd + 215 > 790) { totalPages++; rawEnd = 160.3; }
+      rawEnd += 16 + (fs.existsSync(path.join(BD, 'public', 'img', 'oven_sensor_position.png')) ? 200 : 0);
+      for (const _ of ovenData.tables) {
+        if (rawEnd + 112 > 790) { totalPages++; rawEnd = 160.3; }
+        rawEnd += 104;
+      }
+      if (rawEnd + 8 + sec17EstH > 810) totalPages++;
     } else {
       totalPages = determinePages(doc, pts, tpl, sec17EstH);
     }
@@ -1974,6 +2025,15 @@ async function main(opts) {
     drawPage1Body(doc, cert, pts, stds, accM, tpl);
     drawFooter(doc, 1, totalPages);
 
+    if (measurementPages) {
+      measurementPages.forEach((page, index) => {
+        doc.addPage();
+        drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
+        drawConfiguredResultsPage(doc, page);
+        if (index === measurementPages.length - 1) drawSection17(doc, page.end + 8, cNo, pts);
+        drawFooter(doc, index + 2, totalPages);
+      });
+    } else {
     // ═══ RESULTS PAGE ═══
     doc.addPage();
     drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
@@ -1987,11 +2047,19 @@ async function main(opts) {
       totalPages: totalPages,
       tpl: tpl
     };
-    var tableEnd = balanceData
-      ? drawBalanceTables(doc, balanceData, pageContext)
-      : drawResultsTable(doc, pts, pageContext);
-    if (!balanceData && ovenData) {
-      tableEnd = drawOvenRawTables(doc, ovenData, pageContext, tableEnd);
+    let tableEnd;
+    if (ovenPages && !balanceData) {
+      ovenPages.forEach((page, index) => {
+        if (index) {
+          drawFooter(doc, pageContext.currentPage++, totalPages);
+          doc.addPage();
+          drawH(doc, logo, cNo, pd(cert.CAL_DATE), qr);
+        }
+        drawConfiguredResultsPage(doc, page);
+      });
+      tableEnd = drawOvenRawTables(doc, ovenData, pageContext, ovenPages.at(-1).end);
+    } else {
+      tableEnd = balanceData ? drawBalanceTables(doc, balanceData, pageContext) : drawResultsTable(doc, pts, pageContext);
     }
     
     var lastTablePage = pageContext.currentPage;
@@ -2049,6 +2117,7 @@ async function main(opts) {
       }
     }
 
+    }
     return new Promise(function(resolve, reject) {
       collector.on('finish', function() {
         resolve(Buffer.concat(buffers));

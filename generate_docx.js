@@ -11,6 +11,7 @@ const QRCode = require('qrcode');
 
 // Database connection (centralized) — Postgres via db.js
 const db = require('./db');
+const measurementReport = require('./public/measurement_report');
 const { displayStandardDueDate, standardCertificateNumber, resolveStoredStandards } = require('./public/standard_report_fields');
 
 // Adapter: SQLite ? → PostgreSQL $1, $2 for backward-compatible queries
@@ -316,6 +317,34 @@ function ovenConformity(correction, uncertainty, toleranceText) {
     return 'C';
 }
 
+function createConfiguredResultTables(profile, points) {
+    return measurementReport.tables(profile, points).flatMap((table, index) => {
+        const widths = table.weights.map(weight => Math.round(weight * 110));
+        const rows = [
+            new TableRow({
+                tableHeader: true,
+                children: table.headers.map(([vi, en, unit], col) => t2Cell([
+                    para(vi, { fontSize: 9, bold: true, alignment: AlignmentType.CENTER }),
+                    para(en, { fontSize: 9, italics: true, alignment: AlignmentType.CENTER }),
+                    ...(unit ? [para(unit, { fontSize: 9, alignment: AlignmentType.CENTER })] : [])
+                ], widths[col], 1, { keepNext: true }))
+            }),
+            ...(table.rows.length ? table.rows : [Array(table.headers.length).fill('')]).map((row, index) => new TableRow({
+                children: row.map((value, col) => {
+                    const span = measurementReport.cellSpan(table, index, col);
+                    const verticalMerge = span > 1 ? VerticalMergeType.RESTART : span === 0 ? VerticalMergeType.CONTINUE : undefined;
+                    return t2Cell(span ? para(String(value ?? ''), { fontSize: 9, alignment: AlignmentType.CENTER }) : [], widths[col], 1, { verticalMerge });
+                })
+            }))
+        ];
+        return [
+            ...(table.heading ? [para(table.heading, { fontSize: 10, bold: true, keepNext: true })] :
+                index ? [para('', { keepNext: true, spacing: { before: 0, after: 0, line: 150 } })] : []),
+            new Table({ rows, columnWidths: widths, width: { size: 11000, type: WidthType.DXA }, borders: TABLE_BORDER_GRID })
+        ];
+    });
+}
+
 function createOvenResultTables(oven, points) {
     const blocks = [];
     const grid = { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID };
@@ -340,29 +369,22 @@ function createOvenResultTables(oven, points) {
         children: ['Setting point (°C)', 'Indication (°C)', 'Pos.', 'Reference (°C)', 'Correction (°C)', 'Gradient (°C)', 'Fluctuation (°C)', 'Uncertainty (°C)', 'Tolerance (°C)', 'Conformity'].map((label, i) => cell(label, widths[i], { header: true, small: true, bold: true }))
     })];
 
-    let pointIndex = 0;
-    (oven.tables || []).forEach(table => {
-        const setPoint = ovenNum(table.setPoint);
+    measurementReport.ovenGroups(oven, points).forEach(group => {
+        const { table, rows, references, indication, correction } = group;
         for (let pos = 0; pos < 9; pos++) {
-            const point = points[pointIndex++] || {};
-            const reference = ovenNum(point.REFERENCE_VALUE) ?? ovenNum((table.avg || [])[pos]);
-            const asFoundText = String(point.AS_FOUND_VALUE ?? '');
-            const asFoundValues = asFoundText.split('/').map(ovenNum).filter(value => value !== null);
-            const indication = asFoundValues.length
-                ? asFoundValues.reduce((sum, value) => sum + value, 0) / asFoundValues.length
-                : setPoint;
-            const correction = reference !== null && indication !== null ? reference - indication : null;
-            const uncertainty = point.UNCERTAINTY ?? '';
-            const tolerance = point.TOLERANCE ?? '';
-            const conformity = point.CONFORMITY || ovenConformity(correction, uncertainty, tolerance);
+            const point = rows[pos];
+            const reference = references[pos];
+            const uncertainty = point.unc ?? '';
+            const tolerance = point.tol ?? '';
+            const conformity = point.conf || ovenConformity(Number.isFinite(correction) ? correction : '', uncertainty, tolerance);
             const first = pos === 0;
             const vm = first ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE;
             const rowCells = [
                 cell(first ? ovenFmt(table.setPoint) : '', widths[0], { bold: true, verticalMerge: vm }),
-                cell(indication === null ? '' : ovenFmt(indication), widths[1]),
+                cell(Number.isFinite(indication) ? ovenFmt(indication) : '', widths[1]),
                 cell(String(pos + 1), widths[2]),
-                cell(reference === null ? '' : ovenFmt(reference), widths[3]),
-                cell(first && correction !== null ? ovenFmt(correction) : '', widths[4], { verticalMerge: vm }),
+                cell(Number.isFinite(reference) ? ovenFmt(reference) : '', widths[3]),
+                cell(first && Number.isFinite(correction) ? ovenFmt(correction) : '', widths[4], { verticalMerge: vm }),
                 cell(first ? (table.gradient ?? '') : '', widths[5], { verticalMerge: vm }),
                 cell(first ? (table.fluctuation ?? '') : '', widths[6], { verticalMerge: vm }),
                 cell(uncertainty, widths[7]),
@@ -1079,7 +1101,7 @@ async function main(opts) {
 
         let tpl = null;
         if (eqName) {
-            tpl = await dbGet(`SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ?`, [eqName]);
+            tpl = await dbGet(`SELECT * FROM EQUIPMENT_TEMPLATES WHERE NAME = ? OR EQUIPMENT_ID = ?`, [eqName, eqName]);
         }
         if (!tpl) {
             let cleanName = (cert.INSTRUMENT_NAME || '').replace(/[\s_]+/g, ' ').replace(/ thử/gi, '').replace(/mater/gi, 'meter').trim();
@@ -1089,6 +1111,7 @@ async function main(opts) {
 
         // Dữ liệu thô của Cân (nếu có) — dùng cho 3 bảng đặc thù ở Mục 16
         const balanceData = parseBalanceRaw(cert, opts && opts.data);
+        const reportProfile = measurementReport.profile(tpl?.REPORT_PROFILE);
         // Dữ liệu thô của Oven — dùng cho bảng kết quả 9 vị trí và các bảng Max/Min.
         const ovenData = parseOvenRaw(cert, opts && opts.data);
 
@@ -1106,7 +1129,7 @@ async function main(opts) {
             specResolution = specsDefault.resolution;
         }
         const specs = {
-            range: specRange,
+            range: measurementReport.normalizeSpecRange(reportProfile, specRange),
             resolution: specResolution
         };
 
@@ -1720,7 +1743,9 @@ async function main(opts) {
         );
 
         // ─── TABLE 2: Calibration Results Table ───
-        if (balanceData) {
+        if (reportProfile) {
+            children.push(...createConfiguredResultTables(reportProfile, measurementReport.filterBySpecRange(reportProfile, points, specs.range)));
+        } else if (balanceData) {
             // Cân điện tử: 3 bảng Sai lệch chỉ thị / Độ lặp lại / Độ lệch góc
             children.push(...createBalanceResultTables(balanceData));
         } else if (ovenData) {

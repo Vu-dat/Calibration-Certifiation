@@ -5,12 +5,15 @@
  * Usage:
  *   node seed_real_equipments.js          # add/update templates and points; never deletes
  *   node seed_real_equipments.js --dry-run
+ *   node seed_real_equipments.js "--template=Fabric Inspection Machine" --report-profiles-only
  *
  * This file intentionally contains no DELETE, TRUNCATE, DROP, or reset operation.
  */
 'use strict';
 require('dotenv').config({ override: true, quiet: true });
 const sql = require('./db');
+const reportProfiles = require('./equipment_report_profiles.json');
+const { profile: validateReportProfile } = require('./public/measurement_report');
 
 const templates = [
   {
@@ -6956,8 +6959,8 @@ const templates = [
     "serial_number": "TM092026",
     "model_serial": "TM092026",
     "manufacturer_id": "QV0388113",
-    "spec_range": "Chiều dài/Length: Max. 9999,9 m\nNguồn sáng/Light sources: D65, TL84, CWF, U35, TL84, A, HZ (người dùng nhập)",
-    "spec_resolution": "0,1 m\n--",
+    "spec_range": "Chiều dài/Length: Max. 9999,9 m\nNguồn sáng/Lighting:",
+    "spec_resolution": "0,1 m\n",
     "standards_used": "[\"LAB-TACHO.01\", \"LAB-LIGHT.01\"]",
     "name_vi": "Máy kiểm vải",
     "name_en": "Fabric Inspection Machine",
@@ -7001,6 +7004,26 @@ const templates = [
         "tol": "± 1,0",
         "conf": "A",
         "std": "LAB-TACHO.01"
+      },
+      {
+        "parameter": "Nhiệt độ màu/Color temperature (K)",
+        "value": "D65",
+        "asFound": "",
+        "ref": "",
+        "unc": "60",
+        "tol": "± 300",
+        "conf": "",
+        "std": "LAB-LIGHT.01"
+      },
+      {
+        "parameter": "Độ rọi/Illuminance (Lux)",
+        "value": "D65",
+        "asFound": "",
+        "ref": "",
+        "unc": "100",
+        "tol": "≥ 1000",
+        "conf": "",
+        "std": "LAB-LIGHT.01"
       }
     ]
   },
@@ -8301,11 +8324,34 @@ async function upsertTemplate(tx, item) {
 
 async function main() {
   validateTemplates(templates);
-  const pointCount=templates.reduce((sum,item)=>sum+item.points.length,0);
-  console.log('Prepared '+templates.length+' templates and '+pointCount+' points.'+(dryRun?' Dry run; no database writes.':''));
+  const filter = process.argv.find(arg => arg.startsWith('--template='));
+  const selected = filter ? templates.filter(item => item.name === filter.slice('--template='.length)) : templates;
+  if (!selected.length) throw new Error('Template name not found: ' + filter);
+  const profilesOnly = process.argv.includes('--report-profiles-only');
+  const configured = selected.filter(item => Object.hasOwn(reportProfiles, item.name));
+  if (profilesOnly && !configured.length) throw new Error('No report profiles matched the selected templates.');
+  for (const item of configured) {
+    if (!validateReportProfile(reportProfiles[item.name])) throw new Error('Invalid report profile: ' + item.name);
+  }
+  const pointCount = selected.reduce((sum, item) => sum + item.points.length, 0);
+  console.log(profilesOnly ? `Prepared ${configured.length} report profiles.` :
+    `Prepared ${selected.length} templates and ${pointCount} points.`);
+  if (dryRun) console.log('Dry run; no database writes.');
   if (dryRun) return;
   await sql.begin(async tx=>{
-    for (const item of templates) await upsertTemplate(tx,item);
+    if (!profilesOnly) {
+      for (const item of selected) await upsertTemplate(tx,item);
+    }
+    if (configured.length) {
+      await tx`ALTER TABLE EQUIPMENT_TEMPLATES ADD COLUMN IF NOT EXISTS REPORT_PROFILE JSONB`;
+      for (const item of configured) {
+        const updated = await tx`
+          UPDATE EQUIPMENT_TEMPLATES SET REPORT_PROFILE = ${tx.json(reportProfiles[item.name])}
+          WHERE NAME = ${item.name} RETURNING NAME
+        `;
+        if (!updated.length) throw new Error('Template missing in database: ' + item.name);
+      }
+    }
   });
   console.log('Upsert completed. Existing Supabase rows are never deleted.');
 }
