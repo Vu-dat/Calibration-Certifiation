@@ -11,6 +11,7 @@ const QRCode = require('qrcode');
 
 // Database connection (centralized) — Postgres via db.js
 const db = require('./db');
+const { displayStandardDueDate, standardCertificateNumber, resolveStoredStandards } = require('./public/standard_report_fields');
 
 // Adapter: SQLite ? → PostgreSQL $1, $2 for backward-compatible queries
 async function dbGet(query, params) {
@@ -90,7 +91,7 @@ function getPublicBaseUrl() {
 }
 
 function parseDate(d) {
-    if (!d) return '';
+    if (!d || /^(1900|0000)/.test(String(d).trim())) return '';
     const p = d.split('-');
     return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d;
 }
@@ -172,6 +173,7 @@ function txtRun(text, opts = {}) {
         bold: opts.bold || false,
         italics: opts.italics || false,
         color: opts.color || COL_DARK,
+        characterSpacing: opts.characterSpacing,
         break: opts.break, // Support break option
         superScript: opts.superScript || false, // Support superscript option
     });
@@ -213,7 +215,7 @@ function para(text, opts = {}) {
 function t1Cell(children, width, colSpan = 1, opts = {}) {
     const finalChildren = Array.isArray(children) ? children : (children ? [children] : []);
     return new TableCell({
-        children: finalChildren.length > 0 ? finalChildren : [new Paragraph({})],
+        children: finalChildren.length > 0 ? finalChildren : [new Paragraph({ keepNext: opts.keepNext })],
         columnSpan: colSpan,
         width: { size: width, type: WidthType.DXA },
         verticalAlign: opts.vAlign || 'center',
@@ -1071,7 +1073,8 @@ async function main(opts) {
             }
             points = toUpperKeys(points);
 
-            standards = toUpperKeys(await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [compositeCNo]));
+            standards = toUpperKeys(await dbAll(`SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC`, [cert.CERT_NO]));
+            standards = await resolveStoredStandards(cert, standards, () => dbAll('SELECT * FROM CLOCK', []), eqName, cNo);
         }
 
         let tpl = null;
@@ -1531,7 +1534,7 @@ async function main(opts) {
 
         // Row 8: Calibration Date & Next Calibration Date
         t1Rows.push(new TableRow({
-            height: { value: 848, rule: HeightRule.AT_LEAST },
+            height: { value: 450, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('12. Ngày thực hiện:', { fontSize: 10 }),
@@ -1552,7 +1555,7 @@ async function main(opts) {
 
         // Row 9: Environment Conditions
         t1Rows.push(new TableRow({
-            height: { value: 849, rule: HeightRule.AT_LEAST },
+            height: { value: 450, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([
                     para('14. Điều kiện môi trường :', { fontSize: 10 }),
@@ -1570,7 +1573,7 @@ async function main(opts) {
                     para('Humidity', { fontSize: 10, italics: true }),
                 ], 1838, 2),
                 t1Cell([
-                    para(cert.HUMI_ENV || '–', { fontSize: 10, bold: true }), // Humidity is bold in the reference
+                    para(cert.HUMI_ENV || '–', { fontSize: 10 }),
                 ], 2698, 5),
             ]
         }));
@@ -1623,9 +1626,9 @@ async function main(opts) {
                 children: [
                     t1Cell(std ? para(std.EQ_NAME || '', { fontSize: 10 }) : [], 2132, 2),
                     t1Cell(std ? para(std.EQ_CODE || '', { fontSize: 10 }) : [], 2349, 2),
-                    t1Cell(std ? para(std.STD_CERT_NO || '', { fontSize: 10 }) : [], 2241, 5), // Certificate No
+                    t1Cell(std ? para(standardCertificateNumber(std.STD_CERT_NO, compositeCNo, cNo, cert.EQUIPMENT_ID), { fontSize: 10 }) : [], 2241, 5),
                     t1Cell(std ? para(std.LINK || '', { fontSize: 10 }) : [], 2241, 3), // Traceable to
-                    t1Cell(std ? para(parseDate(std.VALIDITY) || '', { fontSize: 10 }) : [], 2241, 3), // Due date
+                    t1Cell(std ? para(displayStandardDueDate(std.VALIDITY), { fontSize: 10 }) : [], 2241, 3),
                 ]
             }));
         }
@@ -1640,37 +1643,40 @@ async function main(opts) {
 
         // Row 18: Signatures Header
         t1Rows.push(new TableRow({
+            cantSplit: true,
             children: [
-                t1Cell([], 289, 1),
+                t1Cell([], 289, 1, { keepNext: true }),
                 t1Cell([
-                    para('PHỤ TRÁCH PHÒNG HIỆU CHUẨN', { fontSize: 11, bold: true, alignment: AlignmentType.CENTER }),
-                    para('HEAD OF CALIBRATION LAB.', { fontSize: 11, bold: true, alignment: AlignmentType.CENTER }),
+                    para('PHỤ TRÁCH PHÒNG HIỆU CHUẨN', { fontSize: 11, bold: true, alignment: AlignmentType.CENTER, keepNext: true }),
+                    para('HEAD OF CALIBRATION LAB.', { fontSize: 11, bold: true, alignment: AlignmentType.CENTER, keepNext: true }),
                 ], 5228, 5, { vAlign: 'center' }),
                 t1Cell([
-                    para('GIÁM ĐỐC', { fontSize: 11, bold: true, alignment: AlignmentType.CENTER }),
-                    para('DIRECTOR', { fontSize: 11, bold: true, alignment: AlignmentType.CENTER }),
+                    para('GIÁM ĐỐC', { fontSize: 11, bold: true, alignment: AlignmentType.CENTER, keepNext: true }),
+                    para('DIRECTOR', { fontSize: 11, bold: true, alignment: AlignmentType.CENTER, keepNext: true }),
                 ], 5229, 8, { vAlign: 'center' }),
-                t1Cell([], 458, 1),
+                t1Cell([], 458, 1, { keepNext: true }),
             ]
         }));
 
         // Row 19: Signature Spacing (Compact)
         t1Rows.push(new TableRow({
-            height: { value: 1900, rule: HeightRule.AT_LEAST },
+            cantSplit: true,
+            height: { value: 1050, rule: HeightRule.AT_LEAST },
             children: [
-                t1Cell([], 289, 1),
+                t1Cell([], 289, 1, { keepNext: true }),
                 t1Cell([
-                    para('', { spacing: { before: 0, after: 0, line: 276, lineRule: 'auto' } }),
+                    para('', { spacing: { before: 0, after: 0, line: 276, lineRule: 'auto' }, keepNext: true }),
                 ], 5228, 5),
                 t1Cell([
-                    para('', { spacing: { before: 0, after: 0, line: 276, lineRule: 'auto' } }),
+                    para('', { spacing: { before: 0, after: 0, line: 276, lineRule: 'auto' }, keepNext: true }),
                 ], 5229, 8),
-                t1Cell([], 458, 1),
+                t1Cell([], 458, 1, { keepNext: true }),
             ]
         }));
 
         // Row 20: Signee Names
         t1Rows.push(new TableRow({
+            cantSplit: true,
             height: { value: 278, rule: HeightRule.AT_LEAST },
             children: [
                 t1Cell([], 289, 1),
@@ -1724,7 +1730,7 @@ async function main(opts) {
 
         // Table 2 Row 1 (Header) - mathematically aligned with the column width grid
         t2Rows.push(new TableRow({
-            height: { value: 770, rule: HeightRule.EXACT },
+            height: { value: 770, rule: HeightRule.AT_LEAST },
             tableHeader: true,
             children: [
                 new TableCell({
@@ -1739,22 +1745,19 @@ async function main(opts) {
                 }),
                 new TableCell({
                     children: [
-                        para([
-                          { text: 'Giá trị đo được ', bold: true, fontSize: 10 },
-                          { text: 'As found value', bold: true, italics: true, fontSize: 10 }
-                        ], { alignment: AlignmentType.CENTER })
+                        para('Giá trị đo được', { fontSize: 10, bold: true, characterSpacing: -10, alignment: AlignmentType.CENTER, spacing: { before: 20, after: 0 } }),
+                        para('As found value', { fontSize: 10, bold: true, italics: true, characterSpacing: -10, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 } }),
                     ],
                     columnSpan: 2,
                     width: { size: 1463, type: WidthType.DXA },
+                    margins: { left: 25, right: 25, top: 0, bottom: 0 },
                     verticalAlign: 'center',
                     borders: { top: BORDER_GRID, bottom: BORDER_GRID, left: BORDER_GRID, right: BORDER_GRID }
                 }),
                 new TableCell({
                     children: [
-                        para([
-                          { text: 'ĐKĐBĐ ', bold: true, fontSize: 10 },
-                          { text: 'Uncertainty', bold: true, italics: true, fontSize: 10 }
-                        ], { alignment: AlignmentType.CENTER })
+                        para('ĐKĐBĐ', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 20, after: 0 } }),
+                        para('Uncertainty', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 } }),
                     ],
                     columnSpan: 1,
                     width: { size: 1312, type: WidthType.DXA },
@@ -1773,10 +1776,8 @@ async function main(opts) {
                 }),
                 new TableCell({
                     children: [
-                        para([
-                          { text: 'Dung sai ', bold: true, fontSize: 10 },
-                          { text: 'Tolerance', bold: true, italics: true, fontSize: 10 }
-                        ], { alignment: AlignmentType.CENTER })
+                        para('Dung sai', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 20, after: 0 } }),
+                        para('Tolerance', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 } }),
                     ],
                     columnSpan: 2,
                     width: { size: 1207, type: WidthType.DXA },
@@ -1785,10 +1786,8 @@ async function main(opts) {
                 }),
                 new TableCell({
                     children: [
-                        para([
-                          { text: 'Kết luận ', bold: true, fontSize: 10 },
-                          { text: 'Conclusion', bold: true, italics: true, fontSize: 10 }
-                        ], { alignment: AlignmentType.CENTER })
+                        para('Kết luận', { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, spacing: { before: 20, after: 0 } }),
+                        para('Conclusion', { fontSize: 10, bold: true, italics: true, alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 } }),
                     ],
                     columnSpan: 2,
                     width: { size: 1261, type: WidthType.DXA },
@@ -1871,15 +1870,9 @@ async function main(opts) {
                     const keepNext = isMulti && (ri < groupSize - 1);
                     
                     let paramMerge = undefined;
-                    let refMerge = undefined;
-                    let tolMerge = undefined;
-                    let confMerge = undefined;
                     
                     if (isMulti) {
                         paramMerge = (ri === 0) ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE;
-                        refMerge = (ri === 0) ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE;
-                        tolMerge = (ri === 0) ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE;
-                        confMerge = (ri === 0) ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE;
                     }
                     
                     if (isMulti) {
@@ -1890,9 +1883,9 @@ async function main(opts) {
                                 t2Cell([para(calPt, { fontSize: 9, alignment: AlignmentType.CENTER, keepNext })], 1200, 1, { keepNext, margins: { top: 130, bottom: 130, left: 60, right: 60 } }),
                                 t2Cell([para(asFound, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1463, 2, { keepNext }),
                                 t2Cell([para(unc, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1312, 1, { keepNext }),
-                                t2Cell(ri > 0 ? [] : [para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1918, 1, { verticalMerge: refMerge, keepNext }),
-                                t2Cell(ri > 0 ? [] : [para(tol, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1207, 2, { verticalMerge: tolMerge, keepNext }),
-                                t2Cell(ri > 0 ? [] : [para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, keepNext })], 1261, 2, { verticalMerge: confMerge, keepNext }),
+                                t2Cell([para(refVal, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1918, 1, { keepNext }),
+                                t2Cell([para(tol, { fontSize: 10, alignment: AlignmentType.CENTER, keepNext })], 1207, 2, { keepNext }),
+                                t2Cell([para(conformity, { fontSize: 10, bold: true, alignment: AlignmentType.CENTER, keepNext })], 1261, 2, { keepNext }),
                             ]
                         }));
                     } else {

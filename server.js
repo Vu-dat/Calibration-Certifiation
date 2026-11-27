@@ -85,6 +85,7 @@ function readSession(req) {
 
 // Database connection (centralized) - Gọi file db.js mới của bạn
 const sql = require('./db');
+const { standardDueDate, standardCertificateNumber, resolveStoredStandards } = require('./public/standard_report_fields');
 const balanceLookup = require('./public/data/balance_matrix.json');
 
 function summarizeStartupError(error) {
@@ -510,6 +511,31 @@ async function seedDefaultClockData() {
     }
 }
 
+async function correctCrockingClockData() {
+    const standards = require('./seed_clock_data.json').filter(item =>
+        /^(?:LAB-BALANCE\.01|LAB-(?:CALIPER|TACHO)\.0[12])$/.test(item.id)
+    );
+    const seedRows = standards.map(item => [item.id, item.serial, item.name, item.lienKet, item.validity]);
+    await sql`
+        WITH corrections AS (
+            SELECT c.ID,
+                CASE WHEN LOWER(COALESCE(c.NAME, '')) IN ('digital caliper', 'digital tachometer', '') THEN s.NAME ELSE c.NAME END AS NAME,
+                CASE WHEN UPPER(TRIM(COALESCE(c.LINK, ''))) IN ('', 'QUATEST 3', 'MITUTOYO', 'LABEX', 'THB', 'TENMARS')
+                    OR (c.ID = 'LAB-BALANCE.01' AND UPPER(TRIM(c.LINK)) = 'TECHMASTER' AND c.VALIDITY = s.VALIDITY)
+                    THEN s.LINK ELSE c.LINK END AS LINK,
+                CASE WHEN COALESCE(c.VALIDITY, '') IN ('', '1900-12-31', '31/12/1900', '31.12.1900')
+                    THEN s.VALIDITY ELSE c.VALIDITY END AS VALIDITY,
+                CASE WHEN c.ID = 'LAB-BALANCE.01' AND c.GCN = s.SERIAL_NUMBER THEN '' ELSE c.GCN END AS GCN
+            FROM CLOCK c
+            JOIN (VALUES ${sql(seedRows)}) AS s(ID, SERIAL_NUMBER, NAME, LINK, VALIDITY)
+                ON c.ID = s.ID AND c.SERIAL_NUMBER = s.SERIAL_NUMBER
+        )
+        UPDATE CLOCK c SET NAME = r.NAME, LINK = r.LINK, VALIDITY = r.VALIDITY, GCN = r.GCN
+        FROM corrections r
+        WHERE c.ID = r.ID AND (c.NAME, c.LINK, c.VALIDITY, c.GCN) IS DISTINCT FROM (r.NAME, r.LINK, r.VALIDITY, r.GCN)
+    `;
+}
+
 // Xử lý dọn dữ liệu mồ côi (Migration logic cũ từ dự án của bạn)
 async function migrateOrphanCalibrationPoints() {
     try {
@@ -641,6 +667,7 @@ async function ensureDbInitialized() {
                 
                 const exists = checkTable[0] && checkTable[0].exists;
                 if (exists) {
+                    await correctCrockingClockData();
                     global._dbInitialized = true;
                     console.log("✅ Supabase đã được khởi tạo trước đó. Chạy migrations cột mới (nếu có) trong background...");
                     // Chạy migrations trong background để tránh block request đầu tiên/cold start
@@ -1300,9 +1327,9 @@ app.post('/api/calibration/clone/:srcCertNo/:destCertNo', async (req, res) => {
                     cert_no: newCertNo,
                     eq_code: s.eq_code || '',
                     eq_name: s.eq_name || '',
-                    std_cert_no: s.std_cert_no || '',
+                    std_cert_no: standardCertificateNumber(s.std_cert_no, cert.cert_no, cert.equipment_id),
                     link: s.link || '',
-                    validity: s.validity || ''
+                    validity: standardDueDate(s.validity)
                 }));
                 await sql`
                     INSERT INTO CERTIFICATE_STANDARDS ${
@@ -1356,12 +1383,14 @@ app.get('/api/calibration/:certNo', async (req, res) => {
 
         const toUpperKeys = (obj) => obj ? Object.fromEntries(Object.entries(obj).map(([k, v]) => [k.toUpperCase(), v])) : null;
 
+        const certificate = toUpperKeys(certRows[0]);
+        const standards = await resolveStoredStandards(certificate, standardsRows.map(toUpperKeys), getOrLoadClockCache, eqName, certNo);
         const resp = { 
             success: true,
             dataExists: true,
-            cert: toUpperKeys(certRows[0]), 
+            cert: certificate,
             points: pointsRows.map(toUpperKeys), 
-            standards: standardsRows.map(toUpperKeys) 
+            standards
         };
         serverCache.calibrations[cacheKey] = resp;
         res.json(resp);
@@ -1872,9 +1901,9 @@ async function saveCalibrationDataToDBHelper(data, cert_no) {
                 cert_no: compositeCertNo,
                 eq_code: s.id || s.code || '',
                 eq_name: s.name || '',
-                std_cert_no: s.certNo || '',
+                std_cert_no: standardCertificateNumber(s.certNo || s.STD_CERT_NO, compositeCertNo, cert_no, data.equipmentId || data.equipment_id),
                 link: s.trace || s.link || '',
-                validity: s.due || s.validity || ''
+                validity: standardDueDate(s.due || s.validity || s.VALIDITY)
             }));
             await sql`
                 INSERT INTO CERTIFICATE_STANDARDS ${

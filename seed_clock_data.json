@@ -138,8 +138,8 @@
     "nsx": "LABEX",
     "model": "HC-B100001",
     "serial": "170630023",
-    "gcn": "170630023",
-    "lienKet": "TECHMASTER",
+    "gcn": "",
+    "lienKet": "QUATEST III",
     "calDate": "2025-10-31",
     "validity": "2026-10-31"
   },
@@ -206,24 +206,24 @@
   {
     "id": "LAB-CALIPER.01",
     "key": "caliper1",
-    "name": "Digital caliper",
+    "name": "Digital Calipers",
     "nsx": "Mitutoyo",
     "model": "CD-15APX",
     "serial": "B21022878",
     "gcn": "",
-    "lienKet": "QUATEST 3",
-    "calDate": "1900-12-31",
-    "validity": "1900-12-31"
+    "lienKet": "QUATEST III",
+    "calDate": "2025-09-08",
+    "validity": "2026-09-08"
   },
   {
     "id": "LAB-CALIPER.02",
     "key": "caliper2",
-    "name": "Digital caliper",
+    "name": "Digital Calipers",
     "nsx": "Mitutoyo",
     "model": "CD-20APX",
     "serial": "A17096618",
     "gcn": "KT3-01293BDD5/1",
-    "lienKet": "QUATEST 3",
+    "lienKet": "QUATEST III",
     "calDate": "2025-09-08",
     "validity": "2026-09-08"
   },
@@ -638,24 +638,24 @@
   {
     "id": "LAB-TACHO.01",
     "key": "tacho1",
-    "name": "Digital Tachometer",
+    "name": "Tachometer",
     "nsx": "THB",
     "model": "",
     "serial": "S1049626",
     "gcn": "",
-    "lienKet": "QUATEST 3",
-    "calDate": "1900-12-31",
-    "validity": "1900-12-31"
+    "lienKet": "QUATEST III",
+    "calDate": "2025-09-08",
+    "validity": "2026-09-08"
   },
   {
     "id": "LAB-TACHO.02",
     "key": "tacho3",
-    "name": "Digital Tachometer",
+    "name": "Tachometer",
     "nsx": "TENMARS",
     "model": "TM-4100N",
     "serial": "230500607",
     "gcn": "KT3-01161BDE5/3",
-    "lienKet": "QUATEST 3",
+    "lienKet": "QUATEST III",
     "calDate": "2025-09-08",
     "validity": "2026-09-08"
   },

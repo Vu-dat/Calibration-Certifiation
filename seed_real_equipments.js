@@ -26,7 +26,7 @@ const templates = [
     "manufacturer_id": "EQ-000002",
     "spec_range": "Lực tỳ/Downward force: 9 N\nHành trình/Stroke: 104 mm\nĐường kính đầu ma sát / Finger Diameter: 16 mm",
     "spec_resolution": "--------\n--------\n--------",
-    "standards_used": "[\"LAB-BALANCE.01\", \"LAB-CALIPER.01\", \"LAB-TACHO.01\"]",
+    "standards_used": "[\"LAB-BALANCE.01\", \"LAB-CALIPER.01\"]",
     "name_vi": "Máy thử bền màu ma sát",
     "name_en": "Crocking meter",
     "points": []

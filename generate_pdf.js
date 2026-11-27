@@ -6,6 +6,7 @@ const fs = require('fs');
 const { Writable } = require('stream');
 
 const db = require('./db');
+const { displayStandardDueDate, standardCertificateNumber, resolveStoredStandards } = require('./public/standard_report_fields');
 
 async function g(query, params) {
   g._idx = 0;
@@ -162,7 +163,7 @@ function drawCell(doc, text, x, y, colWidth, rowH) {
   doc.fontSize(originalSize);
 }
 
-function pd(d) { if (!d) return ''; var p = d.split('-'); return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : d; }
+function pd(d) { if (!d || /^(1900|0000)/.test(String(d).trim())) return ''; var p = d.split('-'); return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : d; }
 
 function toUpperKeys(obj) {
     if (!obj) return null;
@@ -406,7 +407,7 @@ function drawPage1Body(doc, cert, pts, stds, accM, tpl) {
   sf(doc, false); doc.text(eid, VAL_X, Y1.row46, {lineGap: 0});
   sf(doc, false); doc.text(VN.sec6, R_LBL_X, Y1.row46, {lineGap: 0});
   sf(doc, false);
-  doc.text(serial, 528.7, Y1.row46, {lineGap: 0});
+  doc.text(serial, 481.4, Y1.row46, {width: 93, lineGap: 0});
   sf(doc, false, true); doc.text(VN.sec4En, LBL_X, Y1.row46En, {lineGap: 0});
   sf(doc, false, true); doc.text(VN.sec6En, R_LBL_X, Y1.row46En, {lineGap: 0});
 
@@ -446,7 +447,7 @@ function drawPage1Body(doc, cert, pts, stds, accM, tpl) {
   sf(doc, false, true); doc.text(VN.sec14En, LBL_X, Y1.s14Env + dy, {lineGap: 0});
 
   // ---- Section 15: Standards ----
-  drawStandardsTable(doc, stds, dy);
+  drawStandardsTable(doc, stds, dy, cert);
 
   // ---- Signature ----
   drawSignature(doc, cert, dy);
@@ -683,7 +684,7 @@ function drawSpecTable(doc, pts, proc, refStd, accM, tpl, cert) {
 }
 
 // Standards table (section 15)
-function drawStandardsTable(doc, stds, dy) {
+function drawStandardsTable(doc, stds, dy, cert) {
   dy = dy || 0;
   var STD_X = [27.0, 133.6, 251.1, 363.1, 475.2];
   sf(doc, false); doc.fontSize(10).fillColor('#000000');
@@ -703,7 +704,7 @@ function drawStandardsTable(doc, stds, dy) {
   if (stds && stds.length) {
     for (var si = 0; si < stds.length; si++) {
       var s = stds[si];
-      var vs = [s.EQ_NAME || '', s.EQ_CODE || '', s.STD_CERT_NO || '', s.LINK || '', pd(s.VALIDITY) || ''];
+      var vs = [s.EQ_NAME || '', s.EQ_CODE || '', standardCertificateNumber(s.STD_CERT_NO, cert.CERT_NO, cert.EQUIPMENT_ID), s.LINK || '', displayStandardDueDate(s.VALIDITY)];
       sf(doc, false); doc.fontSize(10).fillColor('#000000');
       for (var ci = 0; ci < 5; ci++) doc.text(vs[ci], STD_X[ci], y, {lineGap: 0});
       y += Y1.stdRowSp;
@@ -1888,6 +1889,7 @@ async function main(opts) {
       if (stds.length === 0 && compositeCNo !== cNo) {
         stds = toUpperKeys(await a('SELECT * FROM CERTIFICATE_STANDARDS WHERE CERT_NO = ? ORDER BY ID ASC', [cNo]));
       }
+      stds = await resolveStoredStandards(cert, stds, () => a('SELECT * FROM CLOCK', []), eqName, cNo);
     }
 
     // Points are already in insertion order (ORDER BY ID ASC) matching the preview DOM order.

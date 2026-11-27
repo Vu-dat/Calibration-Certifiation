@@ -955,6 +955,7 @@
     }
     </style>
     <script src="/auth.js"></script>
+    <script src="./standard_report_fields.js"></script>
 </head>
 <body>
 
@@ -1303,10 +1304,10 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <div class="field-row">
           <div class="field"><label>Kiểu mẫu (Model)</label><input id="f-model" autocomplete="off"></div>
+          <div class="field"><label>Số sản xuất (Serial No.)</label><input id="f-sn" autocomplete="off" placeholder="Nhập số serial thiết bị..."></div>
           <input type="hidden" id="f-id" autocomplete="off">
         </div>
         <div class="field-row">
-          <input type="hidden" id="f-sn" autocomplete="off">
           <div class="field"><label>Số chứng nhận (Cert No.)</label><input id="f-certno" autocomplete="off"></div>
         </div>
         <div class="field-row">
@@ -1968,8 +1969,9 @@ function getCombinedStandardsDB() {
   }
   const liveList = (liveStandardsDB || []).map(eq => ({
     EQUIPMENT_ID: eq.ID || eq.id || eq.EQUIPMENT_ID || '',
+    KEY_FIELD: eq.KEY_FIELD || eq.key_field || '',
     NAME: eq.NAME || eq.name || '',
-    MANUFACTURER: eq.MANUFACTURER || eq.manufacturer || eq.LINK || eq.link || '',
+    MANUFACTURER: eq.MANUFACTURER || eq.manufacturer || '',
     MODEL: eq.MODEL || eq.model || '',
     NEXT_DUE: eq.VALIDITY || eq.validity || eq.NEXT_DUE || eq.next_due || '',
     GCN: eq.GCN || eq.gcn || eq.STD_CERT_NO || eq.certNo || '',
@@ -2137,6 +2139,7 @@ async function syncEquipmentDBFromAPI(force) {
 }
 
 function applyEquipmentCache(templates) {
+  if (!Array.isArray(templates)) return;
   const freshDB = {};
   const freshIdMap = {};
   liveDbEquipmentKeys = new Set();
@@ -2144,9 +2147,9 @@ function applyEquipmentCache(templates) {
     if (!t.NAME) return;
     let stds = [];
     try {
-      stds = JSON.parse(t.STANDARDS_USED || '[]');
+      stds = Array.isArray(t.STANDARDS_USED) ? t.STANDARDS_USED : JSON.parse(t.STANDARDS_USED || '[]');
     } catch (e) {
-      stds = (t.STANDARDS_USED || '').split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
+      stds = String(t.STANDARDS_USED || '').split(/[\s,;]+/).filter(Boolean);
     }
     const englishName = (t.NAME_EN || t.name_en || '').trim() || (function() {
       const name = t.NAME.replace(/^\d+\.\d*\s*/, '').trim();
@@ -2196,7 +2199,7 @@ function applyEquipmentCache(templates) {
       serialNumber: t.SERIAL_NUMBER || '',
       modelSerial: t.MODEL_SERIAL || '',
       manufacturerId: t.MANUFACTURER_ID || '',
-      standardsUsed: /^(Auto Crocking Meter|Crocking meter)$/i.test(t.NAME) ? ['LAB-BALANCE.01', 'LAB-CALIPER.01', 'LAB-TACHO.01'] : (Array.isArray(stds) ? stds : []),
+      standardsUsed: Array.isArray(stds) ? stds : [],
       procedure: t.PROCEDURE || t.procedure || '',
       refStandard: t.REF_STANDARD || t.ref_standard || '',
       specRange: t.SPEC_RANGE || t.spec_range || '',
@@ -3549,8 +3552,8 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null, fromPopStat
   const certNo = currentProjectId.replace('PRJ-', '');
   document.getElementById('f-certno').value = certNo;
 
-  // Tải mới danh sách thiết bị chuẩn từ DB mỗi khi mở Workspace để đảm bảo dữ liệu mới nhất (chạy nền)
-  fetchLiveStandards();
+  // Nạp danh mục chuẩn trước khi điền cấu hình mẫu.
+  await fetchLiveStandards(true);
 
   // Lưu tên thiết bị đang hiệu chuẩn (giải mã từ equipmentNameFromRow: có thể là ID hoặc NAME)
   window._currentWorkingEquipment = resolveEquipmentName(equipmentNameFromRow) || equipmentNameFromRow || '';
@@ -3560,7 +3563,7 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null, fromPopStat
   if (equipmentNameFromRow) {
       let eqName = resolveEquipmentName(equipmentNameFromRow);
       if (!eqName) {
-          await syncEquipmentDBFromAPI();
+          await syncEquipmentDBFromAPI(true);
           eqName = resolveEquipmentName(equipmentNameFromRow);
       }
       if (eqName && MockDatabaseEquipment[eqName]) {
@@ -3596,7 +3599,7 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null, fromPopStat
 
       // Kiểm tra bảng kết quả đo: Nếu bảng trống (chưa có điểm đo nào hoặc chỉ có thông báo rỗng)
       const calRows = document.querySelectorAll('#calibration-table-body tr:not(.cal-empty-state)');
-      if (calRows.length === 0 && Array.isArray(eq.formPoints) && eq.formPoints.length > 0) {
+      if (!hasData && calRows.length === 0 && Array.isArray(eq.formPoints) && eq.formPoints.length > 0) {
           console.log("Truy xuất bảng kết quả đo từ Database Equipment:", resolvedName);
           selectEquipmentTemplate(resolvedName);
       }
@@ -3608,7 +3611,7 @@ async function openCalibrationWorkspace(equipmentNameFromRow = null, fromPopStat
           document.getElementById('f-mfr').value = eq.manufacturer || '';
           document.getElementById('f-model').value = eq.model || '';
           document.getElementById('f-id').value = eq.equipmentId || '';
-          if (eq.serialNumber) document.getElementById('f-sn').value = eq.serialNumber;
+          document.getElementById('f-sn').value = eq.serialNumber || '';
           if (eq.manufacturerId) document.getElementById('f-mfr-id').value = eq.manufacturerId;
           if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
           
@@ -3895,7 +3898,7 @@ function selectEquipmentTemplate(key) {
   document.getElementById('f-mfr').value = eq.manufacturer || '';
   document.getElementById('f-model').value = eq.model || '';
   document.getElementById('f-id').value = eq.equipmentId || '';
-  if (eq.serialNumber) document.getElementById('f-sn').value = eq.serialNumber;
+  document.getElementById('f-sn').value = eq.serialNumber || '';
   if (eq.manufacturerId) document.getElementById('f-mfr-id').value = eq.manufacturerId;
   if (eq.modelSerial) document.getElementById('f-model-sn').value = eq.modelSerial;
   if (eq.instEn) document.getElementById('f-inst-en').value = eq.instEn;
@@ -3912,34 +3915,8 @@ function selectEquipmentTemplate(key) {
     setSpecTableFromData(eq.specRange || '', eq.specResolution || '', eq.procedure || '', eq.refStandard || '');
   }
 
-  // Tự động điền các chuẩn sử dụng từ standardsUsed (tối đa 5 thiết bị chuẩn)
-  if (Array.isArray(eq.standardsUsed) && eq.standardsUsed.length > 0) {
-    standards = [];
-    eq.standardsUsed.slice(0, 5).forEach(stdId => {
-      const matched = (liveStandardsDB || []).find(s => [s.ID, s.id, s.EQUIPMENT_ID, s.key_field].some(v => String(v || '').toUpperCase() === String(stdId).toUpperCase()));
-      if (matched) {
-        standards.push({
-          name: matched.NAME || matched.name || '',
-          id: matched.ID || matched.id || matched.EQUIPMENT_ID || '',
-          certNo: matched.GCN || matched.gcn || '',
-          trace: matched.LINK || matched.link || '',
-          due: (/^(1900|0000)/.test(String(matched.VALIDITY || matched.validity || '')) ? '' : (matched.VALIDITY || matched.validity || ''))
-        });
-      } else {
-        standards.push({
-          name: '',
-          id: stdId,
-          certNo: '',
-          trace: '',
-          due: ''
-        });
-      }
-    });
-    renderStandardsForm();
-  } else {
-    standards = [];
-    renderStandardsForm();
-  }
+  standards = templateStandards(eq, key);
+  renderStandardsForm();
 
   // Tự động điền Ngày hiệu chuẩn = hôm nay nếu chưa có
   if (!document.getElementById('f-caldate').value) {
@@ -5505,11 +5482,17 @@ function getStandardRowDropdown() {
 
 let standardRowSearchTimeout = null;
 
-function formatStdDueDate(val) {
-  if (!val) return '';
-  let s = String(val).trim();
-  if (s.includes('T')) s = s.split('T')[0];
-  return s;
+const { standardDueDate: formatStdDueDate, displayStandardDueDate: displayStdDueDate,
+  clockStandardEntry, resolveStandards } = standardReportFields;
+
+function templateStandards(eq, key, saved = [], cert = {}) {
+  return resolveStandards({
+    names: eq ? [key, eq.nameVi] : [key, cert.INSTRUMENT_NAME_EN, cert.INSTRUMENT_NAME],
+    templateIds: eq?.standardsUsed || [],
+    saved,
+    catalog: getCombinedStandardsDB(),
+    instrumentIds: [cert.CERT_NO, cert.EQUIPMENT_ID, txt('f-certno'), txt('f-id')]
+  });
 }
 
 /* Xử lý tìm kiếm thông minh khi sửa tên hoặc mã thiết bị chuẩn ngay trên bảng */
@@ -5569,11 +5552,12 @@ async function handleStandardRowSearch(input, index, field = 'name') {
         const res = await fetch(`${API_BASE_URL}/api/clock/search?q=${encodeURIComponent(keyword)}`);
         if (res.ok) {
           const apiData = await res.json();
-          if (apiData && apiData.length > 0) {
+          if (input.isConnected && input.value.trim() === keyword && apiData?.length > 0) {
             const apiItems = apiData.map(r => ({
               EQUIPMENT_ID: r.ID || r.id || '',
               NAME: r.NAME || r.name || '',
-              MANUFACTURER: r.MANUFACTURER || r.manufacturer || r.LINK || r.link || '',
+              MANUFACTURER: r.MANUFACTURER || r.manufacturer || '',
+               LINK: r.LINK || r.link || '',
               NEXT_DUE: r.VALIDITY || r.validity || '',
               GCN: r.GCN || r.gcn || '',
               MODEL: r.MODEL || r.model || ''
@@ -5663,14 +5647,8 @@ function renderStandardRowSuggestions(items, input, index, box, isPromptList = f
     };
 
     div.onclick = function() {
-      // Ghi đè toàn bộ dữ liệu thiết bị cũ tại dòng này bằng thiết bị mới được chọn
-      standards[index] = {
-        name: name,
-        id: code,
-        certNo: certNo,
-        trace: manu,
-        due: due
-      };
+      if (!input.isConnected || !standards[index]) return;
+      standards[index] = clockStandardEntry(eq);
       box.style.display = 'none';
       renderStandardsForm();
       if (typeof showToast === 'function') {
@@ -5689,6 +5667,8 @@ function renderStandardRowSuggestions(items, input, index, box, isPromptList = f
 
 /* ====== STANDARD SEARCH ====== */
 function addStandardTag(eq) {
+  const entry = clockStandardEntry(eq || {});
+  if (!entry.id) return;
   if (standards.length >= 5) {
     if (typeof showToast === 'function') {
       showToast('Mục 5: Đã đạt tối đa 5 thiết bị chuẩn (không được quá 5 thiết bị)!', 'warning');
@@ -5698,15 +5678,7 @@ function addStandardTag(eq) {
     return;
   }
 
-  const standardEntry = {
-    name: eq.NAME || eq.name || '',
-    id: eq.ID || eq.id || eq.EQUIPMENT_ID || '',
-    certNo: eq.GCN || eq.gcn || eq.STD_CERT_NO || eq.certNo || '',
-    trace: eq.MANUFACTURER || eq.manufacturer || eq.LINK || eq.link || '',
-    due: formatStdDueDate(eq.VALIDITY || eq.validity || eq.NEXT_DUE || eq.next_due || '')
-  };
-
-  standards.push(standardEntry);
+  standards.push(entry);
   renderStandardsForm();
   const searchInput = document.getElementById('input-standard-search');
   if (searchInput) searchInput.value = '';
@@ -5717,7 +5689,6 @@ function addStandardTag(eq) {
 /* ====== SIMPLE MODE TABLES ====== */
 function renderStandardsForm() {
   const c = document.getElementById('std-form-body');
-  
   if (!c) {
     console.warn("Cảnh báo: Không tìm thấy phần tử 'std-form-body' trên giao diện HTML.");
     return;
@@ -5788,7 +5759,7 @@ function renderStandardsForm() {
       </td>
       <td><input class="lab-input-cell" value="${escHtml(s.certNo || '')}" oninput="standards[${i}].certNo=this.value"></td>
       <td><input class="lab-input-cell" value="${escHtml(s.trace || '')}" oninput="standards[${i}].trace=this.value"></td>
-      <td><input class="lab-input-cell" value="${escHtml(s.due || '')}" oninput="standards[${i}].due=this.value"></td>
+      <td><input class="lab-input-cell" value="${escHtml(displayStdDueDate(s.due))}" oninput="standards[${i}].due=this.value"></td>
       <td style="text-align:center;"><button class="btn-rm" onclick="standards.splice(${i},1);renderStandardsForm()">×</button></td>
     </tr>
   `).join('');
@@ -5942,7 +5913,7 @@ function accreditedMethodsListHtml() {
   ).join('');
 }
 
-function fmtDateSlash(d) { if (!d) return ''; const p = d.split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : d; }
+function fmtDateSlash(d) { if (!d || /^(1900|0000)/.test(String(d).trim())) return ''; const p = d.split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : d; }
 
 // Param name cho bảng kết quả: xuống dòng theo \n, marker (M)/(C)/(*) -> superscript nhỏ (giống PDF)
 function paramCellHtml(name) {
@@ -6462,7 +6433,7 @@ function buildPrintTemplateHtml() {
   // Bảng 15: Chuẩn sử dụng — 5 cột, chỉ hiển thị hàng có dữ liệu
   const stdRows = [];
   allStd.forEach(function(s) {
-    stdRows.push('<tr><td>' + escHtml(s.name || '') + '</td><td>' + escHtml(s.id || '') + '</td><td>' + escHtml(s.certNo || '') + '</td><td>' + escHtml(s.trace || '') + '</td><td>' + escHtml(s.due || '') + '</td></tr>');
+    stdRows.push('<tr><td>' + escHtml(s.name || '') + '</td><td>' + escHtml(s.id || '') + '</td><td>' + escHtml(s.certNo || '') + '</td><td>' + escHtml(s.trace || '') + '</td><td>' + escHtml(displayStdDueDate(s.due)) + '</td></tr>');
   });
   // Thêm dòng trống nếu chưa có chuẩn nào
   if (stdRows.length === 0) {
@@ -7205,7 +7176,7 @@ async function exportFile(format) {
     id:      s.id,
     certNo:  s.certNo || '',
     trace:   s.trace,
-    due:     s.due
+    due:     formatStdDueDate(s.due)
   }));
 
   const currentWorkingEq = window._currentWorkingEquipment || currentEquipmentName || (document.getElementById('f-inst-vi')?.value || '').trim();
@@ -7439,7 +7410,7 @@ function populateCalibrationForm(result) {
 
     // Tìm cấu hình mẫu từ Database Equipment
     const currentEq = window._currentWorkingEquipment || '';
-    const resolvedName = resolveEquipmentName(currentEq) || resolveEquipmentName(c.INSTRUMENT_NAME) || currentEq;
+    const resolvedName = resolveEquipmentName(currentEq) || resolveEquipmentName(c.INSTRUMENT_NAME_EN) || resolveEquipmentName(c.INSTRUMENT_NAME) || currentEq;
     const eq = resolvedName ? MockDatabaseEquipment[resolvedName] : null;
 
     setVal('f-inst-vi',   c.INSTRUMENT_NAME || (eq ? eq.nameVi : ''));
@@ -7490,42 +7461,15 @@ function populateCalibrationForm(result) {
         // TRUY XUẤT BẢNG KẾT QUẢ TỪ DATABASE EQUIPMENT
         console.log("Truy xuất bảng kết quả từ Database Equipment cho:", resolvedName);
         selectEquipmentTemplate(resolvedName);
+        setVal('f-sn', c.SERIAL_NUMBER || eq.serialNumber);
     } else {
         const tbody = document.getElementById('calibration-table-body');
         if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="cal-empty-state"><i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i> Nhập tên thiết bị ở mục 2 để tải tự động, hoặc sử dụng các nút bên dưới để thêm điểm đo</td></tr>';
         updateRowCount();
     }
 
-    if (result.standards && Array.isArray(result.standards) && result.standards.length > 0) {
-        standards = result.standards.slice(0, 5).map(s => ({
-            name:    s.EQ_NAME   || s.name || '',
-            id:      s.EQ_CODE   || s.id || '',
-            certNo:  s.STD_CERT_NO || s.std_cert_no || s.CERT_NO || s.certNo || '',
-            trace:   s.LINK      || s.link || s.trace || '',
-            due:     s.VALIDITY  || s.validity || s.due || ''
-        }));
-        renderStandardsForm();
-    } else if (eq && Array.isArray(eq.standardsUsed) && eq.standardsUsed.length > 0) {
-        standards = [];
-        eq.standardsUsed.slice(0, 5).forEach(stdId => {
-          const matched = (liveStandardsDB || []).find(s => s.ID === stdId || s.id === stdId || s.EQUIPMENT_ID === stdId || s.key_field === stdId);
-          if (matched) {
-            standards.push({
-              name: matched.NAME || matched.name || '',
-              id: matched.ID || matched.id || matched.EQUIPMENT_ID || '',
-              certNo: matched.GCN || matched.gcn || '',
-              trace: matched.MANUFACTURER || matched.manufacturer || matched.LINK || matched.link || '',
-              due: matched.VALIDITY || matched.validity || matched.NEXT_DUE || matched.next_due || ''
-            });
-          } else {
-            standards.push({ name: '', id: stdId, certNo: '', trace: '', due: '' });
-          }
-        });
-        renderStandardsForm();
-    } else {
-        standards = [];
-        renderStandardsForm();
-    }
+    standards = templateStandards(eq, resolvedName, result.standards || [], c);
+    renderStandardsForm();
 
     // Khôi phục dữ liệu thô Oven / Balance nếu có (không có thì reset về dữ liệu mẫu của máy hiện tại)
     window._ovenData = null;
@@ -8090,13 +8034,7 @@ async function executeCreateProject(payload) {
                                 conformity: pt.CONFORMITY || '',
                                 refEq: pt.REF_EQUIPMENT || pt.STANDARD_EQUIPMENT || ''
                             })),
-                            standards: (c.standards || []).map(s => ({
-                                name: s.EQ_NAME || '',
-                                id: s.EQ_CODE || '',
-                                certNo: s.CERT_NO || s.certNo || '',
-                                trace: s.LINK || '',
-                                due: s.VALIDITY || ''
-                            })),
+                            standards: templateStandards(null, '', c.standards || [], c.cert),
                             currentUser: (JSON.parse(localStorage.getItem('labmaster_user') || '{}'))?.fullName || 'KTV'
                         };
                         const r = await fetch(API_URL + '/calibration/save', {
@@ -8244,7 +8182,7 @@ function getCalibrationPayload() {
     id:      s.id,
     certNo:  s.certNo || '',
     trace:   s.trace,
-    due:     s.due
+    due:     formatStdDueDate(s.due)
   }));
 
   return {
